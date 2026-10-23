@@ -80,7 +80,936 @@
         {{else if eq .ActiveTab "groups"}}
           <h1 class="hero-title">Agnostic <span class="highlight">Collections &amp; Folders</span></h1>
           <p class="hero-sub">Organize diffusion images and videos into arbitrary collections without altering your underlying filesystem.</p>
-        {{else if eq .ActiveTab "director"}}
+    {{else if eq .ActiveTab "generators"}}
+          <h1 class="hero-title">Target <span class="highlight">Generator Models, System Prompts &amp; LoRAs</span></h1>
+          <p class="hero-sub">Manage diffusion/video model families (Flux, Krea 2, Qwen-Image, MOSS, MiniMax H3), their generation context prompts, and their dedicated LoRAs.</p>
+        {{else if eq .ActiveTab "settings"}}
+          <h1 class="hero-title">Application <span class="highlight">Settings &amp; AI Server Routing</span></h1>
+          <p class="hero-sub">Configure local or remote Ollama and OpenAI-compatible endpoints and select which LLM/Vision models handle Vision, Image2Prompt, and Text2Prompt.</p>
+        {{else}}
+          <h1 class="hero-title">AI Diffusion <span class="highlight">Prompt &amp; Asset</span> Database</h1>
+          <p class="hero-sub">Every generation prompt, checkpoint model, LoRA, seed, and character sheet — indexed locally from your media folder.</p>
+        {{end}}
+      </div>
+      <div class="hero-callout">
+        <strong>Read-Only Source Folder</strong><br>
+        Extracted PNG chunks (A1111, ComfyUI, Fooocus, SwarmUI, InvokeAI) &amp; EXIF into local SQLite + FTS5.
+      </div>
+    </div>
+  </section>
+
+  <!-- Global Search Strip (only for media exploration tabs) -->
+  {{if not (or (eq .ActiveTab "director") (eq .ActiveTab "studio") (eq .ActiveTab "remix") (eq .ActiveTab "settings") (eq .ActiveTab "generators") (eq .ActiveTab "login") (eq .ActiveTab "asset_detail"))}}
+  <section class="search-strip">
+    <div class="container">
+      <form action="/" method="GET" class="search-strip-form">
+        {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
+        {{if .Filter.SortBy}}<input type="hidden" name="sort" value="{{.Filter.SortBy}}">{{end}}
+        {{if .Filter.RootID}}<input type="hidden" name="root_id" value="{{.Filter.RootID}}">{{end}}
+        {{if .Filter.Category}}<input type="hidden" name="category" value="{{.Filter.Category}}">{{end}}
+        {{if .Filter.Subcategory}}<input type="hidden" name="subcategory" value="{{.Filter.Subcategory}}">{{end}}
+        {{if .Filter.Trigger}}<input type="hidden" name="trigger" value="{{.Filter.Trigger}}">{{end}}
+        {{if .Filter.GroupID}}<input type="hidden" name="group_id" value="{{.Filter.GroupID}}">{{end}}
+        {{if .Filter.CharacterID}}<input type="hidden" name="character_id" value="{{.Filter.CharacterID}}">{{end}}
+        {{if .Filter.Engine}}<input type="hidden" name="engine" value="{{.Filter.Engine}}">{{end}}
+        {{if .Filter.ModelName}}<input type="hidden" name="model" value="{{.Filter.ModelName}}">{{end}}
+        {{if .Filter.MediaType}}<input type="hidden" name="media_type" value="{{.Filter.MediaType}}">{{end}}
+        {{if .Filter.MinRating}}<input type="hidden" name="min_rating" value="{{.Filter.MinRating}}">{{end}}
+        {{if .Filter.FavoritesOnly}}<input type="hidden" name="favorites" value="1">{{end}}
+        {{range .Filter.TagNames}}<input type="hidden" name="tag" value="{{.}}">{{end}}
+        <div class="search-main-group">
+          <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
+          <button type="submit" class="btn-primary">Search</button>
+          {{if or .Filter.Query .Filter.Trigger .Filter.RootID .Filter.Category .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0)}}
+            <a href="{{if .Filter.FaceMode}}/?face_mode=1{{else}}/{{end}}" class="btn-ghost" style="display:inline-flex;align-items:center;">Reset</a>
+          {{end}}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="color:var(--text-muted);font-size:12px;">Per Page</span>
+          <select name="per_page" class="input-dark" style="width:90px;" onchange="this.form.submit()">
+            <option value="25" {{if eq .Filter.PerPage 25}}selected{{end}}>25 items</option>
+            <option value="50" {{if eq .Filter.PerPage 50}}selected{{end}}>50 items</option>
+            <option value="100" {{if eq .Filter.PerPage 100}}selected{{end}}>100 items</option>
+          </select>
+        </div>
+      </form>
+    </div>
+  </section>
+  {{end}}
+
+  <main class="container">
+    {{if .FlashNotice}}
+      <div style="margin-top:14px;padding:10px 14px;background:#0e2a47;border:1px solid #257bf0;border-radius:5px;color:#bfdbfe;font-weight:600;">
+        {{.FlashNotice}}
+      </div>
+    {{end}}
+
+    <!-- Datalist of detected Ollama + oMLX models for inputs -->
+    <datalist id="ai-models-all">
+      {{range .AIStatus.AllModels}}
+        <option value="{{.Name}}">[{{.Provider}}] {{.Family}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}ctx:{{.ContextLength}}{{end}}</option>
+      {{end}}
+    </datalist>
+    <datalist id="ai-models-vision">
+      {{range .AIStatus.AllModels}}
+        {{if .HasVision}}
+          <option value="{{.Name}}">[{{.Provider}}] Vision ({{.VisionStatus}}) {{if .ContextLength}}ctx:{{.ContextLength}}{{end}}</option>
+        {{end}}
+      {{end}}
+    </datalist>
+
+    {{if eq .ActiveTab "login"}}
+      <div style="max-width:420px;margin:40px auto;background:var(--bg-panel);border:1px solid var(--border-navy);padding:24px;border-radius:6px;">
+        <h2 style="margin-bottom:12px;font-size:18px;">Administrator Login</h2>
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">Default credentials on initial setup: <code>admin</code> / <code>admin123</code></p>
+        <form action="/admin/login" method="POST" style="display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <label style="display:block;margin-bottom:4px;font-size:12px;">Username</label>
+            <input type="text" name="username" value="admin" class="input-dark" required>
+          </div>
+          <div>
+            <label style="display:block;margin-bottom:4px;font-size:12px;">Password</label>
+            <input type="password" name="password" value="admin123" class="input-dark" required>
+          </div>
+          <button type="submit" class="btn-primary">Sign In</button>
+        </form>
+      </div>
+
+    {{else if eq .ActiveTab "asset_detail"}}
+      <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <a href="{{pageURL .Filter .Page.Page}}" class="btn-ghost">&larr; Back to Catalog</a>
+          {{if .PrevAssetID}}
+            <a href="{{assetDetailURL .Filter .PrevAssetID}}" class="btn-ghost" title="Previous Media (Left Arrow)" id="nav-btn-prev">&larr; Prev</a>
+          {{end}}
+          {{if .NextAssetID}}
+            <a href="{{assetDetailURL .Filter .NextAssetID}}" class="btn-ghost" title="Next Media (Right Arrow)" id="nav-btn-next">Next &rarr;</a>
+          {{end}}
+          {{if .SelectedAsset.RootID}}
+            <a href="/?root_id={{.SelectedAsset.RootID}}" class="btn-ghost">Folder: {{if .SelectedAsset.RootLabel}}{{.SelectedAsset.RootLabel}}{{else}}Root #{{.SelectedAsset.RootID}}{{end}}</a>
+          {{end}}
+          {{if .SelectedAsset.Category}}
+            <a href="/?category={{.SelectedAsset.Category}}" class="btn-ghost" style="border-color:#059669;color:#6ee7b7;">Category: {{.SelectedAsset.Category}}</a>
+          {{end}}
+          {{if .SelectedAsset.Subcategory}}
+            <a href="/?category={{.SelectedAsset.Category}}&amp;subcategory={{.SelectedAsset.Subcategory}}" class="btn-ghost" style="color:#a7f3d0;">Subcategory: {{.SelectedAsset.Subcategory}}</a>
+          {{end}}
+          {{range .SelectedAsset.Characters}}
+            <a href="/?character_id={{.ID}}" class="btn-ghost" style="border-color:#2563eb;color:#93c5fd;">Character: {{.Name}}</a>
+          {{end}}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <a href="/?tab=studio&asset_id={{.SelectedAsset.ID}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;font-weight:600;">&#10024; Remix Prompt</a>
+          <button type="button" class="btn-primary" onclick="openMediaLightbox()">&#x26F6; Fullscreen &amp; Metadata Inspector</button>
+          <a href="/media/{{.SelectedAsset.RelPath}}" target="_blank" class="btn-ghost">Open Raw File</a>
+        </div>
+      </div>
+
+      <div class="detail-grid">
+        <div>
+          <!-- Interactive Zoom & Pan Media Stage with Arrow Navigation -->
+          <div class="media-stage-toolbar">
+            <span style="font-size:11.5px;color:var(--text-muted);font-weight:600;">
+              {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <span id="zoom-pct-label">100%</span> (Wheel to zoom, drag to pan, double-click 1:1)
+            </span>
+            <div style="display:flex;gap:4px;">
+              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setStageZoom(-0.25)">&#8722;</button>
+              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="resetStageZoom()">Fit</button>
+              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setExactStageZoom(1.5)">1.5&times;</button>
+              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setExactStageZoom(2.5)">2.5&times;</button>
+              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setStageZoom(0.25)">+</button>
+              <button type="button" class="btn-primary" style="padding:3px 10px;font-size:11px;" onclick="openMediaLightbox()">Fullscreen</button>
+            </div>
+          </div>
+          <div id="media-stage-viewport" class="media-stage-viewport">
+            {{if .PrevAssetID}}
+              <a href="/?asset_id={{.PrevAssetID}}" class="stage-nav-arrow stage-nav-prev" title="Previous Media (Left Arrow)">&#10094;</a>
+            {{end}}
+            {{if .NextAssetID}}
+              <a href="/?asset_id={{.NextAssetID}}" class="stage-nav-arrow stage-nav-next" title="Next Media (Right Arrow)">&#10095;</a>
+            {{end}}
+            {{if eq .SelectedAsset.MediaType "video"}}
+              <video id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
+            {{else}}
+              <img id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" draggable="false">
+            {{end}}
+          </div>
+
+          <div style="margin-top:12px;font-size:12px;color:var(--text-muted);display:flex;flex-direction:column;gap:4px;background:#060d1b;border:1px solid var(--border-navy);padding:10px 12px;border-radius:6px;">
+            <div><strong>Source Folder:</strong> <code>{{if .SelectedAsset.RootLabel}}{{.SelectedAsset.RootLabel}} ({{.SelectedAsset.RootPath}}){{else}}{{.MediaDir}}{{end}}</code></div>
+            <div><strong>Relative Path:</strong> <code>{{.SelectedAsset.RelPath}}</code>{{if .SelectedAsset.Metadata.PositivePrompt}} | <strong>Prompt:</strong> Extracted{{end}}</div>
+            <div><strong>Dimensions:</strong> {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <strong>SHA-256 Prefix:</strong> <code>{{.SelectedAsset.FileHash}}</code> | <strong>Views:</strong> {{.SelectedAsset.ViewCount}}</div>
+          </div>
+
+          <!-- Extracted Prompt Tokens & Trigger Quick Filters -->
+          {{if .SelectedAsset.Metadata.PositivePrompt}}
+            <div style="margin-top:12px;background:#060d1b;border:1px solid var(--border-navy);padding:10px 12px;border-radius:6px;">
+              <div class="kv-label" style="margin-bottom:6px;">Click Any Prompt Token / Trigger to Filter Catalog</div>
+              <div class="tag-cloud">
+                {{range promptTokens .SelectedAsset.Metadata.PositivePrompt}}
+                  <a href="/?trigger={{.}}" class="tag-pill" title="Filter catalog by caption trigger: {{.}}">{{.}}</a>
+                {{end}}
+              </div>
+            </div>
+          {{end}}
+
+          {{if .SelectedAsset.Metadata.RawMetadata}}
+            <details style="margin-top:12px;background:#060d1b;border:1px solid var(--border-navy);padding:10px 12px;border-radius:6px;">
+              <summary style="cursor:pointer;font-size:12px;font-weight:700;color:#93c5fd;">Inspect Full Raw Metadata / Sidecar / Workflow Payload</summary>
+              <pre class="prompt-box" style="margin-top:8px;max-height:240px;overflow:auto;white-space:pre-wrap;">{{.SelectedAsset.Metadata.RawMetadata}}</pre>
+            </details>
+          {{end}}
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <h2 style="font-size:20px;">{{.SelectedAsset.FileName}}</h2>
+            <div style="display:flex;align-items:center;gap:6px;">
+              {{if .SelectedAsset.Favorite}}<span class="fav-badge" style="font-size:11px;padding:3px 8px;">♥ Favorited</span>{{end}}
+              {{if gt .SelectedAsset.Rating 0}}<span class="score-badge" style="font-size:11px;padding:3px 8px;">★ {{.SelectedAsset.Rating}}/10</span>{{end}}
+              <span class="badge-chip" style="font-size:12px;padding:4px 10px;">Engine: {{.SelectedAsset.Metadata.Engine}}</span>
+            </div>
+          </div>
+
+          <!-- 0-10 Rating & Favorite Portable Classification Bar -->
+          <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span class="kv-label" style="margin-bottom:0;">SCORE (0–10):</span>
+              <div class="score-bar">
+                {{range scoreRange}}
+                  <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                    <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
+                    <input type="hidden" name="rating" value="{{.}}">
+                    <input type="hidden" name="favorite" value="{{if $.SelectedAsset.Favorite}}1{{else}}0{{end}}">
+                    <button type="submit" class="score-btn {{if eq $.SelectedAsset.Rating .}}active{{end}}" title="Rate {{.}}/10">{{.}}</button>
+                  </form>
+                {{end}}
+              </div>
+              {{if gt .SelectedAsset.Rating 0}}
+                <span style="color:#fbbf24;font-weight:700;font-size:12px;">★ {{.SelectedAsset.Rating}}/10</span>
+              {{else}}
+                <span style="color:var(--text-dim);font-size:11px;">(Unrated)</span>
+              {{end}}
+            </div>
+
+            <div>
+              <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+                <input type="hidden" name="rating" value="{{.SelectedAsset.Rating}}">
+                <input type="hidden" name="toggle_favorite" value="1">
+                <button type="submit" class="fav-toggle-btn {{if .SelectedAsset.Favorite}}active{{end}}">
+                  {{if .SelectedAsset.Favorite}}♥ Favorited{{else}}♡ Add to Favorites{{end}}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div>
+            <div class="facet-title">
+              <span>POSITIVE PROMPT</span>
+              <button type="button" class="btn-ghost" onclick="navigator.clipboard.writeText(document.getElementById('pos-prompt').innerText)">Copy Prompt</button>
+            </div>
+            <div id="pos-prompt" class="prompt-box">{{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}(No embedded positive prompt detected){{end}}</div>
+          </div>
+
+          {{if .SelectedAsset.Metadata.NegativePrompt}}
+          <div>
+            <div class="facet-title"><span>NEGATIVE PROMPT</span></div>
+            <div class="prompt-box" style="color:#fca5a5;">{{.SelectedAsset.Metadata.NegativePrompt}}</div>
+          </div>
+          {{end}}
+
+          <!-- Prompt Remix Studio Callout -->
+          <div style="background:#090615;border:1px solid #7c3aed;border-radius:6px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#c084fc;">&#10024; Remix Prompt Studio</div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Re-imagine this media asset or video frame for another generator model (Flux, SDXL, Krea 2, Sora, etc.)</div>
+            </div>
+            <a href="/?tab=studio&asset_id={{.SelectedAsset.ID}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;white-space:nowrap;padding:7px 14px;font-weight:600;">
+              Open Prompt Studio &rarr;
+            </a>
+          </div>
+
+          <div class="kv-table">
+            <div class="kv-box">
+              <div class="kv-label">Checkpoint Model</div>
+              <div class="kv-val">{{if .SelectedAsset.Metadata.ModelName}}{{.SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}}</div>
+            </div>
+            <div class="kv-box">
+              <div class="kv-label">Sampler &amp; Scheduler</div>
+              <div class="kv-val">{{if .SelectedAsset.Metadata.Sampler}}{{.SelectedAsset.Metadata.Sampler}}{{else}}-{{end}} {{.SelectedAsset.Metadata.Scheduler}}</div>
+            </div>
+            <div class="kv-box">
+              <div class="kv-label">Steps / CFG / Seed</div>
+              <div class="kv-val">{{.SelectedAsset.Metadata.Steps}} steps | CFG {{.SelectedAsset.Metadata.CFGScale}} | {{.SelectedAsset.Metadata.Seed}}</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="facet-title"><span>CLASSIFICATION &amp; CATEGORY</span></div>
+            <form action="/admin/assets/category" method="POST" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+              <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+              <input type="text" name="category" list="default-categories-list" value="{{.SelectedAsset.Category}}" placeholder="Category (e.g. Characters &amp; Portraits)" class="input-dark" style="width:240px;">
+              <input type="text" name="subcategory" value="{{.SelectedAsset.Subcategory}}" placeholder="Subcategory (e.g. Sci-Fi / Netrunner)" class="input-dark" style="width:240px;">
+              <button type="submit" class="btn-primary">Save Category</button>
+            </form>
+            <datalist id="default-categories-list">
+              {{range .Page.DefaultCategories}}
+                <option value="{{.Name}}">{{joinStrings .Subcategories}}</option>
+              {{end}}
+            </datalist>
+          </div>
+
+          <div>
+            <div class="facet-title"><span>AGNOSTIC TAGS</span></div>
+            <div class="tag-cloud" style="margin-bottom:8px;">
+              {{range .SelectedAsset.Tags}}
+                <div class="tag-pill-removable">
+                  <a href="/?tag={{.Name}}" class="tag-pill">[{{.Facet}}] #{{.Name}}</a>
+                  <form action="/admin/assets/tag/remove" method="POST" style="display:inline;margin:0;">
+                    <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
+                    <input type="hidden" name="tag_id" value="{{.ID}}">
+                    <button type="submit" class="tag-del-btn" title="Remove tag">&times;</button>
+                  </form>
+                </div>
+              {{else}}
+                <span style="color:var(--text-dim);">No tags assigned yet.</span>
+              {{end}}
+            </div>
+            <form action="/admin/assets/tag" method="POST" style="display:flex;gap:8px;max-width:520px;">
+              <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+              <input type="text" name="name" placeholder="Tag name (e.g. rim-light)" class="input-dark" required>
+              <input type="text" name="facet" placeholder="Facet (style, lighting, custom)" value="general" class="input-dark" style="width:180px;">
+              <button type="submit" class="btn-primary">Add Tag</button>
+            </form>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div>
+              <div class="facet-title"><span>LINK TO CHARACTER FOLDER</span></div>
+              {{if .SelectedAsset.Characters}}
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+                  {{range .SelectedAsset.Characters}}
+                    <div class="tag-pill-removable">
+                      <a href="/?character_id={{.ID}}" class="tag-pill" style="background:#3b0764;border-color:#7e22ce;">{{.Name}}</a>
+                      <form action="/admin/characters/detach" method="POST" style="display:inline;margin:0;">
+                        <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
+                        <input type="hidden" name="character_id" value="{{.ID}}">
+                        <button type="submit" class="tag-del-btn" title="Remove from character">&times;</button>
+                      </form>
+                    </div>
+                  {{end}}
+                </div>
+              {{end}}
+              <form action="/admin/characters/attach" method="POST" style="display:flex;gap:8px;">
+                <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+                <select name="character_id" class="input-dark" required>
+                  <option value="">Attach Character...</option>
+                  {{range .Page.Characters}}
+                    <option value="{{.ID}}">{{.Name}}</option>
+                  {{end}}
+                </select>
+                <button type="submit" class="btn-ghost">Attach</button>
+              </form>
+            </div>
+            <div>
+              <div class="facet-title"><span>LINK TO AGNOSTIC GROUP</span></div>
+              {{if .SelectedAsset.Groups}}
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+                  {{range .SelectedAsset.Groups}}
+                    <div class="tag-pill-removable">
+                      <a href="/?group_id={{.ID}}" class="tag-pill" style="background:#1e1b4b;border-color:#4338ca;">{{.Name}}</a>
+                      <form action="/admin/groups/detach" method="POST" style="display:inline;margin:0;">
+                        <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
+                        <input type="hidden" name="group_id" value="{{.ID}}">
+                        <button type="submit" class="tag-del-btn" title="Remove from group">&times;</button>
+                      </form>
+                    </div>
+                  {{end}}
+                </div>
+              {{end}}
+              <form action="/admin/groups/attach" method="POST" style="display:flex;gap:8px;">
+                <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+                <select name="group_id" class="input-dark" required>
+                  <option value="">Add to Group...</option>
+                  {{range .Page.Groups}}
+                    <option value="{{.ID}}">{{.Name}}</option>
+                  {{end}}
+                </select>
+                <button type="submit" class="btn-ghost">Add</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fullscreen Lightbox Modal with Zoom/Pan & Metadata Drawer -->
+      <div id="media-lightbox" class="lightbox-overlay">
+        <div class="lightbox-topbar">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <strong style="color:#fff;font-size:14px;">{{.SelectedAsset.FileName}}</strong>
+            {{if .SelectedAsset.Favorite}}<span class="fav-badge">♥ Favorited</span>{{end}}
+            {{if gt .SelectedAsset.Rating 0}}<span class="score-badge">★ {{.SelectedAsset.Rating}}/10</span>{{end}}
+            <span class="badge-chip">Engine: {{.SelectedAsset.Metadata.Engine}}</span>
+            <span class="badge-chip">{{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px</span>
+            {{if .SelectedAsset.Category}}<span class="badge-chip" style="color:#6ee7b7;">{{.SelectedAsset.Category}}{{if .SelectedAsset.Subcategory}} / {{.SelectedAsset.Subcategory}}{{end}}</span>{{end}}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            {{if .PrevAssetID}}
+              <a href="/?asset_id={{.PrevAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:12px;" title="Previous Media (Left Arrow)">&#10094; Prev</a>
+            {{end}}
+            {{if .NextAssetID}}
+              <a href="/?asset_id={{.NextAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:12px;" title="Next Media (Right Arrow)">Next &#10095;</a>
+            {{end}}
+            <button type="button" class="btn-ghost" onclick="setLightboxZoom(-0.3)">&#8722; Zoom Out</button>
+            <button type="button" class="btn-ghost" onclick="resetLightboxZoom()">Reset 100%</button>
+            <button type="button" class="btn-ghost" onclick="setLightboxZoom(0.3)">+ Zoom In</button>
+            <button type="button" class="btn-primary" onclick="closeMediaLightbox()">Close (ESC)</button>
+          </div>
+        </div>
+        <div class="lightbox-body">
+          <div id="lightbox-canvas" class="lightbox-canvas">
+            {{if .PrevAssetID}}
+              <a href="/?asset_id={{.PrevAssetID}}" class="stage-nav-arrow stage-nav-prev" style="position:absolute;left:18px;top:50%;transform:translateY(-50%);z-index:20;font-size:26px;width:44px;height:44px;" title="Previous Media (Left Arrow)">&#10094;</a>
+            {{end}}
+            {{if .NextAssetID}}
+              <a href="/?asset_id={{.NextAssetID}}" class="stage-nav-arrow stage-nav-next" style="position:absolute;right:18px;top:50%;transform:translateY(-50%);z-index:20;font-size:26px;width:44px;height:44px;" title="Next Media (Right Arrow)">&#10095;</a>
+            {{end}}
+            {{if eq .SelectedAsset.MediaType "video"}}
+              <video id="lightbox-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
+            {{else}}
+              <img id="lightbox-media-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" draggable="false">
+            {{end}}
+          </div>
+          <aside class="lightbox-meta-drawer">
+            <!-- Score & Favorite Quick Bar in Lightbox -->
+            <div style="background:#040915;border:1px solid var(--border-navy);padding:8px 10px;border-radius:4px;">
+              <div class="kv-label" style="margin-bottom:6px;">SCORE &amp; FAVORITE</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                <div class="score-bar">
+                  {{range scoreRange}}
+                    <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                      <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
+                      <input type="hidden" name="rating" value="{{.}}">
+                      <input type="hidden" name="favorite" value="{{if $.SelectedAsset.Favorite}}1{{else}}0{{end}}">
+                      <button type="submit" class="score-btn {{if eq $.SelectedAsset.Rating .}}active{{end}}" style="min-width:24px;height:24px;font-size:10px;">{{.}}</button>
+                    </form>
+                  {{end}}
+                </div>
+                <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                  <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+                  <input type="hidden" name="rating" value="{{.SelectedAsset.Rating}}">
+                  <input type="hidden" name="toggle_favorite" value="1">
+                  <button type="submit" class="fav-toggle-btn {{if .SelectedAsset.Favorite}}active{{end}}" style="height:24px;font-size:11px;">
+                    {{if .SelectedAsset.Favorite}}♥ Favorited{{else}}♡ Favorite{{end}}
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div class="facet-title">
+              <span>POSITIVE PROMPT</span>
+              <button type="button" class="btn-ghost" style="padding:2px 8px;" onclick="navigator.clipboard.writeText(document.getElementById('pos-prompt').innerText)">Copy</button>
+            </div>
+            <div class="prompt-box" style="font-size:12px;">{{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}(No positive prompt){{end}}</div>
+
+            {{if .SelectedAsset.Metadata.NegativePrompt}}
+              <div class="facet-title"><span>NEGATIVE PROMPT</span></div>
+              <div class="prompt-box" style="color:#fca5a5;">{{.SelectedAsset.Metadata.NegativePrompt}}</div>
+            {{end}}
+
+            <div class="kv-box">
+              <div class="kv-label">Checkpoint &amp; Hash</div>
+              <div class="kv-val">{{if .SelectedAsset.Metadata.ModelName}}{{.SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}} {{if .SelectedAsset.Metadata.ModelHash}}({{.SelectedAsset.Metadata.ModelHash}}){{end}}</div>
+            </div>
+            <div class="kv-box">
+              <div class="kv-label">Generation Parameters</div>
+              <div class="kv-val">Steps: {{.SelectedAsset.Metadata.Steps}} | CFG: {{.SelectedAsset.Metadata.CFGScale}} | Seed: {{.SelectedAsset.Metadata.Seed}} | {{.SelectedAsset.Metadata.Sampler}} {{.SelectedAsset.Metadata.Scheduler}}</div>
+            </div>
+
+            {{if .SelectedAsset.Metadata.PositivePrompt}}
+              <div>
+                <div class="kv-label" style="margin-bottom:6px;">Filter Catalog by Caption Trigger</div>
+                <div class="tag-cloud">
+                  {{range promptTokens .SelectedAsset.Metadata.PositivePrompt}}
+                    <a href="/?trigger={{.}}" class="tag-pill">{{.}}</a>
+                  {{end}}
+                </div>
+              </div>
+            {{end}}
+
+            {{if .SelectedAsset.Metadata.RawMetadata}}
+              <div>
+                <div class="kv-label" style="margin-bottom:6px;">Raw Metadata / Sidecar (.txt)</div>
+                <pre class="prompt-box" style="max-height:220px;overflow:auto;white-space:pre-wrap;">{{.SelectedAsset.Metadata.RawMetadata}}</pre>
+              </div>
+            {{end}}
+          </aside>
+        </div>
+      </div>
+
+      <!-- Related Media Carousels: Same Category, Same Character, Same Group, Same Model -->
+      {{if .RelatedAssets.SameCategory}}
+        <div style="margin-bottom:26px;">
+          <div class="results-bar">
+            <div class="results-count" style="font-size:14px;">
+              More Media in Category <strong style="font-size:16px;color:#6ee7b7;">{{.SelectedAsset.Category}}</strong>
+            </div>
+            <a href="/?category={{.SelectedAsset.Category}}" class="btn-ghost">Browse All in '{{.SelectedAsset.Category}}' &rarr;</a>
+          </div>
+          <div class="asset-grid">
+            {{range .RelatedAssets.SameCategory}}
+              <a href="/?asset_id={{.ID}}" class="asset-card">
+                <div class="asset-thumb-wrap">
+                  {{if eq .MediaType "video"}}
+                    <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                  {{else}}
+                    <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
+                  {{end}}
+                  <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                  <div class="asset-score-corner">
+                    {{if .Favorite}}<span class="fav-badge" title="Favorite">♥</span>{{end}}
+                    {{if gt .Rating 0}}<span class="score-badge" title="Score: {{.Rating}}/10">★ {{.Rating}}/10</span>{{end}}
+                  </div>
+                </div>
+                <div class="asset-meta">
+                  <div class="badge-row">
+                    {{if .Subcategory}}<span class="badge-chip" style="color:#6ee7b7;">{{.Subcategory}}</span>{{end}}
+                    {{if .Metadata.ModelName}}<span class="badge-chip">{{.Metadata.ModelName}}</span>{{end}}
+                  </div>
+                  <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
+                </div>
+              </a>
+            {{end}}
+          </div>
+        </div>
+      {{end}}
+
+      {{if .RelatedAssets.SameCharacter}}
+        <div style="margin-bottom:26px;">
+          <div class="results-bar">
+            <div class="results-count" style="font-size:14px;">
+              More Media Featuring Character
+              {{range $idx, $ch := .SelectedAsset.Characters}}
+                {{if eq $idx 0}}<strong style="font-size:16px;color:#60a5fa;">{{$ch.Name}}</strong>{{end}}
+              {{end}}
+            </div>
+            {{range $idx, $ch := .SelectedAsset.Characters}}
+              {{if eq $idx 0}}<a href="/?character_id={{$ch.ID}}" class="btn-ghost">View Character Gallery &rarr;</a>{{end}}
+            {{end}}
+          </div>
+          <div class="asset-grid">
+            {{range .RelatedAssets.SameCharacter}}
+              <a href="/?asset_id={{.ID}}" class="asset-card">
+                <div class="asset-thumb-wrap">
+                  {{if eq .MediaType "video"}}
+                    <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                  {{else}}
+                    <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
+                  {{end}}
+                  <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                  <div class="asset-score-corner">
+                    {{if .Favorite}}<span class="fav-badge" title="Favorite">♥</span>{{end}}
+                    {{if gt .Rating 0}}<span class="score-badge" title="Score: {{.Rating}}/10">★ {{.Rating}}/10</span>{{end}}
+                  </div>
+                </div>
+                <div class="asset-meta">
+                  <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
+                </div>
+              </a>
+            {{end}}
+          </div>
+        </div>
+      {{end}}
+
+      {{if .RelatedAssets.SameGroup}}
+        <div style="margin-bottom:36px;">
+          <div class="results-bar">
+            <div class="results-count" style="font-size:14px;">
+              More Media in Group / Folder
+              {{range $idx, $gr := .SelectedAsset.Groups}}
+                {{if eq $idx 0}}<strong style="font-size:16px;color:#93c5fd;">{{$gr.Name}}</strong>{{end}}
+              {{end}}
+            </div>
+            {{range $idx, $gr := .SelectedAsset.Groups}}
+              {{if eq $idx 0}}<a href="/?group_id={{$gr.ID}}" class="btn-ghost">Browse Group &rarr;</a>{{end}}
+            {{end}}
+          </div>
+          <div class="asset-grid">
+            {{range .RelatedAssets.SameGroup}}
+              <a href="/?asset_id={{.ID}}" class="asset-card">
+                <div class="asset-thumb-wrap">
+                  {{if eq .MediaType "video"}}
+                    <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                  {{else}}
+                    <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
+                  {{end}}
+                  <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                  <div class="asset-score-corner">
+                    {{if .Favorite}}<span class="fav-badge" title="Favorite">♥</span>{{end}}
+                    {{if gt .Rating 0}}<span class="score-badge" title="Score: {{.Rating}}/10">★ {{.Rating}}/10</span>{{end}}
+                  </div>
+                </div>
+                <div class="asset-meta">
+                  <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
+                </div>
+              </a>
+            {{end}}
+          </div>
+        </div>
+      {{end}}
+
+    {{else if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}
+      <!-- Unified Prompt Studio & Remix Page -->
+      <div style="margin:20px 0 44px;">
+        <!-- Top Status & Subheader -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:14px 18px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+          <div>
+            {{if .SelectedAsset}}
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span class="badge-chip" style="background:#4c1d95;color:#ddd6fe;border-color:#7c3aed;font-weight:700;">&#10024; Remixing Media #{{.SelectedAsset.ID}}</span>
+                <strong style="font-size:15px;color:#fff;">{{.SelectedAsset.FileName}}</strong>
+                <span class="badge-chip">{{.SelectedAsset.MediaType}}</span>
+                <span class="badge-chip">{{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px</span>
+                {{if .SelectedAsset.Metadata.Engine}}<span class="badge-chip" style="color:#6ee7b7;">Engine: {{.SelectedAsset.Metadata.Engine}}</span>{{end}}
+              </div>
+              <p style="color:var(--text-muted);font-size:12px;margin-top:4px;margin-bottom:0;">
+                Original prompt and media preloaded. Edit prompt or adjust scene direction to adapt to any target model.
+              </p>
+            {{else}}
+              <div style="display:flex;align-items:center;gap:10px;">
+                <strong style="font-size:15px;color:#c084fc;">&#10024; Prompt Studio &amp; Remix</strong>
+                <span class="badge-chip">New Prompt Mode</span>
+              </div>
+              <p style="color:var(--text-muted);font-size:12px;margin-top:4px;margin-bottom:0;">
+                Synthesize a new prompt from text concepts, or attach an image from your computer to analyze with Vision.
+              </p>
+            {{end}}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            {{if .SelectedAsset}}
+              {{if .PrevAssetID}}
+                <a href="/?tab=studio&asset_id={{.PrevAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;" title="Previous Media">&#10094; Prev</a>
+              {{end}}
+              {{if .NextAssetID}}
+                <a href="/?tab=studio&asset_id={{.NextAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;" title="Next Media">Next &#10095;</a>
+              {{end}}
+              <a href="/?asset_id={{.SelectedAsset.ID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;">View Asset Details &rarr;</a>
+              <a href="/?tab=studio" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;color:#fca5a5;border-color:#b91c1c;" title="Detach media to create a new prompt from scratch">&#x2715; Start Blank Prompt</a>
+            {{else}}
+              <a href="/?tab=settings" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;">Configure Defaults &amp; System Prompts &rarr;</a>
+            {{end}}
+          </div>
+        </div>
+
+        <div class="remix-grid">
+          <!-- Left Column: Visual Reference (Media Asset Preview OR Attached Image Dropzone) -->
+          <div class="remix-media-frame">
+            {{if .SelectedAsset}}
+              <!-- Catalog Media Preview & Video Frame Capture -->
+              <div class="remix-media-viewport">
+                {{if eq .SelectedAsset.MediaType "video"}}
+                  <video id="remix-video-el" src="/media/{{.SelectedAsset.RelPath}}" controls crossorigin="anonymous" playsinline style="max-width:100%;max-height:500px;display:block;"></video>
+                  <canvas id="remix-frame-canvas" style="display:none;"></canvas>
+                {{else}}
+                  <img id="remix-image-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" style="max-width:100%;max-height:500px;object-fit:contain;display:block;">
+                {{end}}
+              </div>
+
+              {{if eq .SelectedAsset.MediaType "video"}}
+                <div style="padding:8px 12px;background:#0d1527;border:1px solid #1e3a6d;border-radius:4px;font-size:11.5px;color:#93c5fd;display:flex;align-items:center;gap:8px;">
+                  <span>&#9654; <strong>Video Frame Capture Active:</strong> Pause or seek to the exact moment to remix. That frame will be analyzed by the Vision model.</span>
+                </div>
+              {{end}}
+
+              <!-- Original Prompt Reference -->
+              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <span class="kv-label" style="margin-bottom:0;">Indexed Original Prompt</span>
+                  {{if .SelectedAsset.Metadata.PositivePrompt}}
+                    <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;" onclick="document.getElementById('studio-prompt-input').value = {{printf "%q" .SelectedAsset.Metadata.PositivePrompt}}">Reload into Editor</button>
+                  {{end}}
+                </div>
+                <div class="prompt-box" style="font-size:12px;max-height:140px;overflow:auto;">
+                  {{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}<span style="color:var(--text-muted);">(No positive prompt in metadata)</span>{{end}}
+                </div>
+              </div>
+            {{else}}
+              <!-- Attached Image Mode: Dropzone & Live Preview -->
+              <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:16px;">
+                <div class="kv-label" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                  <span>Reference Image (Optional)</span>
+                  <span style="font-size:11px;color:var(--text-muted);">Vision Analysis</span>
+                </div>
+
+                <!-- Dropzone for custom image -->
+                <div id="studio-dropzone" class="studio-dropzone" onclick="document.getElementById('studio-file-input').click()" ondragover="handleStudioDragOver(event)" ondragleave="handleStudioDragLeave(event)" ondrop="handleStudioDrop(event)">
+                  <input type="file" id="studio-file-input" name="attached_file" accept="image/*" style="display:none;" onchange="handleStudioFileSelect(this)">
+                  <div style="font-size:28px;margin-bottom:6px;">📷</div>
+                  <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Drop an image here or click to browse</div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Supports PNG, JPG, WEBP. Paste from clipboard (<kbd>Ctrl+V</kbd>) is also supported.</div>
+                </div>
+
+                <!-- Attached image preview wrap -->
+                <div id="studio-attached-preview-wrap" style="display:none;margin-top:12px;background:#030712;border:1px solid #1e3a6d;border-radius:6px;padding:12px;text-align:center;">
+                  <img id="studio-attached-img" src="" alt="Attached image preview" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:4px;display:block;margin:0 auto 10px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span id="studio-attached-info" style="font-size:11px;color:#93c5fd;font-weight:600;"></span>
+                    <button type="button" class="btn-ghost" style="padding:3px 10px;font-size:11px;color:#f87171;border-color:#ef4444;" onclick="removeStudioAttachedImage()">✕ Remove Image</button>
+                  </div>
+                </div>
+
+                <div style="margin-top:14px;padding:10px 12px;background:#060d1b;border:1px solid var(--border-navy);border-radius:4px;font-size:11.5px;color:var(--text-muted);line-height:1.4;">
+                  💡 <strong>Tip:</strong> If you attach an image, Studio sends it to the Vision model for visual analysis. If no image is attached, it generates from your text prompt and chosen target model.
+                </div>
+              </div>
+            {{end}}
+
+            <!-- Target Backend Status Indicator -->
+            <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:10px 12px;font-size:11.5px;color:var(--text-muted);">
+              <div>Text Route: <strong>[{{.Settings.Text2PromptProvider}}]</strong> <code>{{.Settings.Text2PromptModel}}</code></div>
+              <div>Vision Route: <strong>[{{.Settings.Image2PromptProvider}}]</strong> <code>{{.Settings.Image2PromptModel}}</code></div>
+              <div style="margin-top:4px;">
+                Ollama: {{if .AIStatus.OllamaOnline}}<span style="color:#34d399;">Online</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}} |
+                oMLX: {{if .AIStatus.OMLXOnline}}<span style="color:#34d399;">Online ({{len .AIStatus.OMLXModels}} models)</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}}
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Prompt Studio Workbench -->
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div style="background:var(--bg-panel);border:1px solid #7c3aed;border-radius:6px;padding:18px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h3 style="font-size:16px;color:#c084fc;margin:0;">Prompt Generation &amp; Synthesis</h3>
+                <a href="/?tab=settings" style="font-size:11px;color:#93c5fd;">Active Defaults &rarr;</a>
+              </div>
+
+              {{if .AIResultError}}
+                <div style="margin-bottom:12px;padding:10px 12px;background:#3b0f18;border:1px solid #ef4444;border-radius:4px;color:#fca5a5;font-size:12px;">
+                  {{.AIResultError}}
+                </div>
+              {{end}}
+
+              {{if .AIResultPrompt}}
+                <div style="margin-bottom:14px;background:#064e3b;border:1px solid #059669;border-radius:6px;padding:12px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#6ee7b7;">
+                    <span>SYNTHESIZED PROMPT for target <strong>{{.AITargetProfile}}</strong>:</span>
+                    <button type="button" id="btn-copy-prompt" class="btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="copyStudioPrompt()">Copy Prompt</button>
+                  </div>
+                  <div id="studio-result-out" class="prompt-box" style="color:#a7f3d0;background:#03281f;border-color:#059669;font-size:12.5px;white-space:pre-wrap;word-break:break-word;">{{.AIResultPrompt}}</div>
+                </div>
+              {{end}}
+
+              <form id="studio-workbench-form" action="/admin/ollama/image2prompt" method="POST" enctype="multipart/form-data" onsubmit="prepareStudioSubmission(event, this)" style="display:flex;flex-direction:column;gap:12px;">
+                <input type="hidden" name="asset_id" value="{{if .SelectedAsset}}{{.SelectedAsset.ID}}{{else}}0{{end}}">
+                <input type="hidden" name="attached_image_data" id="attached_image_data" value="">
+                <input type="hidden" name="video_frame_data" id="video_frame_data" value="">
+                <input type="hidden" name="source_tab" value="studio">
+
+                <!-- Target Generator Profile & Mode -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div>
+                    <label class="kv-label">Target Generator Model Family (System Prompt)</label>
+                    <select name="profile_slug" id="studio-profile-select" class="input-dark" onchange="onStudioProfileChange(this)">
+                      {{range .PromptProfiles}}
+                        <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} &mdash; {{.TargetModality}})</option>
+                      {{end}}
+                    </select>
+                  </div>
+                  <div>
+                    <label class="kv-label">Operation Mode</label>
+                    <select name="mode" id="studio-mode-select" class="input-dark" onchange="onStudioModeChange(this.value)">
+                      {{if .SelectedAsset}}
+                        <option value="vision" {{if or (eq $.AIMode "") (eq $.AIMode "vision")}}selected{{end}}>Vision Analysis (Inspect Media/Frame + Direction)</option>
+                        <option value="remix" {{if eq $.AIMode "remix"}}selected{{end}}>Prompt Translation (Rewrite Existing Prompt)</option>
+                      {{else}}
+                        <option value="remix" id="mode-opt-remix" {{if or (eq $.AIMode "") (eq $.AIMode "remix")}}selected{{end}}>Text Prompt Synthesis (From Concept)</option>
+                        <option value="vision" id="mode-opt-vision" {{if eq $.AIMode "vision"}}selected{{end}}>Vision Analysis (Using Attached Image)</option>
+                      {{end}}
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Concept / Caption / Prompt Field (Preloaded with caption if entered from media!) -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <label class="kv-label" style="margin-bottom:0;">
+                      {{if .SelectedAsset}}
+                        Caption / Prompt to Remix (Preloaded from Media)
+                      {{else}}
+                        Concept, Scene Idea, or Raw Prompt to Transform
+                      {{end}}
+                    </label>
+                    <span style="font-size:11px;color:var(--text-muted);">Editable</span>
+                  </div>
+                  <textarea name="user_hint" id="studio-prompt-input" rows="4" class="input-dark" style="width:100%;resize:vertical;font-family:monospace;font-size:12.5px;line-height:1.4;" placeholder="e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk, volumetric god rays, anamorphic lens flare...">{{.AIInputConcept}}</textarea>
+                </div>
+
+                <!-- Character Injection & Quick Overrides -->
+                <div style="display:grid;grid-template-columns:1fr 1fr 120px;gap:10px;">
+                  <div>
+                    <label class="kv-label">Inject Character Identity (Optional)</label>
+                    <select name="character_id" class="input-dark">
+                      <option value="0">None (Preserve Original Subject)</option>
+                      {{range .Page.Characters}}
+                        <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
+                      {{end}}
+                    </select>
+                  </div>
+                  <div>
+                    <label class="kv-label">Quick LLM / Vision Override (Optional)</label>
+                    <select name="override_route" class="input-dark">
+                      <option value="">Settings Default</option>
+                      {{range .AIStatus.AllModels}}
+                        <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
+                      {{end}}
+                    </select>
+                  </div>
+                  <div>
+                    <label class="kv-label">Thinking Mode</label>
+                    <select name="override_think" class="input-dark">
+                      <option value="">Default</option>
+                      <option value="off">Off</option>
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Target Model LoRAs -->
+                {{if .ModelLoRAs}}
+                  <div style="background:#040914;border:1px solid var(--border-navy);border-radius:4px;padding:8px 10px;">
+                    <div class="kv-label" style="margin-bottom:6px;">Select Model-Specific LoRAs to Incorporate (Optional)</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                      {{range .ModelLoRAs}}
+                        <label class="checkbox-item lora-chip-item" data-model="{{.ProfileSlug}}" title="{{.Description}} | Examples: {{.UsageExamples}}" style="background:#0b172e;border:1px solid #1e3a6d;padding:3px 8px;border-radius:4px;">
+                          <span>
+                            <input type="checkbox" name="lora_id" value="{{.ID}}">
+                            <strong style="color:#60a5fa;">[{{.ProfileSlug}}]</strong> {{.Name}}
+                            {{if .TriggerWords}}<span style="color:#6ee7b7;font-size:10px;">({{ .TriggerWords }})</span>{{end}}
+                          </span>
+                        </label>
+                      {{end}}
+                    </div>
+                  </div>
+                {{end}}
+
+                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;flex-wrap:wrap;gap:8px;">
+                  <div>
+                    {{if .SelectedAsset}}
+                      <label style="font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:6px;cursor:pointer;">
+                        <input type="checkbox" name="save_to_asset" value="1">
+                        <span>Overwrite asset's primary prompt in database &amp; sidecar .txt</span>
+                      </label>
+                    {{end}}
+                  </div>
+                  <button type="submit" id="btn-submit-studio" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;padding:9px 22px;font-weight:700;font-size:13px;">
+                    &#10024; Generate Prompt
+                  </button>
+                </div>
+              </form>
+
+              <!-- History inside studio card -->
+              {{if .GeneratedHistory}}
+                <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-navy);">
+                  <div class="kv-label" style="margin-bottom:6px;">Recent Generated Prompts</div>
+                  <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;">
+                    {{range .GeneratedHistory}}
+                      <div class="prompt-box" style="font-size:11px;">
+                        <div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:3px;">
+                          <span>
+                            Target: <strong style="color:#60a5fa;">{{.TargetProfileSlug}}</strong>
+                            {{if .CharacterName}}| <span style="color:#6ee7b7;">{{.CharacterName}}</span>{{end}}
+                            {{if .AssetID}}| <a href="/?tab=studio&asset_id={{.AssetID}}" style="color:#93c5fd;text-decoration:underline;">Asset #{{.AssetID}}</a>{{end}}
+                          </span>
+                          <span>[{{.Provider}}] {{.ModelName}}</span>
+                        </div>
+                        <div style="color:#e2e8f0;">{{.OutputPrompt}}</div>
+                      </div>
+                    {{end}}
+                  </div>
+                </div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+
+        <!-- Character Scene & Movie Generator collapsible card -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:18px;margin-top:20px;">
+          <h3 style="font-size:15px;margin-bottom:8px;color:#93c5fd;">Character Scene &amp; Movie Prompt Generator</h3>
+          <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">
+            Pick any Character from your catalog (preserving their trigger words, base prompt, and LoRAs) and place them into a new scene, movie aesthetic, or video camera shot for Target Model.
+          </p>
+          <form action="/admin/ollama/character2prompt" method="POST" style="display:flex;flex-direction:column;gap:8px;">
+            <input type="hidden" name="return_tab" value="studio">
+            {{if .SelectedAsset}}<input type="hidden" name="ref_asset_id" value="{{.SelectedAsset.ID}}">{{end}}
+            <div style="display:grid;grid-template-columns:200px 220px 1fr 160px;gap:8px;align-items:center;">
+              <select name="character_id" class="input-dark" required>
+                <option value="">Select Character...</option>
+                {{range .Page.Characters}}
+                  <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+              </select>
+              <select name="profile_slug" class="input-dark">
+                {{range .PromptProfiles}}
+                  <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
+                {{end}}
+              </select>
+              <select name="override_route" class="input-dark">
+                <option value="">Model: Settings Default ([{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}})</option>
+                {{range .AIStatus.AllModels}}
+                  <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
+                {{end}}
+              </select>
+              <select name="override_think" class="input-dark">
+                <option value="">Think: Settings ({{.Settings.Text2PromptThink}})</option>
+                <option value="off">Think: Off</option>
+                <option value="low">Think: Low</option>
+                <option value="medium">Think: Medium</option>
+                <option value="high">High</option>
+                <option value="default">Default</option>
+              </select>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+              <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, lighting, camera movement (e.g. 'Blade Runner 2049 rooftop rain, slow dolly-in')..." class="input-dark" required>
+              <button type="submit" class="btn-primary">Generate Character Prompt</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Quick Catalog Media Picker (shown when no asset is loaded so user can easily pick one to remix) -->
+        {{if not .SelectedAsset}}
+          <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div>
+                <h3 style="font-size:15px;margin:0;color:#c084fc;">Or Pick a Media from Your Catalog to Remix</h3>
+                <p style="color:var(--text-muted);font-size:12px;margin:2px 0 0;">Click any media asset below to load its frame, preview, and generation prompt into Studio.</p>
+              </div>
+              <a href="/" class="btn-ghost" style="font-size:11.5px;">Browse Full Catalog &rarr;</a>
+            </div>
+            <div class="asset-grid">
+              {{range .Page.Assets}}
+                <a href="/?tab=studio&asset_id={{.ID}}" class="asset-card" title="Remix {{.FileName}}">
+                  <div class="asset-thumb-wrap">
+                    {{if eq .MediaType "video"}}
+                      <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                    {{else}}
+                      <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
+                    {{end}}
+                    <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                  </div>
+                  <div class="asset-meta">
+                    <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
+                  </div>
+                </a>
+              {{end}}
+            </div>
+          </div>
+        {{end}}
+      </div>
+
+    {{else if eq .ActiveTab "director"}}
       <!-- 2D Scene Director & Staging Canvas -->
       <div class="director-container" style="margin: 16px 0 40px;">
         <!-- Top Toolbar & Status -->
@@ -1768,933 +2697,6 @@
 })();
 </script>
 
-
-    {{else if eq .ActiveTab "generators"}}
-          <h1 class="hero-title">Target <span class="highlight">Generator Models, System Prompts &amp; LoRAs</span></h1>
-          <p class="hero-sub">Manage diffusion/video model families (Flux, Krea 2, Qwen-Image, MOSS, MiniMax H3), their generation context prompts, and their dedicated LoRAs.</p>
-        {{else if eq .ActiveTab "settings"}}
-          <h1 class="hero-title">Application <span class="highlight">Settings &amp; AI Server Routing</span></h1>
-          <p class="hero-sub">Configure local or remote Ollama and OpenAI-compatible endpoints and select which LLM/Vision models handle Vision, Image2Prompt, and Text2Prompt.</p>
-        {{else}}
-          <h1 class="hero-title">AI Diffusion <span class="highlight">Prompt &amp; Asset</span> Database</h1>
-          <p class="hero-sub">Every generation prompt, checkpoint model, LoRA, seed, and character sheet — indexed locally from your media folder.</p>
-        {{end}}
-      </div>
-      <div class="hero-callout">
-        <strong>Read-Only Source Folder</strong><br>
-        Extracted PNG chunks (A1111, ComfyUI, Fooocus, SwarmUI, InvokeAI) &amp; EXIF into local SQLite + FTS5.
-      </div>
-    </div>
-  </section>
-
-  <!-- Global Search Strip -->
-  <section class="search-strip">
-    <div class="container">
-      <form action="/" method="GET" class="search-strip-form">
-        {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
-        {{if .Filter.SortBy}}<input type="hidden" name="sort" value="{{.Filter.SortBy}}">{{end}}
-        {{if .Filter.RootID}}<input type="hidden" name="root_id" value="{{.Filter.RootID}}">{{end}}
-        {{if .Filter.Category}}<input type="hidden" name="category" value="{{.Filter.Category}}">{{end}}
-        {{if .Filter.Subcategory}}<input type="hidden" name="subcategory" value="{{.Filter.Subcategory}}">{{end}}
-        {{if .Filter.Trigger}}<input type="hidden" name="trigger" value="{{.Filter.Trigger}}">{{end}}
-        {{if .Filter.GroupID}}<input type="hidden" name="group_id" value="{{.Filter.GroupID}}">{{end}}
-        {{if .Filter.CharacterID}}<input type="hidden" name="character_id" value="{{.Filter.CharacterID}}">{{end}}
-        {{if .Filter.Engine}}<input type="hidden" name="engine" value="{{.Filter.Engine}}">{{end}}
-        {{if .Filter.ModelName}}<input type="hidden" name="model" value="{{.Filter.ModelName}}">{{end}}
-        {{if .Filter.MediaType}}<input type="hidden" name="media_type" value="{{.Filter.MediaType}}">{{end}}
-        {{if .Filter.MinRating}}<input type="hidden" name="min_rating" value="{{.Filter.MinRating}}">{{end}}
-        {{if .Filter.FavoritesOnly}}<input type="hidden" name="favorites" value="1">{{end}}
-        {{range .Filter.TagNames}}<input type="hidden" name="tag" value="{{.}}">{{end}}
-        <div class="search-main-group">
-          <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
-          <button type="submit" class="btn-primary">Search</button>
-          {{if or .Filter.Query .Filter.Trigger .Filter.RootID .Filter.Category .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0)}}
-            <a href="{{if .Filter.FaceMode}}/?face_mode=1{{else}}/{{end}}" class="btn-ghost" style="display:inline-flex;align-items:center;">Reset</a>
-          {{end}}
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="color:var(--text-muted);font-size:12px;">Per Page</span>
-          <select name="per_page" class="input-dark" style="width:90px;" onchange="this.form.submit()">
-            <option value="25" {{if eq .Filter.PerPage 25}}selected{{end}}>25 items</option>
-            <option value="50" {{if eq .Filter.PerPage 50}}selected{{end}}>50 items</option>
-            <option value="100" {{if eq .Filter.PerPage 100}}selected{{end}}>100 items</option>
-          </select>
-        </div>
-      </form>
-    </div>
-  </section>
-
-  <main class="container">
-    {{if .FlashNotice}}
-      <div style="margin-top:14px;padding:10px 14px;background:#0e2a47;border:1px solid #257bf0;border-radius:5px;color:#bfdbfe;font-weight:600;">
-        {{.FlashNotice}}
-      </div>
-    {{end}}
-
-    <!-- Datalist of detected Ollama + oMLX models for inputs -->
-    <datalist id="ai-models-all">
-      {{range .AIStatus.AllModels}}
-        <option value="{{.Name}}">[{{.Provider}}] {{.Family}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}ctx:{{.ContextLength}}{{end}}</option>
-      {{end}}
-    </datalist>
-    <datalist id="ai-models-vision">
-      {{range .AIStatus.AllModels}}
-        {{if .HasVision}}
-          <option value="{{.Name}}">[{{.Provider}}] Vision ({{.VisionStatus}}) {{if .ContextLength}}ctx:{{.ContextLength}}{{end}}</option>
-        {{end}}
-      {{end}}
-    </datalist>
-
-    {{if eq .ActiveTab "login"}}
-      <div style="max-width:420px;margin:40px auto;background:var(--bg-panel);border:1px solid var(--border-navy);padding:24px;border-radius:6px;">
-        <h2 style="margin-bottom:12px;font-size:18px;">Administrator Login</h2>
-        <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">Default credentials on initial setup: <code>admin</code> / <code>admin123</code></p>
-        <form action="/admin/login" method="POST" style="display:flex;flex-direction:column;gap:12px;">
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:12px;">Username</label>
-            <input type="text" name="username" value="admin" class="input-dark" required>
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:12px;">Password</label>
-            <input type="password" name="password" value="admin123" class="input-dark" required>
-          </div>
-          <button type="submit" class="btn-primary">Sign In</button>
-        </form>
-      </div>
-
-    {{else if eq .ActiveTab "asset_detail"}}
-      <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <a href="{{pageURL .Filter .Page.Page}}" class="btn-ghost">&larr; Back to Catalog</a>
-          {{if .PrevAssetID}}
-            <a href="{{assetDetailURL .Filter .PrevAssetID}}" class="btn-ghost" title="Previous Media (Left Arrow)" id="nav-btn-prev">&larr; Prev</a>
-          {{end}}
-          {{if .NextAssetID}}
-            <a href="{{assetDetailURL .Filter .NextAssetID}}" class="btn-ghost" title="Next Media (Right Arrow)" id="nav-btn-next">Next &rarr;</a>
-          {{end}}
-          {{if .SelectedAsset.RootID}}
-            <a href="/?root_id={{.SelectedAsset.RootID}}" class="btn-ghost">Folder: {{if .SelectedAsset.RootLabel}}{{.SelectedAsset.RootLabel}}{{else}}Root #{{.SelectedAsset.RootID}}{{end}}</a>
-          {{end}}
-          {{if .SelectedAsset.Category}}
-            <a href="/?category={{.SelectedAsset.Category}}" class="btn-ghost" style="border-color:#059669;color:#6ee7b7;">Category: {{.SelectedAsset.Category}}</a>
-          {{end}}
-          {{if .SelectedAsset.Subcategory}}
-            <a href="/?category={{.SelectedAsset.Category}}&amp;subcategory={{.SelectedAsset.Subcategory}}" class="btn-ghost" style="color:#a7f3d0;">Subcategory: {{.SelectedAsset.Subcategory}}</a>
-          {{end}}
-          {{range .SelectedAsset.Characters}}
-            <a href="/?character_id={{.ID}}" class="btn-ghost" style="border-color:#2563eb;color:#93c5fd;">Character: {{.Name}}</a>
-          {{end}}
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <a href="/?tab=studio&asset_id={{.SelectedAsset.ID}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;font-weight:600;">&#10024; Remix Prompt</a>
-          <button type="button" class="btn-primary" onclick="openMediaLightbox()">&#x26F6; Fullscreen &amp; Metadata Inspector</button>
-          <a href="/media/{{.SelectedAsset.RelPath}}" target="_blank" class="btn-ghost">Open Raw File</a>
-        </div>
-      </div>
-
-      <div class="detail-grid">
-        <div>
-          <!-- Interactive Zoom & Pan Media Stage with Arrow Navigation -->
-          <div class="media-stage-toolbar">
-            <span style="font-size:11.5px;color:var(--text-muted);font-weight:600;">
-              {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <span id="zoom-pct-label">100%</span> (Wheel to zoom, drag to pan, double-click 1:1)
-            </span>
-            <div style="display:flex;gap:4px;">
-              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setStageZoom(-0.25)">&#8722;</button>
-              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="resetStageZoom()">Fit</button>
-              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setExactStageZoom(1.5)">1.5&times;</button>
-              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setExactStageZoom(2.5)">2.5&times;</button>
-              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setStageZoom(0.25)">+</button>
-              <button type="button" class="btn-primary" style="padding:3px 10px;font-size:11px;" onclick="openMediaLightbox()">Fullscreen</button>
-            </div>
-          </div>
-          <div id="media-stage-viewport" class="media-stage-viewport">
-            {{if .PrevAssetID}}
-              <a href="/?asset_id={{.PrevAssetID}}" class="stage-nav-arrow stage-nav-prev" title="Previous Media (Left Arrow)">&#10094;</a>
-            {{end}}
-            {{if .NextAssetID}}
-              <a href="/?asset_id={{.NextAssetID}}" class="stage-nav-arrow stage-nav-next" title="Next Media (Right Arrow)">&#10095;</a>
-            {{end}}
-            {{if eq .SelectedAsset.MediaType "video"}}
-              <video id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
-            {{else}}
-              <img id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" draggable="false">
-            {{end}}
-          </div>
-
-          <div style="margin-top:12px;font-size:12px;color:var(--text-muted);display:flex;flex-direction:column;gap:4px;background:#060d1b;border:1px solid var(--border-navy);padding:10px 12px;border-radius:6px;">
-            <div><strong>Source Folder:</strong> <code>{{if .SelectedAsset.RootLabel}}{{.SelectedAsset.RootLabel}} ({{.SelectedAsset.RootPath}}){{else}}{{.MediaDir}}{{end}}</code></div>
-            <div><strong>Relative Path:</strong> <code>{{.SelectedAsset.RelPath}}</code>{{if .SelectedAsset.Metadata.PositivePrompt}} | <strong>Prompt:</strong> Extracted{{end}}</div>
-            <div><strong>Dimensions:</strong> {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <strong>SHA-256 Prefix:</strong> <code>{{.SelectedAsset.FileHash}}</code> | <strong>Views:</strong> {{.SelectedAsset.ViewCount}}</div>
-          </div>
-
-          <!-- Extracted Prompt Tokens & Trigger Quick Filters -->
-          {{if .SelectedAsset.Metadata.PositivePrompt}}
-            <div style="margin-top:12px;background:#060d1b;border:1px solid var(--border-navy);padding:10px 12px;border-radius:6px;">
-              <div class="kv-label" style="margin-bottom:6px;">Click Any Prompt Token / Trigger to Filter Catalog</div>
-              <div class="tag-cloud">
-                {{range promptTokens .SelectedAsset.Metadata.PositivePrompt}}
-                  <a href="/?trigger={{.}}" class="tag-pill" title="Filter catalog by caption trigger: {{.}}">{{.}}</a>
-                {{end}}
-              </div>
-            </div>
-          {{end}}
-
-          {{if .SelectedAsset.Metadata.RawMetadata}}
-            <details style="margin-top:12px;background:#060d1b;border:1px solid var(--border-navy);padding:10px 12px;border-radius:6px;">
-              <summary style="cursor:pointer;font-size:12px;font-weight:700;color:#93c5fd;">Inspect Full Raw Metadata / Sidecar / Workflow Payload</summary>
-              <pre class="prompt-box" style="margin-top:8px;max-height:240px;overflow:auto;white-space:pre-wrap;">{{.SelectedAsset.Metadata.RawMetadata}}</pre>
-            </details>
-          {{end}}
-        </div>
-
-        <div style="display:flex;flex-direction:column;gap:14px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <h2 style="font-size:20px;">{{.SelectedAsset.FileName}}</h2>
-            <div style="display:flex;align-items:center;gap:6px;">
-              {{if .SelectedAsset.Favorite}}<span class="fav-badge" style="font-size:11px;padding:3px 8px;">♥ Favorited</span>{{end}}
-              {{if gt .SelectedAsset.Rating 0}}<span class="score-badge" style="font-size:11px;padding:3px 8px;">★ {{.SelectedAsset.Rating}}/10</span>{{end}}
-              <span class="badge-chip" style="font-size:12px;padding:4px 10px;">Engine: {{.SelectedAsset.Metadata.Engine}}</span>
-            </div>
-          </div>
-
-          <!-- 0-10 Rating & Favorite Portable Classification Bar -->
-          <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <span class="kv-label" style="margin-bottom:0;">SCORE (0–10):</span>
-              <div class="score-bar">
-                {{range scoreRange}}
-                  <form action="/admin/assets/rate" method="POST" style="display:inline;">
-                    <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
-                    <input type="hidden" name="rating" value="{{.}}">
-                    <input type="hidden" name="favorite" value="{{if $.SelectedAsset.Favorite}}1{{else}}0{{end}}">
-                    <button type="submit" class="score-btn {{if eq $.SelectedAsset.Rating .}}active{{end}}" title="Rate {{.}}/10">{{.}}</button>
-                  </form>
-                {{end}}
-              </div>
-              {{if gt .SelectedAsset.Rating 0}}
-                <span style="color:#fbbf24;font-weight:700;font-size:12px;">★ {{.SelectedAsset.Rating}}/10</span>
-              {{else}}
-                <span style="color:var(--text-dim);font-size:11px;">(Unrated)</span>
-              {{end}}
-            </div>
-
-            <div>
-              <form action="/admin/assets/rate" method="POST" style="display:inline;">
-                <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
-                <input type="hidden" name="rating" value="{{.SelectedAsset.Rating}}">
-                <input type="hidden" name="toggle_favorite" value="1">
-                <button type="submit" class="fav-toggle-btn {{if .SelectedAsset.Favorite}}active{{end}}">
-                  {{if .SelectedAsset.Favorite}}♥ Favorited{{else}}♡ Add to Favorites{{end}}
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <div>
-            <div class="facet-title">
-              <span>POSITIVE PROMPT</span>
-              <button type="button" class="btn-ghost" onclick="navigator.clipboard.writeText(document.getElementById('pos-prompt').innerText)">Copy Prompt</button>
-            </div>
-            <div id="pos-prompt" class="prompt-box">{{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}(No embedded positive prompt detected){{end}}</div>
-          </div>
-
-          {{if .SelectedAsset.Metadata.NegativePrompt}}
-          <div>
-            <div class="facet-title"><span>NEGATIVE PROMPT</span></div>
-            <div class="prompt-box" style="color:#fca5a5;">{{.SelectedAsset.Metadata.NegativePrompt}}</div>
-          </div>
-          {{end}}
-
-          <!-- Prompt Remix Studio Callout -->
-          <div style="background:#090615;border:1px solid #7c3aed;border-radius:6px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
-            <div>
-              <div style="font-size:13px;font-weight:700;color:#c084fc;">&#10024; Remix Prompt Studio</div>
-              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Re-imagine this media asset or video frame for another generator model (Flux, SDXL, Krea 2, Sora, etc.)</div>
-            </div>
-            <a href="/?tab=studio&asset_id={{.SelectedAsset.ID}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;white-space:nowrap;padding:7px 14px;font-weight:600;">
-              Open Prompt Studio &rarr;
-            </a>
-          </div>
-
-          <div class="kv-table">
-            <div class="kv-box">
-              <div class="kv-label">Checkpoint Model</div>
-              <div class="kv-val">{{if .SelectedAsset.Metadata.ModelName}}{{.SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}}</div>
-            </div>
-            <div class="kv-box">
-              <div class="kv-label">Sampler &amp; Scheduler</div>
-              <div class="kv-val">{{if .SelectedAsset.Metadata.Sampler}}{{.SelectedAsset.Metadata.Sampler}}{{else}}-{{end}} {{.SelectedAsset.Metadata.Scheduler}}</div>
-            </div>
-            <div class="kv-box">
-              <div class="kv-label">Steps / CFG / Seed</div>
-              <div class="kv-val">{{.SelectedAsset.Metadata.Steps}} steps | CFG {{.SelectedAsset.Metadata.CFGScale}} | {{.SelectedAsset.Metadata.Seed}}</div>
-            </div>
-          </div>
-
-          <div>
-            <div class="facet-title"><span>CLASSIFICATION &amp; CATEGORY</span></div>
-            <form action="/admin/assets/category" method="POST" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-              <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
-              <input type="text" name="category" list="default-categories-list" value="{{.SelectedAsset.Category}}" placeholder="Category (e.g. Characters &amp; Portraits)" class="input-dark" style="width:240px;">
-              <input type="text" name="subcategory" value="{{.SelectedAsset.Subcategory}}" placeholder="Subcategory (e.g. Sci-Fi / Netrunner)" class="input-dark" style="width:240px;">
-              <button type="submit" class="btn-primary">Save Category</button>
-            </form>
-            <datalist id="default-categories-list">
-              {{range .Page.DefaultCategories}}
-                <option value="{{.Name}}">{{joinStrings .Subcategories}}</option>
-              {{end}}
-            </datalist>
-          </div>
-
-          <div>
-            <div class="facet-title"><span>AGNOSTIC TAGS</span></div>
-            <div class="tag-cloud" style="margin-bottom:8px;">
-              {{range .SelectedAsset.Tags}}
-                <div class="tag-pill-removable">
-                  <a href="/?tag={{.Name}}" class="tag-pill">[{{.Facet}}] #{{.Name}}</a>
-                  <form action="/admin/assets/tag/remove" method="POST" style="display:inline;margin:0;">
-                    <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
-                    <input type="hidden" name="tag_id" value="{{.ID}}">
-                    <button type="submit" class="tag-del-btn" title="Remove tag">&times;</button>
-                  </form>
-                </div>
-              {{else}}
-                <span style="color:var(--text-dim);">No tags assigned yet.</span>
-              {{end}}
-            </div>
-            <form action="/admin/assets/tag" method="POST" style="display:flex;gap:8px;max-width:520px;">
-              <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
-              <input type="text" name="name" placeholder="Tag name (e.g. rim-light)" class="input-dark" required>
-              <input type="text" name="facet" placeholder="Facet (style, lighting, custom)" value="general" class="input-dark" style="width:180px;">
-              <button type="submit" class="btn-primary">Add Tag</button>
-            </form>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-            <div>
-              <div class="facet-title"><span>LINK TO CHARACTER FOLDER</span></div>
-              {{if .SelectedAsset.Characters}}
-                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
-                  {{range .SelectedAsset.Characters}}
-                    <div class="tag-pill-removable">
-                      <a href="/?character_id={{.ID}}" class="tag-pill" style="background:#3b0764;border-color:#7e22ce;">{{.Name}}</a>
-                      <form action="/admin/characters/detach" method="POST" style="display:inline;margin:0;">
-                        <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
-                        <input type="hidden" name="character_id" value="{{.ID}}">
-                        <button type="submit" class="tag-del-btn" title="Remove from character">&times;</button>
-                      </form>
-                    </div>
-                  {{end}}
-                </div>
-              {{end}}
-              <form action="/admin/characters/attach" method="POST" style="display:flex;gap:8px;">
-                <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
-                <select name="character_id" class="input-dark" required>
-                  <option value="">Attach Character...</option>
-                  {{range .Page.Characters}}
-                    <option value="{{.ID}}">{{.Name}}</option>
-                  {{end}}
-                </select>
-                <button type="submit" class="btn-ghost">Attach</button>
-              </form>
-            </div>
-            <div>
-              <div class="facet-title"><span>LINK TO AGNOSTIC GROUP</span></div>
-              {{if .SelectedAsset.Groups}}
-                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
-                  {{range .SelectedAsset.Groups}}
-                    <div class="tag-pill-removable">
-                      <a href="/?group_id={{.ID}}" class="tag-pill" style="background:#1e1b4b;border-color:#4338ca;">{{.Name}}</a>
-                      <form action="/admin/groups/detach" method="POST" style="display:inline;margin:0;">
-                        <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
-                        <input type="hidden" name="group_id" value="{{.ID}}">
-                        <button type="submit" class="tag-del-btn" title="Remove from group">&times;</button>
-                      </form>
-                    </div>
-                  {{end}}
-                </div>
-              {{end}}
-              <form action="/admin/groups/attach" method="POST" style="display:flex;gap:8px;">
-                <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
-                <select name="group_id" class="input-dark" required>
-                  <option value="">Add to Group...</option>
-                  {{range .Page.Groups}}
-                    <option value="{{.ID}}">{{.Name}}</option>
-                  {{end}}
-                </select>
-                <button type="submit" class="btn-ghost">Add</button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Fullscreen Lightbox Modal with Zoom/Pan & Metadata Drawer -->
-      <div id="media-lightbox" class="lightbox-overlay">
-        <div class="lightbox-topbar">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <strong style="color:#fff;font-size:14px;">{{.SelectedAsset.FileName}}</strong>
-            {{if .SelectedAsset.Favorite}}<span class="fav-badge">♥ Favorited</span>{{end}}
-            {{if gt .SelectedAsset.Rating 0}}<span class="score-badge">★ {{.SelectedAsset.Rating}}/10</span>{{end}}
-            <span class="badge-chip">Engine: {{.SelectedAsset.Metadata.Engine}}</span>
-            <span class="badge-chip">{{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px</span>
-            {{if .SelectedAsset.Category}}<span class="badge-chip" style="color:#6ee7b7;">{{.SelectedAsset.Category}}{{if .SelectedAsset.Subcategory}} / {{.SelectedAsset.Subcategory}}{{end}}</span>{{end}}
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            {{if .PrevAssetID}}
-              <a href="/?asset_id={{.PrevAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:12px;" title="Previous Media (Left Arrow)">&#10094; Prev</a>
-            {{end}}
-            {{if .NextAssetID}}
-              <a href="/?asset_id={{.NextAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:12px;" title="Next Media (Right Arrow)">Next &#10095;</a>
-            {{end}}
-            <button type="button" class="btn-ghost" onclick="setLightboxZoom(-0.3)">&#8722; Zoom Out</button>
-            <button type="button" class="btn-ghost" onclick="resetLightboxZoom()">Reset 100%</button>
-            <button type="button" class="btn-ghost" onclick="setLightboxZoom(0.3)">+ Zoom In</button>
-            <button type="button" class="btn-primary" onclick="closeMediaLightbox()">Close (ESC)</button>
-          </div>
-        </div>
-        <div class="lightbox-body">
-          <div id="lightbox-canvas" class="lightbox-canvas">
-            {{if .PrevAssetID}}
-              <a href="/?asset_id={{.PrevAssetID}}" class="stage-nav-arrow stage-nav-prev" style="position:absolute;left:18px;top:50%;transform:translateY(-50%);z-index:20;font-size:26px;width:44px;height:44px;" title="Previous Media (Left Arrow)">&#10094;</a>
-            {{end}}
-            {{if .NextAssetID}}
-              <a href="/?asset_id={{.NextAssetID}}" class="stage-nav-arrow stage-nav-next" style="position:absolute;right:18px;top:50%;transform:translateY(-50%);z-index:20;font-size:26px;width:44px;height:44px;" title="Next Media (Right Arrow)">&#10095;</a>
-            {{end}}
-            {{if eq .SelectedAsset.MediaType "video"}}
-              <video id="lightbox-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
-            {{else}}
-              <img id="lightbox-media-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" draggable="false">
-            {{end}}
-          </div>
-          <aside class="lightbox-meta-drawer">
-            <!-- Score & Favorite Quick Bar in Lightbox -->
-            <div style="background:#040915;border:1px solid var(--border-navy);padding:8px 10px;border-radius:4px;">
-              <div class="kv-label" style="margin-bottom:6px;">SCORE &amp; FAVORITE</div>
-              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-                <div class="score-bar">
-                  {{range scoreRange}}
-                    <form action="/admin/assets/rate" method="POST" style="display:inline;">
-                      <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
-                      <input type="hidden" name="rating" value="{{.}}">
-                      <input type="hidden" name="favorite" value="{{if $.SelectedAsset.Favorite}}1{{else}}0{{end}}">
-                      <button type="submit" class="score-btn {{if eq $.SelectedAsset.Rating .}}active{{end}}" style="min-width:24px;height:24px;font-size:10px;">{{.}}</button>
-                    </form>
-                  {{end}}
-                </div>
-                <form action="/admin/assets/rate" method="POST" style="display:inline;">
-                  <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
-                  <input type="hidden" name="rating" value="{{.SelectedAsset.Rating}}">
-                  <input type="hidden" name="toggle_favorite" value="1">
-                  <button type="submit" class="fav-toggle-btn {{if .SelectedAsset.Favorite}}active{{end}}" style="height:24px;font-size:11px;">
-                    {{if .SelectedAsset.Favorite}}♥ Favorited{{else}}♡ Favorite{{end}}
-                  </button>
-                </form>
-              </div>
-            </div>
-
-            <div class="facet-title">
-              <span>POSITIVE PROMPT</span>
-              <button type="button" class="btn-ghost" style="padding:2px 8px;" onclick="navigator.clipboard.writeText(document.getElementById('pos-prompt').innerText)">Copy</button>
-            </div>
-            <div class="prompt-box" style="font-size:12px;">{{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}(No positive prompt){{end}}</div>
-
-            {{if .SelectedAsset.Metadata.NegativePrompt}}
-              <div class="facet-title"><span>NEGATIVE PROMPT</span></div>
-              <div class="prompt-box" style="color:#fca5a5;">{{.SelectedAsset.Metadata.NegativePrompt}}</div>
-            {{end}}
-
-            <div class="kv-box">
-              <div class="kv-label">Checkpoint &amp; Hash</div>
-              <div class="kv-val">{{if .SelectedAsset.Metadata.ModelName}}{{.SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}} {{if .SelectedAsset.Metadata.ModelHash}}({{.SelectedAsset.Metadata.ModelHash}}){{end}}</div>
-            </div>
-            <div class="kv-box">
-              <div class="kv-label">Generation Parameters</div>
-              <div class="kv-val">Steps: {{.SelectedAsset.Metadata.Steps}} | CFG: {{.SelectedAsset.Metadata.CFGScale}} | Seed: {{.SelectedAsset.Metadata.Seed}} | {{.SelectedAsset.Metadata.Sampler}} {{.SelectedAsset.Metadata.Scheduler}}</div>
-            </div>
-
-            {{if .SelectedAsset.Metadata.PositivePrompt}}
-              <div>
-                <div class="kv-label" style="margin-bottom:6px;">Filter Catalog by Caption Trigger</div>
-                <div class="tag-cloud">
-                  {{range promptTokens .SelectedAsset.Metadata.PositivePrompt}}
-                    <a href="/?trigger={{.}}" class="tag-pill">{{.}}</a>
-                  {{end}}
-                </div>
-              </div>
-            {{end}}
-
-            {{if .SelectedAsset.Metadata.RawMetadata}}
-              <div>
-                <div class="kv-label" style="margin-bottom:6px;">Raw Metadata / Sidecar (.txt)</div>
-                <pre class="prompt-box" style="max-height:220px;overflow:auto;white-space:pre-wrap;">{{.SelectedAsset.Metadata.RawMetadata}}</pre>
-              </div>
-            {{end}}
-          </aside>
-        </div>
-      </div>
-
-      <!-- Related Media Carousels: Same Category, Same Character, Same Group, Same Model -->
-      {{if .RelatedAssets.SameCategory}}
-        <div style="margin-bottom:26px;">
-          <div class="results-bar">
-            <div class="results-count" style="font-size:14px;">
-              More Media in Category <strong style="font-size:16px;color:#6ee7b7;">{{.SelectedAsset.Category}}</strong>
-            </div>
-            <a href="/?category={{.SelectedAsset.Category}}" class="btn-ghost">Browse All in '{{.SelectedAsset.Category}}' &rarr;</a>
-          </div>
-          <div class="asset-grid">
-            {{range .RelatedAssets.SameCategory}}
-              <a href="/?asset_id={{.ID}}" class="asset-card">
-                <div class="asset-thumb-wrap">
-                  {{if eq .MediaType "video"}}
-                    <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
-                  {{else}}
-                    <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
-                  {{end}}
-                  <span class="asset-type-corner">{{.Metadata.Engine}}</span>
-                  <div class="asset-score-corner">
-                    {{if .Favorite}}<span class="fav-badge" title="Favorite">♥</span>{{end}}
-                    {{if gt .Rating 0}}<span class="score-badge" title="Score: {{.Rating}}/10">★ {{.Rating}}/10</span>{{end}}
-                  </div>
-                </div>
-                <div class="asset-meta">
-                  <div class="badge-row">
-                    {{if .Subcategory}}<span class="badge-chip" style="color:#6ee7b7;">{{.Subcategory}}</span>{{end}}
-                    {{if .Metadata.ModelName}}<span class="badge-chip">{{.Metadata.ModelName}}</span>{{end}}
-                  </div>
-                  <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
-                </div>
-              </a>
-            {{end}}
-          </div>
-        </div>
-      {{end}}
-
-      {{if .RelatedAssets.SameCharacter}}
-        <div style="margin-bottom:26px;">
-          <div class="results-bar">
-            <div class="results-count" style="font-size:14px;">
-              More Media Featuring Character
-              {{range $idx, $ch := .SelectedAsset.Characters}}
-                {{if eq $idx 0}}<strong style="font-size:16px;color:#60a5fa;">{{$ch.Name}}</strong>{{end}}
-              {{end}}
-            </div>
-            {{range $idx, $ch := .SelectedAsset.Characters}}
-              {{if eq $idx 0}}<a href="/?character_id={{$ch.ID}}" class="btn-ghost">View Character Gallery &rarr;</a>{{end}}
-            {{end}}
-          </div>
-          <div class="asset-grid">
-            {{range .RelatedAssets.SameCharacter}}
-              <a href="/?asset_id={{.ID}}" class="asset-card">
-                <div class="asset-thumb-wrap">
-                  {{if eq .MediaType "video"}}
-                    <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
-                  {{else}}
-                    <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
-                  {{end}}
-                  <span class="asset-type-corner">{{.Metadata.Engine}}</span>
-                  <div class="asset-score-corner">
-                    {{if .Favorite}}<span class="fav-badge" title="Favorite">♥</span>{{end}}
-                    {{if gt .Rating 0}}<span class="score-badge" title="Score: {{.Rating}}/10">★ {{.Rating}}/10</span>{{end}}
-                  </div>
-                </div>
-                <div class="asset-meta">
-                  <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
-                </div>
-              </a>
-            {{end}}
-          </div>
-        </div>
-      {{end}}
-
-      {{if .RelatedAssets.SameGroup}}
-        <div style="margin-bottom:36px;">
-          <div class="results-bar">
-            <div class="results-count" style="font-size:14px;">
-              More Media in Group / Folder
-              {{range $idx, $gr := .SelectedAsset.Groups}}
-                {{if eq $idx 0}}<strong style="font-size:16px;color:#93c5fd;">{{$gr.Name}}</strong>{{end}}
-              {{end}}
-            </div>
-            {{range $idx, $gr := .SelectedAsset.Groups}}
-              {{if eq $idx 0}}<a href="/?group_id={{$gr.ID}}" class="btn-ghost">Browse Group &rarr;</a>{{end}}
-            {{end}}
-          </div>
-          <div class="asset-grid">
-            {{range .RelatedAssets.SameGroup}}
-              <a href="/?asset_id={{.ID}}" class="asset-card">
-                <div class="asset-thumb-wrap">
-                  {{if eq .MediaType "video"}}
-                    <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
-                  {{else}}
-                    <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
-                  {{end}}
-                  <span class="asset-type-corner">{{.Metadata.Engine}}</span>
-                  <div class="asset-score-corner">
-                    {{if .Favorite}}<span class="fav-badge" title="Favorite">♥</span>{{end}}
-                    {{if gt .Rating 0}}<span class="score-badge" title="Score: {{.Rating}}/10">★ {{.Rating}}/10</span>{{end}}
-                  </div>
-                </div>
-                <div class="asset-meta">
-                  <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
-                </div>
-              </a>
-            {{end}}
-          </div>
-        </div>
-      {{end}}
-
-    {{else if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}
-      <!-- Unified Prompt Studio & Remix Page -->
-      <div style="margin:20px 0 44px;">
-        <!-- Top Status & Subheader -->
-        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:14px 18px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-          <div>
-            {{if .SelectedAsset}}
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <span class="badge-chip" style="background:#4c1d95;color:#ddd6fe;border-color:#7c3aed;font-weight:700;">&#10024; Remixing Media #{{.SelectedAsset.ID}}</span>
-                <strong style="font-size:15px;color:#fff;">{{.SelectedAsset.FileName}}</strong>
-                <span class="badge-chip">{{.SelectedAsset.MediaType}}</span>
-                <span class="badge-chip">{{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px</span>
-                {{if .SelectedAsset.Metadata.Engine}}<span class="badge-chip" style="color:#6ee7b7;">Engine: {{.SelectedAsset.Metadata.Engine}}</span>{{end}}
-              </div>
-              <p style="color:var(--text-muted);font-size:12px;margin-top:4px;margin-bottom:0;">
-                Original prompt and media preloaded. Edit prompt or adjust scene direction to adapt to any target model.
-              </p>
-            {{else}}
-              <div style="display:flex;align-items:center;gap:10px;">
-                <strong style="font-size:15px;color:#c084fc;">&#10024; Prompt Studio &amp; Remix</strong>
-                <span class="badge-chip">New Prompt Mode</span>
-              </div>
-              <p style="color:var(--text-muted);font-size:12px;margin-top:4px;margin-bottom:0;">
-                Synthesize a new prompt from text concepts, or attach an image from your computer to analyze with Vision.
-              </p>
-            {{end}}
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            {{if .SelectedAsset}}
-              {{if .PrevAssetID}}
-                <a href="/?tab=studio&asset_id={{.PrevAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;" title="Previous Media">&#10094; Prev</a>
-              {{end}}
-              {{if .NextAssetID}}
-                <a href="/?tab=studio&asset_id={{.NextAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;" title="Next Media">Next &#10095;</a>
-              {{end}}
-              <a href="/?asset_id={{.SelectedAsset.ID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;">View Asset Details &rarr;</a>
-              <a href="/?tab=studio" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;color:#fca5a5;border-color:#b91c1c;" title="Detach media to create a new prompt from scratch">&#x2715; Start Blank Prompt</a>
-            {{else}}
-              <a href="/?tab=settings" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;">Configure Defaults &amp; System Prompts &rarr;</a>
-            {{end}}
-          </div>
-        </div>
-
-        <div class="remix-grid">
-          <!-- Left Column: Visual Reference (Media Asset Preview OR Attached Image Dropzone) -->
-          <div class="remix-media-frame">
-            {{if .SelectedAsset}}
-              <!-- Catalog Media Preview & Video Frame Capture -->
-              <div class="remix-media-viewport">
-                {{if eq .SelectedAsset.MediaType "video"}}
-                  <video id="remix-video-el" src="/media/{{.SelectedAsset.RelPath}}" controls crossorigin="anonymous" playsinline style="max-width:100%;max-height:500px;display:block;"></video>
-                  <canvas id="remix-frame-canvas" style="display:none;"></canvas>
-                {{else}}
-                  <img id="remix-image-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" style="max-width:100%;max-height:500px;object-fit:contain;display:block;">
-                {{end}}
-              </div>
-
-              {{if eq .SelectedAsset.MediaType "video"}}
-                <div style="padding:8px 12px;background:#0d1527;border:1px solid #1e3a6d;border-radius:4px;font-size:11.5px;color:#93c5fd;display:flex;align-items:center;gap:8px;">
-                  <span>&#9654; <strong>Video Frame Capture Active:</strong> Pause or seek to the exact moment to remix. That frame will be analyzed by the Vision model.</span>
-                </div>
-              {{end}}
-
-              <!-- Original Prompt Reference -->
-              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:12px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                  <span class="kv-label" style="margin-bottom:0;">Indexed Original Prompt</span>
-                  {{if .SelectedAsset.Metadata.PositivePrompt}}
-                    <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;" onclick="document.getElementById('studio-prompt-input').value = {{printf "%q" .SelectedAsset.Metadata.PositivePrompt}}">Reload into Editor</button>
-                  {{end}}
-                </div>
-                <div class="prompt-box" style="font-size:12px;max-height:140px;overflow:auto;">
-                  {{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}<span style="color:var(--text-muted);">(No positive prompt in metadata)</span>{{end}}
-                </div>
-              </div>
-            {{else}}
-              <!-- Attached Image Mode: Dropzone & Live Preview -->
-              <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:16px;">
-                <div class="kv-label" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-                  <span>Reference Image (Optional)</span>
-                  <span style="font-size:11px;color:var(--text-muted);">Vision Analysis</span>
-                </div>
-
-                <!-- Dropzone for custom image -->
-                <div id="studio-dropzone" class="studio-dropzone" onclick="document.getElementById('studio-file-input').click()" ondragover="handleStudioDragOver(event)" ondragleave="handleStudioDragLeave(event)" ondrop="handleStudioDrop(event)">
-                  <input type="file" id="studio-file-input" name="attached_file" accept="image/*" style="display:none;" onchange="handleStudioFileSelect(this)">
-                  <div style="font-size:28px;margin-bottom:6px;">📷</div>
-                  <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Drop an image here or click to browse</div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Supports PNG, JPG, WEBP. Paste from clipboard (<kbd>Ctrl+V</kbd>) is also supported.</div>
-                </div>
-
-                <!-- Attached image preview wrap -->
-                <div id="studio-attached-preview-wrap" style="display:none;margin-top:12px;background:#030712;border:1px solid #1e3a6d;border-radius:6px;padding:12px;text-align:center;">
-                  <img id="studio-attached-img" src="" alt="Attached image preview" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:4px;display:block;margin:0 auto 10px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span id="studio-attached-info" style="font-size:11px;color:#93c5fd;font-weight:600;"></span>
-                    <button type="button" class="btn-ghost" style="padding:3px 10px;font-size:11px;color:#f87171;border-color:#ef4444;" onclick="removeStudioAttachedImage()">✕ Remove Image</button>
-                  </div>
-                </div>
-
-                <div style="margin-top:14px;padding:10px 12px;background:#060d1b;border:1px solid var(--border-navy);border-radius:4px;font-size:11.5px;color:var(--text-muted);line-height:1.4;">
-                  💡 <strong>Tip:</strong> If you attach an image, Studio sends it to the Vision model for visual analysis. If no image is attached, it generates from your text prompt and chosen target model.
-                </div>
-              </div>
-            {{end}}
-
-            <!-- Target Backend Status Indicator -->
-            <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:10px 12px;font-size:11.5px;color:var(--text-muted);">
-              <div>Text Route: <strong>[{{.Settings.Text2PromptProvider}}]</strong> <code>{{.Settings.Text2PromptModel}}</code></div>
-              <div>Vision Route: <strong>[{{.Settings.Image2PromptProvider}}]</strong> <code>{{.Settings.Image2PromptModel}}</code></div>
-              <div style="margin-top:4px;">
-                Ollama: {{if .AIStatus.OllamaOnline}}<span style="color:#34d399;">Online</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}} |
-                oMLX: {{if .AIStatus.OMLXOnline}}<span style="color:#34d399;">Online ({{len .AIStatus.OMLXModels}} models)</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}}
-              </div>
-            </div>
-          </div>
-
-          <!-- Right Column: Prompt Studio Workbench -->
-          <div style="display:flex;flex-direction:column;gap:14px;">
-            <div style="background:var(--bg-panel);border:1px solid #7c3aed;border-radius:6px;padding:18px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <h3 style="font-size:16px;color:#c084fc;margin:0;">Prompt Generation &amp; Synthesis</h3>
-                <a href="/?tab=settings" style="font-size:11px;color:#93c5fd;">Active Defaults &rarr;</a>
-              </div>
-
-              {{if .AIResultError}}
-                <div style="margin-bottom:12px;padding:10px 12px;background:#3b0f18;border:1px solid #ef4444;border-radius:4px;color:#fca5a5;font-size:12px;">
-                  {{.AIResultError}}
-                </div>
-              {{end}}
-
-              {{if .AIResultPrompt}}
-                <div style="margin-bottom:14px;background:#064e3b;border:1px solid #059669;border-radius:6px;padding:12px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#6ee7b7;">
-                    <span>SYNTHESIZED PROMPT for target <strong>{{.AITargetProfile}}</strong>:</span>
-                    <button type="button" id="btn-copy-prompt" class="btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="copyStudioPrompt()">Copy Prompt</button>
-                  </div>
-                  <div id="studio-result-out" class="prompt-box" style="color:#a7f3d0;background:#03281f;border-color:#059669;font-size:12.5px;white-space:pre-wrap;word-break:break-word;">{{.AIResultPrompt}}</div>
-                </div>
-              {{end}}
-
-              <form id="studio-workbench-form" action="/admin/ollama/image2prompt" method="POST" enctype="multipart/form-data" onsubmit="prepareStudioSubmission(event, this)" style="display:flex;flex-direction:column;gap:12px;">
-                <input type="hidden" name="asset_id" value="{{if .SelectedAsset}}{{.SelectedAsset.ID}}{{else}}0{{end}}">
-                <input type="hidden" name="attached_image_data" id="attached_image_data" value="">
-                <input type="hidden" name="video_frame_data" id="video_frame_data" value="">
-                <input type="hidden" name="source_tab" value="studio">
-
-                <!-- Target Generator Profile & Mode -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                  <div>
-                    <label class="kv-label">Target Generator Model Family (System Prompt)</label>
-                    <select name="profile_slug" id="studio-profile-select" class="input-dark" onchange="onStudioProfileChange(this)">
-                      {{range .PromptProfiles}}
-                        <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} &mdash; {{.TargetModality}})</option>
-                      {{end}}
-                    </select>
-                  </div>
-                  <div>
-                    <label class="kv-label">Operation Mode</label>
-                    <select name="mode" id="studio-mode-select" class="input-dark" onchange="onStudioModeChange(this.value)">
-                      {{if .SelectedAsset}}
-                        <option value="vision" {{if or (eq $.AIMode "") (eq $.AIMode "vision")}}selected{{end}}>Vision Analysis (Inspect Media/Frame + Direction)</option>
-                        <option value="remix" {{if eq $.AIMode "remix"}}selected{{end}}>Prompt Translation (Rewrite Existing Prompt)</option>
-                      {{else}}
-                        <option value="remix" id="mode-opt-remix" {{if or (eq $.AIMode "") (eq $.AIMode "remix")}}selected{{end}}>Text Prompt Synthesis (From Concept)</option>
-                        <option value="vision" id="mode-opt-vision" {{if eq $.AIMode "vision"}}selected{{end}}>Vision Analysis (Using Attached Image)</option>
-                      {{end}}
-                    </select>
-                  </div>
-                </div>
-
-                <!-- Concept / Caption / Prompt Field (Preloaded with caption if entered from media!) -->
-                <div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <label class="kv-label" style="margin-bottom:0;">
-                      {{if .SelectedAsset}}
-                        Caption / Prompt to Remix (Preloaded from Media)
-                      {{else}}
-                        Concept, Scene Idea, or Raw Prompt to Transform
-                      {{end}}
-                    </label>
-                    <span style="font-size:11px;color:var(--text-muted);">Editable</span>
-                  </div>
-                  <textarea name="user_hint" id="studio-prompt-input" rows="4" class="input-dark" style="width:100%;resize:vertical;font-family:monospace;font-size:12.5px;line-height:1.4;" placeholder="e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk, volumetric god rays, anamorphic lens flare...">{{.AIInputConcept}}</textarea>
-                </div>
-
-                <!-- Character Injection & Quick Overrides -->
-                <div style="display:grid;grid-template-columns:1fr 1fr 120px;gap:10px;">
-                  <div>
-                    <label class="kv-label">Inject Character Identity (Optional)</label>
-                    <select name="character_id" class="input-dark">
-                      <option value="0">None (Preserve Original Subject)</option>
-                      {{range .Page.Characters}}
-                        <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
-                      {{end}}
-                    </select>
-                  </div>
-                  <div>
-                    <label class="kv-label">Quick LLM / Vision Override (Optional)</label>
-                    <select name="override_route" class="input-dark">
-                      <option value="">Settings Default</option>
-                      {{range .AIStatus.AllModels}}
-                        <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
-                      {{end}}
-                    </select>
-                  </div>
-                  <div>
-                    <label class="kv-label">Thinking Mode</label>
-                    <select name="override_think" class="input-dark">
-                      <option value="">Default</option>
-                      <option value="off">Off</option>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
-                  </div>
-                </div>
-
-                <!-- Target Model LoRAs -->
-                {{if .ModelLoRAs}}
-                  <div style="background:#040914;border:1px solid var(--border-navy);border-radius:4px;padding:8px 10px;">
-                    <div class="kv-label" style="margin-bottom:6px;">Select Model-Specific LoRAs to Incorporate (Optional)</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                      {{range .ModelLoRAs}}
-                        <label class="checkbox-item lora-chip-item" data-model="{{.ProfileSlug}}" title="{{.Description}} | Examples: {{.UsageExamples}}" style="background:#0b172e;border:1px solid #1e3a6d;padding:3px 8px;border-radius:4px;">
-                          <span>
-                            <input type="checkbox" name="lora_id" value="{{.ID}}">
-                            <strong style="color:#60a5fa;">[{{.ProfileSlug}}]</strong> {{.Name}}
-                            {{if .TriggerWords}}<span style="color:#6ee7b7;font-size:10px;">({{ .TriggerWords }})</span>{{end}}
-                          </span>
-                        </label>
-                      {{end}}
-                    </div>
-                  </div>
-                {{end}}
-
-                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;flex-wrap:wrap;gap:8px;">
-                  <div>
-                    {{if .SelectedAsset}}
-                      <label style="font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:6px;cursor:pointer;">
-                        <input type="checkbox" name="save_to_asset" value="1">
-                        <span>Overwrite asset's primary prompt in database &amp; sidecar .txt</span>
-                      </label>
-                    {{end}}
-                  </div>
-                  <button type="submit" id="btn-submit-studio" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;padding:9px 22px;font-weight:700;font-size:13px;">
-                    &#10024; Generate Prompt
-                  </button>
-                </div>
-              </form>
-
-              <!-- History inside studio card -->
-              {{if .GeneratedHistory}}
-                <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-navy);">
-                  <div class="kv-label" style="margin-bottom:6px;">Recent Generated Prompts</div>
-                  <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;">
-                    {{range .GeneratedHistory}}
-                      <div class="prompt-box" style="font-size:11px;">
-                        <div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:3px;">
-                          <span>
-                            Target: <strong style="color:#60a5fa;">{{.TargetProfileSlug}}</strong>
-                            {{if .CharacterName}}| <span style="color:#6ee7b7;">{{.CharacterName}}</span>{{end}}
-                            {{if .AssetID}}| <a href="/?tab=studio&asset_id={{.AssetID}}" style="color:#93c5fd;text-decoration:underline;">Asset #{{.AssetID}}</a>{{end}}
-                          </span>
-                          <span>[{{.Provider}}] {{.ModelName}}</span>
-                        </div>
-                        <div style="color:#e2e8f0;">{{.OutputPrompt}}</div>
-                      </div>
-                    {{end}}
-                  </div>
-                </div>
-              {{end}}
-            </div>
-          </div>
-        </div>
-
-        <!-- Character Scene & Movie Generator collapsible card -->
-        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:18px;margin-top:20px;">
-          <h3 style="font-size:15px;margin-bottom:8px;color:#93c5fd;">Character Scene &amp; Movie Prompt Generator</h3>
-          <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">
-            Pick any Character from your catalog (preserving their trigger words, base prompt, and LoRAs) and place them into a new scene, movie aesthetic, or video camera shot for Target Model.
-          </p>
-          <form action="/admin/ollama/character2prompt" method="POST" style="display:flex;flex-direction:column;gap:8px;">
-            <input type="hidden" name="return_tab" value="studio">
-            {{if .SelectedAsset}}<input type="hidden" name="ref_asset_id" value="{{.SelectedAsset.ID}}">{{end}}
-            <div style="display:grid;grid-template-columns:200px 220px 1fr 160px;gap:8px;align-items:center;">
-              <select name="character_id" class="input-dark" required>
-                <option value="">Select Character...</option>
-                {{range .Page.Characters}}
-                  <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
-                {{end}}
-              </select>
-              <select name="profile_slug" class="input-dark">
-                {{range .PromptProfiles}}
-                  <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
-                {{end}}
-              </select>
-              <select name="override_route" class="input-dark">
-                <option value="">Model: Settings Default ([{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}})</option>
-                {{range .AIStatus.AllModels}}
-                  <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
-                {{end}}
-              </select>
-              <select name="override_think" class="input-dark">
-                <option value="">Think: Settings ({{.Settings.Text2PromptThink}})</option>
-                <option value="off">Think: Off</option>
-                <option value="low">Think: Low</option>
-                <option value="medium">Think: Medium</option>
-                <option value="high">High</option>
-                <option value="default">Default</option>
-              </select>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
-              <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, lighting, camera movement (e.g. 'Blade Runner 2049 rooftop rain, slow dolly-in')..." class="input-dark" required>
-              <button type="submit" class="btn-primary">Generate Character Prompt</button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Quick Catalog Media Picker (shown when no asset is loaded so user can easily pick one to remix) -->
-        {{if not .SelectedAsset}}
-          <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;margin-top:20px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-              <div>
-                <h3 style="font-size:15px;margin:0;color:#c084fc;">Or Pick a Media from Your Catalog to Remix</h3>
-                <p style="color:var(--text-muted);font-size:12px;margin:2px 0 0;">Click any media asset below to load its frame, preview, and generation prompt into Studio.</p>
-              </div>
-              <a href="/" class="btn-ghost" style="font-size:11.5px;">Browse Full Catalog &rarr;</a>
-            </div>
-            <div class="asset-grid">
-              {{range .Page.Assets}}
-                <a href="/?tab=studio&asset_id={{.ID}}" class="asset-card" title="Remix {{.FileName}}">
-                  <div class="asset-thumb-wrap">
-                    {{if eq .MediaType "video"}}
-                      <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
-                    {{else}}
-                      <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
-                    {{end}}
-                    <span class="asset-type-corner">{{.Metadata.Engine}}</span>
-                  </div>
-                  <div class="asset-meta">
-                    <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
-                  </div>
-                </a>
-              {{end}}
-            </div>
-          </div>
-        {{end}}
-      </div>
 
     {{else if eq .ActiveTab "generators"}}
       <!-- Dedicated Section: Generator Models, Generation/Context System Prompts & Model-Specific LoRAs -->

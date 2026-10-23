@@ -1,11 +1,17 @@
 package web
 
 import (
+	"context"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/jonathanhecl/diffusionCatalog/internal/adapter/metadata"
+	"github.com/jonathanhecl/diffusionCatalog/internal/adapter/storage/sqlite"
+	"github.com/jonathanhecl/diffusionCatalog/internal/adapter/vision"
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
+	"github.com/jonathanhecl/diffusionCatalog/internal/usecase"
 )
 
 func TestPageURL(t *testing.T) {
@@ -215,5 +221,55 @@ func TestParseCatalogFilter(t *testing.T) {
 	}
 	if f.SortBy != "rating" {
 		t.Errorf("expected SortBy rating, got %q", f.SortBy)
+	}
+}
+
+func TestDirectorTabRendering(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, "cache")
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	extractor := metadata.NewExtractor()
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, nil)
+
+	srv, err := NewServer(mediaDir, cacheDir, "NoopVision", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("failed to construct web server: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/?tab=director", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("expected HTTP 200, got %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "director-container") {
+		t.Errorf("expected body to contain director-container, got:\n%s", body[:min(len(body), 500)])
+	}
+	if !strings.Contains(body, "directorSvg") {
+		t.Errorf("expected body to contain directorSvg canvas element")
+	}
+	if !strings.Contains(body, "CHARACTERS &amp; FIGURES") {
+		t.Errorf("expected body to contain character palette")
+	}
+	if !strings.Contains(body, "aspect-btn") {
+		t.Errorf("expected body to contain aspect ratio buttons")
+	}
+	if strings.Contains(body, `Search prompts, trigger words, checkpoints`) {
+		t.Errorf("director tab should not render the catalog search grid!")
 	}
 }
