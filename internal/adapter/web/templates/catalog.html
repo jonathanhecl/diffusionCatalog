@@ -88,7 +88,7 @@
         <div class="search-main-group">
           <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
           <button type="submit" class="btn-primary">Search</button>
-          {{if or .Filter.Query .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0)}}
+          {{if or .Filter.Query .Filter.RootID .Filter.Category .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0)}}
             <a href="{{if .Filter.FaceMode}}/?face_mode=1{{else}}/{{end}}" class="btn-ghost" style="display:inline-flex;align-items:center;">Reset</a>
           {{end}}
         </div>
@@ -914,13 +914,107 @@
           {{end}}
         </div>
 
-        <!-- 2. Runtime & Vision Adapter Status -->
+        <!-- 2. Multi-Root Media Folders & Disks (.diffusion-catalog.json + .txt sidecars) -->
         <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-          <h2 style="font-size:18px;margin-bottom:10px;">2. Storage &amp; Pluggable Face Vision Adapter</h2>
+          <h2 style="font-size:18px;margin-bottom:4px;">2. Media Folders Across Disks &amp; Volumes (<code>.diffusion-catalog.json</code> + <code>.txt</code> Sidecar Prompts)</h2>
+          <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
+            Register multiple folders across local drives or external volumes. Each accessible folder maintains its own portable <code>.diffusion-catalog.json</code> classification file (seeded from your default categories below) and loads/creates companion <code>&lt;filename&gt;.txt</code> prompt sidecars automatically.
+          </p>
+
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+            {{range .Page.MediaRoots}}
+              <div style="display:flex;justify-content:space-between;align-items:center;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:10px 14px;gap:10px;flex-wrap:wrap;">
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:13px;">
+                    {{.Label}}
+                    {{if .Accessible}}
+                      <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;margin-left:6px;">Accessible ({{.AssetCount}} assets)</span>
+                    {{else}}
+                      <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;margin-left:6px;">Offline / Unmounted</span>
+                    {{end}}
+                  </div>
+                  <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
+                    Path: <code>{{.Path}}</code> | Manifest: <code>{{.Path}}/.diffusion-catalog.json</code>
+                  </div>
+                  {{if .Categories}}
+                    <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:5px;">
+                      {{range .Categories}}
+                        <span class="badge-chip" style="font-size:10.5px;">{{.Name}}{{if .Subcategories}}: {{joinStrings .Subcategories}}{{end}}</span>
+                      {{end}}
+                    </div>
+                  {{end}}
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <a href="/?root_id={{.ID}}" class="btn-ghost" style="font-size:11.5px;padding:4px 10px;">Filter Catalog</a>
+                  {{if gt .ID 1}}
+                    <form action="/admin/roots/delete" method="POST" style="display:inline;">
+                      <input type="hidden" name="id" value="{{.ID}}">
+                      <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;font-size:11.5px;padding:4px 10px;">Remove Folder</button>
+                    </form>
+                  {{end}}
+                </div>
+              </div>
+            {{end}}
+          </div>
+
+          <form action="/admin/roots/add" method="POST" style="display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:center;">
+            <input type="text" name="label" placeholder="Folder / Disk Label (e.g. External SSD Flux)" class="input-dark">
+            <input type="text" name="path" placeholder="Absolute or relative folder path (e.g. /Volumes/AI_Drive/outputs or ./media_extra)" class="input-dark" required>
+            <button type="submit" class="btn-primary">+ Add Media Folder &amp; Initialize Manifest</button>
+          </form>
+        </div>
+
+        <!-- 3. Default Agnostic Categories & Subcategories (Applied to New Media Folders) -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+          <h2 style="font-size:18px;margin-bottom:4px;">3. Global Default Agnostic Categories &amp; Subcategories</h2>
+          <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
+            Stored in the global database and automatically written into <code>.diffusion-catalog.json</code> whenever a new media folder is added.
+          </p>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+            {{range .Page.DefaultCategories}}
+              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:10px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:13px;">{{.Name}} <span class="badge-chip" style="margin-left:4px;">{{.Facet}}</span></div>
+                  <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                    Subcategories: <code>{{if .Subcategories}}{{joinStrings .Subcategories}}{{else}}(none){{end}}</code>
+                  </div>
+                </div>
+                <form action="/admin/categories/delete" method="POST">
+                  <input type="hidden" name="id" value="{{.ID}}">
+                  <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:2px 8px;font-size:11px;">Delete</button>
+                </form>
+              </div>
+            {{end}}
+          </div>
+
+          <form action="/admin/categories/upsert" method="POST" style="display:grid;grid-template-columns:220px 150px 1fr auto;gap:10px;align-items:center;">
+            <input type="text" name="name" placeholder="Category Name (e.g. Lighting &amp; Mood)" class="input-dark" required>
+            <input type="text" name="facet" value="category" placeholder="Facet (e.g. style, subject)" class="input-dark">
+            <input type="text" name="subcategories" placeholder="Comma-separated subcategories (e.g. Chiaroscuro, Rim Light, Neon Fog)" class="input-dark">
+            <button type="submit" class="btn-primary">Save Default Category</button>
+          </form>
+        </div>
+
+        <!-- 4. Interchangeable Global Database Switcher & Runtime Status -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+          <h2 style="font-size:18px;margin-bottom:4px;">4. Interchangeable Global Configuration Database (SQLite Switcher)</h2>
+          <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
+            The SQLite database holds global configuration (AI server routing, generator models, system prompts, LoRA docs, and default categories), while each media folder keeps its own classifications in <code>.diffusion-catalog.json</code>. Switch between different <code>.db</code> files at runtime without restarting.
+          </p>
+
+          <form action="/admin/db/switch" method="POST" style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;margin-bottom:16px;">
+            <input type="text" name="db_path" value="{{.CurrentDBPath}}" placeholder="Path to SQLite .db file (e.g. ./catalog.db or /Volumes/External/studio-config.db)" class="input-dark" required>
+            <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;white-space:nowrap;">
+              <input type="checkbox" name="rescan" value="1" checked> Rescan folders after switch
+            </label>
+            <button type="submit" class="btn-primary">Switch Global Database</button>
+          </form>
+
           <div class="kv-table">
             <div class="kv-box">
-              <div class="kv-label">Source Media Directory (Read-Only)</div>
-              <div class="kv-val"><code>{{.MediaDir}}</code></div>
+              <div class="kv-label">Active Global SQLite DB</div>
+              <div class="kv-val"><code>{{.CurrentDBPath}}</code></div>
             </div>
             <div class="kv-box">
               <div class="kv-label">Active Face Vision Adapter</div>
@@ -928,7 +1022,7 @@
             </div>
             <div class="kv-box">
               <div class="kv-label">Last Scan Summary</div>
-              <div class="kv-val">{{.ScanReport.ScannedFiles}} files ({{.ScanReport.ImagesFound}} images, {{.ScanReport.VideosFound}} videos)</div>
+              <div class="kv-val">{{.ScanReport.ScannedRoots}} roots ({{.ScanReport.SkippedRoots}} skipped) | {{.ScanReport.ScannedFiles}} files ({{.ScanReport.ImagesFound}} images, {{.ScanReport.VideosFound}} videos)</div>
             </div>
           </div>
         </div>
@@ -1079,6 +1173,34 @@
             {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
 
             <div class="facet-block">
+              <div class="facet-title">
+                <span>MEDIA FOLDER / DISK</span>
+                <a href="/?tab=settings" style="font-size:10px;color:#60a5fa;">+ Add</a>
+              </div>
+              <select name="root_id" class="input-dark" onchange="this.form.submit()">
+                <option value="0">All Accessible Folders ({{len .Page.MediaRoots}})</option>
+                {{range .Page.MediaRoots}}
+                  <option value="{{.ID}}" {{if eq $.Filter.RootID .ID}}selected{{end}}>
+                    {{.Label}} ({{.AssetCount}}){{if not .Accessible}} [offline]{{end}}
+                  </option>
+                {{end}}
+              </select>
+            </div>
+
+            <div class="facet-block">
+              <div class="facet-title"><span>FOLDER CATEGORIES</span></div>
+              <select name="category" class="input-dark" style="margin-bottom:6px;" onchange="this.form.submit()">
+                <option value="">All Categories</option>
+                {{range .Page.DefaultCategories}}
+                  <option value="{{.Name}}" {{if eq $.Filter.Category .Name}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+              </select>
+              {{if .Filter.Category}}
+                <input type="text" name="subcategory" value="{{.Filter.Subcategory}}" placeholder="Subcategory filter..." class="input-dark" style="font-size:11.5px;padding:5px 8px;">
+              {{end}}
+            </div>
+
+            <div class="facet-block">
               <div class="facet-title"><span>GENERATOR ENGINE</span></div>
               <div class="checkbox-list">
                 {{range .Page.Engines}}
@@ -1212,6 +1334,12 @@
                   </div>
                   <div class="asset-meta">
                     <div class="badge-row">
+                      {{if .RootLabel}}
+                        <span class="badge-chip" style="border-color:#1e3a8a;color:#93c5fd;">{{.RootLabel}}</span>
+                      {{end}}
+                      {{if .Category}}
+                        <span class="badge-chip" style="color:#6ee7b7;">{{.Category}}{{if .Subcategory}} / {{.Subcategory}}{{end}}</span>
+                      {{end}}
                       {{if .Metadata.ModelName}}
                         <span class="badge-chip">{{.Metadata.ModelName}}</span>
                       {{end}}
