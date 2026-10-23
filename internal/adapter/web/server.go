@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -86,8 +87,8 @@ func (s *Server) Handler() http.Handler {
 	// Embedded static stylesheet
 	mux.Handle("GET /static/", http.FileServer(http.FS(embeddedAssets)))
 
-	// Read-only media folder delivery and local cache crops
-	mux.Handle("GET /media/", http.StripPrefix("/media/", http.FileServer(http.Dir(s.mediaDir))))
+	// Read-only media folder delivery across multiple roots/disks and local cache crops
+	mux.HandleFunc("GET /media/", s.handleServeMedia)
 	mux.Handle("GET /cache/", http.StripPrefix("/cache/", http.FileServer(http.Dir(s.cacheDir))))
 
 	// Main Catalog UI
@@ -102,13 +103,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/logout", s.handleLogout)
 	mux.HandleFunc("POST /admin/scan", s.handleScan)
 	mux.HandleFunc("POST /admin/assets/tag", s.handleAddTag)
+	mux.HandleFunc("POST /admin/assets/category", s.handleSetAssetCategory)
 	mux.HandleFunc("POST /admin/groups/create", s.handleCreateGroup)
 	mux.HandleFunc("POST /admin/groups/attach", s.handleAttachGroup)
 	mux.HandleFunc("POST /admin/characters/create", s.handleCreateCharacter)
 	mux.HandleFunc("POST /admin/characters/attach", s.handleAttachCharacter)
 
-	// Settings, Generator System Prompts & Per-Model LoRA Docs
+	// Settings, Multi-Root Media Folders, Default Categories, DB Switcher, Generator System Prompts & Per-Model LoRA Docs
 	mux.HandleFunc("POST /admin/settings/save", s.handleSaveSettings)
+	mux.HandleFunc("POST /admin/db/switch", s.handleSwitchDB)
+	mux.HandleFunc("POST /admin/roots/add", s.handleAddMediaRoot)
+	mux.HandleFunc("POST /admin/roots/delete", s.handleDeleteMediaRoot)
+	mux.HandleFunc("POST /admin/categories/upsert", s.handleUpsertDefaultCategory)
+	mux.HandleFunc("POST /admin/categories/delete", s.handleDeleteDefaultCategory)
 	mux.HandleFunc("POST /admin/profiles/upsert", s.handleUpsertProfile)
 	mux.HandleFunc("POST /admin/profiles/delete", s.handleDeleteProfile)
 	mux.HandleFunc("POST /admin/loras/upsert", s.handleUpsertLoRA)
@@ -125,6 +132,7 @@ func (s *Server) Handler() http.Handler {
 type viewData struct {
 	ActiveTab         string
 	MediaDir          string
+	CurrentDBPath     string
 	VisionEngineName  string
 	AdminUser         string
 	Filter            domain.CatalogFilter
@@ -144,6 +152,36 @@ type viewData struct {
 	AITargetProfile   string
 	AICharacterID     int64
 	FlashNotice       string
+}
+
+func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
+	rel := strings.TrimPrefix(r.URL.Path, "/media/")
+	if rel == "" || strings.Contains(rel, "..") {
+		http.NotFound(w, r)
+		return
+	}
+
+	rootDir := s.mediaDir
+	if strings.HasPrefix(rel, "@root_") {
+		slash := strings.IndexByte(rel, '/')
+		if slash > 6 {
+			rootIDStr := rel[6:slash]
+			rel = rel[slash+1:]
+			if rootID, err := strconv.ParseInt(rootIDStr, 10, 64); err == nil && rootID > 0 {
+				if roots, err := s.catalog.ListMediaRoots(r.Context()); err == nil {
+					for _, mr := range roots {
+						if mr.ID == rootID && mr.Path != "" {
+							rootDir = mr.Path
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+
+	fullPath := filepath.Join(rootDir, filepath.FromSlash(rel))
+	http.ServeFile(w, r, fullPath)
 }
 
 func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
@@ -207,6 +245,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	data := viewData{
 		ActiveTab:        tab,
 		MediaDir:         s.mediaDir,
+		CurrentDBPath:    s.catalog.CurrentDBPath(),
 		VisionEngineName: s.visionEngineName,
 		AdminUser:        s.currentAdmin(r),
 		Filter:           filter,
@@ -243,14 +282,88 @@ func (s *Server) handleAPISettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cfg, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	roots, _ := s.catalog.ListMediaRoots(ctx)
+	cats, _ := s.catalog.ListDefaultCategories(ctx)
 	aiStatus := s.catalog.InspectAIBackends(ctx)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"settings":        cfg,
-		"prompt_profiles": profiles,
-		"ai_status":       aiStatus,
+		"current_db_path":    s.catalog.CurrentDBPath(),
+		"settings":           cfg,
+		"prompt_profiles":    profiles,
+		"media_roots":        roots,
+		"default_categories": cats,
+		"ai_status":          aiStatus,
 	})
+}
+
+func (s *Server) handleSwitchDB(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	newPath := strings.TrimSpace(r.FormValue("db_path"))
+	if newPath == "" {
+		http.Redirect(w, r, "/?tab=settings&notice=Database+path+cannot+be+empty", http.StatusSeeOther)
+		return
+	}
+	if err := s.catalog.SwitchDatabase(r.Context(), newPath); err != nil {
+		http.Redirect(w, r, "/?tab=settings&notice=Failed+to+switch+DB:+"+err.Error(), http.StatusSeeOther)
+		return
+	}
+	if r.FormValue("rescan") == "1" || r.FormValue("rescan") == "on" {
+		_, _ = s.scanner.Scan(r.Context())
+	}
+	http.Redirect(w, r, "/?tab=settings&notice=Switched+active+global+database+to+"+newPath, http.StatusSeeOther)
+}
+
+func (s *Server) handleAddMediaRoot(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	path := strings.TrimSpace(r.FormValue("path"))
+	label := strings.TrimSpace(r.FormValue("label"))
+	if path != "" {
+		_, _ = s.catalog.AddMediaRoot(r.Context(), path, label)
+		_, _ = s.scanner.Scan(r.Context())
+	}
+	http.Redirect(w, r, "/?tab=settings&notice=Media+folder+registered+and+scanned", http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteMediaRoot(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if id > 0 {
+		_ = s.catalog.DeleteMediaRoot(r.Context(), id)
+	}
+	http.Redirect(w, r, "/?tab=settings&notice=Media+folder+removed+from+index", http.StatusSeeOther)
+}
+
+func (s *Server) handleUpsertDefaultCategory(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	facet := strings.TrimSpace(r.FormValue("facet"))
+	color := strings.TrimSpace(r.FormValue("color"))
+	subs := strings.TrimSpace(r.FormValue("subcategories"))
+	if name != "" {
+		_, _ = s.catalog.UpsertDefaultCategory(r.Context(), name, facet, color, subs)
+	}
+	http.Redirect(w, r, "/?tab=settings&notice=Default+category+updated+and+synced+to+folder+manifests", http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteDefaultCategory(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if id > 0 {
+		_ = s.catalog.DeleteDefaultCategory(r.Context(), id)
+	}
+	http.Redirect(w, r, "/?tab=settings&notice=Default+category+deleted", http.StatusSeeOther)
+}
+
+func (s *Server) handleSetAssetCategory(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	cat := strings.TrimSpace(r.FormValue("category"))
+	sub := strings.TrimSpace(r.FormValue("subcategory"))
+	if assetID > 0 {
+		_ = s.catalog.SetAssetCategory(r.Context(), assetID, cat, sub)
+	}
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Asset+classification+saved+to+.diffusion-catalog.json", http.StatusSeeOther)
 }
 
 func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
@@ -380,6 +493,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	data := viewData{
 		ActiveTab:        "asset_detail",
 		MediaDir:         s.mediaDir,
+		CurrentDBPath:    s.catalog.CurrentDBPath(),
 		VisionEngineName: s.visionEngineName,
 		AdminUser:        s.currentAdmin(r),
 		Filter:           filter,
@@ -430,6 +544,7 @@ func (s *Server) handleCharacter2Prompt(w http.ResponseWriter, r *http.Request) 
 	data := viewData{
 		ActiveTab:        returnTab,
 		MediaDir:         s.mediaDir,
+		CurrentDBPath:    s.catalog.CurrentDBPath(),
 		VisionEngineName: s.visionEngineName,
 		AdminUser:        s.currentAdmin(r),
 		Filter:           filter,
@@ -482,6 +597,7 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 	data := viewData{
 		ActiveTab:        activeTab,
 		MediaDir:         s.mediaDir,
+		CurrentDBPath:    s.catalog.CurrentDBPath(),
 		VisionEngineName: s.visionEngineName,
 		AdminUser:        s.currentAdmin(r),
 		Filter:           filter,
@@ -620,12 +736,16 @@ func parseCatalogFilter(r *http.Request) domain.CatalogFilter {
 	if perPage < 1 {
 		perPage = 50
 	}
+	rootID, _ := strconv.ParseInt(q.Get("root_id"), 10, 64)
 	groupID, _ := strconv.ParseInt(q.Get("group_id"), 10, 64)
 	charID, _ := strconv.ParseInt(q.Get("character_id"), 10, 64)
 	faceMode := q.Get("face_mode") == "1" || q.Get("face_mode") == "true"
 
 	return domain.CatalogFilter{
 		Query:       q.Get("q"),
+		RootID:      rootID,
+		Category:    q.Get("category"),
+		Subcategory: q.Get("subcategory"),
 		Engine:      q.Get("engine"),
 		ModelName:   q.Get("model"),
 		MediaType:   q.Get("media_type"),

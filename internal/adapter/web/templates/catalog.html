@@ -18,9 +18,9 @@
       </div>
       <div class="topbar-actions">
         <form action="/admin/scan" method="POST" style="display:inline;">
-          <button type="submit" class="btn-ghost" title="Non-destructive rescan of configured media folder">Rescan Folder ({{.MediaDir}})</button>
+          <button type="submit" class="btn-ghost" title="Non-destructive rescan across all registered media folders and .diffusion-catalog.json manifests">Rescan Folders ({{len .Page.MediaRoots}})</button>
         </form>
-        <a href="/?tab=settings" class="btn-ghost">Settings</a>
+        <a href="/?tab=settings" class="btn-ghost" title="Active Global DB: {{.CurrentDBPath}}">DB &amp; Settings</a>
         {{if .AdminUser}}
           <span class="badge-chip">Admin: {{.AdminUser}}</span>
           <form action="/admin/logout" method="POST" style="display:inline;">
@@ -156,7 +156,8 @@
             {{end}}
           </div>
           <div style="margin-top:12px;font-size:12px;color:var(--text-muted);">
-            <div><strong>Relative Path:</strong> <code>{{.SelectedAsset.RelPath}}</code></div>
+            <div><strong>Source Folder:</strong> <code>{{if .SelectedAsset.RootLabel}}{{.SelectedAsset.RootLabel}} ({{.SelectedAsset.RootPath}}){{else}}{{.MediaDir}}{{end}}</code></div>
+            <div><strong>Relative Path:</strong> <code>{{.SelectedAsset.RelPath}}</code> | <strong>Sidecar Prompt:</strong> <code>.txt</code> + <code>.diffusion-catalog.json</code></div>
             <div><strong>Dimensions:</strong> {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <strong>SHA-256 Prefix:</strong> <code>{{.SelectedAsset.FileHash}}</code></div>
           </div>
         </div>
@@ -314,6 +315,21 @@
               <div class="kv-label">Steps / CFG / Seed</div>
               <div class="kv-val">{{.SelectedAsset.Metadata.Steps}} steps | CFG {{.SelectedAsset.Metadata.CFGScale}} | {{.SelectedAsset.Metadata.Seed}}</div>
             </div>
+          </div>
+
+          <div>
+            <div class="facet-title"><span>FOLDER CLASSIFICATION (.diffusion-catalog.json)</span></div>
+            <form action="/admin/assets/category" method="POST" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+              <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+              <input type="text" name="category" list="default-categories-list" value="{{.SelectedAsset.Category}}" placeholder="Category (e.g. Characters &amp; Portraits)" class="input-dark" style="width:240px;">
+              <input type="text" name="subcategory" value="{{.SelectedAsset.Subcategory}}" placeholder="Subcategory (e.g. Sci-Fi / Netrunner)" class="input-dark" style="width:240px;">
+              <button type="submit" class="btn-primary">Save Category to Folder Manifest</button>
+            </form>
+            <datalist id="default-categories-list">
+              {{range .Page.DefaultCategories}}
+                <option value="{{.Name}}">{{joinStrings .Subcategories}}</option>
+              {{end}}
+            </datalist>
           </div>
 
           <div>

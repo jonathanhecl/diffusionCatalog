@@ -41,7 +41,7 @@ func SeedDemoFolderIfEmpty(ctx context.Context, mediaDir, cacheDir string, repo 
 		return err
 	}
 	for _, e := range entries {
-		if !e.IsDir() && e.Name() != ".DS_Store" {
+		if !e.IsDir() && e.Name() != ".DS_Store" && e.Name() != ManifestFileName {
 			return nil
 		}
 		if e.IsDir() && e.Name() != "." && e.Name() != ".." {
@@ -309,6 +309,15 @@ Steps: 36, Sampler: DPM++ SDE Karras, Schedule type: Karras, CFG scale: 7.5, See
 						ExpressionTag: sp.ExpressionTag,
 						CharacterID:   &cidCopy,
 					})
+				}
+
+				if fullAsset, err := repo.GetAssetByID(ctx, asset.ID); err == nil && fullAsset != nil {
+					rootPath := fullAsset.RootPath
+					if rootPath == "" {
+						rootPath = mediaDir
+					}
+					defaults, _ := repo.ListDefaultCategories(ctx)
+					_ = SyncAssetToFolderManifest(rootPath, fullAsset, defaults)
 				}
 			}
 		}

@@ -6,11 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jonathanhecl/diffusionCatalog/internal/adapter/metadata"
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
 )
 
 // CatalogService coordinates catalog querying, agnostic tagging, grouping, character sheets,
-// application settings, and Ollama prompt generation (Vision, Image2Prompt, Text2Prompt).
+// multi-root media folders, per-folder .diffusion-catalog.json manifests, runtime DB switching,
+// and Ollama / oMLX prompt generation (Vision, Image2Prompt, Text2Prompt).
 type CatalogService struct {
 	mediaDir string
 	repo     domain.CatalogRepository
@@ -26,9 +28,163 @@ func NewCatalogService(mediaDir string, repo domain.CatalogRepository, ollama do
 	}
 }
 
+// CurrentDBPath returns the active global SQLite database path.
+func (s *CatalogService) CurrentDBPath() string {
+	return s.repo.CurrentDBPath()
+}
+
+// SwitchDatabase switches the active global SQLite database file at runtime.
+func (s *CatalogService) SwitchDatabase(ctx context.Context, newDBPath string) error {
+	if err := s.repo.SwitchDB(ctx, newDBPath); err != nil {
+		return err
+	}
+	roots, _ := s.repo.ListMediaRoots(ctx)
+	if len(roots) == 0 && strings.TrimSpace(s.mediaDir) != "" {
+		_, _ = s.repo.UpsertMediaRoot(ctx, &domain.MediaRoot{
+			Path:    s.mediaDir,
+			Label:   filepath.Base(s.mediaDir),
+			Enabled: true,
+		})
+	}
+	return nil
+}
+
+// ListMediaRoots returns all registered media root folders enriched with their .diffusion-catalog.json categories.
+func (s *CatalogService) ListMediaRoots(ctx context.Context) ([]domain.MediaRoot, error) {
+	roots, err := s.repo.ListMediaRoots(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defaults, _ := s.repo.ListDefaultCategories(ctx)
+	for i := range roots {
+		if roots[i].Accessible {
+			if m, err := EnsureFolderManifest(roots[i].Path, roots[i].Label, defaults); err == nil && m != nil {
+				roots[i].Categories = m.Categories
+			}
+		} else {
+			roots[i].Categories = defaults
+		}
+	}
+	return roots, nil
+}
+
+// AddMediaRoot registers a new media root folder (local directory or external drive) and initializes its .diffusion-catalog.json manifest.
+func (s *CatalogService) AddMediaRoot(ctx context.Context, path, label string) (int64, error) {
+	root := &domain.MediaRoot{
+		Path:    strings.TrimSpace(path),
+		Label:   strings.TrimSpace(label),
+		Enabled: true,
+	}
+	id, err := s.repo.UpsertMediaRoot(ctx, root)
+	if err != nil {
+		return 0, err
+	}
+	defaults, _ := s.repo.ListDefaultCategories(ctx)
+	_, _ = EnsureFolderManifest(root.Path, root.Label, defaults)
+	return id, nil
+}
+
+// DeleteMediaRoot removes a media root folder from the catalog index without deleting any files on disk.
+func (s *CatalogService) DeleteMediaRoot(ctx context.Context, id int64) error {
+	return s.repo.DeleteMediaRoot(ctx, id)
+}
+
+// ListDefaultCategories returns the global default agnostic categories and subcategories.
+func (s *CatalogService) ListDefaultCategories(ctx context.Context) ([]domain.DefaultCategory, error) {
+	return s.repo.ListDefaultCategories(ctx)
+}
+
+// UpsertDefaultCategory creates or updates a global default category and its subcategories.
+func (s *CatalogService) UpsertDefaultCategory(ctx context.Context, name, facet, color, subcategoriesCSV string) (int64, error) {
+	var subs []string
+	for _, part := range strings.Split(subcategoriesCSV, ",") {
+		p := strings.TrimSpace(part)
+		if p != "" {
+			subs = append(subs, p)
+		}
+	}
+	cat := &domain.DefaultCategory{
+		Name:          strings.TrimSpace(name),
+		Facet:         strings.TrimSpace(facet),
+		Color:         strings.TrimSpace(color),
+		Subcategories: subs,
+	}
+	id, err := s.repo.UpsertDefaultCategory(ctx, cat)
+	if err != nil {
+		return 0, err
+	}
+	// Sync new default category to accessible media roots' manifests
+	defaults, _ := s.repo.ListDefaultCategories(ctx)
+	roots, _ := s.repo.ListMediaRoots(ctx)
+	for _, r := range roots {
+		if r.Accessible {
+			if m, err := EnsureFolderManifest(r.Path, r.Label, defaults); err == nil && m != nil {
+				for _, sub := range subs {
+					ensureManifestCategory(m, cat.Name, sub)
+				}
+				if len(subs) == 0 {
+					ensureManifestCategory(m, cat.Name, "")
+				}
+				_ = SaveFolderManifest(r.Path, m)
+			}
+		}
+	}
+	return id, nil
+}
+
+// DeleteDefaultCategory removes a global default category by ID.
+func (s *CatalogService) DeleteDefaultCategory(ctx context.Context, id int64) error {
+	return s.repo.DeleteDefaultCategory(ctx, id)
+}
+
+// ResolveAssetAbsPath resolves the absolute filesystem path of an asset across any registered MediaRoot.
+func (s *CatalogService) ResolveAssetAbsPath(ctx context.Context, asset *domain.MediaAsset) string {
+	if asset == nil {
+		return ""
+	}
+	rootPath := strings.TrimSpace(asset.RootPath)
+	if rootPath == "" && asset.RootID > 0 {
+		if mr, err := s.repo.GetMediaRootByID(ctx, asset.RootID); err == nil && mr != nil {
+			rootPath = mr.Path
+		}
+	}
+	if rootPath == "" {
+		rootPath = s.mediaDir
+	}
+	cleanRel := normalizeManifestRelPath(rootPath, asset.RelPath)
+	return filepath.Join(rootPath, filepath.FromSlash(cleanRel))
+}
+
+func (s *CatalogService) syncAssetManifestByID(ctx context.Context, assetID int64) {
+	asset, err := s.repo.GetAssetByID(ctx, assetID)
+	if err != nil || asset == nil {
+		return
+	}
+	rootPath := strings.TrimSpace(asset.RootPath)
+	if rootPath == "" {
+		rootPath = s.mediaDir
+	}
+	defaults, _ := s.repo.ListDefaultCategories(ctx)
+	_ = SyncAssetToFolderManifest(rootPath, asset, defaults)
+}
+
 // Query returns a paginated, facet-filtered catalog page.
 func (s *CatalogService) Query(ctx context.Context, filter domain.CatalogFilter) (*domain.CatalogPage, error) {
-	return s.repo.QueryCatalog(ctx, filter)
+	page, err := s.repo.QueryCatalog(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defaults, _ := s.repo.ListDefaultCategories(ctx)
+	for i := range page.MediaRoots {
+		if page.MediaRoots[i].Accessible {
+			if m, mErr := EnsureFolderManifest(page.MediaRoots[i].Path, page.MediaRoots[i].Label, defaults); mErr == nil && m != nil {
+				page.MediaRoots[i].Categories = m.Categories
+			}
+		} else {
+			page.MediaRoots[i].Categories = defaults
+		}
+	}
+	return page, nil
 }
 
 // GetAsset fetches an asset by ID and increments its view count.
@@ -37,7 +193,26 @@ func (s *CatalogService) GetAsset(ctx context.Context, id int64) (*domain.MediaA
 	return s.repo.GetAssetByID(ctx, id)
 }
 
-// AddTagToAsset creates or updates an agnostic tag and attaches it to an asset.
+// SetAssetCategory updates an asset's category and subcategory in SQLite and in its folder's .diffusion-catalog.json.
+func (s *CatalogService) SetAssetCategory(ctx context.Context, assetID int64, category, subcategory string) error {
+	if err := s.repo.UpdateAssetCategory(ctx, assetID, category, subcategory); err != nil {
+		return err
+	}
+	if strings.TrimSpace(category) != "" {
+		if t, err := s.repo.UpsertTag(ctx, strings.TrimSpace(category), "category", "#2563eb"); err == nil {
+			_ = s.repo.AttachTagToAsset(ctx, assetID, t.ID)
+		}
+	}
+	if strings.TrimSpace(subcategory) != "" {
+		if t, err := s.repo.UpsertTag(ctx, strings.TrimSpace(subcategory), "subcategory", "#059669"); err == nil {
+			_ = s.repo.AttachTagToAsset(ctx, assetID, t.ID)
+		}
+	}
+	s.syncAssetManifestByID(ctx, assetID)
+	return nil
+}
+
+// AddTagToAsset creates or updates an agnostic tag, attaches it to an asset, and updates .diffusion-catalog.json.
 func (s *CatalogService) AddTagToAsset(ctx context.Context, assetID int64, name, facet string) error {
 	name = strings.TrimSpace(strings.TrimPrefix(name, "#"))
 	if name == "" {
@@ -50,7 +225,11 @@ func (s *CatalogService) AddTagToAsset(ctx context.Context, assetID int64, name,
 	if err != nil {
 		return err
 	}
-	return s.repo.AttachTagToAsset(ctx, assetID, t.ID)
+	if err := s.repo.AttachTagToAsset(ctx, assetID, t.ID); err != nil {
+		return err
+	}
+	s.syncAssetManifestByID(ctx, assetID)
+	return nil
 }
 
 // CreateGroup creates a new agnostic group and optionally links an initial asset.
@@ -69,13 +248,18 @@ func (s *CatalogService) CreateGroup(ctx context.Context, name, category, descri
 	}
 	if initialAssetID > 0 {
 		_ = s.repo.AttachAssetToGroup(ctx, gid, initialAssetID)
+		s.syncAssetManifestByID(ctx, initialAssetID)
 	}
 	return gid, nil
 }
 
-// AssignAssetToGroup attaches an existing asset to a group.
+// AssignAssetToGroup attaches an existing asset to a group and syncs the folder manifest.
 func (s *CatalogService) AssignAssetToGroup(ctx context.Context, groupID, assetID int64) error {
-	return s.repo.AttachAssetToGroup(ctx, groupID, assetID)
+	if err := s.repo.AttachAssetToGroup(ctx, groupID, assetID); err != nil {
+		return err
+	}
+	s.syncAssetManifestByID(ctx, assetID)
+	return nil
 }
 
 // ListGroups returns all agnostic groups.
@@ -94,13 +278,18 @@ func (s *CatalogService) CreateCharacter(ctx context.Context, c *domain.Characte
 	}
 	if exampleAssetID > 0 {
 		_ = s.repo.AttachAssetToCharacter(ctx, cid, exampleAssetID)
+		s.syncAssetManifestByID(ctx, exampleAssetID)
 	}
 	return cid, nil
 }
 
-// AssignAssetToCharacter links an asset as a reference example for a character.
+// AssignAssetToCharacter links an asset as a reference example for a character and syncs the folder manifest.
 func (s *CatalogService) AssignAssetToCharacter(ctx context.Context, characterID, assetID int64) error {
-	return s.repo.AttachAssetToCharacter(ctx, characterID, assetID)
+	if err := s.repo.AttachAssetToCharacter(ctx, characterID, assetID); err != nil {
+		return err
+	}
+	s.syncAssetManifestByID(ctx, assetID)
+	return nil
 }
 
 // GetCharacter retrieves a character profile and its example gallery.
@@ -329,7 +518,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		}
 		var baseURL string
 		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
-		absPath := filepath.Join(s.mediaDir, filepath.FromSlash(asset.RelPath))
+		absPath := s.ResolveAssetAbsPath(ctx, asset)
 		generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, absPath, combinedHint, usedThink)
 		if err != nil {
 			return "", err
@@ -351,6 +540,10 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 
 	if saveToAsset && generated != "" {
 		_ = s.repo.UpdateAssetPrompt(ctx, asset.ID, generated, profileSlug)
+		asset.Metadata.PositivePrompt = generated
+		asset.Metadata.Engine = domain.EngineType(profileSlug)
+		absPath := s.ResolveAssetAbsPath(ctx, asset)
+		_ = metadata.WritePromptSidecarTXT(absPath, asset.Metadata)
 	}
 	return generated, nil
 }
@@ -413,7 +606,7 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 			}
 			var baseURL string
 			usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
-			absPath := filepath.Join(s.mediaDir, filepath.FromSlash(refAsset.RelPath))
+			absPath := s.ResolveAssetAbsPath(ctx, refAsset)
 			generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, absPath, charSpec, usedThink)
 			if err != nil {
 				return "", err
