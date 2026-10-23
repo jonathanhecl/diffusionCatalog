@@ -227,6 +227,26 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
 		FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
 	);
+
+	CREATE TABLE IF NOT EXISTS studio_compositions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		description TEXT NOT NULL DEFAULT '',
+		scene_json TEXT NOT NULL DEFAULT '{}',
+		thumbnail_data TEXT NOT NULL DEFAULT '',
+		prompt_output TEXT NOT NULL DEFAULT '',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS studio_poses (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL UNIQUE,
+		category TEXT NOT NULL DEFAULT 'Standing',
+		pose_json TEXT NOT NULL DEFAULT '{}',
+		description TEXT NOT NULL DEFAULT '',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
 	`
 	if _, err := db.ExecContext(ctx, schema); err != nil {
 		return err
@@ -261,6 +281,63 @@ func seedDefaultSettingsAndProfiles(ctx context.Context, db *sql.DB) error {
 	}
 	for k, v := range defaults {
 		_, _ = db.ExecContext(ctx, `INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, k, v)
+	}
+	return seedDefaultPoses(ctx, db)
+}
+
+func seedDefaultPoses(ctx context.Context, db *sql.DB) error {
+	poses := []struct {
+		name     string
+		category string
+		desc     string
+		poseJSON string
+	}{
+		{
+			name:     "Standing Idle",
+			category: "Standing",
+			desc:     "Neutral standing pose with arms relaxed at sides",
+			poseJSON: `{"nose":{"x":50,"y":14},"neck":{"x":50,"y":24},"r_shoulder":{"x":40,"y":26},"r_elbow":{"x":36,"y":42},"r_wrist":{"x":34,"y":57},"l_shoulder":{"x":60,"y":26},"l_elbow":{"x":64,"y":42},"l_wrist":{"x":66,"y":57},"mid_hip":{"x":50,"y":54},"r_hip":{"x":44,"y":56},"r_knee":{"x":43,"y":74},"r_ankle":{"x":42,"y":95},"l_hip":{"x":56,"y":56},"l_knee":{"x":57,"y":74},"l_ankle":{"x":58,"y":95}}`,
+		},
+		{
+			name:     "Walking / Striding",
+			category: "Standing",
+			desc:     "Mid-stride dynamic walking motion with swinging arms",
+			poseJSON: `{"nose":{"x":52,"y":14},"neck":{"x":51,"y":24},"r_shoulder":{"x":42,"y":26},"r_elbow":{"x":33,"y":38},"r_wrist":{"x":27,"y":50},"l_shoulder":{"x":60,"y":26},"l_elbow":{"x":67,"y":38},"l_wrist":{"x":74,"y":49},"mid_hip":{"x":50,"y":54},"r_hip":{"x":44,"y":56},"r_knee":{"x":35,"y":72},"r_ankle":{"x":28,"y":92},"l_hip":{"x":56,"y":56},"l_knee":{"x":63,"y":73},"l_ankle":{"x":72,"y":93}}`,
+		},
+		{
+			name:     "Sitting Relaxed",
+			category: "Sitting",
+			desc:     "Seated posture with bent knees and hands resting",
+			poseJSON: `{"nose":{"x":48,"y":18},"neck":{"x":48,"y":28},"r_shoulder":{"x":38,"y":30},"r_elbow":{"x":34,"y":46},"r_wrist":{"x":40,"y":58},"l_shoulder":{"x":58,"y":30},"l_elbow":{"x":62,"y":46},"l_wrist":{"x":56,"y":58},"mid_hip":{"x":48,"y":58},"r_hip":{"x":42,"y":60},"r_knee":{"x":66,"y":65},"r_ankle":{"x":67,"y":92},"l_hip":{"x":54,"y":60},"l_knee":{"x":74,"y":66},"l_ankle":{"x":75,"y":93}}`,
+		},
+		{
+			name:     "Crouching Action",
+			category: "Action",
+			desc:     "Low dynamic combat/stealth crouch with bent legs",
+			poseJSON: `{"nose":{"x":50,"y":32},"neck":{"x":50,"y":42},"r_shoulder":{"x":38,"y":44},"r_elbow":{"x":28,"y":58},"r_wrist":{"x":32,"y":75},"l_shoulder":{"x":62,"y":44},"l_elbow":{"x":70,"y":55},"l_wrist":{"x":64,"y":72},"mid_hip":{"x":50,"y":65},"r_hip":{"x":42,"y":67},"r_knee":{"x":32,"y":82},"r_ankle":{"x":40,"y":95},"l_hip":{"x":58,"y":67},"l_knee":{"x":72,"y":78},"l_ankle":{"x":65,"y":95}}`,
+		},
+		{
+			name:     "Arms Crossed",
+			category: "Standing",
+			desc:     "Confident standing pose with arms folded across chest",
+			poseJSON: `{"nose":{"x":50,"y":14},"neck":{"x":50,"y":24},"r_shoulder":{"x":39,"y":26},"r_elbow":{"x":36,"y":42},"r_wrist":{"x":55,"y":42},"l_shoulder":{"x":61,"y":26},"l_elbow":{"x":64,"y":42},"l_wrist":{"x":45,"y":42},"mid_hip":{"x":50,"y":54},"r_hip":{"x":44,"y":56},"r_knee":{"x":43,"y":74},"r_ankle":{"x":42,"y":95},"l_hip":{"x":56,"y":56},"l_knee":{"x":57,"y":74},"l_ankle":{"x":58,"y":95}}`,
+		},
+		{
+			name:     "Hands on Hips",
+			category: "Standing",
+			desc:     "Heroic wide stance with hands resting on waist",
+			poseJSON: `{"nose":{"x":50,"y":14},"neck":{"x":50,"y":24},"r_shoulder":{"x":39,"y":26},"r_elbow":{"x":28,"y":38},"r_wrist":{"x":40,"y":54},"l_shoulder":{"x":61,"y":26},"l_elbow":{"x":72,"y":38},"l_wrist":{"x":60,"y":54},"mid_hip":{"x":50,"y":54},"r_hip":{"x":44,"y":56},"r_knee":{"x":42,"y":74},"r_ankle":{"x":40,"y":95},"l_hip":{"x":56,"y":56},"l_knee":{"x":58,"y":74},"l_ankle":{"x":60,"y":95}}`,
+		},
+		{
+			name:     "Reaching Dynamic",
+			category: "Action",
+			desc:     "Dramatic reach with one arm pointing up and forward",
+			poseJSON: `{"nose":{"x":54,"y":18},"neck":{"x":52,"y":28},"r_shoulder":{"x":42,"y":30},"r_elbow":{"x":32,"y":44},"r_wrist":{"x":26,"y":58},"l_shoulder":{"x":62,"y":28},"l_elbow":{"x":72,"y":18},"l_wrist":{"x":82,"y":8},"mid_hip":{"x":50,"y":56},"r_hip":{"x":44,"y":58},"r_knee":{"x":42,"y":76},"r_ankle":{"x":40,"y":95},"l_hip":{"x":56,"y":58},"l_knee":{"x":62,"y":75},"l_ankle":{"x":68,"y":94}}`,
+		},
+	}
+	for _, p := range poses {
+		_, _ = db.ExecContext(ctx, `INSERT OR IGNORE INTO studio_poses (name, category, description, pose_json) VALUES (?, ?, ?, ?)`,
+			p.name, p.category, p.desc, p.poseJSON)
 	}
 	return nil
 }

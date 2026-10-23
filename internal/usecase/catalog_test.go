@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/adapter/metadata"
@@ -187,5 +188,148 @@ func TestRemixAndVisionOperationModeAndTargetGeneratorPersistence(t *testing.T) 
 	}
 	if mockOllama.lastCall != "ImageToPrompt" {
 		t.Errorf("expected mode 'vision' to call ImageToPrompt, got %q", mockOllama.lastCall)
+	}
+}
+
+func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	dbPath := filepath.Join(tmpDir, "test_director.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite db: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	mockOllama := &mockOllamaProvider{}
+	catalogSvc := NewCatalogService(mediaDir, repo, mockOllama)
+
+	// 1. Verify default seeded poses are populated
+	poses, err := catalogSvc.ListStudioPoses(ctx)
+	if err != nil {
+		t.Fatalf("failed to list studio poses: %v", err)
+	}
+	if len(poses) < 5 {
+		t.Errorf("expected at least 5 default seeded poses, got %d", len(poses))
+	}
+
+	// 2. Test saving and retrieving a custom pose
+	customPose := &domain.StudioPose{
+		Name:        "Ninja Stance",
+		Category:    "Action",
+		PoseJSON:    `{"nose":{"x":45,"y":20}}`,
+		Description: "Low crouched guard",
+	}
+	poseID, err := catalogSvc.UpsertStudioPose(ctx, customPose)
+	if err != nil || poseID <= 0 {
+		t.Fatalf("failed to save custom pose: %v", err)
+	}
+
+	// 3. Test CompileSceneDirectorManifest
+	sampleSceneJSON := `{
+		"aspectRatio": "16:9 widescreen",
+		"canvasWidth": 1280,
+		"canvasHeight": 720,
+		"elements": [
+			{
+				"id": "char-1",
+				"type": "character",
+				"name": "Detective K",
+				"x": 200,
+				"y": 550,
+				"scale": 1.3,
+				"facing": "three_quarter_left",
+				"poseName": "Walking / Striding"
+			},
+			{
+				"id": "prop-1",
+				"type": "prop",
+				"label": "Vintage Armchair",
+				"subtype": "chair",
+				"x": 950,
+				"y": 360,
+				"scale": 1.0
+			},
+			{
+				"id": "light-1",
+				"type": "light",
+				"lightType": "Key Light",
+				"x": 150,
+				"y": 120,
+				"rotation": 45,
+				"color": "#fbbf24"
+			},
+			{
+				"id": "note-1",
+				"type": "note",
+				"text": "Moody film noir, neon reflections on wet asphalt",
+				"x": 100,
+				"y": 50
+			}
+		]
+	}`
+
+	manifest, err := catalogSvc.CompileSceneDirectorManifest(ctx, sampleSceneJSON)
+	if err != nil {
+		t.Fatalf("CompileSceneDirectorManifest failed: %v", err)
+	}
+
+	if !strings.Contains(manifest, "Detective K") || !strings.Contains(manifest, "Foreground-Left") {
+		t.Errorf("expected character in Foreground-Left, manifest:\n%s", manifest)
+	}
+	if !strings.Contains(manifest, "Vintage Armchair") || !strings.Contains(manifest, "Midground-Right") {
+		t.Errorf("expected prop in Midground-Right, manifest:\n%s", manifest)
+	}
+	if !strings.Contains(manifest, "Moody film noir") {
+		t.Errorf("expected director note in manifest:\n%s", manifest)
+	}
+
+	// 4. Test SynthesizeScenePrompt
+	compiledManifest, generatedPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{})
+	if err != nil {
+		t.Fatalf("SynthesizeScenePrompt failed: %v", err)
+	}
+	if compiledManifest == "" || generatedPrompt == "" {
+		t.Errorf("expected non-empty manifest and prompt, got manifest=%q prompt=%q", compiledManifest, generatedPrompt)
+	}
+	if mockOllama.lastCall != "TextToPrompt" {
+		t.Errorf("expected SynthesizeScenePrompt to invoke TextToPrompt, got %q", mockOllama.lastCall)
+	}
+
+	// 5. Test StudioComposition CRUD
+	comp := &domain.StudioComposition{
+		Name:          "Rainy Street Scene",
+		Description:   "Film noir staging with Detective K",
+		SceneJSON:     sampleSceneJSON,
+		ThumbnailData: "data:image/png;base64,fake",
+		PromptOutput:  generatedPrompt,
+	}
+	compID, err := catalogSvc.SaveStudioComposition(ctx, comp)
+	if err != nil || compID <= 0 {
+		t.Fatalf("failed to save composition: %v", err)
+	}
+
+	saved, err := catalogSvc.GetStudioComposition(ctx, compID)
+	if err != nil || saved == nil {
+		t.Fatalf("failed to retrieve saved composition: %v", err)
+	}
+	if saved.Name != "Rainy Street Scene" {
+		t.Errorf("expected composition name 'Rainy Street Scene', got %q", saved.Name)
+	}
+
+	list, err := catalogSvc.ListStudioCompositions(ctx)
+	if err != nil || len(list) != 1 {
+		t.Errorf("expected 1 saved composition in list, got %d", len(list))
+	}
+
+	if err := catalogSvc.DeleteStudioComposition(ctx, compID); err != nil {
+		t.Fatalf("failed to delete composition: %v", err)
+	}
+	listAfter, _ := catalogSvc.ListStudioCompositions(ctx)
+	if len(listAfter) != 0 {
+		t.Errorf("expected 0 compositions after deletion, got %d", len(listAfter))
 	}
 }

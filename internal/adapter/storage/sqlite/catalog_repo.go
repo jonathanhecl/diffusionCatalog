@@ -907,6 +907,139 @@ func (r *Repository) ListGeneratedPrompts(ctx context.Context, assetID, characte
 	return out, nil
 }
 
+// SaveStudioComposition creates or updates a scene composition in SQLite.
+func (r *Repository) SaveStudioComposition(ctx context.Context, comp *domain.StudioComposition) (int64, error) {
+	db := r.conn()
+	if comp.ID > 0 {
+		_, err := db.ExecContext(ctx, `
+			UPDATE studio_compositions
+			SET name = ?, description = ?, scene_json = ?, thumbnail_data = ?, prompt_output = ?, updated_at = CURRENT_TIMESTAMP
+			WHERE id = ?`,
+			comp.Name, comp.Description, comp.SceneJSON, comp.ThumbnailData, comp.PromptOutput, comp.ID,
+		)
+		return comp.ID, err
+	}
+
+	var id int64
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO studio_compositions (name, description, scene_json, thumbnail_data, prompt_output)
+		VALUES (?, ?, ?, ?, ?)
+		RETURNING id`,
+		comp.Name, comp.Description, comp.SceneJSON, comp.ThumbnailData, comp.PromptOutput,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	comp.ID = id
+	return id, nil
+}
+
+// GetStudioCompositionByID retrieves a single composition by ID.
+func (r *Repository) GetStudioCompositionByID(ctx context.Context, id int64) (*domain.StudioComposition, error) {
+	db := r.conn()
+	var comp domain.StudioComposition
+	err := db.QueryRowContext(ctx, `
+		SELECT id, name, description, scene_json, thumbnail_data, prompt_output, created_at, updated_at
+		FROM studio_compositions
+		WHERE id = ?`, id,
+	).Scan(&comp.ID, &comp.Name, &comp.Description, &comp.SceneJSON, &comp.ThumbnailData, &comp.PromptOutput, &comp.CreatedAt, &comp.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &comp, nil
+}
+
+// ListStudioCompositions retrieves all saved scene compositions ordered by newest.
+func (r *Repository) ListStudioCompositions(ctx context.Context) ([]domain.StudioComposition, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, name, description, scene_json, thumbnail_data, prompt_output, created_at, updated_at
+		FROM studio_compositions
+		ORDER BY updated_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.StudioComposition
+	for rows.Next() {
+		var comp domain.StudioComposition
+		if err := rows.Scan(&comp.ID, &comp.Name, &comp.Description, &comp.SceneJSON, &comp.ThumbnailData, &comp.PromptOutput, &comp.CreatedAt, &comp.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, comp)
+	}
+	return out, nil
+}
+
+// DeleteStudioComposition removes a composition by ID.
+func (r *Repository) DeleteStudioComposition(ctx context.Context, id int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM studio_compositions WHERE id = ?`, id)
+	return err
+}
+
+// UpsertStudioPose creates or updates a skeletal character pose preset.
+func (r *Repository) UpsertStudioPose(ctx context.Context, pose *domain.StudioPose) (int64, error) {
+	db := r.conn()
+	if pose.ID > 0 {
+		_, err := db.ExecContext(ctx, `
+			UPDATE studio_poses
+			SET name = ?, category = ?, pose_json = ?, description = ?
+			WHERE id = ?`,
+			pose.Name, pose.Category, pose.PoseJSON, pose.Description, pose.ID,
+		)
+		return pose.ID, err
+	}
+
+	var id int64
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO studio_poses (name, category, pose_json, description)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(name) DO UPDATE SET
+			category = excluded.category,
+			pose_json = excluded.pose_json,
+			description = excluded.description
+		RETURNING id`,
+		pose.Name, pose.Category, pose.PoseJSON, pose.Description,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	pose.ID = id
+	return id, nil
+}
+
+// ListStudioPoses returns all saved pose presets.
+func (r *Repository) ListStudioPoses(ctx context.Context) ([]domain.StudioPose, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, name, category, pose_json, description, created_at
+		FROM studio_poses
+		ORDER BY category ASC, name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.StudioPose
+	for rows.Next() {
+		var p domain.StudioPose
+		if err := rows.Scan(&p.ID, &p.Name, &p.Category, &p.PoseJSON, &p.Description, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// DeleteStudioPose removes a pose preset by ID.
+func (r *Repository) DeleteStudioPose(ctx context.Context, id int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM studio_poses WHERE id = ?`, id)
+	return err
+}
+
 // QueryCatalog executes a filtered, faceted, and paginated search across assets (or faces when FaceMode is active).
 func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilter) (*domain.CatalogPage, error) {
 	db := r.conn()

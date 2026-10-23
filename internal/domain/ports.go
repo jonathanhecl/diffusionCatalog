@@ -106,6 +106,15 @@ type CatalogRepository interface {
 
 	SaveGeneratedPrompt(ctx context.Context, gp *GeneratedPrompt) (int64, error)
 	ListGeneratedPrompts(ctx context.Context, assetID, characterID int64, limit int) ([]GeneratedPrompt, error)
+
+	SaveStudioComposition(ctx context.Context, comp *StudioComposition) (int64, error)
+	GetStudioCompositionByID(ctx context.Context, id int64) (*StudioComposition, error)
+	ListStudioCompositions(ctx context.Context) ([]StudioComposition, error)
+	DeleteStudioComposition(ctx context.Context, id int64) error
+
+	UpsertStudioPose(ctx context.Context, pose *StudioPose) (int64, error)
+	ListStudioPoses(ctx context.Context) ([]StudioPose, error)
+	DeleteStudioPose(ctx context.Context, id int64) error
 }
 
 // MetadataExtractor defines the port for extracting diffusion prompts and technical parameters from media files.

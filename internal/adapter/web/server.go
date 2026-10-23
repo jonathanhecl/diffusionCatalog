@@ -326,6 +326,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/ollama/character2prompt", s.handleCharacter2Prompt)
 	mux.HandleFunc("POST /admin/ollama/text2prompt", s.handleText2Prompt)
 
+	// Scene Director / Prompt Studio Compositions & Poses
+	mux.HandleFunc("POST /admin/compositions/save", s.handleSaveComposition)
+	mux.HandleFunc("POST /admin/compositions/delete", s.handleDeleteComposition)
+	mux.HandleFunc("POST /admin/compositions/synthesize", s.handleSynthesizeScene)
+	mux.HandleFunc("GET /api/compositions", s.handleListCompositions)
+	mux.HandleFunc("GET /api/compositions/", s.handleGetComposition)
+	mux.HandleFunc("GET /api/poses", s.handleListPoses)
+	mux.HandleFunc("POST /admin/poses/save", s.handleSavePose)
+	mux.HandleFunc("POST /admin/poses/delete", s.handleDeletePose)
+
 	return s.loggingMiddleware(mux)
 }
 
@@ -379,9 +389,12 @@ type viewData struct {
 	AIResultError     string
 	AIInputConcept    string
 	AITargetProfile   string
-	AIMode            string
-	AICharacterID     int64
-	FlashNotice       string
+	AIMode               string
+	AICharacterID        int64
+	FlashNotice          string
+	StudioCompositions   []domain.StudioComposition
+	StudioPoses          []domain.StudioPose
+	SelectedComposition  *domain.StudioComposition
 }
 
 func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
@@ -473,8 +486,21 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var aiStatus usecase.AIBackendStatus
-	if tab == "settings" || tab == "studio" || tab == "asset_detail" || tab == "characters" || tab == "remix" {
+	if tab == "settings" || tab == "studio" || tab == "director" || tab == "asset_detail" || tab == "characters" || tab == "remix" {
 		aiStatus = s.catalog.InspectAIBackends(ctx)
+	}
+
+	var studioCompositions []domain.StudioComposition
+	var studioPoses []domain.StudioPose
+	var selectedComposition *domain.StudioComposition
+	if tab == "director" || tab == "studio" {
+		studioCompositions, _ = s.catalog.ListStudioCompositions(ctx)
+		studioPoses, _ = s.catalog.ListStudioPoses(ctx)
+		if compIDStr := r.URL.Query().Get("composition_id"); compIDStr != "" {
+			if cid, err := strconv.ParseInt(compIDStr, 10, 64); err == nil && cid > 0 {
+				selectedComposition, _ = s.catalog.GetStudioComposition(ctx, cid)
+			}
+		}
 	}
 
 	defaultTarget := settings.DefaultTargetGenerator
@@ -528,8 +554,11 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		AIStatus:         aiStatus,
 		AIInputConcept:   inputConcept,
 		AITargetProfile:  defaultTarget,
-		AIMode:           defaultMode,
-		FlashNotice:      r.URL.Query().Get("notice"),
+		AIMode:              defaultMode,
+		FlashNotice:         r.URL.Query().Get("notice"),
+		StudioCompositions:  studioCompositions,
+		StudioPoses:         studioPoses,
+		SelectedComposition: selectedComposition,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1208,4 +1237,228 @@ func parseCatalogFilter(r *http.Request) domain.CatalogFilter {
 		Page:          page,
 		PerPage:       perPage,
 	}
+}
+
+// Scene Director & Composition HTTP handlers
+
+func (s *Server) handleSaveComposition(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+
+	var comp domain.StudioComposition
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		if err := json.NewDecoder(r.Body).Decode(&comp); err != nil {
+			http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+	} else {
+		id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+		comp.ID = id
+		comp.Name = strings.TrimSpace(r.FormValue("name"))
+		comp.Description = strings.TrimSpace(r.FormValue("description"))
+		comp.SceneJSON = r.FormValue("scene_json")
+		comp.ThumbnailData = r.FormValue("thumbnail_data")
+		comp.PromptOutput = r.FormValue("prompt_output")
+	}
+
+	if comp.Name == "" {
+		comp.Name = "Untitled Scene"
+	}
+
+	id, err := s.catalog.SaveStudioComposition(ctx, &comp)
+	if err != nil {
+		if strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+			return
+		}
+		http.Redirect(w, r, "/?tab=director&notice=Error+saving+composition:+"+err.Error(), http.StatusSeeOther)
+		return
+	}
+
+	if strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "ok",
+			"id":     id,
+			"name":   comp.Name,
+		})
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/?tab=director&composition_id=%d&notice=Scene+composition+saved+successfully", id), http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteComposition(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if id <= 0 {
+		var req struct {
+			ID int64 `json:"id"`
+		}
+		if json.NewDecoder(r.Body).Decode(&req) == nil {
+			id = req.ID
+		}
+	}
+	if id > 0 {
+		_ = s.catalog.DeleteStudioComposition(ctx, id)
+	}
+
+	if strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		return
+	}
+	http.Redirect(w, r, "/?tab=director&notice=Scene+composition+deleted", http.StatusSeeOther)
+}
+
+func (s *Server) handleListCompositions(w http.ResponseWriter, r *http.Request) {
+	comps, err := s.catalog.ListStudioCompositions(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(comps)
+}
+
+func (s *Server) handleGetComposition(w http.ResponseWriter, r *http.Request) {
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/compositions/")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	comp, err := s.catalog.GetStudioComposition(r.Context(), id)
+	if err != nil || comp == nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(comp)
+}
+
+func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+
+	var sceneJSON, targetProfile, userHint string
+	var loraIDs []int64
+	var override domain.PromptExecutionOverride
+
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		var req struct {
+			SceneJSON     string   `json:"scene_json"`
+			TargetProfile string   `json:"target_profile"`
+			UserHint      string   `json:"user_hint"`
+			LoRAIDs       []int64  `json:"lora_ids"`
+			Provider      string   `json:"provider"`
+			Model         string   `json:"model"`
+			ThinkLevel    string   `json:"think_level"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			sceneJSON = req.SceneJSON
+			targetProfile = req.TargetProfile
+			userHint = req.UserHint
+			loraIDs = req.LoRAIDs
+			override = domain.PromptExecutionOverride{
+				Provider:   domain.AIProviderType(req.Provider),
+				Model:      req.Model,
+				ThinkLevel: req.ThinkLevel,
+			}
+		}
+	} else {
+		sceneJSON = r.FormValue("scene_json")
+		targetProfile = r.FormValue("target_profile")
+		userHint = r.FormValue("user_hint")
+		loraIDs = parseLoRAIDs(r.Form["lora_id"])
+		override = parseExecutionOverride(r)
+	}
+
+	if targetProfile != "" {
+		_ = s.catalog.SetDefaultTargetGenerator(ctx, targetProfile)
+	}
+
+	manifest, prompt, err := s.catalog.SynthesizeScenePrompt(ctx, sceneJSON, targetProfile, userHint, loraIDs, override)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":   "error",
+			"error":    err.Error(),
+			"manifest": manifest,
+		})
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "ok",
+		"manifest": manifest,
+		"prompt":   prompt,
+	})
+}
+
+func (s *Server) handleListPoses(w http.ResponseWriter, r *http.Request) {
+	poses, err := s.catalog.ListStudioPoses(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(poses)
+}
+
+func (s *Server) handleSavePose(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+
+	var pose domain.StudioPose
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		_ = json.NewDecoder(r.Body).Decode(&pose)
+	} else {
+		id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+		pose.ID = id
+		pose.Name = strings.TrimSpace(r.FormValue("name"))
+		pose.Category = strings.TrimSpace(r.FormValue("category"))
+		pose.PoseJSON = strings.TrimSpace(r.FormValue("pose_json"))
+		pose.Description = strings.TrimSpace(r.FormValue("description"))
+	}
+
+	if pose.Name == "" {
+		http.Error(w, "Pose name is required", http.StatusBadRequest)
+		return
+	}
+	if pose.Category == "" {
+		pose.Category = "Custom"
+	}
+
+	id, err := s.catalog.UpsertStudioPose(ctx, &pose)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "id": id, "name": pose.Name})
+}
+
+func (s *Server) handleDeletePose(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if id <= 0 {
+		var req struct {
+			ID int64 `json:"id"`
+		}
+		if json.NewDecoder(r.Body).Decode(&req) == nil {
+			id = req.ID
+		}
+	}
+	if id > 0 {
+		_ = s.catalog.DeleteStudioPose(ctx, id)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
