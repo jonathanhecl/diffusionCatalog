@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
@@ -40,8 +41,9 @@ type tagsResponse struct {
 	Models []struct {
 		Name    string `json:"name"`
 		Details struct {
-			Family        string `json:"family"`
-			ParameterSize string `json:"parameter_size"`
+			Family        string   `json:"family"`
+			Families      []string `json:"families"`
+			ParameterSize string   `json:"parameter_size"`
 		} `json:"details"`
 	} `json:"models"`
 }
@@ -147,14 +149,14 @@ func (c *Client) CheckStatus(ctx context.Context, baseURL string) (string, bool)
 	return out.Version, true
 }
 
-// ListModels fetches installed models from GET /api/tags and enriches each model with
+// ListModels fetches installed models from GET /api/tags and enriches each model concurrently with
 // capability metadata from POST /api/show (vision confirmed vs inferred, context length).
 func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.OllamaModelInfo, error) {
 	baseURL = NormalizeOllamaURL(baseURL)
-	shortCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	tagsCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(shortCtx, http.MethodGet, baseURL+"/api/tags", nil)
+	req, err := http.NewRequestWithContext(tagsCtx, http.MethodGet, baseURL+"/api/tags", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -173,41 +175,71 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 		return nil, err
 	}
 
-	var out []domain.OllamaModelInfo
-	for _, m := range tags.Models {
-		info := domain.OllamaModelInfo{
+	out := make([]domain.OllamaModelInfo, len(tags.Models))
+	for i, m := range tags.Models {
+		hasVis := inferOMLXVisionFromName(m.Name)
+		visStatus := "none"
+		for _, fam := range m.Details.Families {
+			fl := strings.ToLower(fam)
+			if fl == "clip" || fl == "mllama" || strings.Contains(fl, "vl") || strings.Contains(fl, "vision") {
+				hasVis = true
+			}
+		}
+		if hasVis {
+			visStatus = "inferred"
+		}
+		out[i] = domain.OllamaModelInfo{
 			Provider:      domain.ProviderOllama,
 			Name:          m.Name,
 			ParameterSize: m.Details.ParameterSize,
 			Family:        m.Details.Family,
-			VisionStatus:  "none",
+			HasVision:     hasVis,
+			VisionStatus:  visStatus,
 		}
+	}
 
-		if show, err := c.inspectModel(shortCtx, baseURL, m.Name); err == nil {
-			info.Capabilities = show.Capabilities
-			for _, capName := range show.Capabilities {
-				if capName == "vision" {
-					info.HasVision = true
-					info.VisionStatus = "confirmed"
-				}
+	// Enrich concurrently via /api/show with bounded concurrency so 50+ models complete in <1.5s
+	showCtx, showCancel := context.WithTimeout(ctx, 4*time.Second)
+	defer showCancel()
+
+	sem := make(chan struct{}, 10)
+	var wg sync.WaitGroup
+	for i := range out {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-showCtx.Done():
+				return
 			}
-			if !info.HasVision && show.ProjectorInfo != nil {
-				if hasVis, ok := show.ProjectorInfo["clip.has_vision_encoder"].(bool); ok && hasVis {
-					info.HasVision = true
-					info.VisionStatus = "inferred"
+			if show, err := c.inspectModel(showCtx, baseURL, out[idx].Name); err == nil {
+				out[idx].Capabilities = show.Capabilities
+				for _, capName := range show.Capabilities {
+					if capName == "vision" {
+						out[idx].HasVision = true
+						out[idx].VisionStatus = "confirmed"
+					}
 				}
-			}
-			for k, v := range show.ModelInfo {
-				if strings.HasSuffix(k, ".context_length") {
-					if f, ok := v.(float64); ok {
-						info.ContextLength = int(f)
+				if !out[idx].HasVision && show.ProjectorInfo != nil {
+					if hasVis, ok := show.ProjectorInfo["clip.has_vision_encoder"].(bool); ok && hasVis {
+						out[idx].HasVision = true
+						out[idx].VisionStatus = "inferred"
+					}
+				}
+				for k, v := range show.ModelInfo {
+					if strings.HasSuffix(k, ".context_length") {
+						if f, ok := v.(float64); ok {
+							out[idx].ContextLength = int(f)
+						}
 					}
 				}
 			}
-		}
-
-		out = append(out, info)
+		}(i)
 	}
+	wg.Wait()
+
 	return out, nil
 }
 

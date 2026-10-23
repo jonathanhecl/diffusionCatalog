@@ -133,6 +133,8 @@ type viewData struct {
 	ScanReport        usecase.ScanReport
 	Settings          domain.AppSettings
 	PromptProfiles    []domain.PromptProfile
+	SelectedGenSlug   string
+	SelectedProfile   *domain.PromptProfile
 	ModelLoRAs        []domain.ModelLoRA
 	GeneratedHistory  []domain.GeneratedPrompt
 	AIStatus          usecase.AIBackendStatus
@@ -180,9 +182,26 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	loras, _ := s.catalog.ListModelLoRAs(ctx, "")
 	history, _ := s.catalog.ListGeneratedPrompts(ctx, assetID, filter.CharacterID, 20)
 
+	selectedGenSlug := r.URL.Query().Get("gen")
+	var selectedProfile *domain.PromptProfile
+	if selectedGenSlug != "__new__" {
+		for i := range profiles {
+			if selectedGenSlug == "" || strings.EqualFold(profiles[i].Slug, selectedGenSlug) {
+				selectedProfile = &profiles[i]
+				selectedGenSlug = profiles[i].Slug
+				break
+			}
+		}
+	}
+
 	var aiStatus usecase.AIBackendStatus
 	if tab == "settings" || tab == "studio" || tab == "asset_detail" || tab == "characters" {
 		aiStatus = s.catalog.InspectAIBackends(ctx)
+	}
+
+	defaultTarget := "flux"
+	if len(profiles) > 0 {
+		defaultTarget = profiles[0].Slug
 	}
 
 	data := viewData{
@@ -196,10 +215,12 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
+		SelectedGenSlug:  selectedGenSlug,
+		SelectedProfile:  selectedProfile,
 		ModelLoRAs:       loras,
 		GeneratedHistory: history,
 		AIStatus:         aiStatus,
-		AITargetProfile:  settings.DefaultTargetGenerator,
+		AITargetProfile:  defaultTarget,
 		FlashNotice:      r.URL.Query().Get("notice"),
 	}
 
@@ -263,7 +284,7 @@ func (s *Server) handleUpsertProfile(w http.ResponseWriter, r *http.Request) {
 	if p.Name != "" && p.SystemPrompt != "" {
 		_, _ = s.catalog.UpsertPromptProfile(r.Context(), p)
 	}
-	http.Redirect(w, r, "/?tab=settings&notice=System+prompt+profile+saved", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=generators&gen="+p.Slug+"&notice=Generator+model+profile+saved", http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteProfile(w http.ResponseWriter, r *http.Request) {
@@ -272,7 +293,7 @@ func (s *Server) handleDeleteProfile(w http.ResponseWriter, r *http.Request) {
 	if id > 0 {
 		_ = s.catalog.DeletePromptProfile(r.Context(), id)
 	}
-	http.Redirect(w, r, "/?tab=settings&notice=Profile+deleted", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=generators&notice=Generator+model+deleted", http.StatusSeeOther)
 }
 
 func (s *Server) handleUpsertLoRA(w http.ResponseWriter, r *http.Request) {
@@ -289,16 +310,17 @@ func (s *Server) handleUpsertLoRA(w http.ResponseWriter, r *http.Request) {
 	if l.ProfileSlug != "" && l.Name != "" {
 		_, _ = s.catalog.UpsertModelLoRA(r.Context(), l)
 	}
-	http.Redirect(w, r, "/?tab=settings&notice=Model+LoRA+documentation+saved", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=generators&gen="+l.ProfileSlug+"&notice=LoRA+documentation+saved", http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteLoRA(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	genSlug := r.FormValue("profile_slug")
 	if id > 0 {
 		_ = s.catalog.DeleteModelLoRA(r.Context(), id)
 	}
-	http.Redirect(w, r, "/?tab=settings&notice=Model+LoRA+deleted", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=generators&gen="+genSlug+"&notice=LoRA+deleted", http.StatusSeeOther)
 }
 
 func parseLoRAIDs(vals []string) []int64 {

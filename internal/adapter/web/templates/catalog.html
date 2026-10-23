@@ -40,8 +40,9 @@
       <a href="/?tab=characters" class="nav-tab {{if eq .ActiveTab "characters"}}active{{end}}">Character Folders ({{len .Page.Characters}})</a>
       <a href="/?tab=groups" class="nav-tab {{if eq .ActiveTab "groups"}}active{{end}}">Agnostic Groups ({{len .Page.Groups}})</a>
       <a href="/?face_mode=1" class="nav-tab {{if eq .ActiveTab "faces"}}active{{end}}">Face &amp; Subject Explorer</a>
-      <a href="/?tab=studio" class="nav-tab {{if eq .ActiveTab "studio"}}active{{end}}">Prompt Studio (Ollama)</a>
-      <a href="/?tab=settings" class="nav-tab {{if eq .ActiveTab "settings"}}active{{end}}">Settings &amp; System Prompts</a>
+      <a href="/?tab=studio" class="nav-tab {{if eq .ActiveTab "studio"}}active{{end}}">Prompt Studio</a>
+      <a href="/?tab=generators" class="nav-tab {{if eq .ActiveTab "generators"}}active{{end}}">Generator Models &amp; LoRAs ({{len .PromptProfiles}})</a>
+      <a href="/?tab=settings" class="nav-tab {{if eq .ActiveTab "settings"}}active{{end}}">Settings</a>
     </div>
   </nav>
 
@@ -59,11 +60,14 @@
           <h1 class="hero-title">Agnostic <span class="highlight">Collections &amp; Folders</span></h1>
           <p class="hero-sub">Organize diffusion images and videos into arbitrary collections without altering your underlying filesystem.</p>
         {{else if eq .ActiveTab "studio"}}
-          <h1 class="hero-title">Ollama <span class="highlight">Text2Prompt &amp; Image2Prompt</span> Studio</h1>
-          <p class="hero-sub">Synthesize and translate diffusion/video prompts using model-specific system prompts (Flux, Krea 2, MOSS, MiniMax H3 Video, SDXL).</p>
+          <h1 class="hero-title">Ollama &amp; oMLX <span class="highlight">Prompt Studio</span></h1>
+          <p class="hero-sub">Synthesize and translate diffusion/video prompts using model-specific system prompts and LoRA documentation.</p>
+        {{else if eq .ActiveTab "generators"}}
+          <h1 class="hero-title">Target <span class="highlight">Generator Models, System Prompts &amp; LoRAs</span></h1>
+          <p class="hero-sub">Manage diffusion/video model families (Flux, Krea 2, Qwen-Image, MOSS, MiniMax H3), their generation context prompts, and their dedicated LoRAs.</p>
         {{else if eq .ActiveTab "settings"}}
-          <h1 class="hero-title">Application <span class="highlight">Settings &amp; Model System Prompts</span></h1>
-          <p class="hero-sub">Configure Ollama model routing (Vision, Image2Prompt, Text2Prompt) and customize system prompts per target generator.</p>
+          <h1 class="hero-title">Application <span class="highlight">Settings &amp; AI Server Routing</span></h1>
+          <p class="hero-sub">Configure local or remote Ollama and oMLX endpoints and select which LLM/Vision models handle Vision, Image2Prompt, and Text2Prompt.</p>
         {{else}}
           <h1 class="hero-title">AI Diffusion <span class="highlight">Prompt &amp; Asset</span> Database</h1>
           <p class="hero-sub">Every generation prompt, checkpoint model, LoRA, seed, and character sheet — indexed locally from your media folder.</p>
@@ -452,17 +456,206 @@
         {{end}}
       </div>
 
+    {{else if eq .ActiveTab "generators"}}
+      <!-- Dedicated Section: Generator Models, Generation/Context System Prompts & Model-Specific LoRAs -->
+      <div class="catalog-layout" style="grid-template-columns: 270px 1fr; margin-top: 10px;">
+        <!-- Left Sidebar: Target Generator Model Families -->
+        <aside class="sidebar">
+          <div class="facet-title" style="margin-bottom:10px;">
+            <span>TARGET GENERATOR MODELS</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+            {{range .PromptProfiles}}
+              <a href="/?tab=generators&amp;gen={{.Slug}}" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:5px;border:1px solid {{if eq $.SelectedGenSlug .Slug}}#257bf0{{else}}var(--border-navy){{end}};background:{{if eq $.SelectedGenSlug .Slug}}rgba(22,104,220,0.22){{else}}#060d1b{{end}};">
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:13px;">{{.Name}}</div>
+                  <div style="font-size:11px;color:var(--text-muted);">Slug: <code>{{.Slug}}</code></div>
+                </div>
+                <span class="badge-chip {{if eq .TargetModality "video"}}character{{end}}">{{.TargetModality}}</span>
+              </a>
+            {{end}}
+          </div>
+          <a href="/?tab=generators&amp;gen=__new__" class="btn-primary" style="display:block;text-align:center;width:100%;">
+            + Add New Generator Model
+          </a>
+        </aside>
+
+        <!-- Right Workspace: Selected Model's System Prompt + Its LoRAs -->
+        <section style="display:flex;flex-direction:column;gap:20px;">
+          {{if or (eq .SelectedGenSlug "__new__") (not .SelectedProfile)}}
+            <div style="background:var(--bg-panel);border:1px solid var(--border-highlight);border-radius:6px;padding:20px;">
+              <h2 style="font-size:18px;margin-bottom:6px;">Create New Target Generator Model Family</h2>
+              <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
+                Register a new diffusion image or video generator (e.g. <code>wan21</code>, <code>kling-v2</code>, <code>hidream</code>, <code>flux-kontext</code>) and define the System Prompt / Context Instructions that Ollama or oMLX will use when crafting prompts for it.
+              </p>
+              <form action="/admin/profiles/upsert" method="POST" style="display:flex;flex-direction:column;gap:12px;">
+                <div style="display:grid;grid-template-columns:180px 260px 180px 1fr;gap:10px;">
+                  <div>
+                    <label class="kv-label">Model Slug ID</label>
+                    <input type="text" name="slug" placeholder="e.g. wan21" class="input-dark" required>
+                  </div>
+                  <div>
+                    <label class="kv-label">Display Name</label>
+                    <input type="text" name="name" placeholder="e.g. Wan 2.1 Video" class="input-dark" required>
+                  </div>
+                  <div>
+                    <label class="kv-label">Target Modality</label>
+                    <select name="target_modality" class="input-dark">
+                      <option value="image">Image Generator</option>
+                      <option value="video">Video Generator</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="kv-label">Short Description</label>
+                    <input type="text" name="description" placeholder="Architecture &amp; token style notes..." class="input-dark">
+                  </div>
+                </div>
+                <div>
+                  <label class="kv-label">Generation / Context System Prompt</label>
+                  <textarea name="system_prompt" rows="5" class="input-dark" style="font-family:monospace;font-size:12px;" placeholder="You are an expert prompt engineer for this model. Explain how prompts must be structured..." required></textarea>
+                </div>
+                <div>
+                  <button type="submit" class="btn-primary">Create Generator Model</button>
+                </div>
+              </form>
+            </div>
+          {{else}}
+            <!-- 1. Selected Model Configuration & System Prompt -->
+            <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <div>
+                  <h2 style="font-size:19px;color:#fff;">{{.SelectedProfile.Name}} <span class="badge-chip" style="margin-left:6px;">{{.SelectedProfile.Slug}} ({{.SelectedProfile.TargetModality}})</span></h2>
+                  <p style="color:var(--text-muted);font-size:12px;">Configure the Generation &amp; Context System Prompt used when generating prompts for <strong>{{.SelectedProfile.Name}}</strong>.</p>
+                </div>
+                <form action="/admin/profiles/delete" method="POST">
+                  <input type="hidden" name="id" value="{{.SelectedProfile.ID}}">
+                  <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;">Delete Model Family</button>
+                </form>
+              </div>
+
+              <form action="/admin/profiles/upsert" method="POST" style="display:flex;flex-direction:column;gap:12px;">
+                <div style="display:grid;grid-template-columns:160px 240px 160px 1fr;gap:10px;">
+                  <div>
+                    <label class="kv-label">Slug ID</label>
+                    <input type="text" name="slug" value="{{.SelectedProfile.Slug}}" class="input-dark" required>
+                  </div>
+                  <div>
+                    <label class="kv-label">Display Name</label>
+                    <input type="text" name="name" value="{{.SelectedProfile.Name}}" class="input-dark" required>
+                  </div>
+                  <div>
+                    <label class="kv-label">Modality</label>
+                    <select name="target_modality" class="input-dark">
+                      <option value="image" {{if eq .SelectedProfile.TargetModality "image"}}selected{{end}}>Image Generator</option>
+                      <option value="video" {{if eq .SelectedProfile.TargetModality "video"}}selected{{end}}>Video Generator</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="kv-label">Short Description</label>
+                    <input type="text" name="description" value="{{.SelectedProfile.Description}}" class="input-dark">
+                  </div>
+                </div>
+                <div>
+                  <label class="kv-label">Generation / Context System Prompt (Sent to Ollama / oMLX)</label>
+                  <textarea name="system_prompt" rows="5" class="input-dark" style="font-family:monospace;font-size:12.5px;" required>{{.SelectedProfile.SystemPrompt}}</textarea>
+                </div>
+                <div>
+                  <button type="submit" class="btn-primary">Save '{{.SelectedProfile.Name}}' System Prompt</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- 2. LoRAs Belonging to This Generator Model -->
+            <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+              <h3 style="font-size:17px;margin-bottom:4px;">LoRAs for {{.SelectedProfile.Name}} (<code>{{.SelectedProfile.Slug}}</code>)</h3>
+              <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
+                Document LoRAs specific to <strong>{{.SelectedProfile.Name}}</strong>: what each LoRA does, whether it requires trigger words or is triggerless, its syntax tag, and concrete usage examples.
+              </p>
+
+              <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+                {{range .ModelLoRAs}}
+                  {{if eq .ProfileSlug $.SelectedProfile.Slug}}
+                    <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:14px;">
+                      <form action="/admin/loras/upsert" method="POST" style="display:flex;flex-direction:column;gap:8px;">
+                        <input type="hidden" name="profile_slug" value="{{.ProfileSlug}}">
+                        <div style="display:grid;grid-template-columns:1fr 240px 110px;gap:10px;">
+                          <div>
+                            <label class="kv-label">LoRA Name</label>
+                            <input type="text" name="name" value="{{.Name}}" class="input-dark" required>
+                          </div>
+                          <div>
+                            <label class="kv-label">Syntax / Weight Tag</label>
+                            <input type="text" name="syntax_tag" value="{{.SyntaxTag}}" class="input-dark" placeholder="<lora:name:0.8>">
+                          </div>
+                          <div>
+                            <label class="kv-label">Rec. Weight</label>
+                            <input type="text" name="recommended_weight" value="{{.RecommendedWeight}}" class="input-dark">
+                          </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+                          <div>
+                            <label class="kv-label">Trigger Words (Leave blank if triggerless)</label>
+                            <input type="text" name="trigger_words" value="{{.TriggerWords}}" class="input-dark" placeholder="None (triggerless)">
+                          </div>
+                          <div>
+                            <label class="kv-label">Purpose &amp; Behavior (What is this LoRA for?)</label>
+                            <input type="text" name="description" value="{{.Description}}" class="input-dark" required>
+                          </div>
+                        </div>
+                        <div>
+                          <label class="kv-label">Usage Examples (Few-shot example prompts for {{$.SelectedProfile.Name}})</label>
+                          <textarea name="usage_examples" rows="2" class="input-dark" style="font-family:monospace;font-size:11.5px;">{{.UsageExamples}}</textarea>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                          <button type="submit" class="btn-primary" style="padding:5px 14px;font-size:12px;">Update LoRA</button>
+                        </div>
+                      </form>
+                      <form action="/admin/loras/delete" method="POST" style="margin-top:4px;text-align:right;">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <input type="hidden" name="profile_slug" value="{{.ProfileSlug}}">
+                        <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:3px 10px;font-size:11px;">Delete LoRA</button>
+                      </form>
+                    </div>
+                  {{end}}
+                {{end}}
+              </div>
+
+              <!-- Add New LoRA to Selected Model -->
+              <div style="background:#071124;border:1px dashed var(--border-highlight);border-radius:6px;padding:16px;">
+                <h4 style="font-size:14px;margin-bottom:10px;color:#93c5fd;">+ Add New LoRA for {{.SelectedProfile.Name}} (<code>{{.SelectedProfile.Slug}}</code>)</h4>
+                <form action="/admin/loras/upsert" method="POST" style="display:flex;flex-direction:column;gap:10px;">
+                  <input type="hidden" name="profile_slug" value="{{.SelectedProfile.Slug}}">
+                  <div style="display:grid;grid-template-columns:1fr 240px 110px;gap:10px;">
+                    <input type="text" name="name" placeholder="LoRA Name (e.g. Anamorphic 70mm Flare)" class="input-dark" required>
+                    <input type="text" name="syntax_tag" placeholder="Syntax tag (e.g. <lora:my_lora:0.8>)" class="input-dark">
+                    <input type="text" name="recommended_weight" value="0.8" placeholder="Weight" class="input-dark">
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+                    <input type="text" name="trigger_words" placeholder="Trigger words (leave blank if triggerless)" class="input-dark">
+                    <input type="text" name="description" placeholder="Explain what this LoRA does and how it behaves on {{.SelectedProfile.Name}}..." class="input-dark" required>
+                  </div>
+                  <textarea name="usage_examples" rows="3" class="input-dark" placeholder="Paste 1 or more example prompts showing how this LoRA is used in {{.SelectedProfile.Name}}..."></textarea>
+                  <div>
+                    <button type="submit" class="btn-primary">Add LoRA to {{.SelectedProfile.Name}}</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          {{end}}
+        </section>
+      </div>
+
     {{else if eq .ActiveTab "settings"}}
-      <!-- Settings Menu: Remote Ollama + oMLX Routing + Generator System Prompts + System Status -->
+      <!-- Settings Menu: Focused ONLY on Remote/Local Ollama & oMLX Server Routing + Storage Status -->
       <div style="display:flex;flex-direction:column;gap:22px;margin:20px 0 44px;">
 
         <!-- 1. Ollama & oMLX Connection & Model Routing -->
         <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
             <div>
-              <h2 style="font-size:18px;">1. Remote / Local Ollama &amp; oMLX Model Routing</h2>
+              <h2 style="font-size:18px;">1. Remote / Local Ollama &amp; oMLX Server Routing</h2>
               <p style="color:var(--text-muted);font-size:12px;">
-                Connect to local or remote servers (e.g. <code>http://mac-mini.local:11434</code> for Ollama and <code>http://mac-mini.local:8000</code> for oMLX) and route Vision, Image2Prompt, and Text2Prompt independently.
+                Connect to local or remote servers (e.g. <code>http://mac-mini.local:11434</code> for Ollama and <code>http://mac-mini.local:8000</code> for oMLX) and select which model handles each task from the dropdowns.
               </p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -506,11 +699,18 @@
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Vision Analysis Backend &amp; Model</label>
               <div style="display:flex;gap:6px;">
-                <select name="vision_provider" class="input-dark" style="width:105px;">
+                <select name="vision_provider" id="vision_provider" class="input-dark" style="width:105px;" onchange="filterModelSelect('vision_provider', 'vision_model_select')">
                   <option value="ollama" {{if eq .Settings.VisionProvider "ollama"}}selected{{end}}>Ollama</option>
                   <option value="omlx" {{if eq .Settings.VisionProvider "omlx"}}selected{{end}}>oMLX</option>
                 </select>
-                <input type="text" name="vision_model" list="ai-models-vision" value="{{.Settings.VisionModel}}" class="input-dark" placeholder="e.g. llama3.2-vision:latest">
+                <select name="vision_model" id="vision_model_select" class="input-dark">
+                  <option value="{{.Settings.VisionModel}}" selected>{{.Settings.VisionModel}} (current)</option>
+                  {{range .AIStatus.AllModels}}
+                    <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.VisionModel .Name}}selected{{end}}>
+                      {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .HasVision}}[vision]{{end}}
+                    </option>
+                  {{end}}
+                </select>
               </div>
             </div>
 
@@ -518,11 +718,18 @@
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Image2Prompt Backend &amp; Model</label>
               <div style="display:flex;gap:6px;">
-                <select name="image2prompt_provider" class="input-dark" style="width:105px;">
+                <select name="image2prompt_provider" id="image2prompt_provider" class="input-dark" style="width:105px;" onchange="filterModelSelect('image2prompt_provider', 'image2prompt_model_select')">
                   <option value="ollama" {{if eq .Settings.Image2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
                   <option value="omlx" {{if eq .Settings.Image2PromptProvider "omlx"}}selected{{end}}>oMLX</option>
                 </select>
-                <input type="text" name="image2prompt_model" list="ai-models-vision" value="{{.Settings.Image2PromptModel}}" class="input-dark" placeholder="e.g. Qwen2.5-VL-7B-Instruct-MLX-4bit">
+                <select name="image2prompt_model" id="image2prompt_model_select" class="input-dark">
+                  <option value="{{.Settings.Image2PromptModel}}" selected>{{.Settings.Image2PromptModel}} (current)</option>
+                  {{range .AIStatus.AllModels}}
+                    <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.Image2PromptModel .Name}}selected{{end}}>
+                      {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .HasVision}}[vision]{{end}}
+                    </option>
+                  {{end}}
+                </select>
               </div>
             </div>
 
@@ -530,24 +737,22 @@
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Text2Prompt Backend &amp; Model</label>
               <div style="display:flex;gap:6px;">
-                <select name="text2prompt_provider" class="input-dark" style="width:105px;">
+                <select name="text2prompt_provider" id="text2prompt_provider" class="input-dark" style="width:105px;" onchange="filterModelSelect('text2prompt_provider', 'text2prompt_model_select')">
                   <option value="ollama" {{if eq .Settings.Text2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
                   <option value="omlx" {{if eq .Settings.Text2PromptProvider "omlx"}}selected{{end}}>oMLX</option>
                 </select>
-                <input type="text" name="text2prompt_model" list="ai-models-all" value="{{.Settings.Text2PromptModel}}" class="input-dark" placeholder="e.g. SuperQwen3.8-27b-abliterated-MLX-4bit">
+                <select name="text2prompt_model" id="text2prompt_model_select" class="input-dark">
+                  <option value="{{.Settings.Text2PromptModel}}" selected>{{.Settings.Text2PromptModel}} (current)</option>
+                  {{range .AIStatus.AllModels}}
+                    <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.Text2PromptModel .Name}}selected{{end}}>
+                      {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                    </option>
+                  {{end}}
+                </select>
               </div>
             </div>
 
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Default Target Generator Profile</label>
-              <select name="default_target_generator" class="input-dark">
-                {{range .PromptProfiles}}
-                  <option value="{{.Slug}}" {{if eq $.Settings.DefaultTargetGenerator .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} — {{.TargetModality}})</option>
-                {{end}}
-              </select>
-            </div>
-
-            <div style="grid-column:span 2;display:flex;align-items:flex-end;padding-bottom:6px;">
+            <div style="grid-column:span 3;display:flex;align-items:center;padding-top:4px;">
               <label class="checkbox-item" style="font-size:12.5px;color:var(--text-main);">
                 <span>
                   <input type="checkbox" name="auto_caption_on_scan" {{if .Settings.AutoCaptionOnScan}}checked{{end}}>
@@ -558,7 +763,10 @@
 
             <div style="grid-column:span 3;display:flex;justify-content:space-between;align-items:center;padding-top:6px;">
               <button type="submit" class="btn-primary">Save Ollama, oMLX &amp; App Settings</button>
-              <a href="/?tab=settings" class="btn-ghost">Probe &amp; Refresh Models from Ollama / oMLX</a>
+              <div style="display:flex;gap:8px;">
+                <a href="/?tab=generators" class="btn-ghost">Configure Generator Models &amp; LoRAs &rarr;</a>
+                <a href="/?tab=settings" class="btn-ghost">Probe &amp; Refresh Models from Ollama / oMLX</a>
+              </div>
             </div>
           </form>
 
@@ -579,164 +787,9 @@
           {{end}}
         </div>
 
-        <!-- 2. System Prompts per Generator Model (flux, krea2, moss, minimaxh3, etc.) -->
+        <!-- 2. Runtime & Vision Adapter Status -->
         <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-          <h2 style="font-size:18px;margin-bottom:4px;">2. Generator System Prompts (Flux, Krea 2, MOSS, MiniMax H3 Video, SDXL &amp; Custom)</h2>
-          <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">
-            Each generator profile defines the exact <code>system</code> prompt sent to your Ollama <code>image2prompt</code> or <code>text2prompt</code> model. Edit any profile below or register new image/video engines.
-          </p>
-
-          <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px;">
-            {{range .PromptProfiles}}
-              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:14px;">
-                <form action="/admin/profiles/upsert" method="POST" style="display:flex;flex-direction:column;gap:10px;">
-                  <div style="display:grid;grid-template-columns:160px 240px 140px 1fr;gap:10px;">
-                    <div>
-                      <label class="kv-label">Slug ID</label>
-                      <input type="text" name="slug" value="{{.Slug}}" class="input-dark" required>
-                    </div>
-                    <div>
-                      <label class="kv-label">Display Name</label>
-                      <input type="text" name="name" value="{{.Name}}" class="input-dark" required>
-                    </div>
-                    <div>
-                      <label class="kv-label">Target Modality</label>
-                      <select name="target_modality" class="input-dark">
-                        <option value="image" {{if eq .TargetModality "image"}}selected{{end}}>Image Generator</option>
-                        <option value="video" {{if eq .TargetModality "video"}}selected{{end}}>Video Generator</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label class="kv-label">Short Description</label>
-                      <input type="text" name="description" value="{{.Description}}" class="input-dark">
-                    </div>
-                  </div>
-                  <div>
-                    <label class="kv-label">System Prompt (Sent to Ollama for {{.Name}})</label>
-                    <textarea name="system_prompt" rows="3" class="input-dark" style="font-family:monospace;font-size:12px;" required>{{.SystemPrompt}}</textarea>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <button type="submit" class="btn-primary" style="padding:6px 14px;font-size:12px;">Update '{{.Slug}}' Profile</button>
-                  </div>
-                </form>
-                <form action="/admin/profiles/delete" method="POST" style="margin-top:6px;text-align:right;">
-                  <input type="hidden" name="id" value="{{.ID}}">
-                  <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:4px 10px;font-size:11px;">Delete Profile</button>
-                </form>
-              </div>
-            {{end}}
-          </div>
-
-          <!-- Add New Generator System Prompt Profile -->
-          <div style="background:#071124;border:1px dashed var(--border-highlight);border-radius:6px;padding:16px;">
-            <h3 style="font-size:15px;margin-bottom:10px;">Add New Generator System Prompt Profile (e.g. wan2.1, hunyuan-video, midjourney-v7)</h3>
-            <form action="/admin/profiles/upsert" method="POST" style="display:flex;flex-direction:column;gap:10px;">
-              <div style="display:grid;grid-template-columns:160px 240px 160px 1fr;gap:10px;">
-                <input type="text" name="slug" placeholder="Slug (e.g. wan21)" class="input-dark" required>
-                <input type="text" name="name" placeholder="Generator Name (e.g. Wan 2.1 Video)" class="input-dark" required>
-                <select name="target_modality" class="input-dark">
-                  <option value="image">Image Generator</option>
-                  <option value="video">Video Generator</option>
-                </select>
-                <input type="text" name="description" placeholder="Notes on token style / architecture..." class="input-dark">
-              </div>
-              <textarea name="system_prompt" rows="4" class="input-dark" placeholder="Write the system instructions explaining how Ollama should structure prompts for this generator..." required></textarea>
-              <div>
-                <button type="submit" class="btn-primary">Create System Prompt Profile</button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <!-- 3. Per-Model LoRA Documentation & Few-Shot Examples -->
-        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-          <h2 style="font-size:18px;margin-bottom:4px;">3. Per-Model LoRA Knowledge Base (Flux, Krea 2, Qwen-Image, MiniMax H3 Video, etc.)</h2>
-          <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">
-            LoRAs are strictly scoped per generator model. Document what each LoRA does, whether it uses trigger words or is triggerless, its weight tag, and concrete usage examples so Ollama/oMLX can weave them accurately into generated prompts.
-          </p>
-
-          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:22px;">
-            {{range .ModelLoRAs}}
-              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:14px;">
-                <form action="/admin/loras/upsert" method="POST" style="display:flex;flex-direction:column;gap:8px;">
-                  <div style="display:grid;grid-template-columns:170px 1fr 220px 100px;gap:10px;">
-                    <div>
-                      <label class="kv-label">Target Model</label>
-                      <select name="profile_slug" class="input-dark">
-                        {{range $.PromptProfiles}}
-                          <option value="{{.Slug}}" {{if eq .Slug $.AITargetProfile}}{{end}}>{{.Name}} ({{.Slug}})</option>
-                        {{end}}
-                        <option value="{{.ProfileSlug}}" selected>{{.ProfileSlug}}</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label class="kv-label">LoRA Name</label>
-                      <input type="text" name="name" value="{{.Name}}" class="input-dark" required>
-                    </div>
-                    <div>
-                      <label class="kv-label">Syntax / Weight Tag</label>
-                      <input type="text" name="syntax_tag" value="{{.SyntaxTag}}" class="input-dark" placeholder="<lora:name:0.8>">
-                    </div>
-                    <div>
-                      <label class="kv-label">Rec. Weight</label>
-                      <input type="text" name="recommended_weight" value="{{.RecommendedWeight}}" class="input-dark">
-                    </div>
-                  </div>
-                  <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
-                    <div>
-                      <label class="kv-label">Trigger Words (Leave blank if triggerless)</label>
-                      <input type="text" name="trigger_words" value="{{.TriggerWords}}" class="input-dark" placeholder="None (triggerless)">
-                    </div>
-                    <div>
-                      <label class="kv-label">What is this LoRA for? (Behavior, style, lighting, or motion effect)</label>
-                      <input type="text" name="description" value="{{.Description}}" class="input-dark" required>
-                    </div>
-                  </div>
-                  <div>
-                    <label class="kv-label">Reference Usage Examples (Few-shot prompt examples for this model)</label>
-                    <textarea name="usage_examples" rows="2" class="input-dark" style="font-family:monospace;font-size:11.5px;">{{.UsageExamples}}</textarea>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <button type="submit" class="btn-primary" style="padding:5px 14px;font-size:12px;">Update LoRA ({{.ProfileSlug}} / {{.Name}})</button>
-                  </div>
-                </form>
-                <form action="/admin/loras/delete" method="POST" style="margin-top:4px;text-align:right;">
-                  <input type="hidden" name="id" value="{{.ID}}">
-                  <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:3px 10px;font-size:11px;">Delete LoRA</button>
-                </form>
-              </div>
-            {{end}}
-          </div>
-
-          <!-- Create New Model-Scoped LoRA -->
-          <div style="background:#071124;border:1px dashed var(--border-highlight);border-radius:6px;padding:16px;">
-            <h3 style="font-size:15px;margin-bottom:10px;">Add New Model-Specific LoRA Documentation</h3>
-            <form action="/admin/loras/upsert" method="POST" style="display:flex;flex-direction:column;gap:10px;">
-              <div style="display:grid;grid-template-columns:180px 1fr 240px 110px;gap:10px;">
-                <select name="profile_slug" class="input-dark" required>
-                  {{range .PromptProfiles}}
-                    <option value="{{.Slug}}">{{.Name}} ({{.Slug}})</option>
-                  {{end}}
-                </select>
-                <input type="text" name="name" placeholder="LoRA Name (e.g. Krea2 Analog Grain / MiniMax Drone Orbit)" class="input-dark" required>
-                <input type="text" name="syntax_tag" placeholder="Syntax tag (e.g. <lora:my_lora:0.8>)" class="input-dark">
-                <input type="text" name="recommended_weight" value="0.8" placeholder="Weight" class="input-dark">
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
-                <input type="text" name="trigger_words" placeholder="Trigger words (or leave blank if triggerless)" class="input-dark">
-                <input type="text" name="description" placeholder="Explain what this LoRA does, its visual/motion effect, and rules..." class="input-dark" required>
-              </div>
-              <textarea name="usage_examples" rows="3" class="input-dark" placeholder="Paste 1 or more example prompts showing how this LoRA is properly used in this model..."></textarea>
-              <div>
-                <button type="submit" class="btn-primary">Save LoRA Documentation</button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <!-- 4. Runtime & Vision Adapter Status -->
-        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-          <h2 style="font-size:18px;margin-bottom:10px;">4. Storage &amp; Pluggable Face Vision Adapter</h2>
+          <h2 style="font-size:18px;margin-bottom:10px;">2. Storage &amp; Pluggable Face Vision Adapter</h2>
           <div class="kv-table">
             <div class="kv-box">
               <div class="kv-label">Source Media Directory (Read-Only)</div>
@@ -1064,12 +1117,46 @@
         }
       });
     }
+
+    function filterModelSelect(providerSelectId, modelSelectId) {
+      var provEl = document.getElementById(providerSelectId);
+      var modEl = document.getElementById(modelSelectId);
+      if (!provEl || !modEl) return;
+      var targetProv = provEl.value;
+      var firstMatchingVal = '';
+      var currentStillValid = false;
+
+      Array.from(modEl.options).forEach(function(opt) {
+        var p = opt.getAttribute('data-provider');
+        if (!p) {
+          // Keep fallback current option visible if no options loaded
+          return;
+        }
+        if (p === targetProv) {
+          opt.hidden = false;
+          opt.disabled = false;
+          if (!firstMatchingVal) firstMatchingVal = opt.value;
+          if (opt.value === modEl.value) currentStillValid = true;
+        } else {
+          opt.hidden = true;
+          opt.disabled = true;
+        }
+      });
+
+      if (!currentStillValid && firstMatchingVal) {
+        modEl.value = firstMatchingVal;
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('select[name="profile_slug"]').forEach(function(sel) {
         if (sel.form && sel.form.querySelector('.lora-chip-item')) {
           filterLoRAsByModel(sel.form, sel.value);
         }
       });
+      filterModelSelect('vision_provider', 'vision_model_select');
+      filterModelSelect('image2prompt_provider', 'image2prompt_model_select');
+      filterModelSelect('text2prompt_provider', 'text2prompt_model_select');
     });
   </script>
 </body>
