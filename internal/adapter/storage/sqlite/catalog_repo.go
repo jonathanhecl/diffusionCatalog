@@ -5,31 +5,83 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
 )
 
 // Repository implements domain.CatalogRepository using SQLite and FTS5.
 type Repository struct {
-	db *sql.DB
+	mu     sync.RWMutex
+	db     *sql.DB
+	dbPath string
 }
 
 // NewRepository creates a SQLite-backed CatalogRepository.
-func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *sql.DB, dbPath ...string) *Repository {
+	p := "./catalog.db"
+	if len(dbPath) > 0 && strings.TrimSpace(dbPath[0]) != "" {
+		p = strings.TrimSpace(dbPath[0])
+	}
+	return &Repository{db: db, dbPath: p}
+}
+
+func (r *Repository) conn() *sql.DB {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.db
+}
+
+// CurrentDBPath returns the active SQLite database file path.
+func (r *Repository) CurrentDBPath() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.dbPath
+}
+
+// SwitchDB opens, migrates, and hot-swaps the active SQLite database file at runtime.
+func (r *Repository) SwitchDB(ctx context.Context, newDBPath string) error {
+	newDBPath = strings.TrimSpace(newDBPath)
+	if newDBPath == "" {
+		return fmt.Errorf("database path cannot be empty")
+	}
+	if abs, err := filepath.Abs(newDBPath); err == nil {
+		newDBPath = abs
+	}
+	if dir := filepath.Dir(newDBPath); dir != "" && dir != "." {
+		_ = os.MkdirAll(dir, 0755)
+	}
+	newDB, err := Open(ctx, newDBPath)
+	if err != nil {
+		return err
+	}
+
+	r.mu.Lock()
+	oldDB := r.db
+	r.db = newDB
+	r.dbPath = newDBPath
+	r.mu.Unlock()
+
+	if oldDB != nil {
+		_ = oldDB.Close()
+	}
+	return nil
 }
 
 // EnsureDefaultAdmin seeds the default admin user if the users table is empty.
 func (r *Repository) EnsureDefaultAdmin(ctx context.Context, username, passwordHash string) error {
+	db := r.conn()
 	var count int
-	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
 		return err
 	}
 	if count > 0 {
 		return nil
 	}
-	_, err := r.db.ExecContext(ctx,
+	_, err := db.ExecContext(ctx,
 		`INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'admin')`,
 		username, passwordHash,
 	)
@@ -38,8 +90,9 @@ func (r *Repository) EnsureDefaultAdmin(ctx context.Context, username, passwordH
 
 // GetUserByUsername fetches a user record by username.
 func (r *Repository) GetUserByUsername(ctx context.Context, username string) (*domain.User, error) {
+	db := r.conn()
 	var u domain.User
-	err := r.db.QueryRowContext(ctx,
+	err := db.QueryRowContext(ctx,
 		`SELECT id, username, password_hash, role, created_at FROM users WHERE username = ?`,
 		username,
 	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt)
@@ -49,8 +102,172 @@ func (r *Repository) GetUserByUsername(ctx context.Context, username string) (*d
 	return &u, nil
 }
 
+// UpsertMediaRoot registers or updates a watched media folder (local path or external drive).
+func (r *Repository) UpsertMediaRoot(ctx context.Context, root *domain.MediaRoot) (int64, error) {
+	db := r.conn()
+	cleanPath := strings.TrimSpace(root.Path)
+	if abs, err := filepath.Abs(cleanPath); err == nil {
+		cleanPath = abs
+	}
+	label := strings.TrimSpace(root.Label)
+	if label == "" {
+		label = filepath.Base(cleanPath)
+	}
+	enabled := 1
+	if !root.Enabled {
+		enabled = 0
+	}
+	var id int64
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO media_roots (path, label, enabled)
+		VALUES (?, ?, ?)
+		ON CONFLICT(path) DO UPDATE SET
+			label = excluded.label,
+			enabled = excluded.enabled
+		RETURNING id`,
+		cleanPath, label, enabled,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	root.ID = id
+	root.Path = cleanPath
+	root.Label = label
+	return id, nil
+}
+
+// DeleteMediaRoot removes a media root and its indexed assets from SQLite (without touching disk files).
+func (r *Repository) DeleteMediaRoot(ctx context.Context, id int64) error {
+	db := r.conn()
+	_, _ = db.ExecContext(ctx, `DELETE FROM assets WHERE root_id = ?`, id)
+	_, err := db.ExecContext(ctx, `DELETE FROM media_roots WHERE id = ?`, id)
+	return err
+}
+
+// GetMediaRootByID fetches a MediaRoot by its ID.
+func (r *Repository) GetMediaRootByID(ctx context.Context, id int64) (*domain.MediaRoot, error) {
+	db := r.conn()
+	var mr domain.MediaRoot
+	var enabled int
+	err := db.QueryRowContext(ctx, `
+		SELECT r.id, r.path, r.label, r.enabled, r.created_at, COUNT(a.id)
+		FROM media_roots r
+		LEFT JOIN assets a ON a.root_id = r.id
+		WHERE r.id = ?
+		GROUP BY r.id`, id,
+	).Scan(&mr.ID, &mr.Path, &mr.Label, &enabled, &mr.CreatedAt, &mr.AssetCount)
+	if err != nil {
+		return nil, err
+	}
+	mr.Enabled = enabled == 1
+	if info, statErr := os.Stat(mr.Path); statErr == nil && info.IsDir() {
+		mr.Accessible = true
+	}
+	return &mr, nil
+}
+
+// ListMediaRoots returns all registered media root folders with their indexed asset counts and live accessibility status.
+func (r *Repository) ListMediaRoots(ctx context.Context) ([]domain.MediaRoot, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT r.id, r.path, r.label, r.enabled, r.created_at, COUNT(a.id)
+		FROM media_roots r
+		LEFT JOIN assets a ON a.root_id = r.id
+		GROUP BY r.id
+		ORDER BY r.id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.MediaRoot
+	for rows.Next() {
+		var mr domain.MediaRoot
+		var enabled int
+		if err := rows.Scan(&mr.ID, &mr.Path, &mr.Label, &enabled, &mr.CreatedAt, &mr.AssetCount); err != nil {
+			return nil, err
+		}
+		mr.Enabled = enabled == 1
+		if info, statErr := os.Stat(mr.Path); statErr == nil && info.IsDir() {
+			mr.Accessible = true
+		}
+		out = append(out, mr)
+	}
+	return out, nil
+}
+
+// UpsertDefaultCategory creates or updates a global default category and its subcategories in SQLite.
+func (r *Repository) UpsertDefaultCategory(ctx context.Context, cat *domain.DefaultCategory) (int64, error) {
+	db := r.conn()
+	name := strings.TrimSpace(cat.Name)
+	facet := strings.TrimSpace(cat.Facet)
+	if facet == "" {
+		facet = "category"
+	}
+	color := strings.TrimSpace(cat.Color)
+	if color == "" {
+		color = "#2563eb"
+	}
+	subsJSON, _ := json.Marshal(cat.Subcategories)
+	if len(subsJSON) == 0 {
+		subsJSON = []byte("[]")
+	}
+	var id int64
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO default_categories (name, facet, color, subcategories_json)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(name) DO UPDATE SET
+			facet = excluded.facet,
+			color = excluded.color,
+			subcategories_json = excluded.subcategories_json
+		RETURNING id`,
+		name, facet, color, string(subsJSON),
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	cat.ID = id
+	return id, nil
+}
+
+// DeleteDefaultCategory removes a default category from SQLite by ID.
+func (r *Repository) DeleteDefaultCategory(ctx context.Context, id int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM default_categories WHERE id = ?`, id)
+	return err
+}
+
+// ListDefaultCategories returns all global default categories and their subcategories.
+func (r *Repository) ListDefaultCategories(ctx context.Context) ([]domain.DefaultCategory, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, name, facet, color, subcategories_json
+		FROM default_categories
+		ORDER BY id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.DefaultCategory
+	for rows.Next() {
+		var c domain.DefaultCategory
+		var subsStr string
+		if err := rows.Scan(&c.ID, &c.Name, &c.Facet, &c.Color, &subsStr); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal([]byte(subsStr), &c.Subcategories)
+		out = append(out, c)
+	}
+	return out, nil
+}
+
 // UpsertAsset inserts or updates a cataloged media asset by its relative path.
 func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int64, error) {
+	db := r.conn()
+	if a.RootID <= 0 {
+		a.RootID = 1
+	}
 	lorasBytes, _ := json.Marshal(a.Metadata.LoRAs)
 	if len(lorasBytes) == 0 {
 		lorasBytes = []byte("[]")
@@ -58,15 +275,20 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 
 	query := `
 	INSERT INTO assets (
-		rel_path, file_name, file_hash, media_type, width, height, duration_sec, file_size,
-		view_count, rating, engine, positive_prompt, negative_prompt, model_name, model_hash,
+		root_id, rel_path, file_name, file_hash, media_type, width, height, duration_sec, file_size,
+		view_count, rating, category, subcategory, engine, positive_prompt, negative_prompt, model_name, model_hash,
 		sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(rel_path) DO UPDATE SET
+		root_id = excluded.root_id,
 		file_hash = excluded.file_hash,
 		width = excluded.width,
 		height = excluded.height,
 		file_size = excluded.file_size,
+		category = CASE WHEN excluded.category != '' THEN excluded.category ELSE assets.category END,
+		subcategory = CASE WHEN excluded.subcategory != '' THEN excluded.subcategory ELSE assets.subcategory END,
+		rating = CASE WHEN excluded.rating > 0 THEN excluded.rating ELSE assets.rating END,
+		view_count = CASE WHEN excluded.view_count > assets.view_count THEN excluded.view_count ELSE assets.view_count END,
 		engine = excluded.engine,
 		positive_prompt = excluded.positive_prompt,
 		negative_prompt = excluded.negative_prompt,
@@ -82,9 +304,9 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 	RETURNING id;
 	`
 	var id int64
-	err := r.db.QueryRowContext(ctx, query,
-		a.RelPath, a.FileName, a.FileHash, string(a.MediaType), a.Width, a.Height, a.DurationSec, a.FileSize,
-		a.ViewCount, a.Rating, string(a.Metadata.Engine), a.Metadata.PositivePrompt, a.Metadata.NegativePrompt,
+	err := db.QueryRowContext(ctx, query,
+		a.RootID, a.RelPath, a.FileName, a.FileHash, string(a.MediaType), a.Width, a.Height, a.DurationSec, a.FileSize,
+		a.ViewCount, a.Rating, a.Category, a.Subcategory, string(a.Metadata.Engine), a.Metadata.PositivePrompt, a.Metadata.NegativePrompt,
 		a.Metadata.ModelName, a.Metadata.ModelHash, a.Metadata.Sampler, a.Metadata.Scheduler,
 		a.Metadata.Steps, a.Metadata.CFGScale, a.Metadata.Seed, string(lorasBytes), a.Metadata.RawMetadata,
 	).Scan(&id)
@@ -97,11 +319,16 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 
 // GetAssetByID retrieves a full MediaAsset along with its tags, groups, characters, and detected faces.
 func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaAsset, error) {
-	row := r.db.QueryRowContext(ctx, `
-		SELECT id, rel_path, file_name, file_hash, media_type, width, height, duration_sec, file_size,
-		       view_count, rating, engine, positive_prompt, negative_prompt, model_name, model_hash,
-		       sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata, indexed_at
-		FROM assets WHERE id = ?`, id)
+	db := r.conn()
+	row := db.QueryRowContext(ctx, `
+		SELECT a.id, a.root_id, COALESCE(mr.path, ''), COALESCE(mr.label, ''),
+		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
+		       a.view_count, a.rating, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
+		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
+		       a.loras_json, a.raw_metadata, a.indexed_at
+		FROM assets a
+		LEFT JOIN media_roots mr ON mr.id = a.root_id
+		WHERE a.id = ?`, id)
 
 	asset, err := scanAssetRow(row)
 	if err != nil {
@@ -117,17 +344,27 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 
 // IncrementAssetView increments the view counter of an asset.
 func (r *Repository) IncrementAssetView(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE assets SET view_count = view_count + 1 WHERE id = ?`, id)
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `UPDATE assets SET view_count = view_count + 1 WHERE id = ?`, id)
 	return err
 }
 
 // UpdateAssetPrompt updates an asset's positive prompt (e.g. from Ollama Image2Prompt or Text2Prompt).
 func (r *Repository) UpdateAssetPrompt(ctx context.Context, assetID int64, positivePrompt, engine string) error {
+	db := r.conn()
 	if engine != "" {
-		_, err := r.db.ExecContext(ctx, `UPDATE assets SET positive_prompt = ?, engine = ? WHERE id = ?`, positivePrompt, engine, assetID)
+		_, err := db.ExecContext(ctx, `UPDATE assets SET positive_prompt = ?, engine = ? WHERE id = ?`, positivePrompt, engine, assetID)
 		return err
 	}
-	_, err := r.db.ExecContext(ctx, `UPDATE assets SET positive_prompt = ? WHERE id = ?`, positivePrompt, assetID)
+	_, err := db.ExecContext(ctx, `UPDATE assets SET positive_prompt = ? WHERE id = ?`, positivePrompt, assetID)
+	return err
+}
+
+// UpdateAssetCategory assigns a category and subcategory to an asset.
+func (r *Repository) UpdateAssetCategory(ctx context.Context, assetID int64, category, subcategory string) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `UPDATE assets SET category = ?, subcategory = ? WHERE id = ?`,
+		strings.TrimSpace(category), strings.TrimSpace(subcategory), assetID)
 	return err
 }
 

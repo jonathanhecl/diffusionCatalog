@@ -14,6 +14,7 @@ type BoundingBox struct {
 type DetectedFace struct {
 	ID            int64       `json:"id"`
 	AssetID       int64       `json:"asset_id"`
+	AssetRootID   int64       `json:"asset_root_id,omitempty"`
 	AssetRelPath  string      `json:"asset_rel_path"`
 	AssetPrompt   string      `json:"asset_prompt"`
 	AssetEngine   EngineType  `json:"asset_engine"`

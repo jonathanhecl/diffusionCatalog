@@ -5,6 +5,9 @@ import "context"
 // CatalogFilter specifies search, facet, and pagination criteria for querying the catalog.
 type CatalogFilter struct {
 	Query       string
+	RootID      int64
+	Category    string
+	Subcategory string
 	Engine      string
 	ModelName   string
 	MediaType   string
@@ -19,18 +22,20 @@ type CatalogFilter struct {
 
 // CatalogPage contains a paginated slice of assets along with total counts and facet aggregations.
 type CatalogPage struct {
-	Assets        []MediaAsset
-	Faces         []DetectedFace
-	TotalCount    int
-	Page          int
-	PerPage       int
-	TotalPages    int
-	AvailableTags []Tag
-	FacetTags     map[string][]Tag
-	Engines       []string
-	Models        []string
-	Groups        []Group
-	Characters    []Character
+	Assets            []MediaAsset
+	Faces             []DetectedFace
+	TotalCount        int
+	Page              int
+	PerPage           int
+	TotalPages        int
+	MediaRoots        []MediaRoot
+	DefaultCategories []DefaultCategory
+	AvailableTags     []Tag
+	FacetTags         map[string][]Tag
+	Engines           []string
+	Models            []string
+	Groups            []Group
+	Characters        []Character
 }
 
 // CatalogRepository defines the persistence port for SQLite.
@@ -38,9 +43,22 @@ type CatalogRepository interface {
 	EnsureDefaultAdmin(ctx context.Context, username, passwordHash string) error
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 
+	CurrentDBPath() string
+	SwitchDB(ctx context.Context, newDBPath string) error
+
+	UpsertMediaRoot(ctx context.Context, root *MediaRoot) (int64, error)
+	DeleteMediaRoot(ctx context.Context, id int64) error
+	GetMediaRootByID(ctx context.Context, id int64) (*MediaRoot, error)
+	ListMediaRoots(ctx context.Context) ([]MediaRoot, error)
+
+	UpsertDefaultCategory(ctx context.Context, cat *DefaultCategory) (int64, error)
+	DeleteDefaultCategory(ctx context.Context, id int64) error
+	ListDefaultCategories(ctx context.Context) ([]DefaultCategory, error)
+
 	UpsertAsset(ctx context.Context, asset *MediaAsset) (int64, error)
 	GetAssetByID(ctx context.Context, id int64) (*MediaAsset, error)
 	UpdateAssetPrompt(ctx context.Context, assetID int64, positivePrompt, engine string) error
+	UpdateAssetCategory(ctx context.Context, assetID int64, category, subcategory string) error
 	QueryCatalog(ctx context.Context, filter CatalogFilter) (*CatalogPage, error)
 	IncrementAssetView(ctx context.Context, id int64) error
 

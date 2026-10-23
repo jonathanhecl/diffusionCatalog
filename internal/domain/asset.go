@@ -38,9 +38,12 @@ type GenerationParams struct {
 	RawMetadata    string     `json:"raw_metadata"`
 }
 
-// MediaAsset represents a single cataloged file inside the watched source folder.
+// MediaAsset represents a single cataloged file inside a watched source media root folder.
 type MediaAsset struct {
 	ID          int64            `json:"id"`
+	RootID      int64            `json:"root_id"`
+	RootPath    string           `json:"root_path,omitempty"`
+	RootLabel   string           `json:"root_label,omitempty"`
 	RelPath     string           `json:"rel_path"`
 	FileName    string           `json:"file_name"`
 	FileHash    string           `json:"file_hash"`
@@ -51,10 +54,60 @@ type MediaAsset struct {
 	FileSize    int64            `json:"file_size"`
 	ViewCount   int64            `json:"view_count"`
 	Rating      int              `json:"rating"`
+	Category    string           `json:"category,omitempty"`
+	Subcategory string           `json:"subcategory,omitempty"`
 	Metadata    GenerationParams `json:"metadata"`
 	Tags        []Tag            `json:"tags"`
 	Groups      []Group          `json:"groups"`
 	Characters  []Character      `json:"characters"`
 	Faces       []DetectedFace   `json:"faces"`
 	IndexedAt   time.Time        `json:"indexed_at"`
+}
+
+// MediaRoot represents a registered source folder on any local directory or external disk/volume.
+type MediaRoot struct {
+	ID         int64             `json:"id"`
+	Path       string            `json:"path"`
+	Label      string            `json:"label"`
+	Enabled    bool              `json:"enabled"`
+	Accessible bool              `json:"accessible"`
+	AssetCount int               `json:"asset_count"`
+	Categories []DefaultCategory `json:"categories,omitempty"`
+	CreatedAt  time.Time         `json:"created_at"`
+}
+
+// DefaultCategory defines an agnostic category and its subcategories stored globally in the DB
+// and applied to each media root's .diffusion-catalog.json classification manifest.
+type DefaultCategory struct {
+	ID            int64    `json:"id,omitempty"`
+	Name          string   `json:"name"`
+	Facet         string   `json:"facet"`
+	Color         string   `json:"color"`
+	Subcategories []string `json:"subcategories"`
+}
+
+// ManifestTag represents a tag entry persisted inside a folder's .diffusion-catalog.json file.
+type ManifestTag struct {
+	Name  string `json:"name"`
+	Facet string `json:"facet"`
+	Color string `json:"color,omitempty"`
+}
+
+// ManifestAssetEntry stores portable per-asset classification inside <media_root>/.diffusion-catalog.json.
+type ManifestAssetEntry struct {
+	Category    string        `json:"category,omitempty"`
+	Subcategory string        `json:"subcategory,omitempty"`
+	Rating      int           `json:"rating,omitempty"`
+	Tags        []ManifestTag `json:"tags,omitempty"`
+	Groups      []string      `json:"groups,omitempty"`
+	Characters  []string      `json:"characters,omitempty"`
+}
+
+// FolderManifest represents the .diffusion-catalog.json file stored at the root of each media folder.
+type FolderManifest struct {
+	Version    int                           `json:"version"`
+	FolderName string                        `json:"folder_name"`
+	UpdatedAt  string                        `json:"updated_at"`
+	Categories []DefaultCategory             `json:"categories"`
+	Assets     map[string]ManifestAssetEntry `json:"assets"`
 }

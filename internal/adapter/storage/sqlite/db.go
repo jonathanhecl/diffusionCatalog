@@ -36,8 +36,25 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS media_roots (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		path TEXT NOT NULL UNIQUE,
+		label TEXT NOT NULL,
+		enabled INTEGER NOT NULL DEFAULT 1,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS default_categories (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL UNIQUE,
+		facet TEXT NOT NULL DEFAULT 'category',
+		color TEXT NOT NULL DEFAULT '#2563eb',
+		subcategories_json TEXT NOT NULL DEFAULT '[]'
+	);
+
 	CREATE TABLE IF NOT EXISTS assets (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		root_id INTEGER NOT NULL DEFAULT 1,
 		rel_path TEXT NOT NULL UNIQUE,
 		file_name TEXT NOT NULL,
 		file_hash TEXT NOT NULL,
@@ -48,6 +65,8 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		file_size INTEGER NOT NULL DEFAULT 0,
 		view_count INTEGER NOT NULL DEFAULT 0,
 		rating INTEGER NOT NULL DEFAULT 0,
+		category TEXT NOT NULL DEFAULT '',
+		subcategory TEXT NOT NULL DEFAULT '',
 		engine TEXT NOT NULL DEFAULT 'unknown',
 		positive_prompt TEXT NOT NULL DEFAULT '',
 		negative_prompt TEXT NOT NULL DEFAULT '',
@@ -210,6 +229,12 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if _, err := db.ExecContext(ctx, schema); err != nil {
 		return err
 	}
+
+	// Safe column migrations for existing databases
+	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN root_id INTEGER NOT NULL DEFAULT 1`)
+	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN category TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN subcategory TEXT NOT NULL DEFAULT ''`)
+
 	return seedDefaultSettingsAndProfiles(ctx, db)
 }
 
@@ -312,64 +337,104 @@ func seedDefaultSettingsAndProfiles(ctx context.Context, db *sql.DB) error {
 	}
 
 	var loraCount int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM model_loras`).Scan(&loraCount); err != nil || loraCount > 0 {
-		return nil
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM model_loras`).Scan(&loraCount); err == nil && loraCount == 0 {
+		seedLoRAs := []struct {
+			ProfileSlug string
+			Name        string
+			SyntaxTag   string
+			Trigger     string
+			Weight      string
+			Desc        string
+			Examples    string
+		}{
+			{
+				ProfileSlug: "flux",
+				Name:        "Dark Sci-Fi Anamorphic 70mm",
+				SyntaxTag:   "<lora:flux_anamorphic_70mm:0.85>",
+				Trigger:     "anamorphic70mm, horizontal cyan lens flare",
+				Weight:      "0.85",
+				Desc:        "Trained on 70mm IMAX and Panavision sci-fi film stills for Flux.1. Adds oval bokeh, film grain, and subtle cyan/amber highlight halation.",
+				Examples:    "A lone netrunner standing on a rain-slicked brutalist balcony, anamorphic70mm, horizontal cyan lens flare, sodium vapor streetlights reflecting on wet concrete <lora:flux_anamorphic_70mm:0.85>",
+			},
+			{
+				ProfileSlug: "krea2",
+				Name:        "Tactile Editorial Skin & Fabric (Triggerless)",
+				SyntaxTag:   "<lora:krea2_editorial_microtexture:0.7>",
+				Trigger:     "",
+				Weight:      "0.70",
+				Desc:        "Triggerless detail enhancer specifically tuned for Krea 2. Boosts natural skin pores, woven fabric threads, and subsurface scattering under studio softboxes without plastic over-smoothing.",
+				Examples:    "Editorial medium-format close-up portrait, natural freckled skin translucency, heavy charcoal wool collar, soft key light from 45 degrees, Kodak Portra 400 <lora:krea2_editorial_microtexture:0.7>",
+			},
+			{
+				ProfileSlug: "qwen-image",
+				Name:        "Neon Cyber-Signage & Crisp Typography",
+				SyntaxTag:   "<lora:qwen_neon_signage_v2:0.9>",
+				Trigger:     "cyber_signage, glowing acrylic lettering",
+				Weight:      "0.90",
+				Desc:        "Qwen-Image LoRA specialized in rendering legible futuristic storefront signs, HUD telemetry overlays, and glowing glass typography.",
+				Examples:    "Nighttime alley in Neo-Veridia, cyber_signage, glowing acrylic lettering reading \"ARCHIVE SECTOR 09\" above a rain-misted glass doorway <lora:qwen_neon_signage_v2:0.9>",
+			},
+			{
+				ProfileSlug: "minimaxh3",
+				Name:        "FPV Orbital Tracking Shot (Video Motion LoRA)",
+				SyntaxTag:   "<lora:minimax_fpv_orbital:0.8>",
+				Trigger:     "smooth orbital camera arc, dynamic parallax motion",
+				Weight:      "0.80",
+				Desc:        "Motion LoRA for MiniMax Hailuo H3 video generation. Drives a continuous 180-degree orbital camera trajectory around the main subject with strong foreground/background parallax.",
+				Examples:    "[Camera: smooth orbital camera arc, dynamic parallax motion] A heavy orbital mecha unit ignites its thrusters inside a subterranean hangar as sparks and volumetric steam swirl across the lens <lora:minimax_fpv_orbital:0.8>",
+			},
+		}
+
+		for _, l := range seedLoRAs {
+			_, _ = db.ExecContext(ctx, `
+				INSERT OR IGNORE INTO model_loras (
+					profile_slug, name, syntax_tag, trigger_words, recommended_weight, description, usage_examples
+				) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				l.ProfileSlug, l.Name, l.SyntaxTag, l.Trigger, l.Weight, l.Desc, l.Examples,
+			)
+		}
 	}
 
-	seedLoRAs := []struct {
-		ProfileSlug string
-		Name        string
-		SyntaxTag   string
-		Trigger     string
-		Weight      string
-		Desc        string
-		Examples    string
-	}{
-		{
-			ProfileSlug: "flux",
-			Name:        "Dark Sci-Fi Anamorphic 70mm",
-			SyntaxTag:   "<lora:flux_anamorphic_70mm:0.85>",
-			Trigger:     "anamorphic70mm, horizontal cyan lens flare",
-			Weight:      "0.85",
-			Desc:        "Trained on 70mm IMAX and Panavision sci-fi film stills for Flux.1. Adds oval bokeh, film grain, and subtle cyan/amber highlight halation.",
-			Examples:    "A lone netrunner standing on a rain-slicked brutalist balcony, anamorphic70mm, horizontal cyan lens flare, sodium vapor streetlights reflecting on wet concrete <lora:flux_anamorphic_70mm:0.85>",
-		},
-		{
-			ProfileSlug: "krea2",
-			Name:        "Tactile Editorial Skin & Fabric (Triggerless)",
-			SyntaxTag:   "<lora:krea2_editorial_microtexture:0.7>",
-			Trigger:     "",
-			Weight:      "0.70",
-			Desc:        "Triggerless detail enhancer specifically tuned for Krea 2. Boosts natural skin pores, woven fabric threads, and subsurface scattering under studio softboxes without plastic over-smoothing.",
-			Examples:    "Editorial medium-format close-up portrait, natural freckled skin translucency, heavy charcoal wool collar, soft key light from 45 degrees, Kodak Portra 400 <lora:krea2_editorial_microtexture:0.7>",
-		},
-		{
-			ProfileSlug: "qwen-image",
-			Name:        "Neon Cyber-Signage & Crisp Typography",
-			SyntaxTag:   "<lora:qwen_neon_signage_v2:0.9>",
-			Trigger:     "cyber_signage, glowing acrylic lettering",
-			Weight:      "0.90",
-			Desc:        "Qwen-Image LoRA specialized in rendering legible futuristic storefront signs, HUD telemetry overlays, and glowing glass typography.",
-			Examples:    "Nighttime alley in Neo-Veridia, cyber_signage, glowing acrylic lettering reading \"ARCHIVE SECTOR 09\" above a rain-misted glass doorway <lora:qwen_neon_signage_v2:0.9>",
-		},
-		{
-			ProfileSlug: "minimaxh3",
-			Name:        "FPV Orbital Tracking Shot (Video Motion LoRA)",
-			SyntaxTag:   "<lora:minimax_fpv_orbital:0.8>",
-			Trigger:     "smooth orbital camera arc, dynamic parallax motion",
-			Weight:      "0.80",
-			Desc:        "Motion LoRA for MiniMax Hailuo H3 video generation. Drives a continuous 180-degree orbital camera trajectory around the main subject with strong foreground/background parallax.",
-			Examples:    "[Camera: smooth orbital camera arc, dynamic parallax motion] A heavy orbital mecha unit ignites its thrusters inside a subterranean hangar as sparks and volumetric steam swirl across the lens <lora:minimax_fpv_orbital:0.8>",
-		},
-	}
-
-	for _, l := range seedLoRAs {
-		_, _ = db.ExecContext(ctx, `
-			INSERT OR IGNORE INTO model_loras (
-				profile_slug, name, syntax_tag, trigger_words, recommended_weight, description, usage_examples
-			) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			l.ProfileSlug, l.Name, l.SyntaxTag, l.Trigger, l.Weight, l.Desc, l.Examples,
-		)
+	var catCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM default_categories`).Scan(&catCount); err == nil && catCount == 0 {
+		seedCats := []struct {
+			Name  string
+			Facet string
+			Color string
+			Subs  string
+		}{
+			{
+				Name:  "Characters & Portraits",
+				Facet: "subject",
+				Color: "#2563eb",
+				Subs:  `["Protagonist","Sci-Fi / Netrunner","Fantasy / Scholar","Portrait Close-Up","Full Body Concept"]`,
+			},
+			{
+				Name:  "Environments & Architecture",
+				Facet: "environment",
+				Color: "#059669",
+				Subs:  `["Cyberpunk Alley","Brutalist Megastructure","Celestial Observatory","Interior Set","Landscape"]`,
+			},
+			{
+				Name:  "Mecha, Vehicles & Props",
+				Facet: "hardware",
+				Color: "#d97706",
+				Subs:  `["Heavy Orbital Mecha","Spacecraft","Cyberdeck / Weaponry","Artifact / Codex"]`,
+			},
+			{
+				Name:  "Cinematography & Motion",
+				Facet: "cinematography",
+				Color: "#7c3aed",
+				Subs:  `["Anamorphic 70mm","Volumetric Neon","Golden Hour","Orbital Tracking Video","Slow Dolly-In"]`,
+			},
+		}
+		for _, c := range seedCats {
+			_, _ = db.ExecContext(ctx, `
+				INSERT OR IGNORE INTO default_categories (name, facet, color, subcategories_json)
+				VALUES (?, ?, ?, ?)`,
+				c.Name, c.Facet, c.Color, c.Subs,
+			)
+		}
 	}
 	return nil
 }
