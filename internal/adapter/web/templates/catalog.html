@@ -1,0 +1,496 @@
+{{define "catalog.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DiffusionCatalog — AI Media, Prompt &amp; Character Database</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <!-- Top Header -->
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <a href="/" class="brand-icon">DC</a>
+        <a href="/" class="brand-title">DIFFUSION CATALOG</a>
+        <span class="brand-subtitle">Local Prompt, Checkpoint, Character &amp; Subject Index</span>
+      </div>
+      <div class="topbar-actions">
+        <form action="/admin/scan" method="POST" style="display:inline;">
+          <button type="submit" class="btn-ghost" title="Non-destructive rescan of configured media folder">Rescan Folder ({{.MediaDir}})</button>
+        </form>
+        {{if .AdminUser}}
+          <span class="badge-chip">Admin: {{.AdminUser}}</span>
+          <form action="/admin/logout" method="POST" style="display:inline;">
+            <button type="submit" class="btn-ghost">Logout</button>
+          </form>
+        {{else}}
+          <a href="/?tab=login" class="btn-ghost">Admin Login</a>
+        {{end}}
+      </div>
+    </div>
+  </header>
+
+  <!-- Primary Navigation Tabs -->
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <a href="/" class="nav-tab {{if eq .ActiveTab "catalog"}}active{{end}}">Catalog Grid</a>
+      <a href="/?tab=characters" class="nav-tab {{if eq .ActiveTab "characters"}}active{{end}}">Character Folders ({{len .Page.Characters}})</a>
+      <a href="/?tab=groups" class="nav-tab {{if eq .ActiveTab "groups"}}active{{end}}">Agnostic Groups ({{len .Page.Groups}})</a>
+      <a href="/?face_mode=1" class="nav-tab {{if eq .ActiveTab "faces"}}active{{end}}">Face &amp; Subject Explorer</a>
+      <a href="/?tab=system" class="nav-tab {{if eq .ActiveTab "system"}}active{{end}}">System &amp; Vision Port</a>
+    </div>
+  </nav>
+
+  <!-- Hero Banner -->
+  <section class="hero-banner">
+    <div class="container hero-inner">
+      <div>
+        {{if eq .ActiveTab "faces"}}
+          <h1 class="hero-title">Extracted <span class="highlight">Face &amp; Subject</span> Explorer</h1>
+          <p class="hero-sub">Inspect cropped regions, expression tags, and character clusters extracted via the pluggable VisionEngine port.</p>
+        {{else if eq .ActiveTab "characters"}}
+          <h1 class="hero-title">Character &amp; Concept <span class="highlight">Prompt Folders</span></h1>
+          <p class="hero-sub">Reusable character sheets with canonical positive/negative prompts, trigger words, LoRAs, and linked example galleries.</p>
+        {{else if eq .ActiveTab "groups"}}
+          <h1 class="hero-title">Agnostic <span class="highlight">Collections &amp; Folders</span></h1>
+          <p class="hero-sub">Organize diffusion images and videos into arbitrary collections without altering your underlying filesystem.</p>
+        {{else}}
+          <h1 class="hero-title">AI Diffusion <span class="highlight">Prompt &amp; Asset</span> Database</h1>
+          <p class="hero-sub">Every generation prompt, checkpoint model, LoRA, seed, and character sheet — indexed locally from your media folder.</p>
+        {{end}}
+      </div>
+      <div class="hero-callout">
+        <strong>Read-Only Source Folder</strong><br>
+        Extracted PNG chunks (A1111, ComfyUI, Fooocus, SwarmUI, InvokeAI) &amp; EXIF into local SQLite + FTS5.
+      </div>
+    </div>
+  </section>
+
+  <!-- Global Search Strip -->
+  <section class="search-strip">
+    <div class="container">
+      <form action="/" method="GET" class="search-strip-form">
+        {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
+        <div class="search-main-group">
+          <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
+          <button type="submit" class="btn-primary">Search</button>
+          {{if or .Filter.Query .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0)}}
+            <a href="{{if .Filter.FaceMode}}/?face_mode=1{{else}}/{{end}}" class="btn-ghost" style="display:inline-flex;align-items:center;">Reset</a>
+          {{end}}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="color:var(--text-muted);font-size:12px;">Per Page</span>
+          <select name="per_page" class="input-dark" style="width:90px;" onchange="this.form.submit()">
+            <option value="25" {{if eq .Filter.PerPage 25}}selected{{end}}>25 items</option>
+            <option value="50" {{if eq .Filter.PerPage 50}}selected{{end}}>50 items</option>
+            <option value="100" {{if eq .Filter.PerPage 100}}selected{{end}}>100 items</option>
+          </select>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <main class="container">
+    {{if eq .ActiveTab "login"}}
+      <div style="max-width:420px;margin:40px auto;background:var(--bg-panel);border:1px solid var(--border-navy);padding:24px;border-radius:6px;">
+        <h2 style="margin-bottom:12px;font-size:18px;">Administrator Login</h2>
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">Default credentials on initial setup: <code>admin</code> / <code>admin123</code></p>
+        <form action="/admin/login" method="POST" style="display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <label style="display:block;margin-bottom:4px;font-size:12px;">Username</label>
+            <input type="text" name="username" value="admin" class="input-dark" required>
+          </div>
+          <div>
+            <label style="display:block;margin-bottom:4px;font-size:12px;">Password</label>
+            <input type="password" name="password" value="admin123" class="input-dark" required>
+          </div>
+          <button type="submit" class="btn-primary">Sign In</button>
+        </form>
+      </div>
+
+    {{else if eq .ActiveTab "asset_detail"}}
+      <div style="margin-top:16px;">
+        <a href="/" class="btn-ghost">&larr; Back to Catalog</a>
+      </div>
+      <div class="detail-grid">
+        <div>
+          <div class="asset-thumb-wrap" style="border:1px solid var(--border-navy);border-radius:6px;">
+            {{if eq .SelectedAsset.MediaType "video"}}
+              <video src="/media/{{.SelectedAsset.RelPath}}" controls class="asset-thumb"></video>
+            {{else}}
+              <img src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" class="asset-thumb">
+            {{end}}
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text-muted);">
+            <div><strong>Relative Path:</strong> <code>{{.SelectedAsset.RelPath}}</code></div>
+            <div><strong>Dimensions:</strong> {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <strong>SHA-256 Prefix:</strong> <code>{{.SelectedAsset.FileHash}}</code></div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <h2 style="font-size:20px;">{{.SelectedAsset.FileName}}</h2>
+            <span class="badge-chip" style="font-size:12px;padding:4px 10px;">Engine: {{.SelectedAsset.Metadata.Engine}}</span>
+          </div>
+
+          <div>
+            <div class="facet-title">
+              <span>POSITIVE PROMPT</span>
+              <button type="button" class="btn-ghost" onclick="navigator.clipboard.writeText(document.getElementById('pos-prompt').innerText)">Copy Prompt</button>
+            </div>
+            <div id="pos-prompt" class="prompt-box">{{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}(No embedded positive prompt detected){{end}}</div>
+          </div>
+
+          {{if .SelectedAsset.Metadata.NegativePrompt}}
+          <div>
+            <div class="facet-title"><span>NEGATIVE PROMPT</span></div>
+            <div class="prompt-box" style="color:#fca5a5;">{{.SelectedAsset.Metadata.NegativePrompt}}</div>
+          </div>
+          {{end}}
+
+          <div class="kv-table">
+            <div class="kv-box">
+              <div class="kv-label">Checkpoint Model</div>
+              <div class="kv-val">{{if .SelectedAsset.Metadata.ModelName}}{{.SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}}</div>
+            </div>
+            <div class="kv-box">
+              <div class="kv-label">Sampler &amp; Scheduler</div>
+              <div class="kv-val">{{if .SelectedAsset.Metadata.Sampler}}{{.SelectedAsset.Metadata.Sampler}}{{else}}-{{end}} {{.SelectedAsset.Metadata.Scheduler}}</div>
+            </div>
+            <div class="kv-box">
+              <div class="kv-label">Steps / CFG / Seed</div>
+              <div class="kv-val">{{.SelectedAsset.Metadata.Steps}} steps | CFG {{.SelectedAsset.Metadata.CFGScale}} | {{.SelectedAsset.Metadata.Seed}}</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="facet-title"><span>AGNOSTIC TAGS</span></div>
+            <div class="tag-cloud" style="margin-bottom:8px;">
+              {{range .SelectedAsset.Tags}}
+                <a href="/?tag={{.Name}}" class="tag-pill">[{{.Facet}}] #{{.Name}}</a>
+              {{else}}
+                <span style="color:var(--text-dim);">No tags assigned yet.</span>
+              {{end}}
+            </div>
+            <form action="/admin/assets/tag" method="POST" style="display:flex;gap:8px;max-width:520px;">
+              <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+              <input type="text" name="name" placeholder="Tag name (e.g. rim-light)" class="input-dark" required>
+              <input type="text" name="facet" placeholder="Facet (style, lighting, custom)" value="general" class="input-dark" style="width:180px;">
+              <button type="submit" class="btn-primary">Add Tag</button>
+            </form>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div>
+              <div class="facet-title"><span>LINK TO CHARACTER FOLDER</span></div>
+              <form action="/admin/characters/attach" method="POST" style="display:flex;gap:8px;">
+                <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+                <select name="character_id" class="input-dark" required>
+                  <option value="">Select Character...</option>
+                  {{range .Page.Characters}}
+                    <option value="{{.ID}}">{{.Name}}</option>
+                  {{end}}
+                </select>
+                <button type="submit" class="btn-ghost">Attach Example</button>
+              </form>
+            </div>
+            <div>
+              <div class="facet-title"><span>LINK TO AGNOSTIC GROUP</span></div>
+              <form action="/admin/groups/attach" method="POST" style="display:flex;gap:8px;">
+                <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+                <select name="group_id" class="input-dark" required>
+                  <option value="">Select Group...</option>
+                  {{range .Page.Groups}}
+                    <option value="{{.ID}}">{{.Name}}</option>
+                  {{end}}
+                </select>
+                <button type="submit" class="btn-ghost">Add to Group</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    {{else if eq .ActiveTab "characters"}}
+      <div class="results-bar" style="margin-top:18px;">
+        <div class="results-count">Character &amp; Subject Folders: <strong>{{len .Page.Characters}}</strong> profiles</div>
+      </div>
+
+      <div class="character-grid" style="margin-bottom:28px;">
+        {{range .Page.Characters}}
+          <div class="char-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <h3 style="font-size:16px;color:#fff;">{{.Name}}</h3>
+                <span class="badge-chip character">{{.Archetype}}</span>
+              </div>
+              <a href="/?character_id={{.ID}}" class="btn-primary" style="padding:5px 12px;font-size:12px;">View {{.ExampleCount}} Examples</a>
+            </div>
+            <p style="color:var(--text-muted);font-size:12px;">{{.Description}}</p>
+            <div>
+              <div class="kv-label">Trigger Words</div>
+              <div class="prompt-box" style="color:#6ee7b7;">{{.TriggerWords}}</div>
+            </div>
+            <div>
+              <div class="kv-label">Base Generation Prompt</div>
+              <div class="prompt-box">{{.BasePositivePrompt}}</div>
+            </div>
+            {{if .BaseNegativePrompt}}
+            <div>
+              <div class="kv-label">Negative Prompt</div>
+              <div class="prompt-box" style="color:#fca5a5;">{{.BaseNegativePrompt}}</div>
+            </div>
+            {{end}}
+            <div style="font-size:11px;color:var(--text-muted);">
+              <strong>Recommended Checkpoint:</strong> {{.RecommendedCheckpoint}}
+            </div>
+          </div>
+        {{end}}
+      </div>
+
+      <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:18px;margin-bottom:40px;">
+        <h3 style="margin-bottom:12px;font-size:15px;">Create New Character / Concept Folder</h3>
+        <form action="/admin/characters/create" method="POST" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <input type="text" name="name" placeholder="Character Name (e.g. Vesper-9)" class="input-dark" required>
+          <input type="text" name="archetype" placeholder="Archetype / Category (e.g. Sci-Fi Android)" class="input-dark">
+          <input type="text" name="trigger_words" placeholder="Trigger Words (e.g. vesper9, chrome plating)" class="input-dark">
+          <input type="text" name="recommended_checkpoint" placeholder="Recommended Checkpoint (e.g. flux1-dev)" class="input-dark">
+          <textarea name="base_positive_prompt" placeholder="Canonical Positive Prompt used to generate this character..." class="input-dark" rows="3" style="grid-column:span 2;" required></textarea>
+          <textarea name="base_negative_prompt" placeholder="Canonical Negative Prompt..." class="input-dark" rows="2" style="grid-column:span 2;"></textarea>
+          <input type="text" name="description" placeholder="Notes / Lore / Usage guidelines..." class="input-dark" style="grid-column:span 2;">
+          <div><button type="submit" class="btn-primary">Create Character Folder</button></div>
+        </form>
+      </div>
+
+    {{else if eq .ActiveTab "groups"}}
+      <div class="results-bar" style="margin-top:18px;">
+        <div class="results-count">Agnostic Groups &amp; Collections: <strong>{{len .Page.Groups}}</strong></div>
+      </div>
+      <div class="character-grid" style="margin-bottom:28px;">
+        {{range .Page.Groups}}
+          <div class="char-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <h3 style="font-size:16px;">{{.Name}}</h3>
+              <span class="badge-chip">{{.Category}}</span>
+            </div>
+            <p style="color:var(--text-muted);font-size:12px;">{{.Description}}</p>
+            <div style="margin-top:auto;padding-top:8px;">
+              <a href="/?group_id={{.ID}}" class="btn-primary" style="display:inline-block;padding:6px 14px;font-size:12px;">Browse {{.AssetCount}} Assets</a>
+            </div>
+          </div>
+        {{end}}
+      </div>
+
+      <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:18px;margin-bottom:40px;max-width:640px;">
+        <h3 style="margin-bottom:12px;font-size:15px;">Create Agnostic Group</h3>
+        <form action="/admin/groups/create" method="POST" style="display:flex;flex-direction:column;gap:10px;">
+          <input type="text" name="name" placeholder="Group Name (e.g. Lighting Studies)" class="input-dark" required>
+          <input type="text" name="category" placeholder="Agnostic Category (e.g. Reference, Project, Moodboard)" class="input-dark">
+          <input type="text" name="description" placeholder="Description..." class="input-dark">
+          <div><button type="submit" class="btn-primary">Create Group</button></div>
+        </form>
+      </div>
+
+    {{else if eq .ActiveTab "system"}}
+      <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:22px;margin:20px 0 40px;">
+        <h2 style="margin-bottom:12px;">System Status &amp; Pluggable Vision Engine</h2>
+        <div class="kv-table">
+          <div class="kv-box">
+            <div class="kv-label">Source Media Directory (Read-Only)</div>
+            <div class="kv-val"><code>{{.MediaDir}}</code></div>
+          </div>
+          <div class="kv-box">
+            <div class="kv-label">Active Vision Adapter</div>
+            <div class="kv-val"><code>{{.VisionEngineName}}</code></div>
+          </div>
+          <div class="kv-box">
+            <div class="kv-label">Last Scan Summary</div>
+            <div class="kv-val">{{.ScanReport.ScannedFiles}} files ({{.ScanReport.ImagesFound}} images, {{.ScanReport.VideosFound}} videos)</div>
+          </div>
+        </div>
+        <p style="color:var(--text-muted);margin-top:12px;">
+          To enable automated Python face/subject detection and 512-d embeddings, run the companion FastAPI worker in
+          <code>scripts/vision_worker/app.py</code> and pass <code>--vision-url=http://127.0.0.1:8091</code> to <code>catalogd</code>.
+        </p>
+      </div>
+
+    {{else}}
+      <!-- Main 2-Column Catalog Layout (Matches Reference Layout) -->
+      <div class="catalog-layout">
+        <!-- Left Facet Sidebar -->
+        <aside class="sidebar">
+          <form action="/" method="GET">
+            {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
+
+            <div class="facet-block">
+              <div class="facet-title"><span>GENERATOR ENGINE</span></div>
+              <div class="checkbox-list">
+                {{range .Page.Engines}}
+                  <label class="checkbox-item">
+                    <span><input type="radio" name="engine" value="{{.}}" {{if eq $.Filter.Engine .}}checked{{end}} onchange="this.form.submit()">{{.}}</span>
+                  </label>
+                {{end}}
+                {{if .Filter.Engine}}
+                  <label class="checkbox-item">
+                    <span><input type="radio" name="engine" value="" onchange="this.form.submit()">All Engines</span>
+                  </label>
+                {{end}}
+              </div>
+            </div>
+
+            <div class="facet-block">
+              <div class="facet-title"><span>CHECKPOINT MODEL</span></div>
+              <select name="model" class="input-dark" onchange="this.form.submit()">
+                <option value="">All Models</option>
+                {{range .Page.Models}}
+                  <option value="{{.}}" {{if eq $.Filter.ModelName .}}selected{{end}}>{{.}}</option>
+                {{end}}
+              </select>
+            </div>
+
+            <div class="facet-block">
+              <div class="facet-title"><span>CHARACTER FOLDER</span></div>
+              <select name="character_id" class="input-dark" onchange="this.form.submit()">
+                <option value="0">All Characters</option>
+                {{range .Page.Characters}}
+                  <option value="{{.ID}}" {{if eq $.Filter.CharacterID .ID}}selected{{end}}>{{.Name}} ({{.ExampleCount}})</option>
+                {{end}}
+              </select>
+            </div>
+
+            <div class="facet-block">
+              <div class="facet-title"><span>AGNOSTIC GROUP</span></div>
+              <select name="group_id" class="input-dark" onchange="this.form.submit()">
+                <option value="0">All Groups</option>
+                {{range .Page.Groups}}
+                  <option value="{{.ID}}" {{if eq $.Filter.GroupID .ID}}selected{{end}}>{{.Name}} ({{.AssetCount}})</option>
+                {{end}}
+              </select>
+            </div>
+
+            {{range $facet, $tags := .Page.FacetTags}}
+              <div class="facet-block">
+                <div class="facet-title"><span style="text-transform:uppercase;">FACET: {{$facet}}</span></div>
+                <div class="checkbox-list">
+                  {{range $tags}}
+                    <label class="checkbox-item">
+                      <span>
+                        <input type="checkbox" name="tag" value="{{.Name}}" {{if hasTag $.Filter.TagNames .Name}}checked{{end}} onchange="this.form.submit()">
+                        {{.Name}}
+                      </span>
+                      <span style="font-size:11px;color:var(--text-dim);">{{.AssetCount}}</span>
+                    </label>
+                  {{end}}
+                </div>
+              </div>
+            {{end}}
+
+            <div class="facet-block">
+              <div class="facet-title"><span>KEYWORD</span></div>
+              <input type="text" name="q" value="{{.Filter.Query}}" placeholder="Enter keyword..." class="input-dark" style="margin-bottom:8px;">
+              <button type="submit" class="btn-primary" style="width:100%;">Filter Catalog</button>
+            </div>
+
+            <div class="facet-block">
+              <div class="facet-title"><span>POPULAR TAGS</span></div>
+              <div class="tag-cloud">
+                {{range .Page.AvailableTags}}
+                  <a href="/?tag={{.Name}}" class="tag-pill {{if hasTag $.Filter.TagNames .Name}}active{{end}}">#{{.Name}}</a>
+                {{end}}
+              </div>
+            </div>
+          </form>
+        </aside>
+
+        <!-- Right Dense Grid Section -->
+        <section>
+          <div class="results-bar">
+            <div class="results-count">
+              Search Results <strong>{{.Page.TotalCount}}</strong> items
+              {{if .Filter.FaceMode}}<span class="badge-chip character" style="margin-left:8px;">Face Explorer Mode</span>{{end}}
+            </div>
+            <div class="sort-tabs">
+              <a href="/?sort=newest{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if or (eq .Filter.SortBy "") (eq .Filter.SortBy "newest")}}active{{end}}">Newest</a>
+              <a href="/?sort=popular{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "popular"}}active{{end}}">Popular</a>
+              <a href="/?sort=views{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "views"}}active{{end}}">Most Viewed</a>
+              <a href="/?sort=seed{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "seed"}}active{{end}}">Seed Order</a>
+            </div>
+          </div>
+
+          {{if .Filter.FaceMode}}
+            <!-- 5-Column Extracted Face / Subject Grid -->
+            <div class="asset-grid">
+              {{range .Page.Faces}}
+                <a href="/?asset_id={{.AssetID}}" class="asset-card">
+                  <div class="asset-thumb-wrap square">
+                    <img src="/cache/{{.CropRelPath}}" alt="{{.ClusterLabel}}" class="asset-thumb" loading="lazy">
+                    <span class="asset-type-corner">{{printf "%.0f%%" (mul100 .Confidence)}}</span>
+                  </div>
+                  <div class="asset-meta">
+                    <div class="badge-row">
+                      <span class="badge-chip character">{{.ClusterLabel}}</span>
+                      {{if .ExpressionTag}}<span class="badge-chip">{{.ExpressionTag}}</span>{{end}}
+                      <span class="badge-chip">{{.AssetEngine}}</span>
+                    </div>
+                    <div class="asset-caption" title="{{.AssetPrompt}}">{{if .AssetPrompt}}{{.AssetPrompt}}{{else}}{{.AssetRelPath}}{{end}}</div>
+                  </div>
+                </a>
+              {{else}}
+                <div style="grid-column:span 5;padding:40px;text-align:center;color:var(--text-muted);">
+                  No extracted face crops match the current filter.
+                </div>
+              {{end}}
+            </div>
+          {{else}}
+            <!-- 5-Column Standard Asset Grid -->
+            <div class="asset-grid">
+              {{range .Page.Assets}}
+                <a href="/?asset_id={{.ID}}" class="asset-card">
+                  <div class="asset-thumb-wrap">
+                    {{if eq .MediaType "video"}}
+                      <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                    {{else}}
+                      <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
+                    {{end}}
+                    <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                  </div>
+                  <div class="asset-meta">
+                    <div class="badge-row">
+                      {{if .Metadata.ModelName}}
+                        <span class="badge-chip">{{.Metadata.ModelName}}</span>
+                      {{end}}
+                      {{range $idx, $ch := .Characters}}
+                        {{if eq $idx 0}}<span class="badge-chip character">{{$ch.Name}}</span>{{end}}
+                      {{end}}
+                      {{range $idx, $tg := .Tags}}
+                        {{if lt $idx 2}}<span class="badge-chip">#{{$tg.Name}}</span>{{end}}
+                      {{end}}
+                    </div>
+                    <div class="asset-caption" title="{{.Metadata.PositivePrompt}}">
+                      {{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}
+                    </div>
+                  </div>
+                </a>
+              {{else}}
+                <div style="grid-column:span 5;padding:40px;text-align:center;color:var(--text-muted);">
+                  No media assets match your filter criteria.
+                </div>
+              {{end}}
+            </div>
+          {{end}}
+
+          <!-- Pagination -->
+          <div class="pagination">
+            {{range $p := pageRange .Page.TotalPages}}
+              <a href="/?page={{$p}}{{if $.Filter.FaceMode}}&amp;face_mode=1{{end}}{{if $.Filter.SortBy}}&amp;sort={{$.Filter.SortBy}}{{end}}" class="page-btn {{if eq $p $.Page.Page}}active{{end}}">{{$p}}</a>
+            {{end}}
+          </div>
+        </section>
+      </div>
+    {{end}}
+  </main>
+</body>
+</html>
+{{end}}

@@ -28,6 +28,14 @@ go.work.sum
 # env file
 .env
 
+# Local SQLite database and generated cache/demo media
+catalog.db
+catalog.db-shm
+catalog.db-wal
+.cache/
+media/
+catalogd
+
 # Editor/IDE
 # .idea/
 # .vscode/
