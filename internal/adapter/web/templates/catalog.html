@@ -99,6 +99,19 @@
     <div class="container">
       <form action="/" method="GET" class="search-strip-form">
         {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
+        {{if .Filter.SortBy}}<input type="hidden" name="sort" value="{{.Filter.SortBy}}">{{end}}
+        {{if .Filter.RootID}}<input type="hidden" name="root_id" value="{{.Filter.RootID}}">{{end}}
+        {{if .Filter.Category}}<input type="hidden" name="category" value="{{.Filter.Category}}">{{end}}
+        {{if .Filter.Subcategory}}<input type="hidden" name="subcategory" value="{{.Filter.Subcategory}}">{{end}}
+        {{if .Filter.Trigger}}<input type="hidden" name="trigger" value="{{.Filter.Trigger}}">{{end}}
+        {{if .Filter.GroupID}}<input type="hidden" name="group_id" value="{{.Filter.GroupID}}">{{end}}
+        {{if .Filter.CharacterID}}<input type="hidden" name="character_id" value="{{.Filter.CharacterID}}">{{end}}
+        {{if .Filter.Engine}}<input type="hidden" name="engine" value="{{.Filter.Engine}}">{{end}}
+        {{if .Filter.ModelName}}<input type="hidden" name="model" value="{{.Filter.ModelName}}">{{end}}
+        {{if .Filter.MediaType}}<input type="hidden" name="media_type" value="{{.Filter.MediaType}}">{{end}}
+        {{if .Filter.MinRating}}<input type="hidden" name="min_rating" value="{{.Filter.MinRating}}">{{end}}
+        {{if .Filter.FavoritesOnly}}<input type="hidden" name="favorites" value="1">{{end}}
+        {{range .Filter.TagNames}}<input type="hidden" name="tag" value="{{.}}">{{end}}
         <div class="search-main-group">
           <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
           <button type="submit" class="btn-primary">Search</button>
@@ -159,12 +172,12 @@
     {{else if eq .ActiveTab "asset_detail"}}
       <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <a href="/" class="btn-ghost">&larr; Back to Catalog</a>
+          <a href="{{pageURL .Filter .Page.Page}}" class="btn-ghost">&larr; Back to Catalog</a>
           {{if .PrevAssetID}}
-            <a href="/?asset_id={{.PrevAssetID}}" class="btn-ghost" title="Previous Media (Left Arrow)" id="nav-btn-prev">&larr; Prev</a>
+            <a href="{{assetDetailURL .Filter .PrevAssetID}}" class="btn-ghost" title="Previous Media (Left Arrow)" id="nav-btn-prev">&larr; Prev</a>
           {{end}}
           {{if .NextAssetID}}
-            <a href="/?asset_id={{.NextAssetID}}" class="btn-ghost" title="Next Media (Right Arrow)" id="nav-btn-next">Next &rarr;</a>
+            <a href="{{assetDetailURL .Filter .NextAssetID}}" class="btn-ghost" title="Next Media (Right Arrow)" id="nav-btn-next">Next &rarr;</a>
           {{end}}
           {{if .SelectedAsset.RootID}}
             <a href="/?root_id={{.SelectedAsset.RootID}}" class="btn-ghost">Folder: {{if .SelectedAsset.RootLabel}}{{.SelectedAsset.RootLabel}}{{else}}Root #{{.SelectedAsset.RootID}}{{end}}</a>
@@ -1624,6 +1637,8 @@
         <aside class="sidebar">
           <form action="/" method="GET">
             {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
+            {{if and .Filter.PerPage (ne .Filter.PerPage 50)}}<input type="hidden" name="per_page" value="{{.Filter.PerPage}}">{{end}}
+            {{if .Filter.SortBy}}<input type="hidden" name="sort" value="{{.Filter.SortBy}}">{{end}}
 
             <div class="facet-block">
               <div class="facet-title">
@@ -1781,11 +1796,11 @@
               {{if .Filter.FaceMode}}<span class="badge-chip character" style="margin-left:8px;">Face Explorer Mode</span>{{end}}
             </div>
             <div class="sort-tabs">
-              <a href="/?sort=newest{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if or (eq .Filter.SortBy "") (eq .Filter.SortBy "newest")}}active{{end}}">Newest</a>
-              <a href="/?sort=rating{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if or (eq .Filter.SortBy "rating") (eq .Filter.SortBy "popular")}}active{{end}}">★ Top Rated (0–10)</a>
-              <a href="/?sort=favorites{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "favorites"}}active{{end}}">♥ Favorites First</a>
-              <a href="/?sort=views{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "views"}}active{{end}}">Most Viewed</a>
-              <a href="/?sort=seed{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "seed"}}active{{end}}">Seed Order</a>
+              <a href="{{sortURL $.Filter "newest"}}" class="sort-tab {{if or (eq .Filter.SortBy "") (eq .Filter.SortBy "newest")}}active{{end}}">Newest</a>
+              <a href="{{sortURL $.Filter "rating"}}" class="sort-tab {{if or (eq .Filter.SortBy "rating") (eq .Filter.SortBy "popular")}}active{{end}}">★ Top Rated (0–10)</a>
+              <a href="{{sortURL $.Filter "favorites"}}" class="sort-tab {{if eq .Filter.SortBy "favorites"}}active{{end}}">♥ Favorites First</a>
+              <a href="{{sortURL $.Filter "views"}}" class="sort-tab {{if eq .Filter.SortBy "views"}}active{{end}}">Most Viewed</a>
+              <a href="{{sortURL $.Filter "seed"}}" class="sort-tab {{if eq .Filter.SortBy "seed"}}active{{end}}">Seed Order</a>
             </div>
           </div>
 
@@ -1793,7 +1808,7 @@
             <!-- 5-Column Extracted Face / Subject Grid -->
             <div class="asset-grid">
               {{range .Page.Faces}}
-                <a href="/?asset_id={{.AssetID}}" class="asset-card">
+                <a href="{{assetDetailURL $.Filter .AssetID}}" class="asset-card">
                   <div class="asset-thumb-wrap square">
                     <img src="/cache/{{.CropRelPath}}" alt="{{.ClusterLabel}}" class="asset-thumb" loading="lazy">
                     <span class="asset-type-corner">{{printf "%.0f%%" (mul100 .Confidence)}}</span>
@@ -1817,7 +1832,7 @@
             <!-- 5-Column Standard Asset Grid -->
             <div class="asset-grid">
               {{range .Page.Assets}}
-                <a href="/?asset_id={{.ID}}" class="asset-card">
+                <a href="{{assetDetailURL $.Filter .ID}}" class="asset-card">
                   <div class="asset-thumb-wrap">
                     {{if eq .MediaType "video"}}
                       <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
@@ -1862,11 +1877,25 @@
           {{end}}
 
           <!-- Pagination -->
-          <div class="pagination">
-            {{range $p := pageRange .Page.TotalPages}}
-              <a href="/?page={{$p}}{{if $.Filter.FaceMode}}&amp;face_mode=1{{end}}{{if $.Filter.SortBy}}&amp;sort={{$.Filter.SortBy}}{{end}}" class="page-btn {{if eq $p $.Page.Page}}active{{end}}">{{$p}}</a>
-            {{end}}
-          </div>
+          {{with paginationList .Page.Page .Page.TotalPages}}
+            <div class="pagination">
+              {{if gt $.Page.Page 1}}
+                <a href="{{pageURL $.Filter (sub $.Page.Page 1)}}" class="page-btn nav-btn">&lsaquo; Prev</a>
+              {{end}}
+              {{range .}}
+                {{if .IsGap}}
+                  <span class="page-btn gap">&hellip;</span>
+                {{else if .IsActive}}
+                  <span class="page-btn active">{{.Label}}</span>
+                {{else}}
+                  <a href="{{pageURL $.Filter .Page}}" class="page-btn">{{.Label}}</a>
+                {{end}}
+              {{end}}
+              {{if lt $.Page.Page $.Page.TotalPages}}
+                <a href="{{pageURL $.Filter (add $.Page.Page 1)}}" class="page-btn nav-btn">Next &rsaquo;</a>
+              {{end}}
+            </div>
+          {{end}}
         </section>
       </div>
     {{end}}
@@ -2199,26 +2228,17 @@
           // Check if periodic background sync completed with new or removed media
           if (data && data.last_report && data.last_report.completed_at) {
             var rep = data.last_report;
-            if (lastCompletedAt && rep.completed_at !== lastCompletedAt) {
+            if (!lastCompletedAt) {
+              lastCompletedAt = rep.completed_at;
+            } else if (rep.completed_at !== lastCompletedAt) {
               lastCompletedAt = rep.completed_at;
               if (rep.scanned_files > 0 || rep.deleted_files > 0) {
                 var changes = [];
                 if (rep.scanned_files > 0) changes.push('+' + rep.scanned_files + ' new');
                 if (rep.deleted_files > 0) changes.push('-' + rep.deleted_files + ' removed');
                 var text = 'Media updated (' + changes.join(', ') + ') — Click to refresh';
-
-                var isInteracting = document.querySelector('input:focus, textarea:focus, .modal.active') !== null;
-                var isCatalogGrid = window.location.pathname === '/' && (!window.location.search || window.location.search.indexOf('tab=catalog') !== -1 || window.location.search.indexOf('asset_id=') === -1);
-
-                // If user is idle at top of catalog grid, automatically refresh seamlessly
-                if (!isInteracting && isCatalogGrid && window.scrollY < 80) {
-                  window.location.reload();
-                } else {
-                  showLiveUpdatePill(text);
-                }
+                showLiveUpdatePill(text);
               }
-            } else if (!lastCompletedAt) {
-              lastCompletedAt = rep.completed_at;
             }
           }
         })

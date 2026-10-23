@@ -935,6 +935,13 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 		if page.TotalPages < 1 {
 			page.TotalPages = 1
 		}
+		if page.TotalCount > 0 && filter.Page > page.TotalPages {
+			filter.Page = page.TotalPages
+		}
+		if filter.Page < 1 {
+			filter.Page = 1
+		}
+		page.Page = filter.Page
 		return page, nil
 	}
 
@@ -1022,6 +1029,13 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 	if page.TotalPages < 1 {
 		page.TotalPages = 1
 	}
+	if page.TotalCount > 0 && filter.Page > page.TotalPages {
+		filter.Page = page.TotalPages
+	}
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	page.Page = filter.Page
 
 	orderBy := "COALESCE(a.file_mtime, a.indexed_at) DESC, a.id DESC"
 	switch filter.SortBy {
@@ -1389,6 +1403,17 @@ func (r *Repository) ListDetectedFaces(ctx context.Context, filter domain.Catalo
 		%s`, whereClause)
 	if err := db.QueryRowContext(ctx, countSQL, args...).Scan(&total); err != nil {
 		return nil, 0, err
+	}
+
+	totalPages := (total + filter.PerPage - 1) / filter.PerPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if total > 0 && filter.Page > totalPages {
+		filter.Page = totalPages
+	}
+	if filter.Page < 1 {
+		filter.Page = 1
 	}
 
 	offset := (filter.Page - 1) * filter.PerPage

@@ -619,12 +619,36 @@ a {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.page-btn:hover:not(.active):not(.gap) {
+  border-color: #3b82f6;
+  color: #fff;
 }
 
 .page-btn.active {
   background: var(--accent-blue);
   border-color: var(--accent-blue-hover);
   color: #fff;
+  cursor: default;
+}
+
+.page-btn.gap {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+  cursor: default;
+  padding: 6px 4px;
+}
+
+.page-btn.nav-btn {
+  font-weight: 700;
+  padding: 6px 14px;
 }
 
 /* Character & Group Cards */

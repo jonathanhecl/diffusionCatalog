@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -31,6 +32,153 @@ type Server struct {
 	scanner          *usecase.ScannerService
 	auth             *usecase.AuthService
 	tmpl             *template.Template
+}
+
+// PaginationItem describes a single pagination button or ellipsis gap.
+type PaginationItem struct {
+	Page     int
+	Label    string
+	IsActive bool
+	IsGap    bool
+}
+
+func pageURL(filter domain.CatalogFilter, pageNum int) string {
+	q := url.Values{}
+	if pageNum > 0 {
+		q.Set("page", strconv.Itoa(pageNum))
+	}
+	if filter.PerPage > 0 && filter.PerPage != 50 {
+		q.Set("per_page", strconv.Itoa(filter.PerPage))
+	}
+	if qStr := strings.TrimSpace(filter.Query); qStr != "" {
+		q.Set("q", qStr)
+	}
+	if trig := strings.TrimSpace(filter.Trigger); trig != "" {
+		q.Set("trigger", trig)
+	}
+	if filter.RootID > 0 {
+		q.Set("root_id", strconv.FormatInt(filter.RootID, 10))
+	}
+	if cat := strings.TrimSpace(filter.Category); cat != "" {
+		q.Set("category", cat)
+	}
+	if subcat := strings.TrimSpace(filter.Subcategory); subcat != "" {
+		q.Set("subcategory", subcat)
+	}
+	if filter.MinRating > 0 {
+		q.Set("min_rating", strconv.Itoa(filter.MinRating))
+	}
+	if filter.FavoritesOnly {
+		q.Set("favorites", "1")
+	}
+	if eng := strings.TrimSpace(filter.Engine); eng != "" {
+		q.Set("engine", eng)
+	}
+	if mod := strings.TrimSpace(filter.ModelName); mod != "" {
+		q.Set("model", mod)
+	}
+	if mt := strings.TrimSpace(filter.MediaType); mt != "" {
+		q.Set("media_type", mt)
+	}
+	if filter.GroupID > 0 {
+		q.Set("group_id", strconv.FormatInt(filter.GroupID, 10))
+	}
+	if filter.CharacterID > 0 {
+		q.Set("character_id", strconv.FormatInt(filter.CharacterID, 10))
+	}
+	for _, tag := range filter.TagNames {
+		if t := strings.TrimSpace(tag); t != "" {
+			q.Add("tag", t)
+		}
+	}
+	if filter.FaceMode {
+		q.Set("face_mode", "1")
+	}
+	if filter.SortBy != "" && filter.SortBy != "newest" {
+		q.Set("sort", filter.SortBy)
+	}
+	encoded := q.Encode()
+	if encoded == "" {
+		return "/"
+	}
+	return "/?" + encoded
+}
+
+func sortURL(filter domain.CatalogFilter, sortBy string) string {
+	f := filter
+	f.SortBy = sortBy
+	f.Page = 1
+	return pageURL(f, 1)
+}
+
+func assetDetailURL(filter domain.CatalogFilter, assetID int64) string {
+	pageNum := filter.Page
+	if pageNum < 1 {
+		pageNum = 1
+	}
+	base := pageURL(filter, pageNum)
+	sep := "?"
+	if strings.Contains(base, "?") {
+		sep = "&"
+	}
+	return base + sep + "asset_id=" + strconv.FormatInt(assetID, 10)
+}
+
+func paginationList(current, total int) []PaginationItem {
+	if total <= 1 {
+		return nil
+	}
+	if current < 1 {
+		current = 1
+	}
+	if current > total {
+		current = total
+	}
+
+	pageSet := make(map[int]bool)
+	pageSet[1] = true
+	pageSet[total] = true
+	for i := current - 2; i <= current + 2; i++ {
+		if i >= 1 && i <= total {
+			pageSet[i] = true
+		}
+	}
+
+	if current <= 3 {
+		for i := 1; i <= 5 && i <= total; i++ {
+			pageSet[i] = true
+		}
+	}
+	if current >= total-2 {
+		for i := total - 4; i <= total; i++ {
+			if i >= 1 {
+				pageSet[i] = true
+			}
+		}
+	}
+
+	var pages []int
+	for p := 1; p <= total; p++ {
+		if pageSet[p] {
+			pages = append(pages, p)
+		}
+	}
+
+	var items []PaginationItem
+	for i, p := range pages {
+		if i > 0 && p > pages[i-1]+1 {
+			items = append(items, PaginationItem{
+				IsGap: true,
+				Label: "…",
+			})
+		}
+		items = append(items, PaginationItem{
+			Page:     p,
+			Label:    strconv.Itoa(p),
+			IsActive: p == current,
+		})
+	}
+	return items
 }
 
 // NewServer constructs the HTTP adapter with embedded HTML templates and CSS.
@@ -97,6 +245,16 @@ func NewServer(
 			}
 			return out
 		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"sub": func(a, b int) int {
+			return a - b
+		},
+		"pageURL":        pageURL,
+		"sortURL":        sortURL,
+		"assetDetailURL": assetDetailURL,
+		"paginationList": paginationList,
 	}
 
 	tmpl, err := template.New("catalog.html").Funcs(funcs).ParseFS(embeddedAssets, "templates/*.html")
