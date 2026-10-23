@@ -16,11 +16,30 @@ It treats your media directory as **read-only**, extracting embedded generation 
 
 ## Quick Start
 
-### 1. Build and Run
+### Option A: Run Directly Without Compiling (`run.sh`)
 
 ```bash
-go build -o catalogd ./cmd/catalogd
+./run.sh
+```
+
+`run.sh` checks whether Go and optional dependencies are present (asking if you want to install anything missing) and executes `go run ./cmd/catalogd` directly without leaving a binary behind.
+
+### Option B: Build the Portable Self-Installing Binary (`build.sh`)
+
+```bash
+./build.sh
+```
+
+This compiles a 100% static, single-file binary (`CGO_ENABLED=0`) into both `./catalogd` and `./build/catalogd` (along with `./build/start-portable.sh`).
+
+The compiled `catalogd` binary is **self-contained and self-installing**:
+- Embeds the HTML/CSS dark-navy UI and the Python Vision Worker (`app.py` + `requirements.txt`) inside the binary itself.
+- On first interactive launch (or anytime you pass `--setup`), it checks for optional system/runtime components (`ffmpeg` for video container metadata, `python3` + `.venv` for local Face Detection & Cropping) and prompts `[y/N]` to install and start them automatically.
+
+```bash
 ./catalogd --media-dir=./media --db=./catalog.db --addr=:8080
+# Re-run interactive dependency installer at any time:
+./catalogd --setup
 ```
 
 Then open **http://localhost:8080** in your browser.

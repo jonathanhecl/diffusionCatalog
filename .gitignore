@@ -35,6 +35,7 @@ catalog.db-wal
 .cache/
 media/
 catalogd
+build/
 
 # Editor/IDE
 # .idea/

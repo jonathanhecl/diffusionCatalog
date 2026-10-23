@@ -17,6 +17,8 @@ type Config struct {
 	VisionWorkerURL  string
 	AutoScanOnBoot   bool
 	SeedDemoIfEmpty  bool
+	ForceSetup       bool
+	NonInteractive   bool
 }
 
 // Load parses command-line flags with environment variable fallbacks.
@@ -32,6 +34,8 @@ func Load() Config {
 	flag.StringVar(&cfg.VisionWorkerURL, "vision-url", envOrDefault("CATALOG_VISION_URL", ""), "Optional HTTP endpoint for external face detection & embedding worker")
 	flag.BoolVar(&cfg.AutoScanOnBoot, "auto-scan", envOrDefaultBool("CATALOG_AUTO_SCAN", true), "Automatically scan media directory on startup")
 	flag.BoolVar(&cfg.SeedDemoIfEmpty, "seed-demo", envOrDefaultBool("CATALOG_SEED_DEMO", true), "Generate sample diffusion images in media-dir if folder does not exist or is empty")
+	flag.BoolVar(&cfg.ForceSetup, "setup", false, "Run interactive dependency check and self-installer on startup")
+	flag.BoolVar(&cfg.NonInteractive, "non-interactive", envOrDefaultBool("CATALOG_NON_INTERACTIVE", false), "Disable interactive dependency installation prompts")
 
 	flag.Parse()
 
