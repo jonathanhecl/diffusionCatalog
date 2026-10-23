@@ -45,6 +45,9 @@ func NewServer(
 		"mul100": func(v float64) float64 {
 			return v * 100.0
 		},
+		"joinStrings": func(items []string) string {
+			return strings.Join(items, ", ")
+		},
 		"pageRange": func(total int) []int {
 			if total < 1 {
 				total = 1
@@ -92,8 +95,9 @@ func (s *Server) Handler() http.Handler {
 
 	// JSON API endpoints
 	mux.HandleFunc("GET /api/v1/catalog", s.handleAPICatalog)
+	mux.HandleFunc("GET /api/v1/settings", s.handleAPISettings)
 
-	// Admin & Organization actions
+	// Admin, Settings & Organization actions
 	mux.HandleFunc("POST /admin/login", s.handleLogin)
 	mux.HandleFunc("POST /admin/logout", s.handleLogout)
 	mux.HandleFunc("POST /admin/scan", s.handleScan)
@@ -102,6 +106,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/groups/attach", s.handleAttachGroup)
 	mux.HandleFunc("POST /admin/characters/create", s.handleCreateCharacter)
 	mux.HandleFunc("POST /admin/characters/attach", s.handleAttachCharacter)
+
+	// Settings & Generator System Prompts
+	mux.HandleFunc("POST /admin/settings/save", s.handleSaveSettings)
+	mux.HandleFunc("POST /admin/profiles/upsert", s.handleUpsertProfile)
+	mux.HandleFunc("POST /admin/profiles/delete", s.handleDeleteProfile)
+
+	// Ollama AI Actions (Image2Prompt & Text2Prompt)
+	mux.HandleFunc("POST /admin/ollama/image2prompt", s.handleImage2Prompt)
+	mux.HandleFunc("POST /admin/ollama/text2prompt", s.handleText2Prompt)
 
 	return mux
 }
@@ -115,6 +128,16 @@ type viewData struct {
 	Page             *domain.CatalogPage
 	SelectedAsset    *domain.MediaAsset
 	ScanReport       usecase.ScanReport
+	Settings         domain.AppSettings
+	PromptProfiles   []domain.PromptProfile
+	OllamaOnline     bool
+	OllamaVersion    string
+	OllamaModels     []domain.OllamaModelInfo
+	AIResultPrompt   string
+	AIResultError    string
+	AIInputConcept   string
+	AITargetProfile  string
+	FlashNotice      string
 }
 
 func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
@@ -146,6 +169,16 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	settings, _ := s.catalog.GetSettings(ctx)
+	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+
+	var ollamaVer string
+	var ollamaOnline bool
+	var ollamaModels []domain.OllamaModelInfo
+	if tab == "settings" || tab == "studio" || tab == "asset_detail" {
+		ollamaVer, ollamaOnline, ollamaModels = s.catalog.InspectOllama(ctx)
+	}
+
 	data := viewData{
 		ActiveTab:        tab,
 		MediaDir:         s.mediaDir,
@@ -155,6 +188,13 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		Page:             page,
 		SelectedAsset:    selectedAsset,
 		ScanReport:       s.scanner.LastReport(),
+		Settings:         settings,
+		PromptProfiles:   profiles,
+		OllamaOnline:     ollamaOnline,
+		OllamaVersion:    ollamaVer,
+		OllamaModels:     ollamaModels,
+		AITargetProfile:  settings.DefaultTargetGenerator,
+		FlashNotice:      r.URL.Query().Get("notice"),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -170,6 +210,150 @@ func (s *Server) handleAPICatalog(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(page)
+}
+
+func (s *Server) handleAPISettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	cfg, _ := s.catalog.GetSettings(ctx)
+	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	ver, online, models := s.catalog.InspectOllama(ctx)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"settings":        cfg,
+		"prompt_profiles": profiles,
+		"ollama_online":   online,
+		"ollama_version":  ver,
+		"ollama_models":   models,
+	})
+}
+
+func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	cfg := domain.AppSettings{
+		OllamaBaseURL:          r.FormValue("ollama_base_url"),
+		VisionModel:            r.FormValue("vision_model"),
+		Image2PromptModel:      r.FormValue("image2prompt_model"),
+		Text2PromptModel:       r.FormValue("text2prompt_model"),
+		DefaultTargetGenerator: r.FormValue("default_target_generator"),
+		AutoCaptionOnScan:      r.FormValue("auto_caption_on_scan") == "on" || r.FormValue("auto_caption_on_scan") == "true",
+	}
+	_ = s.catalog.SaveSettings(r.Context(), cfg)
+	http.Redirect(w, r, "/?tab=settings&notice=Settings+saved+successfully", http.StatusSeeOther)
+}
+
+func (s *Server) handleUpsertProfile(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	p := &domain.PromptProfile{
+		Slug:           r.FormValue("slug"),
+		Name:           r.FormValue("name"),
+		TargetModality: domain.MediaType(r.FormValue("target_modality")),
+		Description:    r.FormValue("description"),
+		SystemPrompt:   r.FormValue("system_prompt"),
+	}
+	if p.Name != "" && p.SystemPrompt != "" {
+		_, _ = s.catalog.UpsertPromptProfile(r.Context(), p)
+	}
+	http.Redirect(w, r, "/?tab=settings&notice=System+prompt+profile+saved", http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteProfile(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if id > 0 {
+		_ = s.catalog.DeletePromptProfile(r.Context(), id)
+	}
+	http.Redirect(w, r, "/?tab=settings&notice=Profile+deleted", http.StatusSeeOther)
+}
+
+func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	profileSlug := r.FormValue("profile_slug")
+	userHint := r.FormValue("user_hint")
+	saveToAsset := r.FormValue("save_to_asset") == "1" || r.FormValue("save_to_asset") == "on"
+
+	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, userHint, saveToAsset)
+
+	filter := parseCatalogFilter(r)
+	page, _ := s.catalog.Query(ctx, filter)
+	selectedAsset, _ := s.catalog.GetAsset(ctx, assetID)
+	settings, _ := s.catalog.GetSettings(ctx)
+	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	ollamaVer, ollamaOnline, ollamaModels := s.catalog.InspectOllama(ctx)
+
+	data := viewData{
+		ActiveTab:        "asset_detail",
+		MediaDir:         s.mediaDir,
+		VisionEngineName: s.visionEngineName,
+		AdminUser:        s.currentAdmin(r),
+		Filter:           filter,
+		Page:             page,
+		SelectedAsset:    selectedAsset,
+		ScanReport:       s.scanner.LastReport(),
+		Settings:         settings,
+		PromptProfiles:   profiles,
+		OllamaOnline:     ollamaOnline,
+		OllamaVersion:    ollamaVer,
+		OllamaModels:     ollamaModels,
+		AIResultPrompt:   outPrompt,
+		AITargetProfile:  profileSlug,
+	}
+	if runErr != nil {
+		data.AIResultError = runErr.Error()
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = s.tmpl.ExecuteTemplate(w, "catalog.html", data)
+}
+
+func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	profileSlug := r.FormValue("profile_slug")
+	concept := r.FormValue("concept")
+
+	outPrompt, runErr := s.catalog.RunText2Prompt(ctx, concept, profileSlug)
+
+	filter := parseCatalogFilter(r)
+	page, _ := s.catalog.Query(ctx, filter)
+	settings, _ := s.catalog.GetSettings(ctx)
+	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	ollamaVer, ollamaOnline, ollamaModels := s.catalog.InspectOllama(ctx)
+
+	activeTab := "studio"
+	var selectedAsset *domain.MediaAsset
+	if assetID > 0 {
+		selectedAsset, _ = s.catalog.GetAsset(ctx, assetID)
+		activeTab = "asset_detail"
+	}
+
+	data := viewData{
+		ActiveTab:        activeTab,
+		MediaDir:         s.mediaDir,
+		VisionEngineName: s.visionEngineName,
+		AdminUser:        s.currentAdmin(r),
+		Filter:           filter,
+		Page:             page,
+		SelectedAsset:    selectedAsset,
+		ScanReport:       s.scanner.LastReport(),
+		Settings:         settings,
+		PromptProfiles:   profiles,
+		OllamaOnline:     ollamaOnline,
+		OllamaVersion:    ollamaVer,
+		OllamaModels:     ollamaModels,
+		AIResultPrompt:   outPrompt,
+		AIInputConcept:   concept,
+		AITargetProfile:  profileSlug,
+	}
+	if runErr != nil {
+		data.AIResultError = runErr.Error()
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = s.tmpl.ExecuteTemplate(w, "catalog.html", data)
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -269,7 +453,6 @@ func (s *Server) handleAttachCharacter(w http.ResponseWriter, r *http.Request) {
 func (s *Server) currentAdmin(r *http.Request) string {
 	c, err := r.Cookie("dc_admin_session")
 	if err != nil {
-		// Default local admin session badge convenience
 		return "admin (default)"
 	}
 	if user, ok := s.auth.VerifyToken(c.Value); ok {

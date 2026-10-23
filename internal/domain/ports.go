@@ -19,18 +19,18 @@ type CatalogFilter struct {
 
 // CatalogPage contains a paginated slice of assets along with total counts and facet aggregations.
 type CatalogPage struct {
-	Assets         []MediaAsset
-	Faces          []DetectedFace
-	TotalCount     int
-	Page           int
-	PerPage        int
-	TotalPages     int
-	AvailableTags  []Tag
-	FacetTags      map[string][]Tag
-	Engines        []string
-	Models         []string
-	Groups         []Group
-	Characters     []Character
+	Assets        []MediaAsset
+	Faces         []DetectedFace
+	TotalCount    int
+	Page          int
+	PerPage       int
+	TotalPages    int
+	AvailableTags []Tag
+	FacetTags     map[string][]Tag
+	Engines       []string
+	Models        []string
+	Groups        []Group
+	Characters    []Character
 }
 
 // CatalogRepository defines the persistence port for SQLite.
@@ -40,6 +40,7 @@ type CatalogRepository interface {
 
 	UpsertAsset(ctx context.Context, asset *MediaAsset) (int64, error)
 	GetAssetByID(ctx context.Context, id int64) (*MediaAsset, error)
+	UpdateAssetPrompt(ctx context.Context, assetID int64, positivePrompt, engine string) error
 	QueryCatalog(ctx context.Context, filter CatalogFilter) (*CatalogPage, error)
 	IncrementAssetView(ctx context.Context, id int64) error
 
@@ -58,6 +59,14 @@ type CatalogRepository interface {
 
 	SaveDetectedFace(ctx context.Context, face *DetectedFace) (int64, error)
 	ListDetectedFaces(ctx context.Context, filter CatalogFilter) ([]DetectedFace, int, error)
+
+	GetSettings(ctx context.Context) (AppSettings, error)
+	SaveSettings(ctx context.Context, settings AppSettings) error
+
+	UpsertPromptProfile(ctx context.Context, profile *PromptProfile) (int64, error)
+	DeletePromptProfile(ctx context.Context, id int64) error
+	GetPromptProfileBySlug(ctx context.Context, slug string) (*PromptProfile, error)
+	ListPromptProfiles(ctx context.Context) ([]PromptProfile, error)
 }
 
 // MetadataExtractor defines the port for extracting diffusion prompts and technical parameters from media files.
@@ -66,8 +75,16 @@ type MetadataExtractor interface {
 }
 
 // VisionEngine defines the agnostic port for face/subject detection, cropping, and vector embedding extraction.
-// It can be backed by a local Python worker (InsightFace/ONNX), an external HTTP service, or a built-in detector.
 type VisionEngine interface {
 	Name() string
 	DetectAndCropFaces(ctx context.Context, assetID int64, absImagePath, cacheDir string) ([]DetectedFace, error)
+}
+
+// OllamaProvider defines the port for interacting with local or remote Ollama instances
+// (capability inspection, vision analysis, image2prompt, and text2prompt generation).
+type OllamaProvider interface {
+	CheckStatus(ctx context.Context, baseURL string) (version string, online bool)
+	ListModels(ctx context.Context, baseURL string) ([]OllamaModelInfo, error)
+	ImageToPrompt(ctx context.Context, baseURL, model, systemPrompt, absImagePath, userHint string) (string, error)
+	TextToPrompt(ctx context.Context, baseURL, model, systemPrompt, inputConcept string) (string, error)
 }

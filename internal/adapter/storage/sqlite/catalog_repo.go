@@ -121,6 +121,153 @@ func (r *Repository) IncrementAssetView(ctx context.Context, id int64) error {
 	return err
 }
 
+// UpdateAssetPrompt updates an asset's positive prompt (e.g. from Ollama Image2Prompt or Text2Prompt).
+func (r *Repository) UpdateAssetPrompt(ctx context.Context, assetID int64, positivePrompt, engine string) error {
+	if engine != "" {
+		_, err := r.db.ExecContext(ctx, `UPDATE assets SET positive_prompt = ?, engine = ? WHERE id = ?`, positivePrompt, engine, assetID)
+		return err
+	}
+	_, err := r.db.ExecContext(ctx, `UPDATE assets SET positive_prompt = ? WHERE id = ?`, positivePrompt, assetID)
+	return err
+}
+
+// GetSettings retrieves the application & Ollama configuration from SQLite.
+func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error) {
+	s := domain.AppSettings{
+		OllamaBaseURL:          "http://localhost:11434",
+		VisionModel:            "llama3.2-vision:latest",
+		Image2PromptModel:      "llama3.2-vision:latest",
+		Text2PromptModel:       "qwen3:8b",
+		DefaultTargetGenerator: "flux",
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT key, value FROM app_settings`)
+	if err != nil {
+		return s, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err == nil {
+			switch k {
+			case "ollama_base_url":
+				s.OllamaBaseURL = v
+			case "vision_model":
+				s.VisionModel = v
+			case "image2prompt_model":
+				s.Image2PromptModel = v
+			case "text2prompt_model":
+				s.Text2PromptModel = v
+			case "default_target_generator":
+				s.DefaultTargetGenerator = v
+			case "auto_caption_on_scan":
+				s.AutoCaptionOnScan = (v == "true" || v == "1")
+			}
+		}
+	}
+	return s, nil
+}
+
+// SaveSettings persists application & Ollama settings into SQLite.
+func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) error {
+	autoCap := "false"
+	if s.AutoCaptionOnScan {
+		autoCap = "true"
+	}
+	pairs := map[string]string{
+		"ollama_base_url":          strings.TrimSpace(s.OllamaBaseURL),
+		"vision_model":             strings.TrimSpace(s.VisionModel),
+		"image2prompt_model":       strings.TrimSpace(s.Image2PromptModel),
+		"text2prompt_model":        strings.TrimSpace(s.Text2PromptModel),
+		"default_target_generator": strings.TrimSpace(s.DefaultTargetGenerator),
+		"auto_caption_on_scan":     autoCap,
+	}
+	for k, v := range pairs {
+		if _, err := r.db.ExecContext(ctx, `
+			INSERT INTO app_settings (key, value) VALUES (?, ?)
+			ON CONFLICT(key) DO UPDATE SET value = excluded.value`, k, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UpsertPromptProfile creates or updates a generator system prompt profile (flux, krea2, moss, minimaxh3, etc.).
+func (r *Repository) UpsertPromptProfile(ctx context.Context, p *domain.PromptProfile) (int64, error) {
+	slug := slugify(p.Slug)
+	if slug == "item" && p.Name != "" {
+		slug = slugify(p.Name)
+	}
+	modality := string(p.TargetModality)
+	if modality != "video" {
+		modality = "image"
+	}
+	var id int64
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO prompt_profiles (slug, name, target_modality, description, system_prompt, updated_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(slug) DO UPDATE SET
+			name = excluded.name,
+			target_modality = excluded.target_modality,
+			description = excluded.description,
+			system_prompt = excluded.system_prompt,
+			updated_at = CURRENT_TIMESTAMP
+		RETURNING id`,
+		slug, strings.TrimSpace(p.Name), modality, strings.TrimSpace(p.Description), strings.TrimSpace(p.SystemPrompt),
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	p.ID = id
+	p.Slug = slug
+	return id, nil
+}
+
+// DeletePromptProfile removes a generator system prompt profile by ID.
+func (r *Repository) DeletePromptProfile(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM prompt_profiles WHERE id = ?`, id)
+	return err
+}
+
+// GetPromptProfileBySlug fetches a generator system prompt profile by its slug.
+func (r *Repository) GetPromptProfileBySlug(ctx context.Context, slug string) (*domain.PromptProfile, error) {
+	var p domain.PromptProfile
+	var mod string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id, slug, name, target_modality, description, system_prompt, updated_at
+		FROM prompt_profiles WHERE LOWER(slug) = LOWER(?)`, strings.TrimSpace(slug),
+	).Scan(&p.ID, &p.Slug, &p.Name, &mod, &p.Description, &p.SystemPrompt, &p.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	p.TargetModality = domain.MediaType(mod)
+	return &p, nil
+}
+
+// ListPromptProfiles returns all generator system prompt profiles ordered by slug.
+func (r *Repository) ListPromptProfiles(ctx context.Context) ([]domain.PromptProfile, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, slug, name, target_modality, description, system_prompt, updated_at
+		FROM prompt_profiles
+		ORDER BY slug ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.PromptProfile
+	for rows.Next() {
+		var p domain.PromptProfile
+		var mod string
+		if err := rows.Scan(&p.ID, &p.Slug, &p.Name, &mod, &p.Description, &p.SystemPrompt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		p.TargetModality = domain.MediaType(mod)
+		out = append(out, p)
+	}
+	return out, nil
+}
+
 // QueryCatalog executes a filtered, faceted, and paginated search across assets (or faces when FaceMode is active).
 func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilter) (*domain.CatalogPage, error) {
 	if filter.Page < 1 {

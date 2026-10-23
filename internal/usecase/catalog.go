@@ -2,19 +2,28 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
 )
 
-// CatalogService coordinates catalog querying, agnostic tagging, grouping, and character sheets.
+// CatalogService coordinates catalog querying, agnostic tagging, grouping, character sheets,
+// application settings, and Ollama prompt generation (Vision, Image2Prompt, Text2Prompt).
 type CatalogService struct {
-	repo domain.CatalogRepository
+	mediaDir string
+	repo     domain.CatalogRepository
+	ollama   domain.OllamaProvider
 }
 
 // NewCatalogService creates a new CatalogService.
-func NewCatalogService(repo domain.CatalogRepository) *CatalogService {
-	return &CatalogService{repo: repo}
+func NewCatalogService(mediaDir string, repo domain.CatalogRepository, ollama domain.OllamaProvider) *CatalogService {
+	return &CatalogService{
+		mediaDir: mediaDir,
+		repo:     repo,
+		ollama:   ollama,
+	}
 }
 
 // Query returns a paginated, facet-filtered catalog page.
@@ -102,4 +111,105 @@ func (s *CatalogService) GetCharacter(ctx context.Context, id int64) (*domain.Ch
 // ListCharacters returns all character profiles.
 func (s *CatalogService) ListCharacters(ctx context.Context) ([]domain.Character, error) {
 	return s.repo.ListCharacters(ctx)
+}
+
+// GetSettings retrieves application and Ollama model routing settings.
+func (s *CatalogService) GetSettings(ctx context.Context) (domain.AppSettings, error) {
+	return s.repo.GetSettings(ctx)
+}
+
+// SaveSettings updates application and Ollama model routing settings.
+func (s *CatalogService) SaveSettings(ctx context.Context, cfg domain.AppSettings) error {
+	return s.repo.SaveSettings(ctx, cfg)
+}
+
+// ListPromptProfiles returns all generator system prompt profiles (flux, krea2, moss, minimaxh3, etc.).
+func (s *CatalogService) ListPromptProfiles(ctx context.Context) ([]domain.PromptProfile, error) {
+	return s.repo.ListPromptProfiles(ctx)
+}
+
+// UpsertPromptProfile saves or updates a generator system prompt profile.
+func (s *CatalogService) UpsertPromptProfile(ctx context.Context, p *domain.PromptProfile) (int64, error) {
+	return s.repo.UpsertPromptProfile(ctx, p)
+}
+
+// DeletePromptProfile deletes a generator system prompt profile by ID.
+func (s *CatalogService) DeletePromptProfile(ctx context.Context, id int64) error {
+	return s.repo.DeletePromptProfile(ctx, id)
+}
+
+// InspectOllama checks if the configured Ollama instance is reachable and lists installed models with capabilities.
+func (s *CatalogService) InspectOllama(ctx context.Context) (string, bool, []domain.OllamaModelInfo) {
+	if s.ollama == nil {
+		return "", false, nil
+	}
+	cfg, _ := s.repo.GetSettings(ctx)
+	ver, online := s.ollama.CheckStatus(ctx, cfg.OllamaBaseURL)
+	if !online {
+		return "", false, nil
+	}
+	models, _ := s.ollama.ListModels(ctx, cfg.OllamaBaseURL)
+	return ver, true, models
+}
+
+// RunImage2Prompt runs the configured Ollama Image2Prompt (or Vision) model on an asset using the selected
+// generator profile's system prompt (e.g., flux, krea2, moss, minimaxh3).
+func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, userHint string, saveToAsset bool) (string, error) {
+	if s.ollama == nil {
+		return "", fmt.Errorf("ollama provider is not initialized")
+	}
+	asset, err := s.repo.GetAssetByID(ctx, assetID)
+	if err != nil {
+		return "", err
+	}
+	cfg, err := s.repo.GetSettings(ctx)
+	if err != nil {
+		return "", err
+	}
+	if profileSlug == "" {
+		profileSlug = cfg.DefaultTargetGenerator
+	}
+
+	var sysPrompt string
+	if prof, err := s.repo.GetPromptProfileBySlug(ctx, profileSlug); err == nil && prof != nil {
+		sysPrompt = prof.SystemPrompt
+	}
+
+	model := cfg.Image2PromptModel
+	if model == "" {
+		model = cfg.VisionModel
+	}
+
+	absPath := filepath.Join(s.mediaDir, filepath.FromSlash(asset.RelPath))
+	generated, err := s.ollama.ImageToPrompt(ctx, cfg.OllamaBaseURL, model, sysPrompt, absPath, userHint)
+	if err != nil {
+		return "", err
+	}
+
+	if saveToAsset && generated != "" {
+		_ = s.repo.UpdateAssetPrompt(ctx, asset.ID, generated, profileSlug)
+	}
+	return generated, nil
+}
+
+// RunText2Prompt expands or converts a text idea/prompt into a target generator prompt using the configured
+// Ollama Text2Prompt model and the selected generator profile's system prompt.
+func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profileSlug string) (string, error) {
+	if s.ollama == nil {
+		return "", fmt.Errorf("ollama provider is not initialized")
+	}
+	cfg, err := s.repo.GetSettings(ctx)
+	if err != nil {
+		return "", err
+	}
+	if profileSlug == "" {
+		profileSlug = cfg.DefaultTargetGenerator
+	}
+
+	var sysPrompt string
+	if prof, err := s.repo.GetPromptProfileBySlug(ctx, profileSlug); err == nil && prof != nil {
+		sysPrompt = prof.SystemPrompt
+	}
+
+	return s.ollama.TextToPrompt(ctx, cfg.OllamaBaseURL, cfg.Text2PromptModel, sysPrompt, inputConcept)
 }

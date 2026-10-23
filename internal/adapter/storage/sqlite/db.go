@@ -164,7 +164,99 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
 		FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE SET NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS app_settings (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS prompt_profiles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		slug TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
+		target_modality TEXT NOT NULL DEFAULT 'image',
+		description TEXT NOT NULL DEFAULT '',
+		system_prompt TEXT NOT NULL,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
 	`
-	_, err := db.ExecContext(ctx, schema)
-	return err
+	if _, err := db.ExecContext(ctx, schema); err != nil {
+		return err
+	}
+	return seedDefaultSettingsAndProfiles(ctx, db)
+}
+
+func seedDefaultSettingsAndProfiles(ctx context.Context, db *sql.DB) error {
+	defaults := map[string]string{
+		"ollama_base_url":          "http://localhost:11434",
+		"vision_model":             "llama3.2-vision:latest",
+		"image2prompt_model":       "llama3.2-vision:latest",
+		"text2prompt_model":        "qwen3:8b",
+		"default_target_generator": "flux",
+		"auto_caption_on_scan":     "false",
+	}
+	for k, v := range defaults {
+		_, _ = db.ExecContext(ctx, `INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)`, k, v)
+	}
+
+	var count int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM prompt_profiles`).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	profiles := []struct {
+		Slug        string
+		Name        string
+		Modality    string
+		Description string
+		Prompt      string
+	}{
+		{
+			Slug:        "flux",
+			Name:        "Flux.1 Dev / Pro",
+			Modality:    "image",
+			Description: "Natural-language T5 prose optimized for Flux.1 architecture without weight brackets.",
+			Prompt:      "You are an expert prompt engineer for Flux.1 diffusion models. Write rich, natural-language descriptive prose (3 to 5 sentences). Describe the primary subject, facial expression or focal geometry, attire/materials, spatial composition, camera lens (e.g., 85mm f/1.4, anamorphic), lighting direction, color palette, and surface textures. Do NOT use Danbooru tag weights like (word:1.3). Output only the final prompt.",
+		},
+		{
+			Slug:        "krea2",
+			Name:        "Krea 2",
+			Modality:    "image",
+			Description: "High-aesthetic editorial art direction, micro-texture fidelity, and organic film lighting.",
+			Prompt:      "You are a senior art director crafting prompts for Krea 2. Focus on hyper-tactile surface micro-textures, skin/material translucency, editorial studio or golden-hour lighting, medium-format analog film stock aesthetics (Kodak Portra 400, Hasselblad H6D), and deliberate depth-of-field. Output only the final prompt.",
+		},
+		{
+			Slug:        "moss",
+			Name:        "MOSS Diffusion",
+			Modality:    "image",
+			Description: "Structured multi-layered scene composition with explicit foreground, subject, and atmosphere.",
+			Prompt:      "You are a specialist prompt architect for MOSS Diffusion. Structure the prompt into clear descriptive layers: [Subject & Pose], [Wardrobe & Materials], [Foreground & Midground Environment], [Volumetric Lighting & Atmosphere], and [Camera & Color Grading]. Output a cohesive paragraph with high semantic density and zero conversational filler.",
+		},
+		{
+			Slug:        "minimaxh3",
+			Name:        "MiniMax Hailuo H3 (Video)",
+			Modality:    "video",
+			Description: "Cinematic video generation prompt specifying camera trajectory, subject motion, and physics.",
+			Prompt:      "You are a cinematic AI video prompt director for MiniMax Hailuo H3 (video generation). Structure every prompt with: 1) Explicit camera movement (e.g., slow dolly-in, orbital tracking shot, handheld pan), 2) Subject motion and temporal micro-actions, 3) Environmental physics (wind, rain ripples, shifting neon reflections, volumetric dust), and 4) Lighting and film aesthetic. Output only the final video prompt.",
+		},
+		{
+			Slug:        "sdxl",
+			Name:        "SDXL / Illustrious / Pony",
+			Modality:    "image",
+			Description: "Hybrid comma-separated tag and phrase structure for SDXL checkpoints.",
+			Prompt:      "You are an SDXL prompt specialist. Generate a comma-separated prompt starting with quality and medium tokens (masterpiece, best quality, highres), followed by detailed subject description, clothing, pose, background environment, lighting tags, and camera perspective. Output only the final comma-separated prompt.",
+		},
+	}
+
+	for _, p := range profiles {
+		_, _ = db.ExecContext(ctx, `
+			INSERT OR IGNORE INTO prompt_profiles (slug, name, target_modality, description, system_prompt)
+			VALUES (?, ?, ?, ?, ?)`,
+			p.Slug, p.Name, p.Modality, p.Description, p.Prompt,
+		)
+	}
+	return nil
 }
