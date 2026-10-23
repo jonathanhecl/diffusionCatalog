@@ -808,6 +808,7 @@ type SceneDirectorDTO struct {
 	AspectRatio  string            `json:"aspectRatio"`
 	CanvasWidth  float64           `json:"canvasWidth"`
 	CanvasHeight float64           `json:"canvasHeight"`
+	Perspective  string            `json:"perspective,omitempty"` // "front" or "side"
 	Elements     []SceneElementDTO `json:"elements"`
 	DirectorNote string            `json:"directorNote,omitempty"`
 }
@@ -958,6 +959,9 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 	var sb strings.Builder
 	sb.WriteString("[SPATIAL SCENE COMPOSITION MANIFEST]\n")
 	sb.WriteString(fmt.Sprintf("Aspect Ratio: %s\n", aspectRatio))
+	if scene.Perspective == "side" {
+		sb.WriteString("Perspective: Lateral Side-View / Profile Scene Staging\n")
+	}
 	sb.WriteString(fmt.Sprintf("Framing & Camera Perspective: %s\n", cameraSummary))
 
 	if len(subjectLines) > 0 {
