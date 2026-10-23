@@ -605,300 +605,291 @@
         </div>
       {{end}}
 
-    {{else if eq .ActiveTab "remix"}}
-      <!-- Dedicated Prompt Remix Studio Page -->
+    {{else if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}
+      <!-- Unified Prompt Studio & Remix Page -->
       <div style="margin:20px 0 44px;">
-        {{if .SelectedAsset}}
-          <div class="remix-grid">
-            <!-- Left: Media / Video Frame Preview & Navigation -->
-            <div class="remix-media-frame">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <strong style="font-size:14px;color:#fff;">{{.SelectedAsset.FileName}}</strong>
-                  <span class="badge-chip">{{.SelectedAsset.MediaType}}</span>
-                </div>
-                <div style="display:flex;gap:6px;">
-                  {{if .PrevAssetID}}
-                    <a href="/?tab=remix&asset_id={{.PrevAssetID}}" class="btn-ghost" style="padding:2px 8px;font-size:11px;" title="Previous Media">&#10094; Prev</a>
-                  {{end}}
-                  {{if .NextAssetID}}
-                    <a href="/?tab=remix&asset_id={{.NextAssetID}}" class="btn-ghost" style="padding:2px 8px;font-size:11px;" title="Next Media">Next &#10095;</a>
-                  {{end}}
-                  <a href="/?asset_id={{.SelectedAsset.ID}}" class="btn-ghost" style="padding:2px 8px;font-size:11px;">View Asset &rarr;</a>
-                </div>
+        <!-- Top Status & Subheader -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:14px 18px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+          <div>
+            {{if .SelectedAsset}}
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span class="badge-chip" style="background:#4c1d95;color:#ddd6fe;border-color:#7c3aed;font-weight:700;">&#10024; Remixing Media #{{.SelectedAsset.ID}}</span>
+                <strong style="font-size:15px;color:#fff;">{{.SelectedAsset.FileName}}</strong>
+                <span class="badge-chip">{{.SelectedAsset.MediaType}}</span>
+                <span class="badge-chip">{{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px</span>
+                {{if .SelectedAsset.Metadata.Engine}}<span class="badge-chip" style="color:#6ee7b7;">Engine: {{.SelectedAsset.Metadata.Engine}}</span>{{end}}
               </div>
+              <p style="color:var(--text-muted);font-size:12px;margin-top:4px;margin-bottom:0;">
+                Original prompt and media preloaded. Edit prompt or adjust scene direction to adapt to any target model.
+              </p>
+            {{else}}
+              <div style="display:flex;align-items:center;gap:10px;">
+                <strong style="font-size:15px;color:#c084fc;">&#10024; Prompt Studio &amp; Remix</strong>
+                <span class="badge-chip">New Prompt Mode</span>
+              </div>
+              <p style="color:var(--text-muted);font-size:12px;margin-top:4px;margin-bottom:0;">
+                Synthesize a new prompt from text concepts, or attach an image from your computer to analyze with Vision.
+              </p>
+            {{end}}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            {{if .SelectedAsset}}
+              {{if .PrevAssetID}}
+                <a href="/?tab=studio&asset_id={{.PrevAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;" title="Previous Media">&#10094; Prev</a>
+              {{end}}
+              {{if .NextAssetID}}
+                <a href="/?tab=studio&asset_id={{.NextAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;" title="Next Media">Next &#10095;</a>
+              {{end}}
+              <a href="/?asset_id={{.SelectedAsset.ID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;">View Asset Details &rarr;</a>
+              <a href="/?tab=studio" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;color:#fca5a5;border-color:#b91c1c;" title="Detach media to create a new prompt from scratch">&#x2715; Start Blank Prompt</a>
+            {{else}}
+              <a href="/?tab=settings" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;">Configure Defaults &amp; System Prompts &rarr;</a>
+            {{end}}
+          </div>
+        </div>
 
-              <div style="position:relative;background:#030712;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:360px;">
+        <div class="remix-grid">
+          <!-- Left Column: Visual Reference (Media Asset Preview OR Attached Image Dropzone) -->
+          <div class="remix-media-frame">
+            {{if .SelectedAsset}}
+              <!-- Catalog Media Preview & Video Frame Capture -->
+              <div class="remix-media-viewport">
                 {{if eq .SelectedAsset.MediaType "video"}}
-                  <video id="remix-video-el" src="/media/{{.SelectedAsset.RelPath}}" controls crossorigin="anonymous" playsinline style="max-width:100%;max-height:540px;display:block;"></video>
+                  <video id="remix-video-el" src="/media/{{.SelectedAsset.RelPath}}" controls crossorigin="anonymous" playsinline style="max-width:100%;max-height:500px;display:block;"></video>
                   <canvas id="remix-frame-canvas" style="display:none;"></canvas>
                 {{else}}
-                  <img id="remix-image-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" style="max-width:100%;max-height:540px;object-fit:contain;display:block;">
+                  <img id="remix-image-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" style="max-width:100%;max-height:500px;object-fit:contain;display:block;">
                 {{end}}
               </div>
 
               {{if eq .SelectedAsset.MediaType "video"}}
-                <div style="margin-top:8px;padding:8px 12px;background:#0d1527;border:1px solid #1e3a6d;border-radius:4px;font-size:11.5px;color:#93c5fd;display:flex;align-items:center;gap:8px;">
-                  <span>&#9654; <strong>Video Frame Capture Active:</strong> Pause or seek to the exact moment you want to remix. When you click <em>Generate Prompt</em>, this exact video frame is captured and sent to the vision model for analysis.</span>
+                <div style="padding:8px 12px;background:#0d1527;border:1px solid #1e3a6d;border-radius:4px;font-size:11.5px;color:#93c5fd;display:flex;align-items:center;gap:8px;">
+                  <span>&#9654; <strong>Video Frame Capture Active:</strong> Pause or seek to the exact moment to remix. That frame will be analyzed by the Vision model.</span>
                 </div>
               {{end}}
 
               <!-- Original Prompt Reference -->
-              <div style="margin-top:14px;background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:12px;">
-                <div class="kv-label" style="margin-bottom:4px;">Original Prompt (Indexed from Metadata / Sidecar .txt)</div>
-                <div class="prompt-box" style="font-size:12px;max-height:160px;overflow:auto;">
+              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <span class="kv-label" style="margin-bottom:0;">Indexed Original Prompt</span>
+                  {{if .SelectedAsset.Metadata.PositivePrompt}}
+                    <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;" onclick="document.getElementById('studio-prompt-input').value = {{printf "%q" .SelectedAsset.Metadata.PositivePrompt}}">Reload into Editor</button>
+                  {{end}}
+                </div>
+                <div class="prompt-box" style="font-size:12px;max-height:140px;overflow:auto;">
                   {{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}<span style="color:var(--text-muted);">(No positive prompt in metadata)</span>{{end}}
                 </div>
               </div>
-            </div>
-
-            <!-- Right: Remix Workbench & Controls -->
-            <div style="display:flex;flex-direction:column;gap:14px;">
-              <div style="background:var(--bg-panel);border:1px solid #7c3aed;border-radius:6px;padding:18px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                  <h3 style="font-size:16px;color:#c084fc;margin:0;">Prompt Remix Studio</h3>
-                  <a href="/?tab=settings" style="font-size:11px;color:#93c5fd;">Active Defaults: [{{.Settings.Image2PromptProvider}}] {{.Settings.Image2PromptModel}} &rarr;</a>
+            {{else}}
+              <!-- Attached Image Mode: Dropzone & Live Preview -->
+              <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:16px;">
+                <div class="kv-label" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                  <span>Reference Image (Optional)</span>
+                  <span style="font-size:11px;color:var(--text-muted);">Vision Analysis</span>
                 </div>
 
-                {{if .AIResultError}}
-                  <div style="margin-bottom:12px;padding:10px 12px;background:#3b0f18;border:1px solid #ef4444;border-radius:4px;color:#fca5a5;font-size:12px;">
-                    {{.AIResultError}}
+                <!-- Dropzone for custom image -->
+                <div id="studio-dropzone" class="studio-dropzone" onclick="document.getElementById('studio-file-input').click()" ondragover="handleStudioDragOver(event)" ondragleave="handleStudioDragLeave(event)" ondrop="handleStudioDrop(event)">
+                  <input type="file" id="studio-file-input" name="attached_file" accept="image/*" style="display:none;" onchange="handleStudioFileSelect(this)">
+                  <div style="font-size:28px;margin-bottom:6px;">📷</div>
+                  <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Drop an image here or click to browse</div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Supports PNG, JPG, WEBP. Paste from clipboard (<kbd>Ctrl+V</kbd>) is also supported.</div>
+                </div>
+
+                <!-- Attached image preview wrap -->
+                <div id="studio-attached-preview-wrap" style="display:none;margin-top:12px;background:#030712;border:1px solid #1e3a6d;border-radius:6px;padding:12px;text-align:center;">
+                  <img id="studio-attached-img" src="" alt="Attached image preview" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:4px;display:block;margin:0 auto 10px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span id="studio-attached-info" style="font-size:11px;color:#93c5fd;font-weight:600;"></span>
+                    <button type="button" class="btn-ghost" style="padding:3px 10px;font-size:11px;color:#f87171;border-color:#ef4444;" onclick="removeStudioAttachedImage()">✕ Remove Image</button>
                   </div>
-                {{end}}
+                </div>
 
-                {{if .AIResultPrompt}}
-                  <div style="margin-bottom:14px;background:#064e3b;border:1px solid #059669;border-radius:6px;padding:12px;">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px;color:#6ee7b7;">
-                      <span>Synthesized Prompt for target <strong>{{.AITargetProfile}}</strong>:</span>
-                      <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="navigator.clipboard.writeText(document.getElementById('remix-result-out').innerText)">Copy Prompt</button>
-                    </div>
-                    <div id="remix-result-out" class="prompt-box" style="color:#a7f3d0;background:#03281f;border-color:#059669;font-size:12.5px;">{{.AIResultPrompt}}</div>
+                <div style="margin-top:14px;padding:10px 12px;background:#060d1b;border:1px solid var(--border-navy);border-radius:4px;font-size:11.5px;color:var(--text-muted);line-height:1.4;">
+                  💡 <strong>Tip:</strong> If you attach an image, Studio sends it to the Vision model for visual analysis. If no image is attached, it generates from your text prompt and chosen target model.
+                </div>
+              </div>
+            {{end}}
+
+            <!-- Target Backend Status Indicator -->
+            <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:10px 12px;font-size:11.5px;color:var(--text-muted);">
+              <div>Text Route: <strong>[{{.Settings.Text2PromptProvider}}]</strong> <code>{{.Settings.Text2PromptModel}}</code></div>
+              <div>Vision Route: <strong>[{{.Settings.Image2PromptProvider}}]</strong> <code>{{.Settings.Image2PromptModel}}</code></div>
+              <div style="margin-top:4px;">
+                Ollama: {{if .AIStatus.OllamaOnline}}<span style="color:#34d399;">Online</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}} |
+                oMLX: {{if .AIStatus.OMLXOnline}}<span style="color:#34d399;">Online ({{len .AIStatus.OMLXModels}} models)</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}}
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Prompt Studio Workbench -->
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div style="background:var(--bg-panel);border:1px solid #7c3aed;border-radius:6px;padding:18px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h3 style="font-size:16px;color:#c084fc;margin:0;">Prompt Generation &amp; Synthesis</h3>
+                <a href="/?tab=settings" style="font-size:11px;color:#93c5fd;">Active Defaults &rarr;</a>
+              </div>
+
+              {{if .AIResultError}}
+                <div style="margin-bottom:12px;padding:10px 12px;background:#3b0f18;border:1px solid #ef4444;border-radius:4px;color:#fca5a5;font-size:12px;">
+                  {{.AIResultError}}
+                </div>
+              {{end}}
+
+              {{if .AIResultPrompt}}
+                <div style="margin-bottom:14px;background:#064e3b;border:1px solid #059669;border-radius:6px;padding:12px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#6ee7b7;">
+                    <span>SYNTHESIZED PROMPT for target <strong>{{.AITargetProfile}}</strong>:</span>
+                    <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="navigator.clipboard.writeText(document.getElementById('studio-result-out').innerText)">Copy Prompt</button>
                   </div>
-                {{end}}
+                  <div id="studio-result-out" class="prompt-box" style="color:#a7f3d0;background:#03281f;border-color:#059669;font-size:12.5px;">{{.AIResultPrompt}}</div>
+                </div>
+              {{end}}
 
-                <form id="remix-workbench-form" action="/admin/ollama/image2prompt" method="POST" onsubmit="prepareRemixSubmission(event, this)" style="display:flex;flex-direction:column;gap:12px;">
-                  <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
-                  <input type="hidden" name="video_frame_data" id="video_frame_data" value="">
+              <form id="studio-workbench-form" action="/admin/ollama/image2prompt" method="POST" enctype="multipart/form-data" onsubmit="prepareStudioSubmission(event, this)" style="display:flex;flex-direction:column;gap:12px;">
+                <input type="hidden" name="asset_id" value="{{if .SelectedAsset}}{{.SelectedAsset.ID}}{{else}}0{{end}}">
+                <input type="hidden" name="attached_image_data" id="attached_image_data" value="">
+                <input type="hidden" name="video_frame_data" id="video_frame_data" value="">
+                <input type="hidden" name="source_tab" value="studio">
 
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                    <div>
-                      <label class="kv-label">Target Generator Model Family</label>
-                      <select name="profile_slug" class="input-dark" onchange="filterLoRAsByModel(this.form, this.value)">
-                        {{range .PromptProfiles}}
-                          <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
-                        {{end}}
-                      </select>
-                    </div>
-                    <div>
-                      <label class="kv-label">Remix Mode</label>
-                      <select name="mode" class="input-dark">
-                        <option value="vision" selected>Vision Analysis (Inspect Frame/Image + Direction)</option>
-                        <option value="remix">Prompt Translation (Rewrite Existing Prompt)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                    <div>
-                      <label class="kv-label">Inject Character Identity (Optional)</label>
-                      <select name="character_id" class="input-dark">
-                        <option value="0">None (Preserve Original Subject)</option>
-                        {{range .Page.Characters}}
-                          <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
-                        {{end}}
-                      </select>
-                    </div>
-                    <div>
-                      <label class="kv-label">Quick LLM / Vision Override (Optional)</label>
-                      <select name="override_route" class="input-dark">
-                        <option value="">Settings Default ([{{.Settings.Image2PromptProvider}}] {{.Settings.Image2PromptModel}})</option>
-                        {{range .AIStatus.AllModels}}
-                          <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
-                        {{end}}
-                      </select>
-                    </div>
-                  </div>
-
-                  {{if .ModelLoRAs}}
-                    <div style="background:#040914;border:1px solid var(--border-navy);border-radius:4px;padding:8px 10px;">
-                      <div class="kv-label" style="margin-bottom:6px;">Target Model LoRAs (Injects trigger syntax and examples)</div>
-                      <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                        {{range .ModelLoRAs}}
-                          <label class="checkbox-item lora-chip-item" data-model="{{.ProfileSlug}}" title="{{.Description}}" style="background:#0b172e;border:1px solid #1e3a6d;padding:3px 8px;border-radius:4px;">
-                            <span>
-                              <input type="checkbox" name="lora_id" value="{{.ID}}">
-                              <strong style="color:#60a5fa;">[{{.ProfileSlug}}]</strong> {{.Name}}
-                              {{if .TriggerWords}}<span style="color:#6ee7b7;font-size:10px;">({{ .TriggerWords }})</span>{{end}}
-                            </span>
-                          </label>
-                        {{end}}
-                      </div>
-                    </div>
-                  {{end}}
-
+                <!-- Target Generator Profile & Mode -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                   <div>
-                    <label class="kv-label">Creative / Scene / Camera Direction (Optional)</label>
-                    <input type="text" name="user_hint" placeholder="e.g. 'Adapt to 35mm film still, cinematic low-angle lighting, neon drizzle, slow zoom-out'..." class="input-dark" style="width:100%;">
+                    <label class="kv-label">Target Generator Model Family (System Prompt)</label>
+                    <select name="profile_slug" class="input-dark" onchange="filterLoRAsByModel(this.form, this.value)">
+                      {{range .PromptProfiles}}
+                        <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} &mdash; {{.TargetModality}})</option>
+                      {{end}}
+                    </select>
                   </div>
+                  <div>
+                    <label class="kv-label">Operation Mode</label>
+                    <select name="mode" id="studio-mode-select" class="input-dark">
+                      {{if .SelectedAsset}}
+                        <option value="vision" selected>Vision Analysis (Inspect Media/Frame + Direction)</option>
+                        <option value="remix">Prompt Translation (Rewrite Existing Prompt)</option>
+                      {{else}}
+                        <option value="remix" id="mode-opt-remix" selected>Text Prompt Synthesis (From Concept)</option>
+                        <option value="vision" id="mode-opt-vision">Vision Analysis (Using Attached Image)</option>
+                      {{end}}
+                    </select>
+                  </div>
+                </div>
 
-                  <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;">
-                    <label style="font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:6px;cursor:pointer;">
-                      <input type="checkbox" name="save_to_asset" value="1">
-                      <span>Overwrite asset's primary prompt with result</span>
+                <!-- Concept / Caption / Prompt Field (Preloaded with caption if entered from media!) -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <label class="kv-label" style="margin-bottom:0;">
+                      {{if .SelectedAsset}}
+                        Caption / Prompt to Remix (Preloaded from Media)
+                      {{else}}
+                        Concept, Scene Idea, or Raw Prompt to Transform
+                      {{end}}
                     </label>
-                    <button type="submit" id="btn-submit-remix" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;padding:8px 18px;font-weight:600;">
-                      &#10024; Generate Prompt
-                    </button>
+                    <span style="font-size:11px;color:var(--text-muted);">Editable</span>
                   </div>
-                </form>
+                  <textarea name="user_hint" id="studio-prompt-input" rows="4" class="input-dark" style="width:100%;resize:vertical;font-family:monospace;font-size:12.5px;line-height:1.4;" placeholder="e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk, volumetric god rays, anamorphic lens flare...">{{.AIInputConcept}}</textarea>
+                </div>
 
-                {{if .GeneratedHistory}}
-                  <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-navy);">
-                    <div class="kv-label" style="margin-bottom:6px;">Previous Generations from This Asset</div>
-                    <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;">
-                      {{range .GeneratedHistory}}
-                        <div class="prompt-box" style="font-size:11px;">
-                          <div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:3px;">
-                            <span>Target: <strong style="color:#60a5fa;">{{.TargetProfileSlug}}</strong> {{if .CharacterName}}| {{.CharacterName}}{{end}}</span>
-                            <span>[{{.Provider}}] {{.ModelName}}</span>
-                          </div>
-                          <div style="color:#e2e8f0;">{{.OutputPrompt}}</div>
-                        </div>
+                <!-- Character Injection & Quick Overrides -->
+                <div style="display:grid;grid-template-columns:1fr 1fr 120px;gap:10px;">
+                  <div>
+                    <label class="kv-label">Inject Character Identity (Optional)</label>
+                    <select name="character_id" class="input-dark">
+                      <option value="0">None (Preserve Original Subject)</option>
+                      {{range .Page.Characters}}
+                        <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
+                      {{end}}
+                    </select>
+                  </div>
+                  <div>
+                    <label class="kv-label">Quick LLM / Vision Override (Optional)</label>
+                    <select name="override_route" class="input-dark">
+                      <option value="">Settings Default</option>
+                      {{range .AIStatus.AllModels}}
+                        <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
+                      {{end}}
+                    </select>
+                  </div>
+                  <div>
+                    <label class="kv-label">Thinking Mode</label>
+                    <select name="override_think" class="input-dark">
+                      <option value="">Default</option>
+                      <option value="off">Off</option>
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Target Model LoRAs -->
+                {{if .ModelLoRAs}}
+                  <div style="background:#040914;border:1px solid var(--border-navy);border-radius:4px;padding:8px 10px;">
+                    <div class="kv-label" style="margin-bottom:6px;">Select Model-Specific LoRAs to Incorporate (Optional)</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                      {{range .ModelLoRAs}}
+                        <label class="checkbox-item lora-chip-item" data-model="{{.ProfileSlug}}" title="{{.Description}} | Examples: {{.UsageExamples}}" style="background:#0b172e;border:1px solid #1e3a6d;padding:3px 8px;border-radius:4px;">
+                          <span>
+                            <input type="checkbox" name="lora_id" value="{{.ID}}">
+                            <strong style="color:#60a5fa;">[{{.ProfileSlug}}]</strong> {{.Name}}
+                            {{if .TriggerWords}}<span style="color:#6ee7b7;font-size:10px;">({{ .TriggerWords }})</span>{{end}}
+                          </span>
+                        </label>
                       {{end}}
                     </div>
                   </div>
                 {{end}}
-              </div>
-            </div>
-          </div>
-        {{else}}
-          <!-- No Asset Selected for Remix: Prompt picker -->
-          <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:24px;text-align:center;">
-            <h2 style="font-size:18px;margin-bottom:8px;color:#c084fc;">Select a Media Asset to Remix</h2>
-            <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
-              Choose an image or video from your catalog to analyze with Vision or adapt to a target generator model family.
-            </p>
-            <div class="asset-grid">
-              {{range .Page.Assets}}
-                <a href="/?tab=remix&asset_id={{.ID}}" class="asset-card">
-                  <div class="asset-thumb-wrap">
-                    {{if eq .MediaType "video"}}
-                      <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
-                    {{else}}
-                      <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
+
+                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;flex-wrap:wrap;gap:8px;">
+                  <div>
+                    {{if .SelectedAsset}}
+                      <label style="font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:6px;cursor:pointer;">
+                        <input type="checkbox" name="save_to_asset" value="1">
+                        <span>Overwrite asset's primary prompt in database &amp; sidecar .txt</span>
+                      </label>
                     {{end}}
-                    <span class="asset-type-corner">{{.Metadata.Engine}}</span>
                   </div>
-                  <div class="asset-meta">
-                    <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
+                  <button type="submit" id="btn-submit-studio" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;padding:9px 22px;font-weight:700;font-size:13px;">
+                    &#10024; Generate Prompt
+                  </button>
+                </div>
+              </form>
+
+              <!-- History inside studio card -->
+              {{if .GeneratedHistory}}
+                <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-navy);">
+                  <div class="kv-label" style="margin-bottom:6px;">Recent Generated Prompts</div>
+                  <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;">
+                    {{range .GeneratedHistory}}
+                      <div class="prompt-box" style="font-size:11px;">
+                        <div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:3px;">
+                          <span>
+                            Target: <strong style="color:#60a5fa;">{{.TargetProfileSlug}}</strong>
+                            {{if .CharacterName}}| <span style="color:#6ee7b7;">{{.CharacterName}}</span>{{end}}
+                            {{if .AssetID}}| <a href="/?tab=studio&asset_id={{.AssetID}}" style="color:#93c5fd;text-decoration:underline;">Asset #{{.AssetID}}</a>{{end}}
+                          </span>
+                          <span>[{{.Provider}}] {{.ModelName}}</span>
+                        </div>
+                        <div style="color:#e2e8f0;">{{.OutputPrompt}}</div>
+                      </div>
+                    {{end}}
                   </div>
-                </a>
+                </div>
               {{end}}
             </div>
           </div>
-        {{end}}
-      </div>
-
-    {{else if eq .ActiveTab "studio"}}
-      <!-- Ollama / oMLX Text2Prompt Studio -->
-      <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;margin:20px 0 40px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <div>
-            <h2 style="font-size:18px;">Ollama &amp; oMLX Text2Prompt Studio</h2>
-            <p style="color:var(--text-muted);font-size:12px;">
-              Active Text2Prompt Route: <strong>[{{.Settings.Text2PromptProvider}}]</strong> <code>{{.Settings.Text2PromptModel}}</code> |
-              Ollama ({{.Settings.OllamaBaseURL}}): {{if .AIStatus.OllamaOnline}}<span style="color:#34d399;">Online</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}} |
-              oMLX ({{.Settings.OMLXBaseURL}}): {{if .AIStatus.OMLXOnline}}<span style="color:#34d399;">Online ({{len .AIStatus.OMLXModels}} MLX models)</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}}
-            </p>
-          </div>
-          <a href="/?tab=settings" class="btn-ghost">Configure Remote Hosts &amp; System Prompts</a>
         </div>
 
-        {{if .AIResultError}}
-          <div style="margin-bottom:14px;padding:10px 12px;background:#3b0f18;border:1px solid #ef4444;border-radius:4px;color:#fca5a5;">
-            {{.AIResultError}}
-          </div>
-        {{end}}
-
-        <form action="/admin/ollama/text2prompt" method="POST" style="display:flex;flex-direction:column;gap:12px;">
-          <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:center;">
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Target Generator Profile (System Prompt)</label>
-              <select name="profile_slug" class="input-dark" onchange="filterLoRAsByModel(this.form, this.value)">
-                {{range .PromptProfiles}}
-                  <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} — {{.TargetModality}})</option>
-                {{end}}
-              </select>
-            </div>
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Concept, Scene Idea, or Raw Prompt to Transform</label>
-              <input type="text" name="concept" value="{{.AIInputConcept}}" placeholder="e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk..." class="input-dark" required>
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;align-items:center;">
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Quick LLM Model Override (Optional)</label>
-              <select name="override_route" class="input-dark">
-                <option value="">Use Settings Default ([{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}})</option>
-                {{range .AIStatus.AllModels}}
-                  <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}{{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}</option>
-                {{end}}
-              </select>
-            </div>
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Quick Thinking Mode Override</label>
-              <select name="override_think" class="input-dark">
-                <option value="">From Settings ({{.Settings.Text2PromptThink}})</option>
-                <option value="off">Off (Fastest / No Reasoning)</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="default">Model Default</option>
-              </select>
-            </div>
-          </div>
-
-          {{if .ModelLoRAs}}
-          <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:4px;padding:8px 10px;">
-            <div class="kv-label" style="margin-bottom:5px;">Select Model-Specific LoRAs to Use in Prompt Creation (Optional)</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;">
-              {{range .ModelLoRAs}}
-                <label class="checkbox-item lora-chip-item" data-model="{{.ProfileSlug}}" title="{{.Description}} | Examples: {{.UsageExamples}}" style="background:#0b172e;border:1px solid #1e3a6d;padding:3px 8px;border-radius:4px;">
-                  <span>
-                    <input type="checkbox" name="lora_id" value="{{.ID}}">
-                    <strong style="color:#60a5fa;">[{{.ProfileSlug}}]</strong> {{.Name}}
-                    {{if .TriggerWords}}<span style="color:#6ee7b7;font-size:10px;">(trigger: {{.TriggerWords}})</span>{{else}}<span style="color:#94a3b8;font-size:10px;">(triggerless)</span>{{end}}
-                  </span>
-                </label>
-              {{end}}
-            </div>
-          </div>
-          {{end}}
-
-          <div>
-            <button type="submit" class="btn-primary">Synthesize Prompt (Default: [{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}} | think:{{.Settings.Text2PromptThink}})</button>
-          </div>
-        </form>
-
-        {{if .AIResultPrompt}}
-          <div style="margin-top:18px;margin-bottom:18px;">
-            <div class="facet-title">
-              <span>SYNTHESIZED PROMPT ({{.AITargetProfile}})</span>
-              <button type="button" class="btn-ghost" onclick="navigator.clipboard.writeText(document.getElementById('studio-output').innerText)">Copy Prompt</button>
-            </div>
-            <div id="studio-output" class="prompt-box" style="font-size:13px;padding:14px;color:#a7f3d0;border-color:#059669;">{{.AIResultPrompt}}</div>
-          </div>
-        {{end}}
-
-        <!-- Character + Scene / Movie Generator inside Studio -->
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-navy);">
-          <h3 style="font-size:15px;margin-bottom:8px;">Character Scene &amp; Movie Prompt Generator</h3>
-          <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px;">
-            Pick any Character from your catalog (preserving their trigger words, base prompt, and LoRAs) and place them into a new scene, movie style, or video camera shot for Target Model X.
+        <!-- Character Scene & Movie Generator collapsible card -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:18px;margin-top:20px;">
+          <h3 style="font-size:15px;margin-bottom:8px;color:#93c5fd;">Character Scene &amp; Movie Prompt Generator</h3>
+          <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">
+            Pick any Character from your catalog (preserving their trigger words, base prompt, and LoRAs) and place them into a new scene, movie aesthetic, or video camera shot for Target Model.
           </p>
           <form action="/admin/ollama/character2prompt" method="POST" style="display:flex;flex-direction:column;gap:8px;">
             <input type="hidden" name="return_tab" value="studio">
+            {{if .SelectedAsset}}<input type="hidden" name="ref_asset_id" value="{{.SelectedAsset.ID}}">{{end}}
             <div style="display:grid;grid-template-columns:200px 220px 1fr 160px;gap:8px;align-items:center;">
               <select name="character_id" class="input-dark" required>
                 <option value="">Select Character...</option>
@@ -922,8 +913,8 @@
                 <option value="off">Think: Off</option>
                 <option value="low">Think: Low</option>
                 <option value="medium">Think: Medium</option>
-                <option value="high">Think: High</option>
-                <option value="default">Think: Default</option>
+                <option value="high">High</option>
+                <option value="default">Default</option>
               </select>
             </div>
             <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
@@ -933,23 +924,31 @@
           </form>
         </div>
 
-        {{if .GeneratedHistory}}
-          <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border-navy);">
-            <div class="facet-title"><span>RECENT GENERATED PROMPTS HISTORY</span></div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-              {{range .GeneratedHistory}}
-                <div class="prompt-box" style="font-size:11.5px;">
-                  <div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:4px;">
-                    <span>
-                      Target: <strong style="color:#60a5fa;">{{.TargetProfileSlug}}</strong>
-                      {{if .CharacterName}} | Character: <strong style="color:#6ee7b7;">{{.CharacterName}}</strong>{{end}}
-                      {{if .AssetID}} | <a href="/?asset_id={{.AssetID}}" style="color:#93c5fd;text-decoration:underline;">Source Asset #{{.AssetID}}</a>{{end}}
-                      {{if .SceneDirection}} | Direction: <em>{{.SceneDirection}}</em>{{end}}
-                    </span>
-                    <span>[{{.Provider}}] {{.ModelName}}</span>
+        <!-- Quick Catalog Media Picker (shown when no asset is loaded so user can easily pick one to remix) -->
+        {{if not .SelectedAsset}}
+          <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <div>
+                <h3 style="font-size:15px;margin:0;color:#c084fc;">Or Pick a Media from Your Catalog to Remix</h3>
+                <p style="color:var(--text-muted);font-size:12px;margin:2px 0 0;">Click any media asset below to load its frame, preview, and generation prompt into Studio.</p>
+              </div>
+              <a href="/" class="btn-ghost" style="font-size:11.5px;">Browse Full Catalog &rarr;</a>
+            </div>
+            <div class="asset-grid">
+              {{range .Page.Assets}}
+                <a href="/?tab=studio&asset_id={{.ID}}" class="asset-card" title="Remix {{.FileName}}">
+                  <div class="asset-thumb-wrap">
+                    {{if eq .MediaType "video"}}
+                      <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                    {{else}}
+                      <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
+                    {{end}}
+                    <span class="asset-type-corner">{{.Metadata.Engine}}</span>
                   </div>
-                  <div style="color:#e2e8f0;">{{.OutputPrompt}}</div>
-                </div>
+                  <div class="asset-meta">
+                    <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
+                  </div>
+                </a>
               {{end}}
             </div>
           </div>
@@ -1967,16 +1966,16 @@
         closeMediaLightbox();
       } else if (e.key === 'ArrowLeft') {
         {{if .PrevAssetID}}
-          {{if eq .ActiveTab "remix"}}
-            window.location.href = '/?tab=remix&asset_id={{.PrevAssetID}}';
+          {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}
+            window.location.href = '/?tab=studio&asset_id={{.PrevAssetID}}';
           {{else}}
             window.location.href = '/?asset_id={{.PrevAssetID}}';
           {{end}}
         {{end}}
       } else if (e.key === 'ArrowRight') {
         {{if .NextAssetID}}
-          {{if eq .ActiveTab "remix"}}
-            window.location.href = '/?tab=remix&asset_id={{.NextAssetID}}';
+          {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}
+            window.location.href = '/?tab=studio&asset_id={{.NextAssetID}}';
           {{else}}
             window.location.href = '/?asset_id={{.NextAssetID}}';
           {{end}}
@@ -1984,11 +1983,11 @@
       }
     });
 
-    // Capture exact video frame for vision-based remixing
-    function prepareRemixSubmission(event, form) {
+    // Capture exact video frame and prepare studio submission
+    function prepareStudioSubmission(event, form) {
       var videoEl = document.getElementById('remix-video-el');
       var frameInput = document.getElementById('video_frame_data');
-      var submitBtn = document.getElementById('btn-submit-remix');
+      var submitBtn = document.getElementById('btn-submit-studio') || document.getElementById('btn-submit-remix');
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerText = 'Analyzing & Generating...';
@@ -2008,6 +2007,105 @@
         }
       }
     }
+    var prepareRemixSubmission = prepareStudioSubmission;
+
+    // Interactive file upload & drag/drop/paste in Prompt Studio
+    function handleStudioFileSelect(input) {
+      if (input.files && input.files[0]) {
+        loadStudioImageFile(input.files[0]);
+      }
+    }
+
+    function handleStudioDragOver(e) {
+      e.preventDefault();
+      var dropzone = document.getElementById('studio-dropzone');
+      if (dropzone) dropzone.classList.add('dragover');
+    }
+
+    function handleStudioDragLeave(e) {
+      e.preventDefault();
+      var dropzone = document.getElementById('studio-dropzone');
+      if (dropzone) dropzone.classList.remove('dragover');
+    }
+
+    function handleStudioDrop(e) {
+      e.preventDefault();
+      var dropzone = document.getElementById('studio-dropzone');
+      if (dropzone) dropzone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        loadStudioImageFile(e.dataTransfer.files[0]);
+      }
+    }
+
+    function loadStudioImageFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      var reader = new FileReader();
+      reader.onload = function(evt) {
+        var dataUrl = evt.target.result;
+        var hiddenInput = document.getElementById('attached_image_data');
+        var previewWrap = document.getElementById('studio-attached-preview-wrap');
+        var previewImg = document.getElementById('studio-attached-img');
+        var infoSpan = document.getElementById('studio-attached-info');
+        var dropzone = document.getElementById('studio-dropzone');
+        var modeSelect = document.getElementById('studio-mode-select');
+
+        if (hiddenInput) hiddenInput.value = dataUrl;
+        if (previewImg) previewImg.src = dataUrl;
+        if (infoSpan) infoSpan.innerText = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+        if (previewWrap) previewWrap.style.display = 'block';
+        if (dropzone) dropzone.style.display = 'none';
+
+        if (modeSelect) {
+          for (var i = 0; i < modeSelect.options.length; i++) {
+            if (modeSelect.options[i].value === 'vision') {
+              modeSelect.selectedIndex = i;
+              break;
+            }
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeStudioAttachedImage() {
+      var hiddenInput = document.getElementById('attached_image_data');
+      var previewWrap = document.getElementById('studio-attached-preview-wrap');
+      var previewImg = document.getElementById('studio-attached-img');
+      var fileInput = document.getElementById('studio-file-input');
+      var dropzone = document.getElementById('studio-dropzone');
+      var modeSelect = document.getElementById('studio-mode-select');
+
+      if (hiddenInput) hiddenInput.value = '';
+      if (previewImg) previewImg.src = '';
+      if (fileInput) fileInput.value = '';
+      if (previewWrap) previewWrap.style.display = 'none';
+      if (dropzone) dropzone.style.display = 'block';
+
+      if (modeSelect) {
+        for (var i = 0; i < modeSelect.options.length; i++) {
+          if (modeSelect.options[i].value === 'remix') {
+            modeSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
+    // Support pasting image from clipboard in Prompt Studio
+    window.addEventListener('paste', function(e) {
+      if (e.clipboardData && e.clipboardData.items) {
+        for (var i = 0; i < e.clipboardData.items.length; i++) {
+          var item = e.clipboardData.items[i];
+          if (item.type.indexOf('image') !== -1) {
+            var blob = item.getAsFile();
+            if (blob) {
+              loadStudioImageFile(blob);
+              break;
+            }
+          }
+        }
+      }
+    });
 
     // Live Background Scan Status Polling
     var scanPollTimer = null;

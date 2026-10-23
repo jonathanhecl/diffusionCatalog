@@ -359,7 +359,7 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 func (r *Repository) GetExistingAssetFingerprints(ctx context.Context, rootID int64) (map[string]domain.MediaAsset, error) {
 	db := r.conn()
 	query := `
-		SELECT id, rel_path, file_size, file_hash, COALESCE(file_mtime, indexed_at), rating, favorite, category, subcategory
+		SELECT id, rel_path, file_size, file_hash, file_mtime, indexed_at, rating, favorite, category, subcategory
 		FROM assets`
 	var rows *sql.Rows
 	var err error
@@ -378,14 +378,16 @@ func (r *Repository) GetExistingAssetFingerprints(ctx context.Context, rootID in
 	for rows.Next() {
 		var a domain.MediaAsset
 		var relPath string
-		var mTime sql.NullTime
+		var mTime, idxTime sql.NullTime
 		var favInt int
-		if err := rows.Scan(&a.ID, &relPath, &a.FileSize, &a.FileHash, &mTime, &a.Rating, &favInt, &a.Category, &a.Subcategory); err != nil {
+		if err := rows.Scan(&a.ID, &relPath, &a.FileSize, &a.FileHash, &mTime, &idxTime, &a.Rating, &favInt, &a.Category, &a.Subcategory); err != nil {
 			return nil, err
 		}
 		a.RelPath = relPath
 		if mTime.Valid {
 			a.FileMTime = mTime.Time
+		} else if idxTime.Valid {
+			a.FileMTime = idxTime.Time
 		}
 		a.Favorite = favInt == 1
 		out[relPath] = a
