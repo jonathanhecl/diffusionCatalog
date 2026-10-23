@@ -69,8 +69,30 @@ func main() {
 
 	if cfg.AutoScanOnBoot {
 		go func() {
-			if _, err := scannerService.Scan(context.Background()); err != nil {
+			// Initial scan on startup
+			if _, err := scannerService.Scan(ctx); err != nil && !errors.Is(err, context.Canceled) {
 				log.Printf("warning: initial background scan error: %v", err)
+			}
+
+			if cfg.AutoScanInterval <= 0 {
+				return
+			}
+
+			log.Printf("[SCAN] Background media folder auto-sync active (interval: %v)", cfg.AutoScanInterval)
+			ticker := time.NewTicker(cfg.AutoScanInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if !scannerService.IsScanning() {
+						if _, err := scannerService.Scan(ctx); err != nil && !errors.Is(err, context.Canceled) {
+							log.Printf("warning: periodic background scan error: %v", err)
+						}
+					}
+				}
 			}
 		}()
 	}

@@ -61,6 +61,7 @@ DiffusionCatalog automatically reads `config.json` from the current directory, w
   "admin_pass": "admin123",
   "vision_url": "",
   "auto_scan": true,
+  "auto_scan_interval": 10,
   "seed_demo": false
 }
 ```
@@ -76,7 +77,8 @@ DiffusionCatalog automatically reads `config.json` from the current directory, w
 | `--admin-user` | `CATALOG_ADMIN_USER` | `admin` | Default administrator username |
 | `--admin-pass` | `CATALOG_ADMIN_PASS` | `admin123` | Default administrator password |
 | `--vision-url` | `CATALOG_VISION_URL` | `""` | Optional Python Vision Sidecar URL (`http://127.0.0.1:8091`) |
-| `--auto-scan` | `CATALOG_AUTO_SCAN` | `true` | Automatically scan `--media-dir` on startup |
+| `--auto-scan` | `CATALOG_AUTO_SCAN` | `true` | Automatically scan media directories on startup and keep synced in background |
+| `--auto-scan-interval` | `CATALOG_AUTO_SCAN_INTERVAL` | `10s` | Interval for automatic background media folder sync (e.g. `10s`, `30s`; `0s` disables) |
 | `--seed-demo` | `CATALOG_SEED_DEMO` | `false` | Generate sample diffusion images in media-dir if folder does not exist or is empty |
 
 ### 3. Optional Python Vision Worker (Face Detection & Cropping)

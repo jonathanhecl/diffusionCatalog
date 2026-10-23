@@ -2107,8 +2107,23 @@
       }
     });
 
-    // Live Background Scan Status Polling
+    // Live Background Scan Status Polling & Folder Sync
     var scanPollTimer = null;
+    var lastCompletedAt = '{{.ScanReport.CompletedAt.Format "2006-01-02T15:04:05Z07:00"}}';
+    var livePillEl = null;
+
+    function showLiveUpdatePill(msg) {
+      if (!livePillEl) {
+        livePillEl = document.createElement('div');
+        livePillEl.className = 'live-update-pill';
+        livePillEl.innerHTML = '<span>⚡ ' + msg + '</span>';
+        livePillEl.onclick = function() { window.location.reload(); };
+        document.body.appendChild(livePillEl);
+      } else {
+        livePillEl.innerHTML = '<span>⚡ ' + msg + '</span>';
+      }
+    }
+
     function pollScanStatus() {
       fetch('/api/scan/status')
         .then(function(res) { return res.json(); })
@@ -2119,7 +2134,8 @@
           var filesText = document.getElementById('scan-progress-files');
           var currentFileText = document.getElementById('scan-progress-current');
 
-          if (data && data.is_scanning) {
+          // Progress banner: only show for manual scans (e.g. user clicked Rescan button)
+          if (data && data.is_scanning && data.is_manual) {
             if (banner) banner.style.display = 'block';
             if (fill) fill.style.width = data.progress_pct + '%';
             if (pctText) pctText.innerText = data.progress_pct + '%';
@@ -2140,9 +2156,34 @@
               if (currentFileText) currentFileText.innerText = 'Scan completed!';
               setTimeout(function() {
                 banner.style.display = 'none';
-                // Reload catalog to reflect new assets and media folders
                 window.location.reload();
               }, 900);
+            }
+          }
+
+          // Check if periodic background sync completed with new or removed media
+          if (data && data.last_report && data.last_report.completed_at) {
+            var rep = data.last_report;
+            if (lastCompletedAt && rep.completed_at !== lastCompletedAt) {
+              lastCompletedAt = rep.completed_at;
+              if (rep.scanned_files > 0 || rep.deleted_files > 0) {
+                var changes = [];
+                if (rep.scanned_files > 0) changes.push('+' + rep.scanned_files + ' new');
+                if (rep.deleted_files > 0) changes.push('-' + rep.deleted_files + ' removed');
+                var text = 'Media updated (' + changes.join(', ') + ') — Click to refresh';
+
+                var isInteracting = document.querySelector('input:focus, textarea:focus, .modal.active') !== null;
+                var isCatalogGrid = window.location.pathname === '/' && (!window.location.search || window.location.search.indexOf('tab=catalog') !== -1 || window.location.search.indexOf('asset_id=') === -1);
+
+                // If user is idle at top of catalog grid, automatically refresh seamlessly
+                if (!isInteracting && isCatalogGrid && window.scrollY < 80) {
+                  window.location.reload();
+                } else {
+                  showLiveUpdatePill(text);
+                }
+              }
+            } else if (!lastCompletedAt) {
+              lastCompletedAt = rep.completed_at;
             }
           }
         })
@@ -2151,23 +2192,10 @@
         });
     }
 
-    // Start scan polling if active or periodically check
-    {{if .ScanStatus.IsScanning}}
-      scanPollTimer = setInterval(pollScanStatus, 800);
-    {{else}}
-      // Check once on page load in case a scan just started
-      setTimeout(function() {
-        fetch('/api/scan/status')
-          .then(function(r) { return r.json(); })
-          .then(function(d) {
-            if (d && d.is_scanning) {
-              var banner = document.getElementById('scan-progress-banner');
-              if (banner) banner.style.display = 'block';
-              if (!scanPollTimer) scanPollTimer = setInterval(pollScanStatus, 800);
-            }
-          }).catch(function() {});
-      }, 500);
-    {{end}}
+    // Continuously check status every 5 seconds so background folder changes are caught live
+    setInterval(pollScanStatus, 5000);
+    // Also poll immediately after load in case a scan was active
+    setTimeout(pollScanStatus, 600);
 
     function initZoomableStage(viewportId, mediaId, labelId) {
       var vp = document.getElementById(viewportId);

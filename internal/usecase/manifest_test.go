@@ -179,3 +179,76 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 		t.Errorf("expected 0 new images indexed on unchanged rescan, got %d", rescanReport.ImagesFound)
 	}
 }
+
+func TestScannerAutoDeletesMissingMediaFromCatalogAndManifest(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	dbPath := filepath.Join(tmpDir, "catalog.db")
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, "cache")
+
+	_ = os.MkdirAll(mediaDir, 0755)
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db, dbPath)
+	extractor := metadata.NewExtractor()
+	scannerSvc := NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+	catalogSvc := NewCatalogService(mediaDir, repo, nil)
+
+	// 1. Seed initial assets
+	if err := SeedDemoFolderIfEmpty(ctx, mediaDir, cacheDir, repo, scannerSvc); err != nil {
+		t.Fatalf("SeedDemoFolderIfEmpty failed: %v", err)
+	}
+
+	pageBefore, err := catalogSvc.Query(ctx, domain.CatalogFilter{})
+	if err != nil || len(pageBefore.Assets) == 0 {
+		t.Fatalf("expected seeded assets before deletion, got %d (err=%v)", len(pageBefore.Assets), err)
+	}
+	initialCount := len(pageBefore.Assets)
+
+	// Pick an asset to delete from disk
+	targetAsset := pageBefore.Assets[0]
+	targetAbsPath := filepath.Join(mediaDir, filepath.FromSlash(targetAsset.RelPath))
+	if err := os.Remove(targetAbsPath); err != nil {
+		t.Fatalf("failed to delete test media file %s: %v", targetAbsPath, err)
+	}
+
+	// 2. Run scan — must detect missing file and delete it from catalog and manifest
+	report, err := scannerSvc.Scan(ctx)
+	if err != nil {
+		t.Fatalf("scan after file deletion failed: %v", err)
+	}
+
+	if report.DeletedFiles != 1 {
+		t.Fatalf("expected 1 deleted file in scan report, got %d", report.DeletedFiles)
+	}
+
+	// 3. Verify asset is gone from catalog query
+	pageAfter, err := catalogSvc.Query(ctx, domain.CatalogFilter{})
+	if err != nil {
+		t.Fatalf("catalog query failed: %v", err)
+	}
+	if len(pageAfter.Assets) != initialCount-1 {
+		t.Fatalf("expected %d assets after deletion, got %d", initialCount-1, len(pageAfter.Assets))
+	}
+	for _, a := range pageAfter.Assets {
+		if a.ID == targetAsset.ID {
+			t.Fatalf("deleted asset ID %d is still present in catalog!", targetAsset.ID)
+		}
+	}
+
+	// 4. Verify asset is gone from .diffusion-catalog.json
+	manifest, err := EnsureFolderManifest(mediaDir, "media", nil)
+	if err != nil {
+		t.Fatalf("failed to read manifest: %v", err)
+	}
+	if _, stillInManifest := manifest.Assets[targetAsset.RelPath]; stillInManifest {
+		t.Fatalf("deleted asset %s is still present in manifest.Assets!", targetAsset.RelPath)
+	}
+}

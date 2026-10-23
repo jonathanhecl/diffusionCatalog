@@ -22,6 +22,7 @@ type ScanReport struct {
 	SkippedRoots   int       `json:"skipped_roots"`
 	ScannedFiles   int       `json:"scanned_files"`
 	UnchangedFiles int       `json:"unchanged_files"`
+	DeletedFiles   int       `json:"deleted_files"`
 	ImagesFound    int       `json:"images_found"`
 	VideosFound    int       `json:"videos_found"`
 	FacesFound     int       `json:"faces_found"`
@@ -32,10 +33,12 @@ type ScanReport struct {
 // ScanStatus summarizes the real-time progress of an in-progress or completed media scan.
 type ScanStatus struct {
 	IsScanning     bool       `json:"is_scanning"`
+	IsManual       bool       `json:"is_manual"`
 	ProgressPct    int        `json:"progress_pct"`
 	TotalFiles     int        `json:"total_files"`
 	ScannedFiles   int        `json:"scanned_files"`
 	UnchangedFiles int        `json:"unchanged_files"`
+	DeletedFiles   int        `json:"deleted_files"`
 	CurrentFile    string     `json:"current_file"`
 	CurrentRoot    string     `json:"current_root"`
 	StartedAt      time.Time  `json:"started_at"`
@@ -79,6 +82,13 @@ func (s *ScannerService) Status() ScanStatus {
 	return s.status
 }
 
+// IsScanning reports whether a media scan is currently in progress.
+func (s *ScannerService) IsScanning() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.status.IsScanning
+}
+
 // LastReport returns the most recent scan report.
 func (s *ScannerService) LastReport() ScanReport {
 	s.mu.Lock()
@@ -94,8 +104,10 @@ func (s *ScannerService) StartScanAsync() bool {
 		return false
 	}
 	s.status.IsScanning = true
+	s.status.IsManual = true
 	s.status.ProgressPct = 0
 	s.status.ScannedFiles = 0
+	s.status.DeletedFiles = 0
 	s.status.TotalFiles = 0
 	s.status.CurrentFile = ""
 	s.status.CurrentRoot = ""
@@ -103,11 +115,11 @@ func (s *ScannerService) StartScanAsync() bool {
 	s.status.LastError = ""
 	s.mu.Unlock()
 
-	log.Printf("[SCAN] Background folder scan started")
+	log.Printf("[SCAN] Manual folder scan started")
 	go func() {
 		_, err := s.Scan(context.Background())
 		if err != nil {
-			log.Printf("[SCAN] Background folder scan error: %v", err)
+			log.Printf("[SCAN] Manual folder scan error: %v", err)
 		}
 	}()
 	return true
@@ -121,7 +133,9 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	s.status.StartedAt = time.Now()
 	s.status.ProgressPct = 0
 	s.status.ScannedFiles = 0
+	s.status.DeletedFiles = 0
 	s.status.LastError = ""
+	isManual := s.status.IsManual
 	s.mu.Unlock()
 
 	report := ScanReport{StartedAt: time.Now()}
@@ -175,7 +189,9 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	s.status.TotalFiles = totalCandidateFiles
 	s.mu.Unlock()
 
-	log.Printf("[SCAN] Discovered %d candidate media file(s) across %d registered root(s)", totalCandidateFiles, len(roots))
+	if isManual {
+		log.Printf("[SCAN] Discovered %d candidate media file(s) across %d registered root(s)", totalCandidateFiles, len(roots))
+	}
 
 	for _, root := range roots {
 		if !root.Enabled {
@@ -208,6 +224,9 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			dbFingerprints = make(map[string]domain.MediaAsset)
 		}
 
+		seenRelToRoot := make(map[string]bool)
+		seenStoredRelPaths := make(map[string]bool)
+
 		_ = filepath.WalkDir(root.Path, func(absPath string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				// Gracefully skip directories or files where the OS user lacks read permission
@@ -239,6 +258,9 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			if root.ID > 1 && root.Path != s.mediaDir {
 				storedRelPath = "@root_" + itoa64(root.ID) + "/" + relToRoot
 			}
+
+			seenRelToRoot[relToRoot] = true
+			seenStoredRelPaths[storedRelPath] = true
 
 			fInfo, err := d.Info()
 			if err != nil {
@@ -437,6 +459,44 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			return nil
 		})
 
+		// Detect and remove assets that were deleted from disk
+		var toDeleteIDs []int64
+		for storedPath, existing := range dbFingerprints {
+			if !seenStoredRelPaths[storedPath] {
+				// Safety check: verify file is genuinely missing on disk before deleting
+				relClean := normalizeManifestRelPath(root.Path, existing.RelPath)
+				fullCheckPath := filepath.Join(root.Path, filepath.FromSlash(relClean))
+				if _, statErr := os.Stat(fullCheckPath); os.IsNotExist(statErr) {
+					toDeleteIDs = append(toDeleteIDs, existing.ID)
+				}
+			}
+		}
+
+		if len(toDeleteIDs) > 0 {
+			if err := s.repo.DeleteAssetsByIDs(ctx, toDeleteIDs); err != nil {
+				log.Printf("[SCAN] Error removing %d deleted assets from database: %v", len(toDeleteIDs), err)
+			} else {
+				report.DeletedFiles += len(toDeleteIDs)
+				s.mu.Lock()
+				s.status.DeletedFiles += len(toDeleteIDs)
+				s.mu.Unlock()
+				log.Printf("[SCAN] Cleaned up %d deleted media file(s) from catalog in root %s", len(toDeleteIDs), root.Label)
+			}
+		}
+
+		// Also clean up missing entries in .diffusion-catalog.json manifest
+		if manifest != nil {
+			for manifestRelPath := range manifest.Assets {
+				if !seenRelToRoot[manifestRelPath] {
+					fullCheckPath := filepath.Join(root.Path, filepath.FromSlash(manifestRelPath))
+					if _, statErr := os.Stat(fullCheckPath); os.IsNotExist(statErr) {
+						delete(manifest.Assets, manifestRelPath)
+						manifestDirty = true
+					}
+				}
+			}
+		}
+
 		if manifest != nil && manifestDirty {
 			_ = SaveFolderManifest(root.Path, manifest)
 		}
@@ -444,15 +504,19 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 
 	report.CompletedAt = time.Now()
 	duration := report.CompletedAt.Sub(report.StartedAt).Round(time.Millisecond)
-	log.Printf("[SCAN] Completed scan in %v: %d indexed (%d images, %d videos), %d unchanged (fast skipped) across %d roots (%d skipped)",
-		duration, report.ImagesFound+report.VideosFound, report.ImagesFound, report.VideosFound, report.UnchangedFiles, report.ScannedRoots, report.SkippedRoots)
 
 	s.mu.Lock()
 	s.status.LastReport = report
 	s.status.IsScanning = false
+	s.status.IsManual = false
 	s.status.CompletedAt = report.CompletedAt
 	s.status.ProgressPct = 100
 	s.mu.Unlock()
+
+	if isManual || report.ScannedFiles > 0 || report.DeletedFiles > 0 {
+		log.Printf("[SCAN] Completed scan in %v: %d indexed (%d images, %d videos), %d removed, %d unchanged across %d roots (%d skipped)",
+			duration, report.ImagesFound+report.VideosFound, report.ImagesFound, report.VideosFound, report.DeletedFiles, report.UnchangedFiles, report.ScannedRoots, report.SkippedRoots)
+	}
 	return report, nil
 }
 

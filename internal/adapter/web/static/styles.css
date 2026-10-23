@@ -818,6 +818,32 @@ a {
   white-space: nowrap;
 }
 
+/* Floating Live Update Pill */
+.live-update-pill {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #0284c7;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), 0 0 12px rgba(2, 132, 199, 0.5);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.live-update-pill:hover {
+  background: #0369a1;
+  transform: translateY(-2px);
+}
+
 /* Media Navigation Arrows */
 .media-stage-viewport {
   position: relative;

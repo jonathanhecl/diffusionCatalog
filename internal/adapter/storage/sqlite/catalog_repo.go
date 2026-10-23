@@ -354,6 +354,39 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 	return asset, nil
 }
 
+// DeleteAsset removes a single media asset by ID.
+func (r *Repository) DeleteAsset(ctx context.Context, id int64) error {
+	return r.DeleteAssetsByIDs(ctx, []int64{id})
+}
+
+// DeleteAssetsByIDs removes multiple media assets by ID in batches.
+// Triggers and foreign keys cascade deletions into assets_fts, asset_tags, group_assets, character_examples, and faces.
+func (r *Repository) DeleteAssetsByIDs(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	db := r.conn()
+
+	const batchSize = 500
+	for i := 0; i < len(ids); i += batchSize {
+		end := i + batchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		chunk := ids[i:end]
+
+		query := "DELETE FROM assets WHERE id IN (?" + strings.Repeat(",?", len(chunk)-1) + ")"
+		args := make([]any, len(chunk))
+		for j, id := range chunk {
+			args[j] = id
+		}
+		if _, err := db.ExecContext(ctx, query, args...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // GetExistingAssetFingerprints returns a lookup map keyed by rel_path containing basic metadata
 // (id, file_size, file_mtime, file_hash, rating, favorite, category, subcategory) to allow lightning-fast differential scanning.
 func (r *Repository) GetExistingAssetFingerprints(ctx context.Context, rootID int64) (map[string]domain.MediaAsset, error) {
