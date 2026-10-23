@@ -680,6 +680,12 @@ func (s *Server) handleRateAsset(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
+	current, _ := s.catalog.GetSettings(r.Context())
+	defTarget := r.FormValue("default_target_generator")
+	if defTarget == "" {
+		defTarget = current.DefaultTargetGenerator
+	}
+
 	cfg := domain.AppSettings{
 		OllamaBaseURL:          r.FormValue("ollama_base_url"),
 		OMLXBaseURL:            r.FormValue("omlx_base_url"),
@@ -693,7 +699,7 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		Text2PromptProvider:    domain.AIProviderType(r.FormValue("text2prompt_provider")),
 		Text2PromptModel:       r.FormValue("text2prompt_model"),
 		Text2PromptThink:       r.FormValue("text2prompt_think"),
-		DefaultTargetGenerator: r.FormValue("default_target_generator"),
+		DefaultTargetGenerator: defTarget,
 		AutoCaptionOnScan:      r.FormValue("auto_caption_on_scan") == "on" || r.FormValue("auto_caption_on_scan") == "true",
 	}
 	_ = s.catalog.SaveSettings(r.Context(), cfg)

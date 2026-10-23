@@ -1229,6 +1229,7 @@
           </div>
 
           <form action="/admin/settings/save" method="POST" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+            <input type="hidden" name="default_target_generator" value="{{.Settings.DefaultTargetGenerator}}">
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Ollama Base URL (Local or Remote)</label>
               <input type="text" name="ollama_base_url" value="{{.Settings.OllamaBaseURL}}" class="input-dark" placeholder="http://127.0.0.1:11434" required>
@@ -1920,17 +1921,19 @@
       var provEl = document.getElementById(providerSelectId);
       var modEl = document.getElementById(modelSelectId);
       if (!provEl || !modEl) return;
-      var targetProv = provEl.value;
+      var targetProv = (provEl.value || '').toLowerCase();
       var firstMatchingVal = '';
       var currentStillValid = false;
 
       Array.from(modEl.options).forEach(function(opt) {
-        var p = opt.getAttribute('data-provider');
+        var p = (opt.getAttribute('data-provider') || '').toLowerCase();
         if (!p) {
           // Keep fallback current option visible if no options loaded
           return;
         }
-        if (p === targetProv) {
+        var match = (p === targetProv) ||
+                    ((p === 'openai' || p === 'omlx') && (targetProv === 'openai' || targetProv === 'omlx'));
+        if (match) {
           opt.hidden = false;
           opt.disabled = false;
           if (!firstMatchingVal) firstMatchingVal = opt.value;

@@ -359,7 +359,7 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 		caps := buildCapabilitySlice(true, hasVis, hasThink, hasTools, m.Capabilities)
 
 		out = append(out, domain.OllamaModelInfo{
-			Provider:      domain.ProviderOMLX,
+			Provider:      domain.ProviderOpenAI,
 			Name:          m.ID,
 			ParameterSize: inferParameterSizeFromName(m.ID),
 			Family:        "MLX",
@@ -414,7 +414,7 @@ func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderTy
 		userContent += "\nAdditional context/hint: " + strings.TrimSpace(userHint)
 	}
 
-	if provider == domain.ProviderOMLX {
+	if provider == domain.ProviderOMLX || provider == domain.ProviderOpenAI {
 		return c.executeOMLXVisionChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, userContent, b64, thinkLevel)
 	}
 
@@ -441,7 +441,7 @@ func (c *Client) TextToPrompt(ctx context.Context, provider domain.AIProviderTyp
 		return "", fmt.Errorf("no text2prompt model configured in Settings")
 	}
 
-	if provider == domain.ProviderOMLX {
+	if provider == domain.ProviderOMLX || provider == domain.ProviderOpenAI {
 		return c.executeOMLXTextChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, inputConcept, thinkLevel)
 	}
 
