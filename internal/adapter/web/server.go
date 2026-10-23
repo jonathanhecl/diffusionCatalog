@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -255,13 +256,10 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	filter := parseCatalogFilter(r)
 
-	tab := r.URL.Query().Get("tab")
-	if tab == "" {
-		if filter.FaceMode {
-			tab = "faces"
-		} else {
-			tab = "catalog"
-		}
+	rawTab := r.URL.Query().Get("tab")
+	tab := rawTab
+	if tab == "remix" {
+		tab = "studio"
 	}
 
 	var selectedAsset *domain.MediaAsset
@@ -274,11 +272,18 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 				selectedAsset = a
 				relatedAssets = s.catalog.GetRelatedAssets(ctx, a)
 				assetID = id
-				if tab == "" {
-					tab = "asset_detail"
-				}
 				prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, id)
 			}
+		}
+	}
+
+	if tab == "" {
+		if selectedAsset != nil {
+			tab = "asset_detail"
+		} else if filter.FaceMode {
+			tab = "faces"
+		} else {
+			tab = "catalog"
 		}
 	}
 
@@ -286,15 +291,6 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Failed to query catalog: "+err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	// If opening remix page with no asset specified, default to first available asset
-	if tab == "remix" && selectedAsset == nil && len(page.Assets) > 0 {
-		if a, err := s.catalog.GetAsset(ctx, page.Assets[0].ID); err == nil {
-			selectedAsset = a
-			assetID = a.ID
-			prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, assetID)
-		}
 	}
 
 	settings, _ := s.catalog.GetSettings(ctx)
@@ -324,6 +320,11 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		defaultTarget = profiles[0].Slug
 	}
 
+	inputConcept := r.URL.Query().Get("concept")
+	if inputConcept == "" && selectedAsset != nil && selectedAsset.Metadata.PositivePrompt != "" {
+		inputConcept = selectedAsset.Metadata.PositivePrompt
+	}
+
 	data := viewData{
 		ActiveTab:        tab,
 		MediaDir:         s.mediaDir,
@@ -345,6 +346,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		ModelLoRAs:       loras,
 		GeneratedHistory: history,
 		AIStatus:         aiStatus,
+		AIInputConcept:   inputConcept,
 		AITargetProfile:  defaultTarget,
 		FlashNotice:      r.URL.Query().Get("notice"),
 	}
@@ -598,32 +600,60 @@ func parseExecutionOverride(r *http.Request) domain.PromptExecutionOverride {
 
 func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	_ = r.ParseForm()
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		_ = r.ParseForm()
+	}
 	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
 	profileSlug := r.FormValue("profile_slug")
 	mode := r.FormValue("mode")
 	userHint := r.FormValue("user_hint")
+	if userHint == "" {
+		userHint = r.FormValue("concept")
+	}
 	characterID, _ := strconv.ParseInt(r.FormValue("character_id"), 10, 64)
 	loraIDs := parseLoRAIDs(r.Form["lora_id"])
 	override := parseExecutionOverride(r)
 	saveToAsset := r.FormValue("save_to_asset") == "1" || r.FormValue("save_to_asset") == "on"
 
 	var frameImagePath string
-	if frameData := strings.TrimSpace(r.FormValue("video_frame_data")); frameData != "" {
-		idx := strings.Index(frameData, ";base64,")
-		b64Content := frameData
+	rawImagePayload := strings.TrimSpace(r.FormValue("attached_image_data"))
+	if rawImagePayload == "" {
+		rawImagePayload = strings.TrimSpace(r.FormValue("video_frame_data"))
+	}
+	if rawImagePayload != "" {
+		idx := strings.Index(rawImagePayload, ";base64,")
+		b64Content := rawImagePayload
 		if idx != -1 {
-			b64Content = frameData[idx+8:]
+			b64Content = rawImagePayload[idx+8:]
 		}
 		if rawDecoded, err := base64.StdEncoding.DecodeString(b64Content); err == nil && len(rawDecoded) > 0 {
-			framesDir := filepath.Join(s.cacheDir, "frames")
-			_ = os.MkdirAll(framesDir, 0755)
-			frameImagePath = filepath.Join(framesDir, fmt.Sprintf("frame_asset_%d_%d.jpg", assetID, time.Now().UnixNano()))
+			uploadsDir := filepath.Join(s.cacheDir, "uploads")
+			_ = os.MkdirAll(uploadsDir, 0755)
+			frameImagePath = filepath.Join(uploadsDir, fmt.Sprintf("attached_%d_%d.jpg", assetID, time.Now().UnixNano()))
 			if err := os.WriteFile(frameImagePath, rawDecoded, 0644); err != nil {
-				log.Printf("[REMIX] Failed to write video frame: %v", err)
+				log.Printf("[STUDIO] Failed to write attached image: %v", err)
 				frameImagePath = ""
 			} else {
-				log.Printf("[REMIX] Video frame captured: %s (%d bytes)", frameImagePath, len(rawDecoded))
+				log.Printf("[STUDIO] Attached image captured: %s (%d bytes)", frameImagePath, len(rawDecoded))
+			}
+		}
+	}
+
+	if frameImagePath == "" && r.MultipartForm != nil {
+		if file, header, err := r.FormFile("attached_file"); err == nil && file != nil {
+			defer file.Close()
+			uploadsDir := filepath.Join(s.cacheDir, "uploads")
+			_ = os.MkdirAll(uploadsDir, 0755)
+			ext := filepath.Ext(header.Filename)
+			if ext == "" {
+				ext = ".jpg"
+			}
+			destPath := filepath.Join(uploadsDir, fmt.Sprintf("upload_%d_%d%s", assetID, time.Now().UnixNano(), ext))
+			if outF, err := os.Create(destPath); err == nil {
+				_, _ = io.Copy(outF, file)
+				_ = outF.Close()
+				frameImagePath = destPath
+				log.Printf("[STUDIO] Uploaded file saved: %s", frameImagePath)
 			}
 		}
 	}
@@ -632,16 +662,21 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
-	selectedAsset, _ := s.catalog.GetAsset(ctx, assetID)
-	prevAssetID, nextAssetID, _ := s.catalog.GetAdjacentAssetIDs(ctx, assetID)
-	relatedAssets := s.catalog.GetRelatedAssets(ctx, selectedAsset)
+	var selectedAsset *domain.MediaAsset
+	var prevAssetID, nextAssetID int64
+	var relatedAssets usecase.RelatedAssetsBundle
+	if assetID > 0 {
+		selectedAsset, _ = s.catalog.GetAsset(ctx, assetID)
+		prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, assetID)
+		relatedAssets = s.catalog.GetRelatedAssets(ctx, selectedAsset)
+	}
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
 	loras, _ := s.catalog.ListModelLoRAs(ctx, "")
 	history, _ := s.catalog.ListGeneratedPrompts(ctx, assetID, 0, 20)
 	aiStatus := s.catalog.InspectAIBackends(ctx)
 
-	activeTab := "remix"
+	activeTab := "studio"
 	if r.FormValue("source_tab") == "asset_detail" {
 		activeTab = "asset_detail"
 	}
@@ -666,6 +701,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		GeneratedHistory: history,
 		AIStatus:         aiStatus,
 		AIResultPrompt:   outPrompt,
+		AIInputConcept:   userHint,
 		AITargetProfile:  profileSlug,
 		AICharacterID:    characterID,
 	}

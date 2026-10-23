@@ -51,11 +51,10 @@
   <nav class="navbar">
     <div class="container navbar-inner">
       <a href="/" class="nav-tab {{if eq .ActiveTab "catalog"}}active{{end}}">Catalog Grid</a>
-      <a href="/?tab=remix" class="nav-tab {{if eq .ActiveTab "remix"}}active{{end}}" style="{{if eq .ActiveTab "remix"}}color:#c084fc;border-color:#7c3aed;{{end}}">&#10024; Prompt Remix</a>
+      <a href="/?tab=studio" class="nav-tab {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}active{{end}}" style="{{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}color:#c084fc;border-color:#7c3aed;{{end}}">&#10024; Prompt Studio &amp; Remix</a>
       <a href="/?tab=characters" class="nav-tab {{if eq .ActiveTab "characters"}}active{{end}}">Character Folders ({{len .Page.Characters}})</a>
       <a href="/?tab=groups" class="nav-tab {{if eq .ActiveTab "groups"}}active{{end}}">Agnostic Groups ({{len .Page.Groups}})</a>
       <a href="/?face_mode=1" class="nav-tab {{if eq .ActiveTab "faces"}}active{{end}}">Face &amp; Subject Explorer</a>
-      <a href="/?tab=studio" class="nav-tab {{if eq .ActiveTab "studio"}}active{{end}}">Prompt Studio</a>
       <a href="/?tab=generators" class="nav-tab {{if eq .ActiveTab "generators"}}active{{end}}">Generator Models &amp; LoRAs ({{len .PromptProfiles}})</a>
       <a href="/?tab=settings" class="nav-tab {{if eq .ActiveTab "settings"}}active{{end}}">Settings</a>
     </div>
@@ -65,9 +64,9 @@
   <section class="hero-banner">
     <div class="container hero-inner">
       <div>
-        {{if eq .ActiveTab "remix"}}
-          <h1 class="hero-title">Prompt <span class="highlight">Remix Studio</span></h1>
-          <p class="hero-sub">Re-imagine and adapt diffusion images and video frames to any target model using Vision and LLM synthesis.</p>
+        {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}
+          <h1 class="hero-title">&#10024; Prompt <span class="highlight">Studio &amp; Remix</span></h1>
+          <p class="hero-sub">Synthesize new diffusion/video prompts, or remix existing catalog media and attached images using Vision and LLM synthesis.</p>
         {{else if eq .ActiveTab "faces"}}
           <h1 class="hero-title">Extracted <span class="highlight">Face &amp; Subject</span> Explorer</h1>
           <p class="hero-sub">Inspect cropped regions, expression tags, and character clusters extracted via the pluggable VisionEngine port.</p>
@@ -77,9 +76,6 @@
         {{else if eq .ActiveTab "groups"}}
           <h1 class="hero-title">Agnostic <span class="highlight">Collections &amp; Folders</span></h1>
           <p class="hero-sub">Organize diffusion images and videos into arbitrary collections without altering your underlying filesystem.</p>
-        {{else if eq .ActiveTab "studio"}}
-          <h1 class="hero-title">Ollama &amp; OpenAI-Compatible <span class="highlight">Prompt Studio</span></h1>
-          <p class="hero-sub">Synthesize and translate diffusion/video prompts using model-specific system prompts and LoRA documentation.</p>
         {{else if eq .ActiveTab "generators"}}
           <h1 class="hero-title">Target <span class="highlight">Generator Models, System Prompts &amp; LoRAs</span></h1>
           <p class="hero-sub">Manage diffusion/video model families (Flux, Krea 2, Qwen-Image, MOSS, MiniMax H3), their generation context prompts, and their dedicated LoRAs.</p>
@@ -184,7 +180,7 @@
           {{end}}
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
-          <a href="/?tab=remix&asset_id={{.SelectedAsset.ID}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;font-weight:600;">&#10024; Remix Prompt</a>
+          <a href="/?tab=studio&asset_id={{.SelectedAsset.ID}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;font-weight:600;">&#10024; Remix Prompt</a>
           <button type="button" class="btn-primary" onclick="openMediaLightbox()">&#x26F6; Fullscreen &amp; Metadata Inspector</button>
           <a href="/media/{{.SelectedAsset.RelPath}}" target="_blank" class="btn-ghost">Open Raw File</a>
         </div>
@@ -310,8 +306,8 @@
               <div style="font-size:13px;font-weight:700;color:#c084fc;">&#10024; Remix Prompt Studio</div>
               <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Re-imagine this media asset or video frame for another generator model (Flux, SDXL, Krea 2, Sora, etc.)</div>
             </div>
-            <a href="/?tab=remix&asset_id={{.SelectedAsset.ID}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;white-space:nowrap;padding:7px 14px;font-weight:600;">
-              Open Remix Studio &rarr;
+            <a href="/?tab=studio&asset_id={{.SelectedAsset.ID}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;white-space:nowrap;padding:7px 14px;font-weight:600;">
+              Open Prompt Studio &rarr;
             </a>
           </div>
 

@@ -378,13 +378,15 @@ func (r *Repository) GetExistingAssetFingerprints(ctx context.Context, rootID in
 	for rows.Next() {
 		var a domain.MediaAsset
 		var relPath string
-		var mTime time.Time
+		var mTime sql.NullTime
 		var favInt int
 		if err := rows.Scan(&a.ID, &relPath, &a.FileSize, &a.FileHash, &mTime, &a.Rating, &favInt, &a.Category, &a.Subcategory); err != nil {
 			return nil, err
 		}
 		a.RelPath = relPath
-		a.FileMTime = mTime
+		if mTime.Valid {
+			a.FileMTime = mTime.Time
+		}
 		a.Favorite = favInt == 1
 		out[relPath] = a
 	}

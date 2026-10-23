@@ -521,10 +521,21 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 	if s.ollama == nil {
 		return "", fmt.Errorf("AI provider is not initialized")
 	}
-	asset, err := s.repo.GetAssetByID(ctx, assetID)
-	if err != nil {
-		return "", err
+
+	var asset *domain.MediaAsset
+	if assetID > 0 {
+		var err error
+		asset, err = s.repo.GetAssetByID(ctx, assetID)
+		if err != nil {
+			return "", err
+		}
 	}
+
+	// If no asset and no attached image or video frame, delegate to Text2Prompt
+	if asset == nil && frameImagePath == "" {
+		return s.RunText2Prompt(ctx, userHint, profileSlug, loraIDs, override)
+	}
+
 	cfg, err := s.repo.GetSettings(ctx)
 	if err != nil {
 		return "", err
@@ -540,7 +551,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 
 	// Build rich context combining existing asset metadata, optional character sheet, selected LoRA docs, and user scene direction
 	var contextParts []string
-	if asset.Metadata.PositivePrompt != "" {
+	if asset != nil && asset.Metadata.PositivePrompt != "" {
 		contextParts = append(contextParts, "Reference Asset Original Prompt: "+asset.Metadata.PositivePrompt)
 	}
 	var charPtr *int64
@@ -567,8 +578,8 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 	var usedModel string
 	var usedThink string
 
-	// For videos with a captured frame, send the frame to ImageToPrompt so the model uses it as visual reference
-	isFrameRef := frameImagePath != "" && (asset.MediaType == domain.MediaTypeVideo || mode == "vision")
+	// For videos with a captured frame or user-attached image, send it to ImageToPrompt
+	isFrameRef := frameImagePath != "" && (asset == nil || asset.MediaType == domain.MediaTypeVideo || mode == "vision")
 
 	if !isFrameRef && mode == "remix" && combinedHint != "" {
 		// Remix via Text2Prompt model using the extracted prompt + character + direction
@@ -593,11 +604,17 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		}
 		var baseURL string
 		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
-		absPath := s.ResolveAssetAbsPath(ctx, asset)
+
+		var absPath string
 		if frameImagePath != "" {
 			absPath = frameImagePath
-			log.Printf("[AI] Video remix using captured video frame: %s (model: %s)", absPath, usedModel)
+			log.Printf("[AI] Studio using frame or attached image: %s (model: %s)", absPath, usedModel)
+		} else if asset != nil {
+			absPath = s.ResolveAssetAbsPath(ctx, asset)
+		} else {
+			return "", fmt.Errorf("no media asset or image provided for vision analysis")
 		}
+
 		generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, absPath, combinedHint, usedThink)
 		if err != nil {
 			return "", err
@@ -605,9 +622,12 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 	}
 
 	if generated != "" {
-		aid := asset.ID
+		var aid *int64
+		if asset != nil {
+			aid = &asset.ID
+		}
 		_, _ = s.repo.SaveGeneratedPrompt(ctx, &domain.GeneratedPrompt{
-			AssetID:           &aid,
+			AssetID:           aid,
 			CharacterID:       charPtr,
 			TargetProfileSlug: profileSlug,
 			SceneDirection:    strings.TrimSpace(userHint),
@@ -617,7 +637,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		})
 	}
 
-	if saveToAsset && generated != "" {
+	if saveToAsset && asset != nil && generated != "" {
 		_ = s.repo.UpdateAssetPrompt(ctx, asset.ID, generated, profileSlug)
 		asset.Metadata.PositivePrompt = generated
 		asset.Metadata.Engine = domain.EngineType(profileSlug)
