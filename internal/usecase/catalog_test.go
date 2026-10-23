@@ -56,8 +56,20 @@ func TestEndToEndSeedScanAndCatalogQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to list prompt profiles: %v", err)
 	}
-	if len(profiles) < 5 {
-		t.Fatalf("expected at least 5 seeded generator profiles (flux, krea2, moss, minimaxh3, sdxl), got %d", len(profiles))
+	if len(profiles) < 6 {
+		t.Fatalf("expected at least 6 seeded generator profiles (flux, krea2, qwen-image, moss, minimaxh3, sdxl), got %d", len(profiles))
+	}
+
+	loras, err := catalogSvc.ListModelLoRAs(ctx, "")
+	if err != nil {
+		t.Fatalf("failed to list model LoRAs: %v", err)
+	}
+	if len(loras) < 4 {
+		t.Fatalf("expected at least 4 seeded model-specific LoRAs, got %d", len(loras))
+	}
+	ctxBlock := catalogSvc.buildLoRAContextBlock(ctx, loras[0].ProfileSlug, []int64{loras[0].ID})
+	if ctxBlock == "" {
+		t.Errorf("expected non-empty LoRA context block for prompt synthesis")
 	}
 
 	page, err := catalogSvc.Query(ctx, domain.CatalogFilter{PerPage: 50})

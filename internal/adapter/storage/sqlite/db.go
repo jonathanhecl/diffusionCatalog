@@ -180,6 +180,19 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS model_loras (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		profile_slug TEXT NOT NULL,
+		name TEXT NOT NULL,
+		syntax_tag TEXT NOT NULL DEFAULT '',
+		trigger_words TEXT NOT NULL DEFAULT '',
+		recommended_weight TEXT NOT NULL DEFAULT '0.8',
+		description TEXT NOT NULL DEFAULT '',
+		usage_examples TEXT NOT NULL DEFAULT '',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(profile_slug, name)
+	);
+
 	CREATE TABLE IF NOT EXISTS generated_prompts (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		asset_id INTEGER,
@@ -222,9 +235,6 @@ func seedDefaultSettingsAndProfiles(ctx context.Context, db *sql.DB) error {
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM prompt_profiles`).Scan(&count); err != nil {
 		return err
 	}
-	if count > 0 {
-		return nil
-	}
 
 	profiles := []struct {
 		Slug        string
@@ -246,6 +256,13 @@ func seedDefaultSettingsAndProfiles(ctx context.Context, db *sql.DB) error {
 			Modality:    "image",
 			Description: "High-aesthetic editorial art direction, micro-texture fidelity, and organic film lighting.",
 			Prompt:      "You are a senior art director crafting prompts for Krea 2. Focus on hyper-tactile surface micro-textures, skin/material translucency, editorial studio or golden-hour lighting, medium-format analog film stock aesthetics (Kodak Portra 400, Hasselblad H6D), and deliberate depth-of-field. Output only the final prompt.",
+		},
+		{
+			Slug:        "qwen-image",
+			Name:        "Qwen-Image",
+			Modality:    "image",
+			Description: "Dense semantic description with accurate typography, layout spatial cues, and stylistic precision.",
+			Prompt:      "You are a specialist prompt engineer for Qwen-Image. Write a clear, spatially structured prompt specifying foreground/background placement, exact subject attributes, lighting atmosphere, and any embedded signage or typography in quotes. Output only the final prompt.",
 		},
 		{
 			Slug:        "moss",
@@ -270,11 +287,85 @@ func seedDefaultSettingsAndProfiles(ctx context.Context, db *sql.DB) error {
 		},
 	}
 
-	for _, p := range profiles {
+	if count == 0 {
+		for _, p := range profiles {
+			_, _ = db.ExecContext(ctx, `
+				INSERT OR IGNORE INTO prompt_profiles (slug, name, target_modality, description, system_prompt)
+				VALUES (?, ?, ?, ?, ?)`,
+				p.Slug, p.Name, p.Modality, p.Description, p.Prompt,
+			)
+		}
+	} else {
+		// Ensure qwen-image exists on upgraded databases
+		for _, p := range profiles {
+			if p.Slug == "qwen-image" {
+				_, _ = db.ExecContext(ctx, `
+					INSERT OR IGNORE INTO prompt_profiles (slug, name, target_modality, description, system_prompt)
+					VALUES (?, ?, ?, ?, ?)`,
+					p.Slug, p.Name, p.Modality, p.Description, p.Prompt,
+				)
+			}
+		}
+	}
+
+	var loraCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM model_loras`).Scan(&loraCount); err != nil || loraCount > 0 {
+		return nil
+	}
+
+	seedLoRAs := []struct {
+		ProfileSlug string
+		Name        string
+		SyntaxTag   string
+		Trigger     string
+		Weight      string
+		Desc        string
+		Examples    string
+	}{
+		{
+			ProfileSlug: "flux",
+			Name:        "Dark Sci-Fi Anamorphic 70mm",
+			SyntaxTag:   "<lora:flux_anamorphic_70mm:0.85>",
+			Trigger:     "anamorphic70mm, horizontal cyan lens flare",
+			Weight:      "0.85",
+			Desc:        "Trained on 70mm IMAX and Panavision sci-fi film stills for Flux.1. Adds oval bokeh, film grain, and subtle cyan/amber highlight halation.",
+			Examples:    "A lone netrunner standing on a rain-slicked brutalist balcony, anamorphic70mm, horizontal cyan lens flare, sodium vapor streetlights reflecting on wet concrete <lora:flux_anamorphic_70mm:0.85>",
+		},
+		{
+			ProfileSlug: "krea2",
+			Name:        "Tactile Editorial Skin & Fabric (Triggerless)",
+			SyntaxTag:   "<lora:krea2_editorial_microtexture:0.7>",
+			Trigger:     "",
+			Weight:      "0.70",
+			Desc:        "Triggerless detail enhancer specifically tuned for Krea 2. Boosts natural skin pores, woven fabric threads, and subsurface scattering under studio softboxes without plastic over-smoothing.",
+			Examples:    "Editorial medium-format close-up portrait, natural freckled skin translucency, heavy charcoal wool collar, soft key light from 45 degrees, Kodak Portra 400 <lora:krea2_editorial_microtexture:0.7>",
+		},
+		{
+			ProfileSlug: "qwen-image",
+			Name:        "Neon Cyber-Signage & Crisp Typography",
+			SyntaxTag:   "<lora:qwen_neon_signage_v2:0.9>",
+			Trigger:     "cyber_signage, glowing acrylic lettering",
+			Weight:      "0.90",
+			Desc:        "Qwen-Image LoRA specialized in rendering legible futuristic storefront signs, HUD telemetry overlays, and glowing glass typography.",
+			Examples:    "Nighttime alley in Neo-Veridia, cyber_signage, glowing acrylic lettering reading \"ARCHIVE SECTOR 09\" above a rain-misted glass doorway <lora:qwen_neon_signage_v2:0.9>",
+		},
+		{
+			ProfileSlug: "minimaxh3",
+			Name:        "FPV Orbital Tracking Shot (Video Motion LoRA)",
+			SyntaxTag:   "<lora:minimax_fpv_orbital:0.8>",
+			Trigger:     "smooth orbital camera arc, dynamic parallax motion",
+			Weight:      "0.80",
+			Desc:        "Motion LoRA for MiniMax Hailuo H3 video generation. Drives a continuous 180-degree orbital camera trajectory around the main subject with strong foreground/background parallax.",
+			Examples:    "[Camera: smooth orbital camera arc, dynamic parallax motion] A heavy orbital mecha unit ignites its thrusters inside a subterranean hangar as sparks and volumetric steam swirl across the lens <lora:minimax_fpv_orbital:0.8>",
+		},
+	}
+
+	for _, l := range seedLoRAs {
 		_, _ = db.ExecContext(ctx, `
-			INSERT OR IGNORE INTO prompt_profiles (slug, name, target_modality, description, system_prompt)
-			VALUES (?, ?, ?, ?, ?)`,
-			p.Slug, p.Name, p.Modality, p.Description, p.Prompt,
+			INSERT OR IGNORE INTO model_loras (
+				profile_slug, name, syntax_tag, trigger_words, recommended_weight, description, usage_examples
+			) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			l.ProfileSlug, l.Name, l.SyntaxTag, l.Trigger, l.Weight, l.Desc, l.Examples,
 		)
 	}
 	return nil

@@ -205,7 +205,7 @@
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
                 <div>
                   <label class="kv-label">Target Model (System Prompt)</label>
-                  <select name="profile_slug" class="input-dark">
+                  <select name="profile_slug" class="input-dark" onchange="filterLoRAsByModel(this.form, this.value)">
                     {{range .PromptProfiles}}
                       <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
                     {{end}}
@@ -228,6 +228,24 @@
                   </select>
                 </div>
               </div>
+
+              {{if .ModelLoRAs}}
+              <div style="background:#040914;border:1px solid var(--border-navy);border-radius:4px;padding:8px 10px;">
+                <div class="kv-label" style="margin-bottom:5px;">Apply Target-Model LoRAs (Injects Trigger Words, Purpose &amp; Usage Examples into Context)</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                  {{range .ModelLoRAs}}
+                    <label class="checkbox-item lora-chip-item" data-model="{{.ProfileSlug}}" title="{{.Description}} | Examples: {{.UsageExamples}}" style="background:#0b172e;border:1px solid #1e3a6d;padding:3px 8px;border-radius:4px;">
+                      <span>
+                        <input type="checkbox" name="lora_id" value="{{.ID}}">
+                        <strong style="color:#60a5fa;">[{{.ProfileSlug}}]</strong> {{.Name}}
+                        {{if .TriggerWords}}<span style="color:#6ee7b7;font-size:10px;">(trigger: {{.TriggerWords}})</span>{{else}}<span style="color:#94a3b8;font-size:10px;">(triggerless)</span>{{end}}
+                      </span>
+                    </label>
+                  {{end}}
+                </div>
+              </div>
+              {{end}}
+
               <div style="display:flex;gap:8px;align-items:center;">
                 <input type="text" name="user_hint" placeholder="Optional scene/movie/camera direction (e.g. 'Adapt into a rainy 1980s sci-fi movie shot, slow dolly-in')..." class="input-dark" style="flex:1;">
                 <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;white-space:nowrap;">
@@ -343,7 +361,7 @@
           <div style="display:grid;grid-template-columns:280px 1fr;gap:12px;align-items:center;">
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Target Generator Profile (System Prompt)</label>
-              <select name="profile_slug" class="input-dark">
+              <select name="profile_slug" class="input-dark" onchange="filterLoRAsByModel(this.form, this.value)">
                 {{range .PromptProfiles}}
                   <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} — {{.TargetModality}})</option>
                 {{end}}
@@ -354,6 +372,24 @@
               <input type="text" name="concept" value="{{.AIInputConcept}}" placeholder="e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk..." class="input-dark" required>
             </div>
           </div>
+
+          {{if .ModelLoRAs}}
+          <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:4px;padding:8px 10px;">
+            <div class="kv-label" style="margin-bottom:5px;">Select Model-Specific LoRAs to Use in Prompt Creation (Optional)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              {{range .ModelLoRAs}}
+                <label class="checkbox-item lora-chip-item" data-model="{{.ProfileSlug}}" title="{{.Description}} | Examples: {{.UsageExamples}}" style="background:#0b172e;border:1px solid #1e3a6d;padding:3px 8px;border-radius:4px;">
+                  <span>
+                    <input type="checkbox" name="lora_id" value="{{.ID}}">
+                    <strong style="color:#60a5fa;">[{{.ProfileSlug}}]</strong> {{.Name}}
+                    {{if .TriggerWords}}<span style="color:#6ee7b7;font-size:10px;">(trigger: {{.TriggerWords}})</span>{{else}}<span style="color:#94a3b8;font-size:10px;">(triggerless)</span>{{end}}
+                  </span>
+                </label>
+              {{end}}
+            </div>
+          </div>
+          {{end}}
+
           <div>
             <button type="submit" class="btn-primary">Synthesize Prompt via [{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}}</button>
           </div>
@@ -612,9 +648,95 @@
           </div>
         </div>
 
-        <!-- 3. Runtime & Vision Adapter Status -->
+        <!-- 3. Per-Model LoRA Documentation & Few-Shot Examples -->
         <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-          <h2 style="font-size:18px;margin-bottom:10px;">3. Storage &amp; Pluggable Face Vision Adapter</h2>
+          <h2 style="font-size:18px;margin-bottom:4px;">3. Per-Model LoRA Knowledge Base (Flux, Krea 2, Qwen-Image, MiniMax H3 Video, etc.)</h2>
+          <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">
+            LoRAs are strictly scoped per generator model. Document what each LoRA does, whether it uses trigger words or is triggerless, its weight tag, and concrete usage examples so Ollama/oMLX can weave them accurately into generated prompts.
+          </p>
+
+          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:22px;">
+            {{range .ModelLoRAs}}
+              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:14px;">
+                <form action="/admin/loras/upsert" method="POST" style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="display:grid;grid-template-columns:170px 1fr 220px 100px;gap:10px;">
+                    <div>
+                      <label class="kv-label">Target Model</label>
+                      <select name="profile_slug" class="input-dark">
+                        {{range $.PromptProfiles}}
+                          <option value="{{.Slug}}" {{if eq .Slug $.AITargetProfile}}{{end}}>{{.Name}} ({{.Slug}})</option>
+                        {{end}}
+                        <option value="{{.ProfileSlug}}" selected>{{.ProfileSlug}}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="kv-label">LoRA Name</label>
+                      <input type="text" name="name" value="{{.Name}}" class="input-dark" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Syntax / Weight Tag</label>
+                      <input type="text" name="syntax_tag" value="{{.SyntaxTag}}" class="input-dark" placeholder="<lora:name:0.8>">
+                    </div>
+                    <div>
+                      <label class="kv-label">Rec. Weight</label>
+                      <input type="text" name="recommended_weight" value="{{.RecommendedWeight}}" class="input-dark">
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+                    <div>
+                      <label class="kv-label">Trigger Words (Leave blank if triggerless)</label>
+                      <input type="text" name="trigger_words" value="{{.TriggerWords}}" class="input-dark" placeholder="None (triggerless)">
+                    </div>
+                    <div>
+                      <label class="kv-label">What is this LoRA for? (Behavior, style, lighting, or motion effect)</label>
+                      <input type="text" name="description" value="{{.Description}}" class="input-dark" required>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="kv-label">Reference Usage Examples (Few-shot prompt examples for this model)</label>
+                    <textarea name="usage_examples" rows="2" class="input-dark" style="font-family:monospace;font-size:11.5px;">{{.UsageExamples}}</textarea>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <button type="submit" class="btn-primary" style="padding:5px 14px;font-size:12px;">Update LoRA ({{.ProfileSlug}} / {{.Name}})</button>
+                  </div>
+                </form>
+                <form action="/admin/loras/delete" method="POST" style="margin-top:4px;text-align:right;">
+                  <input type="hidden" name="id" value="{{.ID}}">
+                  <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:3px 10px;font-size:11px;">Delete LoRA</button>
+                </form>
+              </div>
+            {{end}}
+          </div>
+
+          <!-- Create New Model-Scoped LoRA -->
+          <div style="background:#071124;border:1px dashed var(--border-highlight);border-radius:6px;padding:16px;">
+            <h3 style="font-size:15px;margin-bottom:10px;">Add New Model-Specific LoRA Documentation</h3>
+            <form action="/admin/loras/upsert" method="POST" style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:grid;grid-template-columns:180px 1fr 240px 110px;gap:10px;">
+                <select name="profile_slug" class="input-dark" required>
+                  {{range .PromptProfiles}}
+                    <option value="{{.Slug}}">{{.Name}} ({{.Slug}})</option>
+                  {{end}}
+                </select>
+                <input type="text" name="name" placeholder="LoRA Name (e.g. Krea2 Analog Grain / MiniMax Drone Orbit)" class="input-dark" required>
+                <input type="text" name="syntax_tag" placeholder="Syntax tag (e.g. <lora:my_lora:0.8>)" class="input-dark">
+                <input type="text" name="recommended_weight" value="0.8" placeholder="Weight" class="input-dark">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+                <input type="text" name="trigger_words" placeholder="Trigger words (or leave blank if triggerless)" class="input-dark">
+                <input type="text" name="description" placeholder="Explain what this LoRA does, its visual/motion effect, and rules..." class="input-dark" required>
+              </div>
+              <textarea name="usage_examples" rows="3" class="input-dark" placeholder="Paste 1 or more example prompts showing how this LoRA is properly used in this model..."></textarea>
+              <div>
+                <button type="submit" class="btn-primary">Save LoRA Documentation</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 4. Runtime & Vision Adapter Status -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+          <h2 style="font-size:18px;margin-bottom:10px;">4. Storage &amp; Pluggable Face Vision Adapter</h2>
           <div class="kv-table">
             <div class="kv-box">
               <div class="kv-label">Source Media Directory (Read-Only)</div>
@@ -687,11 +809,20 @@
               <form action="/admin/ollama/character2prompt" method="POST" style="display:flex;flex-direction:column;gap:6px;">
                 <input type="hidden" name="character_id" value="{{.ID}}">
                 <input type="hidden" name="return_tab" value="characters">
-                <select name="profile_slug" class="input-dark" style="font-size:12px;padding:6px 8px;">
+                <select name="profile_slug" class="input-dark" style="font-size:12px;padding:6px 8px;" onchange="filterLoRAsByModel(this.form, this.value)">
                   {{range $.PromptProfiles}}
                     <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>Target: {{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
                   {{end}}
                 </select>
+                {{if $.ModelLoRAs}}
+                  <div style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 0;">
+                    {{range $.ModelLoRAs}}
+                      <label class="checkbox-item lora-chip-item" data-model="{{.ProfileSlug}}" title="{{.Description}}" style="background:#060d1b;border:1px solid var(--border-navy);padding:2px 6px;border-radius:3px;font-size:10.5px;">
+                        <span><input type="checkbox" name="lora_id" value="{{.ID}}"> [{{.ProfileSlug}}] {{.Name}}</span>
+                      </label>
+                    {{end}}
+                  </div>
+                {{end}}
                 <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, action, or camera movement..." class="input-dark" style="font-size:12px;padding:6px 8px;" required>
                 <button type="submit" class="btn-primary" style="padding:6px 12px;font-size:12px;">Generate Prompt for Model</button>
               </form>
@@ -918,6 +1049,29 @@
       </div>
     {{end}}
   </main>
+  <script>
+    function filterLoRAsByModel(formEl, selectedSlug) {
+      if (!formEl) return;
+      var items = formEl.querySelectorAll('.lora-chip-item');
+      items.forEach(function(el) {
+        var model = el.getAttribute('data-model');
+        if (!selectedSlug || model === selectedSlug) {
+          el.style.display = 'inline-flex';
+        } else {
+          el.style.display = 'none';
+          var cb = el.querySelector('input[type="checkbox"]');
+          if (cb) cb.checked = false;
+        }
+      });
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('select[name="profile_slug"]').forEach(function(sel) {
+        if (sel.form && sel.form.querySelector('.lora-chip-item')) {
+          filterLoRAsByModel(sel.form, sel.value);
+        }
+      });
+    });
+  </script>
 </body>
 </html>
 {{end}}

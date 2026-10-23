@@ -297,6 +297,120 @@ func (r *Repository) ListPromptProfiles(ctx context.Context) ([]domain.PromptPro
 	return out, nil
 }
 
+// UpsertModelLoRA creates or updates a model-scoped LoRA documentation entry.
+func (r *Repository) UpsertModelLoRA(ctx context.Context, l *domain.ModelLoRA) (int64, error) {
+	if l.RecommendedWeight == "" {
+		l.RecommendedWeight = "0.8"
+	}
+	var id int64
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO model_loras (
+			profile_slug, name, syntax_tag, trigger_words, recommended_weight, description, usage_examples
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(profile_slug, name) DO UPDATE SET
+			syntax_tag = excluded.syntax_tag,
+			trigger_words = excluded.trigger_words,
+			recommended_weight = excluded.recommended_weight,
+			description = excluded.description,
+			usage_examples = excluded.usage_examples
+		RETURNING id`,
+		strings.TrimSpace(l.ProfileSlug),
+		strings.TrimSpace(l.Name),
+		strings.TrimSpace(l.SyntaxTag),
+		strings.TrimSpace(l.TriggerWords),
+		strings.TrimSpace(l.RecommendedWeight),
+		strings.TrimSpace(l.Description),
+		strings.TrimSpace(l.UsageExamples),
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	l.ID = id
+	return id, nil
+}
+
+// DeleteModelLoRA removes a model-scoped LoRA documentation entry by ID.
+func (r *Repository) DeleteModelLoRA(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM model_loras WHERE id = ?`, id)
+	return err
+}
+
+// ListModelLoRAs lists LoRA documentation entries, optionally filtered by profileSlug.
+func (r *Repository) ListModelLoRAs(ctx context.Context, profileSlug string) ([]domain.ModelLoRA, error) {
+	var rows *sql.Rows
+	var err error
+	if strings.TrimSpace(profileSlug) != "" {
+		rows, err = r.db.QueryContext(ctx, `
+			SELECT id, profile_slug, name, syntax_tag, trigger_words, recommended_weight, description, usage_examples, created_at
+			FROM model_loras
+			WHERE LOWER(profile_slug) = LOWER(?)
+			ORDER BY name ASC`, strings.TrimSpace(profileSlug))
+	} else {
+		rows, err = r.db.QueryContext(ctx, `
+			SELECT id, profile_slug, name, syntax_tag, trigger_words, recommended_weight, description, usage_examples, created_at
+			FROM model_loras
+			ORDER BY profile_slug ASC, name ASC`)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.ModelLoRA
+	for rows.Next() {
+		var l domain.ModelLoRA
+		if err := rows.Scan(
+			&l.ID, &l.ProfileSlug, &l.Name, &l.SyntaxTag, &l.TriggerWords,
+			&l.RecommendedWeight, &l.Description, &l.UsageExamples, &l.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, l)
+	}
+	return out, nil
+}
+
+// GetModelLoRAsByIDs fetches specific ModelLoRA entries by their IDs.
+func (r *Repository) GetModelLoRAsByIDs(ctx context.Context, ids []int64) ([]domain.ModelLoRA, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var placeholders []string
+	var args []interface{}
+	for _, id := range ids {
+		if id > 0 {
+			placeholders = append(placeholders, "?")
+			args = append(args, id)
+		}
+	}
+	if len(placeholders) == 0 {
+		return nil, nil
+	}
+	query := fmt.Sprintf(`
+		SELECT id, profile_slug, name, syntax_tag, trigger_words, recommended_weight, description, usage_examples, created_at
+		FROM model_loras
+		WHERE id IN (%s)
+		ORDER BY id ASC`, strings.Join(placeholders, ","))
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.ModelLoRA
+	for rows.Next() {
+		var l domain.ModelLoRA
+		if err := rows.Scan(
+			&l.ID, &l.ProfileSlug, &l.Name, &l.SyntaxTag, &l.TriggerWords,
+			&l.RecommendedWeight, &l.Description, &l.UsageExamples, &l.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, l)
+	}
+	return out, nil
+}
+
 // SaveGeneratedPrompt stores a newly generated prompt linked to an Asset and/or Character.
 func (r *Repository) SaveGeneratedPrompt(ctx context.Context, gp *domain.GeneratedPrompt) (int64, error) {
 	var id int64

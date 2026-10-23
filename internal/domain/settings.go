@@ -37,6 +37,20 @@ type PromptProfile struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
+// ModelLoRA stores documentation, trigger words, weight syntax, and few-shot usage examples
+// for a LoRA scoped to a specific target generator model (e.g. flux, krea2, qwen-image, minimaxh3).
+type ModelLoRA struct {
+	ID                int64     `json:"id"`
+	ProfileSlug       string    `json:"profile_slug"`       // e.g. "flux", "krea2", "qwen-image", "minimaxh3"
+	Name              string    `json:"name"`               // e.g. "Anamorphic Halation v2"
+	SyntaxTag         string    `json:"syntax_tag"`         // e.g. "<lora:krea2_halation:0.75>" or empty if trigger-only
+	TriggerWords      string    `json:"trigger_words"`      // e.g. "anamorphic_halation, tungsten bloom" (empty if no trigger)
+	RecommendedWeight string    `json:"recommended_weight"` // e.g. "0.75"
+	Description       string    `json:"description"`        // What the LoRA is for and how it behaves on this engine
+	UsageExamples     string    `json:"usage_examples"`     // Concrete example prompts showing proper usage
+	CreatedAt         time.Time `json:"created_at"`
+}
+
 // OllamaModelInfo represents a model discovered from either an Ollama server (/api/tags + /api/show)
 // or an oMLX OpenAI-compatible server (/v1/models).
 type OllamaModelInfo struct {

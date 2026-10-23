@@ -107,10 +107,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/characters/create", s.handleCreateCharacter)
 	mux.HandleFunc("POST /admin/characters/attach", s.handleAttachCharacter)
 
-	// Settings & Generator System Prompts
+	// Settings, Generator System Prompts & Per-Model LoRA Docs
 	mux.HandleFunc("POST /admin/settings/save", s.handleSaveSettings)
 	mux.HandleFunc("POST /admin/profiles/upsert", s.handleUpsertProfile)
 	mux.HandleFunc("POST /admin/profiles/delete", s.handleDeleteProfile)
+	mux.HandleFunc("POST /admin/loras/upsert", s.handleUpsertLoRA)
+	mux.HandleFunc("POST /admin/loras/delete", s.handleDeleteLoRA)
 
 	// Ollama AI Actions (Image2Prompt, Character2Prompt & Text2Prompt)
 	mux.HandleFunc("POST /admin/ollama/image2prompt", s.handleImage2Prompt)
@@ -131,6 +133,7 @@ type viewData struct {
 	ScanReport        usecase.ScanReport
 	Settings          domain.AppSettings
 	PromptProfiles    []domain.PromptProfile
+	ModelLoRAs        []domain.ModelLoRA
 	GeneratedHistory  []domain.GeneratedPrompt
 	AIStatus          usecase.AIBackendStatus
 	AIResultPrompt    string
@@ -174,6 +177,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	loras, _ := s.catalog.ListModelLoRAs(ctx, "")
 	history, _ := s.catalog.ListGeneratedPrompts(ctx, assetID, filter.CharacterID, 20)
 
 	var aiStatus usecase.AIBackendStatus
@@ -192,6 +196,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
+		ModelLoRAs:       loras,
 		GeneratedHistory: history,
 		AIStatus:         aiStatus,
 		AITargetProfile:  settings.DefaultTargetGenerator,
@@ -270,6 +275,42 @@ func (s *Server) handleDeleteProfile(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/?tab=settings&notice=Profile+deleted", http.StatusSeeOther)
 }
 
+func (s *Server) handleUpsertLoRA(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	l := &domain.ModelLoRA{
+		ProfileSlug:       r.FormValue("profile_slug"),
+		Name:              r.FormValue("name"),
+		SyntaxTag:         r.FormValue("syntax_tag"),
+		TriggerWords:      r.FormValue("trigger_words"),
+		RecommendedWeight: r.FormValue("recommended_weight"),
+		Description:       r.FormValue("description"),
+		UsageExamples:     r.FormValue("usage_examples"),
+	}
+	if l.ProfileSlug != "" && l.Name != "" {
+		_, _ = s.catalog.UpsertModelLoRA(r.Context(), l)
+	}
+	http.Redirect(w, r, "/?tab=settings&notice=Model+LoRA+documentation+saved", http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteLoRA(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if id > 0 {
+		_ = s.catalog.DeleteModelLoRA(r.Context(), id)
+	}
+	http.Redirect(w, r, "/?tab=settings&notice=Model+LoRA+deleted", http.StatusSeeOther)
+}
+
+func parseLoRAIDs(vals []string) []int64 {
+	var out []int64
+	for _, v := range vals {
+		if id, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil && id > 0 {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	_ = r.ParseForm()
@@ -278,15 +319,17 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	mode := r.FormValue("mode")
 	userHint := r.FormValue("user_hint")
 	characterID, _ := strconv.ParseInt(r.FormValue("character_id"), 10, 64)
+	loraIDs := parseLoRAIDs(r.Form["lora_id"])
 	saveToAsset := r.FormValue("save_to_asset") == "1" || r.FormValue("save_to_asset") == "on"
 
-	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, saveToAsset)
+	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, saveToAsset)
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
 	selectedAsset, _ := s.catalog.GetAsset(ctx, assetID)
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	loras, _ := s.catalog.ListModelLoRAs(ctx, "")
 	history, _ := s.catalog.ListGeneratedPrompts(ctx, assetID, 0, 20)
 	aiStatus := s.catalog.InspectAIBackends(ctx)
 
@@ -301,6 +344,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
+		ModelLoRAs:       loras,
 		GeneratedHistory: history,
 		AIStatus:         aiStatus,
 		AIResultPrompt:   outPrompt,
@@ -322,17 +366,19 @@ func (s *Server) handleCharacter2Prompt(w http.ResponseWriter, r *http.Request) 
 	profileSlug := r.FormValue("profile_slug")
 	sceneDirection := r.FormValue("scene_direction")
 	refAssetID, _ := strconv.ParseInt(r.FormValue("ref_asset_id"), 10, 64)
+	loraIDs := parseLoRAIDs(r.Form["lora_id"])
 	returnTab := r.FormValue("return_tab")
 	if returnTab == "" {
 		returnTab = "characters"
 	}
 
-	outPrompt, runErr := s.catalog.RunCharacterPrompt(ctx, characterID, profileSlug, sceneDirection, refAssetID)
+	outPrompt, runErr := s.catalog.RunCharacterPrompt(ctx, characterID, profileSlug, sceneDirection, refAssetID, loraIDs)
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	loras, _ := s.catalog.ListModelLoRAs(ctx, "")
 	history, _ := s.catalog.ListGeneratedPrompts(ctx, 0, 0, 20)
 	aiStatus := s.catalog.InspectAIBackends(ctx)
 
@@ -346,6 +392,7 @@ func (s *Server) handleCharacter2Prompt(w http.ResponseWriter, r *http.Request) 
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
+		ModelLoRAs:       loras,
 		GeneratedHistory: history,
 		AIStatus:         aiStatus,
 		AIResultPrompt:   outPrompt,
@@ -367,13 +414,15 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
 	profileSlug := r.FormValue("profile_slug")
 	concept := r.FormValue("concept")
+	loraIDs := parseLoRAIDs(r.Form["lora_id"])
 
-	outPrompt, runErr := s.catalog.RunText2Prompt(ctx, concept, profileSlug)
+	outPrompt, runErr := s.catalog.RunText2Prompt(ctx, concept, profileSlug, loraIDs)
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	loras, _ := s.catalog.ListModelLoRAs(ctx, "")
 	history, _ := s.catalog.ListGeneratedPrompts(ctx, assetID, 0, 20)
 	aiStatus := s.catalog.InspectAIBackends(ctx)
 
@@ -395,6 +444,7 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
+		ModelLoRAs:       loras,
 		GeneratedHistory: history,
 		AIStatus:         aiStatus,
 		AIResultPrompt:   outPrompt,

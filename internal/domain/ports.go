@@ -68,6 +68,11 @@ type CatalogRepository interface {
 	GetPromptProfileBySlug(ctx context.Context, slug string) (*PromptProfile, error)
 	ListPromptProfiles(ctx context.Context) ([]PromptProfile, error)
 
+	UpsertModelLoRA(ctx context.Context, lora *ModelLoRA) (int64, error)
+	DeleteModelLoRA(ctx context.Context, id int64) error
+	ListModelLoRAs(ctx context.Context, profileSlug string) ([]ModelLoRA, error)
+	GetModelLoRAsByIDs(ctx context.Context, ids []int64) ([]ModelLoRA, error)
+
 	SaveGeneratedPrompt(ctx context.Context, gp *GeneratedPrompt) (int64, error)
 	ListGeneratedPrompts(ctx context.Context, assetID, characterID int64, limit int) ([]GeneratedPrompt, error)
 }

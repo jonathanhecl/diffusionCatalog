@@ -138,6 +138,45 @@ func (s *CatalogService) DeletePromptProfile(ctx context.Context, id int64) erro
 	return s.repo.DeletePromptProfile(ctx, id)
 }
 
+// ListModelLoRAs lists model-scoped LoRA documentation entries.
+func (s *CatalogService) ListModelLoRAs(ctx context.Context, profileSlug string) ([]domain.ModelLoRA, error) {
+	return s.repo.ListModelLoRAs(ctx, profileSlug)
+}
+
+// UpsertModelLoRA creates or updates a model-scoped LoRA documentation entry.
+func (s *CatalogService) UpsertModelLoRA(ctx context.Context, l *domain.ModelLoRA) (int64, error) {
+	return s.repo.UpsertModelLoRA(ctx, l)
+}
+
+// DeleteModelLoRA deletes a model-scoped LoRA documentation entry by ID.
+func (s *CatalogService) DeleteModelLoRA(ctx context.Context, id int64) error {
+	return s.repo.DeleteModelLoRA(ctx, id)
+}
+
+func (s *CatalogService) buildLoRAContextBlock(ctx context.Context, targetSlug string, loraIDs []int64) string {
+	if len(loraIDs) == 0 {
+		return ""
+	}
+	loras, err := s.repo.GetModelLoRAsByIDs(ctx, loraIDs)
+	if err != nil || len(loras) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Selected LoRAs for Target Model '%s' (MUST be applied in the generated prompt following their rules and examples):\n", targetSlug))
+	for i, l := range loras {
+		triggerInfo := l.TriggerWords
+		if strings.TrimSpace(triggerInfo) == "" {
+			triggerInfo = "None (triggerless LoRA — apply via style/description and syntax tag)"
+		}
+		b.WriteString(fmt.Sprintf(
+			"%d) LoRA Name: %s (Target Engine: %s)\n   - Syntax / Weight Tag: %s (Recommended Weight: %s)\n   - Trigger Words: %s\n   - Purpose & Behavior: %s\n   - Reference Usage Examples:\n     %s\n",
+			i+1, l.Name, l.ProfileSlug, l.SyntaxTag, l.RecommendedWeight, triggerInfo, l.Description, l.UsageExamples,
+		))
+	}
+	return b.String()
+}
+
 // AIBackendStatus summarizes the live connectivity and discovered models of both Ollama and oMLX.
 type AIBackendStatus struct {
 	OllamaOnline  bool
@@ -184,8 +223,8 @@ func (s *CatalogService) ListGeneratedPrompts(ctx context.Context, assetID, char
 }
 
 // RunImage2Prompt runs the configured Ollama or oMLX Image2Prompt (or Remix Text2Prompt) on an asset
-// using the selected generator profile's system prompt (e.g., flux, krea2, moss, minimaxh3) and optional character/scene direction.
-func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, saveToAsset bool) (string, error) {
+// using the selected generator profile's system prompt (e.g., flux, krea2, moss, minimaxh3), selected model LoRAs, and optional character/scene direction.
+func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, loraIDs []int64, saveToAsset bool) (string, error) {
 	if s.ollama == nil {
 		return "", fmt.Errorf("AI provider is not initialized")
 	}
@@ -206,7 +245,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		sysPrompt = prof.SystemPrompt
 	}
 
-	// Build rich context combining existing asset metadata, optional character sheet, and user scene direction
+	// Build rich context combining existing asset metadata, optional character sheet, selected LoRA docs, and user scene direction
 	var contextParts []string
 	if asset.Metadata.PositivePrompt != "" {
 		contextParts = append(contextParts, "Reference Asset Original Prompt: "+asset.Metadata.PositivePrompt)
@@ -222,10 +261,13 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 			))
 		}
 	}
+	if loraDoc := s.buildLoRAContextBlock(ctx, profileSlug, loraIDs); loraDoc != "" {
+		contextParts = append(contextParts, loraDoc)
+	}
 	if strings.TrimSpace(userHint) != "" {
 		contextParts = append(contextParts, "New Scene / Movie / Style Direction: "+strings.TrimSpace(userHint))
 	}
-	combinedHint := strings.Join(contextParts, "\n")
+	combinedHint := strings.Join(contextParts, "\n\n")
 
 	var generated string
 	var usedProvider domain.AIProviderType
@@ -289,8 +331,8 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 }
 
 // RunCharacterPrompt synthesizes a new prompt for a specific Character in a given scene, movie style, or action
-// tailored to a target generator profile (e.g., flux, krea2, moss, minimaxh3 video).
-func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int64, profileSlug, sceneDirection string, refAssetID int64) (string, error) {
+// tailored to a target generator profile (e.g., flux, krea2, qwen-image, moss, minimaxh3 video) and optional model-specific LoRAs.
+func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int64, profileSlug, sceneDirection string, refAssetID int64, loraIDs []int64) (string, error) {
 	if s.ollama == nil {
 		return "", fmt.Errorf("AI provider is not initialized")
 	}
@@ -311,14 +353,17 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 		sysPrompt = prof.SystemPrompt
 	}
 
+	loraBlock := s.buildLoRAContextBlock(ctx, profileSlug, loraIDs)
+
 	charSpec := fmt.Sprintf(
-		"Character Sheet:\n- Name: %s (%s)\n- Visual Description: %s\n- Mandatory Trigger Words: %s\n- Canonical Base Prompt: %s\n- Recommended LoRAs: %s\n\nRequested Scene / Movie / Shot Direction:\n%s\n\nWrite a complete, cohesive generation prompt for '%s' that places this exact character into the requested scene/movie context while preserving their trigger words and visual identity. Output only the final prompt.",
+		"Character Sheet:\n- Name: %s (%s)\n- Visual Description: %s\n- Mandatory Trigger Words: %s\n- Canonical Base Prompt: %s\n- Character Default LoRAs: %s\n\n%s\nRequested Scene / Movie / Shot Direction:\n%s\n\nWrite a complete, cohesive generation prompt for '%s' that places this exact character into the requested scene/movie context while preserving their trigger words, visual identity, and any selected target-model LoRA syntax/triggers. Output only the final prompt.",
 		ch.Name,
 		ch.Archetype,
 		ch.Description,
 		ch.TriggerWords,
 		ch.BasePositivePrompt,
 		strings.Join(ch.LoRAs, ", "),
+		loraBlock,
 		strings.TrimSpace(sceneDirection),
 		profileSlug,
 	)
@@ -386,8 +431,8 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 }
 
 // RunText2Prompt expands or converts a text idea/prompt into a target generator prompt using the configured
-// Ollama or oMLX Text2Prompt model and the selected generator profile's system prompt.
-func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profileSlug string) (string, error) {
+// Ollama or oMLX Text2Prompt model, the selected generator profile's system prompt, and any selected model-specific LoRAs.
+func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profileSlug string, loraIDs []int64) (string, error) {
 	if s.ollama == nil {
 		return "", fmt.Errorf("AI provider is not initialized")
 	}
@@ -404,6 +449,11 @@ func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profi
 		sysPrompt = prof.SystemPrompt
 	}
 
+	fullUserPrompt := inputConcept
+	if loraDoc := s.buildLoRAContextBlock(ctx, profileSlug, loraIDs); loraDoc != "" {
+		fullUserPrompt = fmt.Sprintf("Concept / Scene Request:\n%s\n\n%s\nIncorporate the selected LoRA trigger words, stylistic guidance, and syntax tag into the final prompt.", inputConcept, loraDoc)
+	}
+
 	provider := cfg.Text2PromptProvider
 	if provider == "" {
 		provider = domain.ProviderOllama
@@ -413,7 +463,7 @@ func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profi
 		baseURL = cfg.OMLXBaseURL
 	}
 
-	generated, err := s.ollama.TextToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, cfg.Text2PromptModel, sysPrompt, inputConcept)
+	generated, err := s.ollama.TextToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, cfg.Text2PromptModel, sysPrompt, fullUserPrompt)
 	if err != nil {
 		return "", err
 	}
