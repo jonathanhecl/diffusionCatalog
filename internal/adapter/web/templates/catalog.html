@@ -1278,6 +1278,24 @@
                          style="width:240px;background:var(--bg-input);border:1px solid #10b981;border-radius:4px;padding:3px 8px;color:#a7f3d0;font-size:11.5px;" />
                 </div>
 
+                <!-- Prop Type & View Control Group (Visible when a prop is selected) -->
+                <div id="propControlGroup" style="display:none;align-items:center;gap:6px;">
+                  <span style="font-size:11px;color:#a78bfa;font-weight:600;">🛋️ Prop:</span>
+                  <select id="propSubtypeSelect" style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 8px;color:#fff;font-size:11px;font-weight:600;">
+                    <option value="bed">&#128716; Bed (Cama)</option>
+                    <option value="sofa">&#128715; Sofa</option>
+                    <option value="chair">&#129681; Chair</option>
+                    <option value="table">&#129701; Table / Desk</option>
+                    <option value="car">&#128663; Car</option>
+                    <option value="tree">&#127795; Tree</option>
+                    <option value="ladder">&#129692; Ladder</option>
+                    <option value="stairs">&#129692; Stairs</option>
+                    <option value="window">&#129687; Window</option>
+                    <option value="door">&#128682; Doorway</option>
+                  </select>
+                  <button type="button" id="btnPropToggleView" class="btn-ghost" style="padding:2px 7px;font-size:11px;color:#38bdf8;" title="Alternar diseño del prop entre vista superior/planta y vista de perfil lateral">&#128257; Planta &#8596; Perfil</button>
+                </div>
+
                 <!-- Body Skin / Render Mode (Skeleton, Silhouette, Hybrid) -->
                 <div id="skinControlGroup" style="display:flex;align-items:center;gap:5px;">
                   <span style="font-size:11px;color:var(--text-muted);">Skin:</span>
@@ -2041,6 +2059,96 @@
         leg.setAttribute('fill', '#451a03'); leg.setAttribute('stroke', '#78350f');
         g.appendChild(leg);
       });
+    } else if (propType === 'bed') {
+      const isSide = (state.scenePerspective === 'side') || (el.view === 'side');
+      if (isSide) {
+        // Bed - Side Profile View
+        // Wooden Headboard:
+        const hb = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        hb.setAttribute('x', '0'); hb.setAttribute('y', h * 0.12); hb.setAttribute('width', '16'); hb.setAttribute('height', h * 0.88);
+        hb.setAttribute('rx', '4'); hb.setAttribute('fill', '#451a03'); hb.setAttribute('stroke', '#78350f'); hb.setAttribute('stroke-width', '2');
+        g.appendChild(hb);
+
+        // Wooden Footboard:
+        const fb = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        fb.setAttribute('x', w - 16); fb.setAttribute('y', h * 0.42); fb.setAttribute('width', '16'); fb.setAttribute('height', h * 0.58);
+        fb.setAttribute('rx', '3'); fb.setAttribute('fill', '#451a03'); fb.setAttribute('stroke', '#78350f'); hb.setAttribute('stroke-width', '2');
+        g.appendChild(fb);
+
+        // Bed Frame:
+        const frame = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        frame.setAttribute('x', '12'); frame.setAttribute('y', h * 0.70); frame.setAttribute('width', w - 24); frame.setAttribute('height', '14');
+        frame.setAttribute('fill', '#78350f'); frame.setAttribute('stroke', '#b45309');
+        g.appendChild(frame);
+
+        // Bed Legs:
+        [24, w - 30].forEach(lx => {
+          const leg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          leg.setAttribute('x', lx); leg.setAttribute('y', h * 0.80); leg.setAttribute('width', '12'); leg.setAttribute('height', h * 0.20);
+          leg.setAttribute('fill', '#451a03'); leg.setAttribute('stroke', '#78350f');
+          g.appendChild(leg);
+        });
+
+        // Mattress:
+        const mat = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        mat.setAttribute('x', '14'); mat.setAttribute('y', h * 0.52); mat.setAttribute('width', w - 28); mat.setAttribute('height', h * 0.20);
+        mat.setAttribute('rx', '5'); mat.setAttribute('fill', '#f1f5f9'); mat.setAttribute('stroke', '#94a3b8'); mat.setAttribute('stroke-width', '2');
+        g.appendChild(mat);
+
+        // Pillow:
+        const pillow = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        pillow.setAttribute('x', '20'); pillow.setAttribute('y', h * 0.42); pillow.setAttribute('width', '45'); pillow.setAttribute('height', '20');
+        pillow.setAttribute('rx', '6'); pillow.setAttribute('fill', '#ffffff'); pillow.setAttribute('stroke', '#38bdf8'); pillow.setAttribute('stroke-width', '2');
+        g.appendChild(pillow);
+
+        // Duvet / Blanket:
+        const duvet = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        duvet.setAttribute('x', '65'); duvet.setAttribute('y', h * 0.50); duvet.setAttribute('width', w - 80); duvet.setAttribute('height', h * 0.23);
+        duvet.setAttribute('rx', '5'); duvet.setAttribute('fill', '#1e3a8a'); duvet.setAttribute('stroke', '#3b82f6'); duvet.setAttribute('stroke-width', '2');
+        g.appendChild(duvet);
+      } else {
+        // Bed - Top / Front Staging View
+        // Outer Frame:
+        const frame = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        frame.setAttribute('x', '0'); frame.setAttribute('y', '0'); frame.setAttribute('width', w); frame.setAttribute('height', h);
+        frame.setAttribute('rx', '8'); frame.setAttribute('fill', '#1e293b'); frame.setAttribute('stroke', '#475569'); frame.setAttribute('stroke-width', '2.5');
+        g.appendChild(frame);
+
+        // Headboard at top:
+        const hb = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        hb.setAttribute('x', '4'); hb.setAttribute('y', '4'); hb.setAttribute('width', w - 8); hb.setAttribute('height', h * 0.20);
+        hb.setAttribute('rx', '5'); hb.setAttribute('fill', '#334155'); hb.setAttribute('stroke', '#64748b'); hb.setAttribute('stroke-width', '2');
+        g.appendChild(hb);
+
+        // Mattress:
+        const mat = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        mat.setAttribute('x', '8'); mat.setAttribute('y', h * 0.18); mat.setAttribute('width', w - 16); mat.setAttribute('height', h * 0.78);
+        mat.setAttribute('rx', '6'); mat.setAttribute('fill', '#0f172a'); mat.setAttribute('stroke', '#334155');
+        g.appendChild(mat);
+
+        // Two Pillows:
+        const pilW = (w - 28) / 2;
+        [10, 10 + pilW + 8].forEach(px => {
+          const pillow = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          pillow.setAttribute('x', px); pillow.setAttribute('y', h * 0.22); pillow.setAttribute('width', pilW); pillow.setAttribute('height', h * 0.22);
+          pillow.setAttribute('rx', '5'); pillow.setAttribute('fill', '#f8fafc'); pillow.setAttribute('fill-opacity', '0.9');
+          pillow.setAttribute('stroke', '#38bdf8'); pillow.setAttribute('stroke-width', '2');
+          g.appendChild(pillow);
+        });
+
+        // Duvet / Quilt over bottom half:
+        const duvet = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        duvet.setAttribute('x', '8'); duvet.setAttribute('y', h * 0.48); duvet.setAttribute('width', w - 16); duvet.setAttribute('height', h * 0.48);
+        duvet.setAttribute('rx', '6'); duvet.setAttribute('fill', '#1e3a8a'); duvet.setAttribute('fill-opacity', '0.65');
+        duvet.setAttribute('stroke', '#3b82f6'); duvet.setAttribute('stroke-width', '2');
+        g.appendChild(duvet);
+
+        // Fold crease line:
+        const fold = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        fold.setAttribute('x1', '12'); fold.setAttribute('y1', h * 0.48); fold.setAttribute('x2', w - 12); fold.setAttribute('y2', h * 0.48);
+        fold.setAttribute('stroke', '#60a5fa'); fold.setAttribute('stroke-width', '2.5');
+        g.appendChild(fold);
+      }
     } else if (propType === 'chair') {
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('x', '0'); rect.setAttribute('y', '0'); rect.setAttribute('width', w); rect.setAttribute('height', h);
@@ -2083,6 +2191,64 @@
       vLine.setAttribute('x1', w / 2); vLine.setAttribute('y1', '0'); vLine.setAttribute('x2', w / 2); vLine.setAttribute('y2', h);
       vLine.setAttribute('stroke', '#38bdf8'); vLine.setAttribute('stroke-width', '2');
       g.appendChild(vLine);
+    } else if (propType === 'door') {
+      const frame = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      frame.setAttribute('x', '0'); frame.setAttribute('y', '0'); frame.setAttribute('width', w); frame.setAttribute('height', h);
+      frame.setAttribute('rx', '3'); frame.setAttribute('fill', '#1e293b'); frame.setAttribute('stroke', '#64748b'); frame.setAttribute('stroke-width', '3');
+      g.appendChild(frame);
+
+      const door = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      door.setAttribute('x', '6'); door.setAttribute('y', '6'); door.setAttribute('width', w - 12); door.setAttribute('height', h - 12);
+      door.setAttribute('rx', '2'); door.setAttribute('fill', '#334155'); door.setAttribute('stroke', '#475569');
+      g.appendChild(door);
+
+      const knob = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      knob.setAttribute('cx', w - 18); knob.setAttribute('cy', h * 0.55); knob.setAttribute('r', '5');
+      knob.setAttribute('fill', '#fbbf24'); knob.setAttribute('stroke', '#d97706'); knob.setAttribute('stroke-width', '1.5');
+      g.appendChild(knob);
+    } else if (propType === 'ladder') {
+      const leftX = 14, rightX = w - 14;
+      [leftX, rightX].forEach(lx => {
+        const rail = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        rail.setAttribute('x1', lx); rail.setAttribute('y1', '0'); rail.setAttribute('x2', lx); rail.setAttribute('y2', h);
+        rail.setAttribute('stroke', '#ca8a04'); rail.setAttribute('stroke-width', '4'); rail.setAttribute('stroke-linecap', 'round');
+        g.appendChild(rail);
+      });
+      const rungs = 7;
+      for (let i = 1; i <= rungs; i++) {
+        const ry = (h / (rungs + 1)) * i;
+        const rung = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        rung.setAttribute('x1', leftX); rung.setAttribute('y1', ry); rung.setAttribute('x2', rightX); rung.setAttribute('y2', ry);
+        rung.setAttribute('stroke', '#eab308'); rung.setAttribute('stroke-width', '3');
+        g.appendChild(rung);
+      }
+    } else if (propType === 'stairs') {
+      const steps = 5;
+      const sw = w / steps;
+      const sh = h / steps;
+      let d = `M 0 ${h} `;
+      for (let i = 0; i < steps; i++) {
+        d += `L ${i * sw} ${h - i * sh} L ${(i + 1) * sw} ${h - i * sh} `;
+      }
+      d += `L ${w} 0 L ${w} ${h} Z`;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d); path.setAttribute('fill', '#1e293b'); path.setAttribute('stroke', '#38bdf8'); path.setAttribute('stroke-width', '2');
+      g.appendChild(path);
+    } else if (propType === 'streetlight') {
+      const pole = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      pole.setAttribute('x', w * 0.44); pole.setAttribute('y', h * 0.15); pole.setAttribute('width', w * 0.12); pole.setAttribute('height', h * 0.85);
+      pole.setAttribute('fill', '#334155'); pole.setAttribute('stroke', '#475569');
+      g.appendChild(pole);
+
+      const head = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      head.setAttribute('d', `M ${w*0.44} ${h*0.2} Q ${w*0.5} 0 ${w*0.85} ${h*0.1} L ${w*0.95} ${h*0.18} L ${w*0.7} ${h*0.22} Z`);
+      head.setAttribute('fill', '#475569'); head.setAttribute('stroke', '#64748b');
+      g.appendChild(head);
+
+      const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      glow.setAttribute('cx', w * 0.82); glow.setAttribute('cy', h * 0.16); glow.setAttribute('r', '8');
+      glow.setAttribute('fill', '#fef08a'); glow.setAttribute('stroke', '#facc15'); glow.setAttribute('stroke-width', '2');
+      g.appendChild(glow);
     } else {
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('x', '0'); rect.setAttribute('y', '0'); rect.setAttribute('width', w); rect.setAttribute('height', h);
@@ -2562,6 +2728,7 @@
     const skinGrp = document.getElementById('skinControlGroup');
     const poseGrp = document.getElementById('poseControlGroup');
     const noteGrp = document.getElementById('noteControlGroup');
+    const propGrp = document.getElementById('propControlGroup');
     const layerBadge = document.getElementById('layerBadge');
 
     if (!selEl) {
@@ -2896,7 +3063,35 @@
   const btnScenePersp = document.getElementById('btnToggleScenePerspective');
   if (btnScenePersp) btnScenePersp.addEventListener('click', toggleScenePerspective);
 
-  const btnCharPersp = document.getElementById('btnCharToggleSideView');
+  const propSelect = document.getElementById('propSubtypeSelect');
+  if (propSelect) {
+    propSelect.addEventListener('change', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'prop') {
+        selEl.subtype = e.target.value;
+        const labels = {
+          bed: "Studio Bed", sofa: "Leather Sofa", chair: "Armchair",
+          table: "Dining Table", car: "Automobile", tree: "Tree",
+          ladder: "Ladder", stairs: "Stairs", window: "Window Frame", door: "Doorway"
+        };
+        selEl.label = labels[selEl.subtype] || selEl.subtype;
+        renderScene();
+      }
+    });
+  }
+
+  const propToggleView = document.getElementById('btnPropToggleView');
+  if (propToggleView) {
+    propToggleView.addEventListener('click', () => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'prop') {
+        selEl.view = (selEl.view === 'side' || state.scenePerspective === 'side') ? 'top' : 'side';
+        renderScene();
+      }
+    });
+  }
+
+    const btnCharPersp = document.getElementById('btnCharToggleSideView');
   if (btnCharPersp) btnCharPersp.addEventListener('click', toggleCharacterPerspective);
 
   document.getElementById('posePresetSelect').addEventListener('change', (e) => {
