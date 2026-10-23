@@ -379,6 +379,7 @@ type viewData struct {
 	AIResultError     string
 	AIInputConcept    string
 	AITargetProfile   string
+	AIMode            string
 	AICharacterID     int64
 	FlashNotice       string
 }
@@ -476,9 +477,27 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		aiStatus = s.catalog.InspectAIBackends(ctx)
 	}
 
-	defaultTarget := "flux"
-	if len(profiles) > 0 {
-		defaultTarget = profiles[0].Slug
+	defaultTarget := settings.DefaultTargetGenerator
+	if defaultTarget == "" {
+		if len(profiles) > 0 {
+			defaultTarget = profiles[0].Slug
+		} else {
+			defaultTarget = "flux"
+		}
+	}
+	if qTarget := r.URL.Query().Get("target_profile"); qTarget != "" {
+		defaultTarget = qTarget
+	} else if qProfile := r.URL.Query().Get("profile_slug"); qProfile != "" {
+		defaultTarget = qProfile
+	}
+
+	defaultMode := r.URL.Query().Get("mode")
+	if defaultMode == "" {
+		if selectedAsset != nil {
+			defaultMode = "vision"
+		} else {
+			defaultMode = "remix"
+		}
 	}
 
 	inputConcept := r.URL.Query().Get("concept")
@@ -509,6 +528,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		AIStatus:         aiStatus,
 		AIInputConcept:   inputConcept,
 		AITargetProfile:  defaultTarget,
+		AIMode:           defaultMode,
 		FlashNotice:      r.URL.Query().Get("notice"),
 	}
 
@@ -819,6 +839,10 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if profileSlug != "" {
+		_ = s.catalog.SetDefaultTargetGenerator(ctx, profileSlug)
+	}
+
 	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, override, saveToAsset, frameImagePath)
 
 	filter := parseCatalogFilter(r)
@@ -864,6 +888,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		AIResultPrompt:   outPrompt,
 		AIInputConcept:   userHint,
 		AITargetProfile:  profileSlug,
+		AIMode:           mode,
 		AICharacterID:    characterID,
 	}
 	if runErr != nil {
@@ -886,6 +911,10 @@ func (s *Server) handleCharacter2Prompt(w http.ResponseWriter, r *http.Request) 
 	returnTab := r.FormValue("return_tab")
 	if returnTab == "" {
 		returnTab = "characters"
+	}
+
+	if profileSlug != "" {
+		_ = s.catalog.SetDefaultTargetGenerator(ctx, profileSlug)
 	}
 
 	outPrompt, runErr := s.catalog.RunCharacterPrompt(ctx, characterID, profileSlug, sceneDirection, refAssetID, loraIDs, override)
@@ -934,6 +963,10 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 	loraIDs := parseLoRAIDs(r.Form["lora_id"])
 	override := parseExecutionOverride(r)
 
+	if profileSlug != "" {
+		_ = s.catalog.SetDefaultTargetGenerator(ctx, profileSlug)
+	}
+
 	outPrompt, runErr := s.catalog.RunText2Prompt(ctx, concept, profileSlug, loraIDs, override)
 
 	filter := parseCatalogFilter(r)
@@ -972,6 +1005,7 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 		AIResultPrompt:   outPrompt,
 		AIInputConcept:   concept,
 		AITargetProfile:  profileSlug,
+		AIMode:           "remix",
 	}
 	if runErr != nil {
 		data.AIResultError = runErr.Error()

@@ -614,6 +614,19 @@ func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) err
 	return nil
 }
 
+// SetDefaultTargetGenerator updates the active default target generator slug in app_settings.
+func (r *Repository) SetDefaultTargetGenerator(ctx context.Context, slug string) error {
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
+		return nil
+	}
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO app_settings (key, value) VALUES ('default_target_generator', ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value`, slug)
+	return err
+}
+
 // UpsertPromptProfile creates or updates a generator system prompt profile (flux, krea2, moss, minimaxh3, etc.).
 func (r *Repository) UpsertPromptProfile(ctx context.Context, p *domain.PromptProfile) (int64, error) {
 	db := r.conn()

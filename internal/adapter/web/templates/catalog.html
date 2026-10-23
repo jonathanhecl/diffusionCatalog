@@ -804,7 +804,7 @@
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                   <div>
                     <label class="kv-label">Target Generator Model Family (System Prompt)</label>
-                    <select name="profile_slug" class="input-dark" onchange="filterLoRAsByModel(this.form, this.value)">
+                    <select name="profile_slug" id="studio-profile-select" class="input-dark" onchange="onStudioProfileChange(this)">
                       {{range .PromptProfiles}}
                         <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} &mdash; {{.TargetModality}})</option>
                       {{end}}
@@ -812,13 +812,13 @@
                   </div>
                   <div>
                     <label class="kv-label">Operation Mode</label>
-                    <select name="mode" id="studio-mode-select" class="input-dark">
+                    <select name="mode" id="studio-mode-select" class="input-dark" onchange="onStudioModeChange(this.value)">
                       {{if .SelectedAsset}}
-                        <option value="vision" selected>Vision Analysis (Inspect Media/Frame + Direction)</option>
-                        <option value="remix">Prompt Translation (Rewrite Existing Prompt)</option>
+                        <option value="vision" {{if or (eq $.AIMode "") (eq $.AIMode "vision")}}selected{{end}}>Vision Analysis (Inspect Media/Frame + Direction)</option>
+                        <option value="remix" {{if eq $.AIMode "remix"}}selected{{end}}>Prompt Translation (Rewrite Existing Prompt)</option>
                       {{else}}
-                        <option value="remix" id="mode-opt-remix" selected>Text Prompt Synthesis (From Concept)</option>
-                        <option value="vision" id="mode-opt-vision">Vision Analysis (Using Attached Image)</option>
+                        <option value="remix" id="mode-opt-remix" {{if or (eq $.AIMode "") (eq $.AIMode "remix")}}selected{{end}}>Text Prompt Synthesis (From Concept)</option>
+                        <option value="vision" id="mode-opt-vision" {{if eq $.AIMode "vision"}}selected{{end}}>Vision Analysis (Using Attached Image)</option>
                       {{end}}
                     </select>
                   </div>
@@ -1946,7 +1946,48 @@
       }
     }
 
+    function onStudioProfileChange(sel) {
+      if (sel && sel.value) {
+        localStorage.setItem('dc_last_target_generator', sel.value);
+        filterLoRAsByModel(sel.form, sel.value);
+      }
+    }
+
+    function onStudioModeChange(val) {
+      if (val) {
+        localStorage.setItem('dc_last_studio_mode', val);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+      var targetSel = document.getElementById('studio-profile-select');
+      var serverTarget = '{{$.AITargetProfile}}';
+      if (targetSel && !serverTarget) {
+        var savedTarget = localStorage.getItem('dc_last_target_generator');
+        if (savedTarget) {
+          for (var i = 0; i < targetSel.options.length; i++) {
+            if (targetSel.options[i].value === savedTarget) {
+              targetSel.selectedIndex = i;
+              break;
+            }
+          }
+        }
+      }
+
+      var modeSel = document.getElementById('studio-mode-select');
+      var serverMode = '{{$.AIMode}}';
+      if (modeSel && !serverMode) {
+        var savedMode = localStorage.getItem('dc_last_studio_mode');
+        if (savedMode) {
+          for (var j = 0; j < modeSel.options.length; j++) {
+            if (modeSel.options[j].value === savedMode) {
+              modeSel.selectedIndex = j;
+              break;
+            }
+          }
+        }
+      }
+
       document.querySelectorAll('select[name="profile_slug"]').forEach(function(sel) {
         if (sel.form && sel.form.querySelector('.lora-chip-item')) {
           filterLoRAsByModel(sel.form, sel.value);
@@ -2051,13 +2092,17 @@
     function prepareStudioSubmission(event, form) {
       var videoEl = document.getElementById('remix-video-el');
       var frameInput = document.getElementById('video_frame_data');
+      var modeSelect = document.getElementById('studio-mode-select');
       var submitBtn = document.getElementById('btn-submit-studio') || document.getElementById('btn-submit-remix');
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerText = 'Analyzing & Generating...';
       }
 
-      if (videoEl && frameInput && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+      var isRemixMode = modeSelect && modeSelect.value === 'remix';
+      if (isRemixMode) {
+        if (frameInput) frameInput.value = '';
+      } else if (videoEl && frameInput && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
         try {
           var canvas = document.createElement('canvas');
           canvas.width = videoEl.videoWidth;

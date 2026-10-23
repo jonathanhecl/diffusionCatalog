@@ -92,6 +92,7 @@ type CatalogRepository interface {
 
 	GetSettings(ctx context.Context) (AppSettings, error)
 	SaveSettings(ctx context.Context, settings AppSettings) error
+	SetDefaultTargetGenerator(ctx context.Context, slug string) error
 
 	UpsertPromptProfile(ctx context.Context, profile *PromptProfile) (int64, error)
 	DeletePromptProfile(ctx context.Context, id int64) error

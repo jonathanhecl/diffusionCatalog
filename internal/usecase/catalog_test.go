@@ -95,3 +95,97 @@ func TestEndToEndSeedScanAndCatalogQuery(t *testing.T) {
 		t.Fatalf("expected 6 extracted face crops, got %d", facePage.TotalCount)
 	}
 }
+
+type mockOllamaProvider struct {
+	lastCall string
+}
+
+func (m *mockOllamaProvider) CheckStatus(ctx context.Context, baseURL string) (string, bool) {
+	return "1.0", true
+}
+func (m *mockOllamaProvider) ListModels(ctx context.Context, baseURL string) ([]domain.OllamaModelInfo, error) {
+	return nil, nil
+}
+func (m *mockOllamaProvider) CheckOMLXStatus(ctx context.Context, baseURL, apiKey string) (bool, int) {
+	return false, 0
+}
+func (m *mockOllamaProvider) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]domain.OllamaModelInfo, error) {
+	return nil, nil
+}
+func (m *mockOllamaProvider) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, absImagePath, userHint, thinkLevel string) (string, error) {
+	m.lastCall = "ImageToPrompt"
+	return "vision prompt", nil
+}
+func (m *mockOllamaProvider) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
+	m.lastCall = "TextToPrompt"
+	return "remix text prompt", nil
+}
+
+func TestRemixAndVisionOperationModeAndTargetGeneratorPersistence(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, ".cache")
+	dbPath := filepath.Join(tmpDir, "test_remix.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite db: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	mockOllama := &mockOllamaProvider{}
+	catalogSvc := NewCatalogService(mediaDir, repo, mockOllama)
+
+	// 1. Verify SetDefaultTargetGenerator persists target generator across calls
+	if err := catalogSvc.SetDefaultTargetGenerator(ctx, "krea2"); err != nil {
+		t.Fatalf("failed to set default target generator: %v", err)
+	}
+	settings, err := catalogSvc.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("failed to get settings: %v", err)
+	}
+	if settings.DefaultTargetGenerator != "krea2" {
+		t.Errorf("expected default target generator 'krea2', got %q", settings.DefaultTargetGenerator)
+	}
+
+	// 2. Insert test asset
+	rootID, _ := repo.UpsertMediaRoot(ctx, &domain.MediaRoot{Path: mediaDir, Label: "TestRoot"})
+	assetID, err := repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RootID:    rootID,
+		RelPath:   "test_video.mp4",
+		FileName:  "test_video.mp4",
+		MediaType: domain.MediaTypeVideo,
+		Metadata: domain.GenerationParams{
+			PositivePrompt: "cyberpunk skyline",
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to insert asset: %v", err)
+	}
+
+	// 3. Test mode == "remix" on a video asset: MUST use TextToPrompt, NOT ImageToPrompt
+	out, err := catalogSvc.RunImage2Prompt(ctx, assetID, "flux", "remix", "make it neon", 0, nil, domain.PromptExecutionOverride{}, false, "")
+	if err != nil {
+		t.Fatalf("RunImage2Prompt remix mode failed: %v", err)
+	}
+	if out != "remix text prompt" {
+		t.Errorf("unexpected output: %q", out)
+	}
+	if mockOllama.lastCall != "TextToPrompt" {
+		t.Errorf("expected mode 'remix' to call TextToPrompt, got %q", mockOllama.lastCall)
+	}
+
+	// 4. Test mode == "vision" on an attached frame: MUST use ImageToPrompt
+	outVision, err := catalogSvc.RunImage2Prompt(ctx, assetID, "flux", "vision", "inspect visual details", 0, nil, domain.PromptExecutionOverride{}, false, filepath.Join(cacheDir, "fake_frame.jpg"))
+	if err != nil {
+		t.Fatalf("RunImage2Prompt vision mode failed: %v", err)
+	}
+	if outVision != "vision prompt" {
+		t.Errorf("unexpected output: %q", outVision)
+	}
+	if mockOllama.lastCall != "ImageToPrompt" {
+		t.Errorf("expected mode 'vision' to call ImageToPrompt, got %q", mockOllama.lastCall)
+	}
+}

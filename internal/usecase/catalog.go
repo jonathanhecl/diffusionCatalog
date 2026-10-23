@@ -333,6 +333,11 @@ func (s *CatalogService) SaveSettings(ctx context.Context, cfg domain.AppSetting
 	return s.repo.SaveSettings(ctx, cfg)
 }
 
+// SetDefaultTargetGenerator updates the active default target generator slug.
+func (s *CatalogService) SetDefaultTargetGenerator(ctx context.Context, slug string) error {
+	return s.repo.SetDefaultTargetGenerator(ctx, slug)
+}
+
 // ListPromptProfiles returns all generator system prompt profiles (flux, krea2, moss, minimaxh3, etc.).
 func (s *CatalogService) ListPromptProfiles(ctx context.Context) ([]domain.PromptProfile, error) {
 	return s.repo.ListPromptProfiles(ctx)
@@ -527,16 +532,25 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 	var usedModel string
 	var usedThink string
 
-	// For videos with a captured frame or user-attached image, send it to ImageToPrompt
-	isFrameRef := frameImagePath != "" && (asset == nil || asset.MediaType == domain.MediaTypeVideo || mode == "vision")
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode == "" {
+		if asset != nil || frameImagePath != "" {
+			mode = "vision"
+		} else {
+			mode = "remix"
+		}
+	}
 
-	if !isFrameRef && mode == "remix" && combinedHint != "" {
+	if mode == "remix" {
 		// Remix via Text2Prompt model using the extracted prompt + character + direction
 		var baseURL string
 		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(
 			cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override,
 		)
 		promptInstruction := "Transform the following reference asset and scene direction into a final generation prompt for target engine '" + profileSlug + "'. Preserve any mandatory character trigger words if present:\n\n" + combinedHint
+		if strings.TrimSpace(combinedHint) == "" {
+			promptInstruction = "Generate a rich, detailed, high-quality generation prompt for target engine '" + profileSlug + "'."
+		}
 		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, promptInstruction, usedThink)
 		if err != nil {
 			return "", err
