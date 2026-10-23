@@ -131,13 +131,18 @@ func (r *Repository) UpdateAssetPrompt(ctx context.Context, assetID int64, posit
 	return err
 }
 
-// GetSettings retrieves the application & Ollama configuration from SQLite.
+// GetSettings retrieves the application, Ollama, and oMLX configuration from SQLite.
 func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error) {
 	s := domain.AppSettings{
-		OllamaBaseURL:          "http://localhost:11434",
+		OllamaBaseURL:          "http://mac-mini.local:11434",
+		OMLXBaseURL:            "http://mac-mini.local:8000",
+		OMLXAPIKey:             "omlx",
+		VisionProvider:         domain.ProviderOllama,
 		VisionModel:            "llama3.2-vision:latest",
+		Image2PromptProvider:   domain.ProviderOllama,
 		Image2PromptModel:      "llama3.2-vision:latest",
-		Text2PromptModel:       "qwen3:8b",
+		Text2PromptProvider:    domain.ProviderOMLX,
+		Text2PromptModel:       "SuperQwen3.8-27b-abliterated-MLX-4bit",
 		DefaultTargetGenerator: "flux",
 	}
 	rows, err := r.db.QueryContext(ctx, `SELECT key, value FROM app_settings`)
@@ -152,10 +157,20 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 			switch k {
 			case "ollama_base_url":
 				s.OllamaBaseURL = v
+			case "omlx_base_url":
+				s.OMLXBaseURL = v
+			case "omlx_api_key":
+				s.OMLXAPIKey = v
+			case "vision_provider":
+				s.VisionProvider = domain.AIProviderType(v)
 			case "vision_model":
 				s.VisionModel = v
+			case "image2prompt_provider":
+				s.Image2PromptProvider = domain.AIProviderType(v)
 			case "image2prompt_model":
 				s.Image2PromptModel = v
+			case "text2prompt_provider":
+				s.Text2PromptProvider = domain.AIProviderType(v)
 			case "text2prompt_model":
 				s.Text2PromptModel = v
 			case "default_target_generator":
@@ -168,16 +183,30 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 	return s, nil
 }
 
-// SaveSettings persists application & Ollama settings into SQLite.
+// SaveSettings persists application, Ollama, and oMLX settings into SQLite.
 func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) error {
 	autoCap := "false"
 	if s.AutoCaptionOnScan {
 		autoCap = "true"
 	}
+	if s.VisionProvider == "" {
+		s.VisionProvider = domain.ProviderOllama
+	}
+	if s.Image2PromptProvider == "" {
+		s.Image2PromptProvider = domain.ProviderOllama
+	}
+	if s.Text2PromptProvider == "" {
+		s.Text2PromptProvider = domain.ProviderOllama
+	}
 	pairs := map[string]string{
 		"ollama_base_url":          strings.TrimSpace(s.OllamaBaseURL),
+		"omlx_base_url":            strings.TrimSpace(s.OMLXBaseURL),
+		"omlx_api_key":             strings.TrimSpace(s.OMLXAPIKey),
+		"vision_provider":          string(s.VisionProvider),
 		"vision_model":             strings.TrimSpace(s.VisionModel),
+		"image2prompt_provider":    string(s.Image2PromptProvider),
 		"image2prompt_model":       strings.TrimSpace(s.Image2PromptModel),
+		"text2prompt_provider":     string(s.Text2PromptProvider),
 		"text2prompt_model":        strings.TrimSpace(s.Text2PromptModel),
 		"default_target_generator": strings.TrimSpace(s.DefaultTargetGenerator),
 		"auto_caption_on_scan":     autoCap,

@@ -188,10 +188,15 @@ func migrate(ctx context.Context, db *sql.DB) error {
 
 func seedDefaultSettingsAndProfiles(ctx context.Context, db *sql.DB) error {
 	defaults := map[string]string{
-		"ollama_base_url":          "http://localhost:11434",
+		"ollama_base_url":          "http://mac-mini.local:11434",
+		"omlx_base_url":            "http://mac-mini.local:8000",
+		"omlx_api_key":             "omlx",
+		"vision_provider":          "ollama",
 		"vision_model":             "llama3.2-vision:latest",
+		"image2prompt_provider":    "ollama",
 		"image2prompt_model":       "llama3.2-vision:latest",
-		"text2prompt_model":        "qwen3:8b",
+		"text2prompt_provider":     "omlx",
+		"text2prompt_model":        "SuperQwen3.8-27b-abliterated-MLX-4bit",
 		"default_target_generator": "flux",
 		"auto_caption_on_scan":     "false",
 	}

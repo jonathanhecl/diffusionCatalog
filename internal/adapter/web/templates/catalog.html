@@ -107,16 +107,16 @@
       </div>
     {{end}}
 
-    <!-- Datalist of detected Ollama models for inputs -->
-    <datalist id="ollama-models-all">
-      {{range .OllamaModels}}
-        <option value="{{.Name}}">{{.Family}} ({{.ParameterSize}}) — [{{joinStrings .Capabilities}}]</option>
+    <!-- Datalist of detected Ollama + oMLX models for inputs -->
+    <datalist id="ai-models-all">
+      {{range .AIStatus.AllModels}}
+        <option value="{{.Name}}">[{{.Provider}}] {{.Family}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}ctx:{{.ContextLength}}{{end}}</option>
       {{end}}
     </datalist>
-    <datalist id="ollama-models-vision">
-      {{range .OllamaModels}}
+    <datalist id="ai-models-vision">
+      {{range .AIStatus.AllModels}}
         {{if .HasVision}}
-          <option value="{{.Name}}">Vision ({{.VisionStatus}}) — {{.ParameterSize}}</option>
+          <option value="{{.Name}}">[{{.Provider}}] Vision ({{.VisionStatus}}) {{if .ContextLength}}ctx:{{.ContextLength}}{{end}}</option>
         {{end}}
       {{end}}
     </datalist>
@@ -279,17 +279,18 @@
       </div>
 
     {{else if eq .ActiveTab "studio"}}
-      <!-- Ollama Text2Prompt Studio -->
+      <!-- Ollama / oMLX Text2Prompt Studio -->
       <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;margin:20px 0 40px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
           <div>
-            <h2 style="font-size:18px;">Ollama Text2Prompt Studio</h2>
+            <h2 style="font-size:18px;">Ollama &amp; oMLX Text2Prompt Studio</h2>
             <p style="color:var(--text-muted);font-size:12px;">
-              Active Text2Prompt Model: <code>{{.Settings.Text2PromptModel}}</code> | Ollama Endpoint: <code>{{.Settings.OllamaBaseURL}}</code>
-              ({{if .OllamaOnline}}<span style="color:#34d399;">Online v{{.OllamaVersion}}</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}})
+              Active Text2Prompt Route: <strong>[{{.Settings.Text2PromptProvider}}]</strong> <code>{{.Settings.Text2PromptModel}}</code> |
+              Ollama ({{.Settings.OllamaBaseURL}}): {{if .AIStatus.OllamaOnline}}<span style="color:#34d399;">Online</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}} |
+              oMLX ({{.Settings.OMLXBaseURL}}): {{if .AIStatus.OMLXOnline}}<span style="color:#34d399;">Online ({{len .AIStatus.OMLXModels}} MLX models)</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}}
             </p>
           </div>
-          <a href="/?tab=settings" class="btn-ghost">Configure Models &amp; System Prompts</a>
+          <a href="/?tab=settings" class="btn-ghost">Configure Remote Hosts &amp; System Prompts</a>
         </div>
 
         {{if .AIResultError}}
@@ -314,7 +315,7 @@
             </div>
           </div>
           <div>
-            <button type="submit" class="btn-primary">Synthesize Prompt with Ollama ({{.Settings.Text2PromptModel}})</button>
+            <button type="submit" class="btn-primary">Synthesize Prompt via [{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}}</button>
           </div>
         </form>
 
@@ -330,34 +331,91 @@
       </div>
 
     {{else if eq .ActiveTab "settings"}}
-      <!-- Settings Menu: Ollama Model Routing + Generator System Prompts + System Status -->
+      <!-- Settings Menu: Remote Ollama + oMLX Routing + Generator System Prompts + System Status -->
       <div style="display:flex;flex-direction:column;gap:22px;margin:20px 0 44px;">
 
-        <!-- 1. Ollama Connection & Model Routing -->
+        <!-- 1. Ollama & oMLX Connection & Model Routing -->
         <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
             <div>
-              <h2 style="font-size:18px;">1. Ollama Model Routing (Vision, Image2Prompt, Text2Prompt)</h2>
-              <p style="color:var(--text-muted);font-size:12px;">Assign dedicated local or remote Ollama models for each capability.</p>
+              <h2 style="font-size:18px;">1. Remote / Local Ollama &amp; oMLX Model Routing</h2>
+              <p style="color:var(--text-muted);font-size:12px;">
+                Connect to local or remote servers (e.g. <code>http://mac-mini.local:11434</code> for Ollama and <code>http://mac-mini.local:8000</code> for oMLX) and route Vision, Image2Prompt, and Text2Prompt independently.
+              </p>
             </div>
-            <div>
-              {{if .OllamaOnline}}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              {{if .AIStatus.OllamaOnline}}
                 <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
-                  Ollama Online (v{{.OllamaVersion}}) — {{len .OllamaModels}} models detected
+                  Ollama Online (v{{.AIStatus.OllamaVersion}}) — {{len .AIStatus.OllamaModels}} models
                 </span>
               {{else}}
                 <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
                   Ollama Unreachable ({{.Settings.OllamaBaseURL}})
                 </span>
               {{end}}
+
+              {{if .AIStatus.OMLXOnline}}
+                <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
+                  oMLX Online — {{len .AIStatus.OMLXModels}} MLX models
+                </span>
+              {{else}}
+                <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
+                  oMLX Unreachable ({{.Settings.OMLXBaseURL}})
+                </span>
+              {{end}}
             </div>
           </div>
 
-          <form action="/admin/settings/save" method="POST" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <form action="/admin/settings/save" method="POST" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
             <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Ollama Base URL</label>
-              <input type="text" name="ollama_base_url" value="{{.Settings.OllamaBaseURL}}" class="input-dark" placeholder="http://localhost:11434" required>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Ollama Base URL (Local or Remote)</label>
+              <input type="text" name="ollama_base_url" value="{{.Settings.OllamaBaseURL}}" class="input-dark" placeholder="http://mac-mini.local:11434" required>
             </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">oMLX Base URL (OpenAI-Compatible MLX)</label>
+              <input type="text" name="omlx_base_url" value="{{.Settings.OMLXBaseURL}}" class="input-dark" placeholder="http://mac-mini.local:8000">
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">oMLX Bearer API Key</label>
+              <input type="text" name="omlx_api_key" value="{{.Settings.OMLXAPIKey}}" class="input-dark" placeholder="omlx">
+            </div>
+
+            <!-- Vision Task Route -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Vision Analysis Backend &amp; Model</label>
+              <div style="display:flex;gap:6px;">
+                <select name="vision_provider" class="input-dark" style="width:105px;">
+                  <option value="ollama" {{if eq .Settings.VisionProvider "ollama"}}selected{{end}}>Ollama</option>
+                  <option value="omlx" {{if eq .Settings.VisionProvider "omlx"}}selected{{end}}>oMLX</option>
+                </select>
+                <input type="text" name="vision_model" list="ai-models-vision" value="{{.Settings.VisionModel}}" class="input-dark" placeholder="e.g. llama3.2-vision:latest">
+              </div>
+            </div>
+
+            <!-- Image2Prompt Task Route -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Image2Prompt Backend &amp; Model</label>
+              <div style="display:flex;gap:6px;">
+                <select name="image2prompt_provider" class="input-dark" style="width:105px;">
+                  <option value="ollama" {{if eq .Settings.Image2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
+                  <option value="omlx" {{if eq .Settings.Image2PromptProvider "omlx"}}selected{{end}}>oMLX</option>
+                </select>
+                <input type="text" name="image2prompt_model" list="ai-models-vision" value="{{.Settings.Image2PromptModel}}" class="input-dark" placeholder="e.g. Qwen2.5-VL-7B-Instruct-MLX-4bit">
+              </div>
+            </div>
+
+            <!-- Text2Prompt Task Route -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Text2Prompt Backend &amp; Model</label>
+              <div style="display:flex;gap:6px;">
+                <select name="text2prompt_provider" class="input-dark" style="width:105px;">
+                  <option value="ollama" {{if eq .Settings.Text2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
+                  <option value="omlx" {{if eq .Settings.Text2PromptProvider "omlx"}}selected{{end}}>oMLX</option>
+                </select>
+                <input type="text" name="text2prompt_model" list="ai-models-all" value="{{.Settings.Text2PromptModel}}" class="input-dark" placeholder="e.g. SuperQwen3.8-27b-abliterated-MLX-4bit">
+              </div>
+            </div>
+
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Default Target Generator Profile</label>
               <select name="default_target_generator" class="input-dark">
@@ -367,20 +425,7 @@
               </select>
             </div>
 
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Vision Analysis Model (Multimodal)</label>
-              <input type="text" name="vision_model" list="ollama-models-vision" value="{{.Settings.VisionModel}}" class="input-dark" placeholder="e.g. llama3.2-vision:latest, qwen2.5vl:7b, gemma4:e2b">
-            </div>
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Image2Prompt Model (Vision reverse-prompting)</label>
-              <input type="text" name="image2prompt_model" list="ollama-models-vision" value="{{.Settings.Image2PromptModel}}" class="input-dark" placeholder="e.g. llama3.2-vision:latest, minicpm-v:latest">
-            </div>
-
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Text2Prompt Model (Prompt expansion &amp; engine conversion)</label>
-              <input type="text" name="text2prompt_model" list="ollama-models-all" value="{{.Settings.Text2PromptModel}}" class="input-dark" placeholder="e.g. qwen3:8b, gemma4:e2b, llama3.3:latest">
-            </div>
-            <div style="display:flex;align-items:flex-end;padding-bottom:6px;">
+            <div style="grid-column:span 2;display:flex;align-items:flex-end;padding-bottom:6px;">
               <label class="checkbox-item" style="font-size:12.5px;color:var(--text-main);">
                 <span>
                   <input type="checkbox" name="auto_caption_on_scan" {{if .Settings.AutoCaptionOnScan}}checked{{end}}>
@@ -389,21 +434,22 @@
               </label>
             </div>
 
-            <div style="grid-column:span 2;display:flex;justify-content:space-between;align-items:center;padding-top:6px;">
-              <button type="submit" class="btn-primary">Save Ollama &amp; App Settings</button>
-              <a href="/?tab=settings" class="btn-ghost">Refresh Detected Ollama Models</a>
+            <div style="grid-column:span 3;display:flex;justify-content:space-between;align-items:center;padding-top:6px;">
+              <button type="submit" class="btn-primary">Save Ollama, oMLX &amp; App Settings</button>
+              <a href="/?tab=settings" class="btn-ghost">Probe &amp; Refresh Models from Ollama / oMLX</a>
             </div>
           </form>
 
-          {{if .OllamaModels}}
+          {{if .AIStatus.AllModels}}
             <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-navy);">
-              <div class="kv-label" style="margin-bottom:8px;">Detected Local Ollama Models &amp; Capabilities (via /api/tags + /api/show)</div>
+              <div class="kv-label" style="margin-bottom:8px;">Discovered Models Across Ollama (/api/tags) &amp; oMLX (/v1/models)</div>
               <div class="tag-cloud">
-                {{range .OllamaModels}}
+                {{range .AIStatus.AllModels}}
                   <span class="badge-chip" style="padding:4px 8px;font-size:11px;">
-                    <strong>{{.Name}}</strong> ({{.ParameterSize}})
+                    <span style="color:#60a5fa;">[{{.Provider}}]</span> <strong>{{.Name}}</strong>
+                    {{if .ParameterSize}}({{.ParameterSize}}){{end}}
                     {{if .HasVision}}<span style="color:#34d399;">[vision:{{.VisionStatus}}]</span>{{end}}
-                    {{if .ContextLength}}<span style="color:#93c5fd;">[ctx:{{.ContextLength}}]</span>{{end}}
+                    {{if .ContextLength}}<span style="color:#fcd34d;">[ctx:{{.ContextLength}}]</span>{{end}}
                   </span>
                 {{end}}
               </div>

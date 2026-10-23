@@ -80,11 +80,15 @@ type VisionEngine interface {
 	DetectAndCropFaces(ctx context.Context, assetID int64, absImagePath, cacheDir string) ([]DetectedFace, error)
 }
 
-// OllamaProvider defines the port for interacting with local or remote Ollama instances
-// (capability inspection, vision analysis, image2prompt, and text2prompt generation).
+// OllamaProvider defines the port for interacting with local or remote Ollama and oMLX (OpenAI-compatible MLX)
+// inference servers for capability discovery, vision analysis, image2prompt, and text2prompt generation.
 type OllamaProvider interface {
 	CheckStatus(ctx context.Context, baseURL string) (version string, online bool)
 	ListModels(ctx context.Context, baseURL string) ([]OllamaModelInfo, error)
-	ImageToPrompt(ctx context.Context, baseURL, model, systemPrompt, absImagePath, userHint string) (string, error)
-	TextToPrompt(ctx context.Context, baseURL, model, systemPrompt, inputConcept string) (string, error)
+
+	CheckOMLXStatus(ctx context.Context, baseURL, apiKey string) (online bool, modelCount int)
+	ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]OllamaModelInfo, error)
+
+	ImageToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, absImagePath, userHint string) (string, error)
+	TextToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept string) (string, error)
 }

@@ -138,25 +138,51 @@ func (s *CatalogService) DeletePromptProfile(ctx context.Context, id int64) erro
 	return s.repo.DeletePromptProfile(ctx, id)
 }
 
-// InspectOllama checks if the configured Ollama instance is reachable and lists installed models with capabilities.
-func (s *CatalogService) InspectOllama(ctx context.Context) (string, bool, []domain.OllamaModelInfo) {
-	if s.ollama == nil {
-		return "", false, nil
-	}
-	cfg, _ := s.repo.GetSettings(ctx)
-	ver, online := s.ollama.CheckStatus(ctx, cfg.OllamaBaseURL)
-	if !online {
-		return "", false, nil
-	}
-	models, _ := s.ollama.ListModels(ctx, cfg.OllamaBaseURL)
-	return ver, true, models
+// AIBackendStatus summarizes the live connectivity and discovered models of both Ollama and oMLX.
+type AIBackendStatus struct {
+	OllamaOnline  bool
+	OllamaVersion string
+	OllamaModels  []domain.OllamaModelInfo
+	OMLXOnline    bool
+	OMLXModels    []domain.OllamaModelInfo
+	AllModels     []domain.OllamaModelInfo
 }
 
-// RunImage2Prompt runs the configured Ollama Image2Prompt (or Vision) model on an asset using the selected
+// InspectAIBackends checks both the configured Ollama server and oMLX server and merges their model lists.
+func (s *CatalogService) InspectAIBackends(ctx context.Context) AIBackendStatus {
+	var st AIBackendStatus
+	if s.ollama == nil {
+		return st
+	}
+	cfg, _ := s.repo.GetSettings(ctx)
+
+	if strings.TrimSpace(cfg.OllamaBaseURL) != "" {
+		ver, online := s.ollama.CheckStatus(ctx, cfg.OllamaBaseURL)
+		st.OllamaOnline = online
+		st.OllamaVersion = ver
+		if online {
+			st.OllamaModels, _ = s.ollama.ListModels(ctx, cfg.OllamaBaseURL)
+			st.AllModels = append(st.AllModels, st.OllamaModels...)
+		}
+	}
+
+	if strings.TrimSpace(cfg.OMLXBaseURL) != "" {
+		models, err := s.ollama.ListOMLXModels(ctx, cfg.OMLXBaseURL, cfg.OMLXAPIKey)
+		if err == nil {
+			st.OMLXOnline = true
+			st.OMLXModels = models
+			st.AllModels = append(st.AllModels, models...)
+		}
+	}
+
+	return st
+}
+
+// RunImage2Prompt runs the configured Ollama or oMLX Image2Prompt (or Vision) model on an asset using the selected
 // generator profile's system prompt (e.g., flux, krea2, moss, minimaxh3).
 func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, userHint string, saveToAsset bool) (string, error) {
 	if s.ollama == nil {
-		return "", fmt.Errorf("ollama provider is not initialized")
+		return "", fmt.Errorf("AI provider is not initialized")
 	}
 	asset, err := s.repo.GetAssetByID(ctx, assetID)
 	if err != nil {
@@ -175,13 +201,23 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		sysPrompt = prof.SystemPrompt
 	}
 
+	provider := cfg.Image2PromptProvider
 	model := cfg.Image2PromptModel
 	if model == "" {
+		provider = cfg.VisionProvider
 		model = cfg.VisionModel
+	}
+	if provider == "" {
+		provider = domain.ProviderOllama
+	}
+
+	baseURL := cfg.OllamaBaseURL
+	if provider == domain.ProviderOMLX {
+		baseURL = cfg.OMLXBaseURL
 	}
 
 	absPath := filepath.Join(s.mediaDir, filepath.FromSlash(asset.RelPath))
-	generated, err := s.ollama.ImageToPrompt(ctx, cfg.OllamaBaseURL, model, sysPrompt, absPath, userHint)
+	generated, err := s.ollama.ImageToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, model, sysPrompt, absPath, userHint)
 	if err != nil {
 		return "", err
 	}
@@ -193,10 +229,10 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 }
 
 // RunText2Prompt expands or converts a text idea/prompt into a target generator prompt using the configured
-// Ollama Text2Prompt model and the selected generator profile's system prompt.
+// Ollama or oMLX Text2Prompt model and the selected generator profile's system prompt.
 func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profileSlug string) (string, error) {
 	if s.ollama == nil {
-		return "", fmt.Errorf("ollama provider is not initialized")
+		return "", fmt.Errorf("AI provider is not initialized")
 	}
 	cfg, err := s.repo.GetSettings(ctx)
 	if err != nil {
@@ -211,5 +247,14 @@ func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profi
 		sysPrompt = prof.SystemPrompt
 	}
 
-	return s.ollama.TextToPrompt(ctx, cfg.OllamaBaseURL, cfg.Text2PromptModel, sysPrompt, inputConcept)
+	provider := cfg.Text2PromptProvider
+	if provider == "" {
+		provider = domain.ProviderOllama
+	}
+	baseURL := cfg.OllamaBaseURL
+	if provider == domain.ProviderOMLX {
+		baseURL = cfg.OMLXBaseURL
+	}
+
+	return s.ollama.TextToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, cfg.Text2PromptModel, sysPrompt, inputConcept)
 }

@@ -130,9 +130,7 @@ type viewData struct {
 	ScanReport       usecase.ScanReport
 	Settings         domain.AppSettings
 	PromptProfiles   []domain.PromptProfile
-	OllamaOnline     bool
-	OllamaVersion    string
-	OllamaModels     []domain.OllamaModelInfo
+	AIStatus         usecase.AIBackendStatus
 	AIResultPrompt   string
 	AIResultError    string
 	AIInputConcept   string
@@ -172,11 +170,9 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
 
-	var ollamaVer string
-	var ollamaOnline bool
-	var ollamaModels []domain.OllamaModelInfo
+	var aiStatus usecase.AIBackendStatus
 	if tab == "settings" || tab == "studio" || tab == "asset_detail" {
-		ollamaVer, ollamaOnline, ollamaModels = s.catalog.InspectOllama(ctx)
+		aiStatus = s.catalog.InspectAIBackends(ctx)
 	}
 
 	data := viewData{
@@ -190,9 +186,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
-		OllamaOnline:     ollamaOnline,
-		OllamaVersion:    ollamaVer,
-		OllamaModels:     ollamaModels,
+		AIStatus:         aiStatus,
 		AITargetProfile:  settings.DefaultTargetGenerator,
 		FlashNotice:      r.URL.Query().Get("notice"),
 	}
@@ -216,15 +210,13 @@ func (s *Server) handleAPISettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cfg, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
-	ver, online, models := s.catalog.InspectOllama(ctx)
+	aiStatus := s.catalog.InspectAIBackends(ctx)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"settings":        cfg,
 		"prompt_profiles": profiles,
-		"ollama_online":   online,
-		"ollama_version":  ver,
-		"ollama_models":   models,
+		"ai_status":       aiStatus,
 	})
 }
 
@@ -232,8 +224,13 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	cfg := domain.AppSettings{
 		OllamaBaseURL:          r.FormValue("ollama_base_url"),
+		OMLXBaseURL:            r.FormValue("omlx_base_url"),
+		OMLXAPIKey:             r.FormValue("omlx_api_key"),
+		VisionProvider:         domain.AIProviderType(r.FormValue("vision_provider")),
 		VisionModel:            r.FormValue("vision_model"),
+		Image2PromptProvider:   domain.AIProviderType(r.FormValue("image2prompt_provider")),
 		Image2PromptModel:      r.FormValue("image2prompt_model"),
+		Text2PromptProvider:    domain.AIProviderType(r.FormValue("text2prompt_provider")),
 		Text2PromptModel:       r.FormValue("text2prompt_model"),
 		DefaultTargetGenerator: r.FormValue("default_target_generator"),
 		AutoCaptionOnScan:      r.FormValue("auto_caption_on_scan") == "on" || r.FormValue("auto_caption_on_scan") == "true",
@@ -281,7 +278,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	selectedAsset, _ := s.catalog.GetAsset(ctx, assetID)
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
-	ollamaVer, ollamaOnline, ollamaModels := s.catalog.InspectOllama(ctx)
+	aiStatus := s.catalog.InspectAIBackends(ctx)
 
 	data := viewData{
 		ActiveTab:        "asset_detail",
@@ -294,9 +291,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
-		OllamaOnline:     ollamaOnline,
-		OllamaVersion:    ollamaVer,
-		OllamaModels:     ollamaModels,
+		AIStatus:         aiStatus,
 		AIResultPrompt:   outPrompt,
 		AITargetProfile:  profileSlug,
 	}
@@ -321,7 +316,7 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 	page, _ := s.catalog.Query(ctx, filter)
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
-	ollamaVer, ollamaOnline, ollamaModels := s.catalog.InspectOllama(ctx)
+	aiStatus := s.catalog.InspectAIBackends(ctx)
 
 	activeTab := "studio"
 	var selectedAsset *domain.MediaAsset
@@ -341,9 +336,7 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
-		OllamaOnline:     ollamaOnline,
-		OllamaVersion:    ollamaVer,
-		OllamaModels:     ollamaModels,
+		AIStatus:         aiStatus,
 		AIResultPrompt:   outPrompt,
 		AIInputConcept:   concept,
 		AITargetProfile:  profileSlug,
