@@ -238,6 +238,12 @@ a {
   color: #fff;
 }
 
+.btn-ghost.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Catalog Layout */
 .catalog-layout {
   display: grid;

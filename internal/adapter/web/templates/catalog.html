@@ -106,7 +106,7 @@
   <!-- Primary Navigation Tabs -->
   <nav class="navbar">
     <div class="container navbar-inner">
-      <a href="/" class="nav-tab {{if eq .ActiveTab "catalog"}}active{{end}}">Catalog Grid</a>
+      <a href="/{{if .FilterQuery}}?{{.FilterQuery}}{{end}}" class="nav-tab {{if eq .ActiveTab "catalog"}}active{{end}}">Catalog Grid</a>
       <a href="/?tab=studio" class="nav-tab {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}active{{end}}" style="{{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}color:#c084fc;border-color:#7c3aed;{{end}}">&#10024; Prompt Studio &amp; Remix</a>
       <a href="/?tab=characters" class="nav-tab {{if eq .ActiveTab "characters"}}active{{end}}">Character Folders ({{len .Page.Characters}})</a>
       <a href="/?tab=groups" class="nav-tab {{if eq .ActiveTab "groups"}}active{{end}}">Agnostic Groups ({{len .Page.Groups}})</a>
@@ -155,11 +155,15 @@
     <div class="container">
       <form action="/" method="GET" autocomplete="off" class="search-strip-form">
         {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
+        {{if .Filter.RootID}}<input type="hidden" name="root_id" value="{{.Filter.RootID}}">{{end}}
+        {{if .Filter.Category}}<input type="hidden" name="category" value="{{.Filter.Category}}">{{end}}
+        {{if .Filter.Subcategory}}<input type="hidden" name="subcategory" value="{{.Filter.Subcategory}}">{{end}}
+        {{if .Filter.SortBy}}<input type="hidden" name="sort" value="{{.Filter.SortBy}}">{{end}}
         <div class="search-main-group">
           <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
           <button type="submit" class="btn-primary">Search</button>
-          {{if or .Filter.Query .Filter.Trigger .Filter.RootID .Filter.Category .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0)}}
-            <a href="{{if .Filter.FaceMode}}/?face_mode=1{{else}}/{{end}}" class="btn-ghost" style="display:inline-flex;align-items:center;">Reset</a>
+          {{if or .Filter.Query .Filter.Trigger .Filter.RootID .Filter.Category .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0) (gt .Filter.MinRating 0) .Filter.FavoritesOnly .Filter.SortBy}}
+            <a href="/?reset=1" class="btn-ghost" style="display:inline-flex;align-items:center;">Reset</a>
           {{end}}
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -215,12 +219,16 @@
     {{else if eq .ActiveTab "asset_detail"}}
       <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <a href="/" class="btn-ghost">&larr; Back to Catalog</a>
+          <a href="/{{if .FilterQuery}}?{{.FilterQuery}}{{end}}" class="btn-ghost">&larr; Back to Catalog</a>
           {{if .PrevAssetID}}
-            <a href="/?asset_id={{.PrevAssetID}}" class="btn-ghost" title="Previous Media (Left Arrow)" id="nav-btn-prev">&larr; Prev</a>
+            <a href="/?asset_id={{.PrevAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" title="Previous Media (Left Arrow)" id="nav-btn-prev">&larr; Prev</a>
+          {{else}}
+            <span class="btn-ghost disabled" style="opacity:0.4;cursor:not-allowed;" title="First media in filter">&larr; Prev</span>
           {{end}}
           {{if .NextAssetID}}
-            <a href="/?asset_id={{.NextAssetID}}" class="btn-ghost" title="Next Media (Right Arrow)" id="nav-btn-next">Next &rarr;</a>
+            <a href="/?asset_id={{.NextAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" title="Next Media (Right Arrow)" id="nav-btn-next">Next &rarr;</a>
+          {{else}}
+            <span class="btn-ghost disabled" style="opacity:0.4;cursor:not-allowed;" title="Last media in filter">Next &rarr;</span>
           {{end}}
           {{if .SelectedAsset.RootID}}
             <a href="/?root_id={{.SelectedAsset.RootID}}" class="btn-ghost">Folder: {{if .SelectedAsset.RootLabel}}{{.SelectedAsset.RootLabel}}{{else}}Root #{{.SelectedAsset.RootID}}{{end}}</a>
@@ -236,7 +244,7 @@
           {{end}}
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
-          <a href="/?tab=studio&asset_id={{.SelectedAsset.ID}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;font-weight:600;">&#10024; Remix Prompt</a>
+          <a href="/?tab=studio&asset_id={{.SelectedAsset.ID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;font-weight:600;">&#10024; Remix Prompt</a>
           <button type="button" class="btn-primary" onclick="openMediaLightbox()">&#x26F6; Fullscreen &amp; Metadata Inspector</button>
           <a href="/media/{{.SelectedAsset.RelPath}}" target="_blank" class="btn-ghost">Open Raw File</a>
         </div>
@@ -246,9 +254,21 @@
         <div>
           <!-- Interactive Zoom & Pan Media Stage with Arrow Navigation -->
           <div class="media-stage-toolbar">
-            <span style="font-size:11.5px;color:var(--text-muted);font-weight:600;">
-              {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <span id="zoom-pct-label">100%</span> (Wheel to zoom, drag to pan, double-click 1:1)
-            </span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              {{if .PrevAssetID}}
+                <a href="/?asset_id={{.PrevAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" style="padding:4px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;" title="Previous Media (Left Arrow)">&#10094; Anterior</a>
+              {{else}}
+                <span class="btn-ghost disabled" style="padding:4px 12px;font-size:12px;opacity:0.4;cursor:not-allowed;">&#10094; Anterior</span>
+              {{end}}
+              {{if .NextAssetID}}
+                <a href="/?asset_id={{.NextAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" style="padding:4px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;" title="Next Media (Right Arrow)">Siguiente &#10095;</a>
+              {{else}}
+                <span class="btn-ghost disabled" style="padding:4px 12px;font-size:12px;opacity:0.4;cursor:not-allowed;">Siguiente &#10095;</span>
+              {{end}}
+              <span style="font-size:11.5px;color:var(--text-muted);font-weight:600;margin-left:8px;">
+                {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <span id="zoom-pct-label">100%</span>
+              </span>
+            </div>
             <div style="display:flex;gap:4px;">
               <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setStageZoom(-0.25)">&#8722;</button>
               <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="resetStageZoom()">Fit</button>
@@ -260,10 +280,10 @@
           </div>
           <div id="media-stage-viewport" class="media-stage-viewport">
             {{if .PrevAssetID}}
-              <a href="/?asset_id={{.PrevAssetID}}" class="stage-nav-arrow stage-nav-prev" title="Previous Media (Left Arrow)">&#10094;</a>
+              <a href="/?asset_id={{.PrevAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="stage-nav-arrow stage-nav-prev" title="Previous Media (Left Arrow)">&#10094;</a>
             {{end}}
             {{if .NextAssetID}}
-              <a href="/?asset_id={{.NextAssetID}}" class="stage-nav-arrow stage-nav-next" title="Next Media (Right Arrow)">&#10095;</a>
+              <a href="/?asset_id={{.NextAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="stage-nav-arrow stage-nav-next" title="Next Media (Right Arrow)">&#10095;</a>
             {{end}}
             {{if eq .SelectedAsset.MediaType "video"}}
               <video id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
@@ -453,10 +473,14 @@
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
             {{if .PrevAssetID}}
-              <a href="/?asset_id={{.PrevAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:12px;" title="Previous Media (Left Arrow)">&#10094; Prev</a>
+              <a href="/?asset_id={{.PrevAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" style="padding:4px 10px;font-size:12px;" title="Previous Media (Left Arrow)">&#10094; Prev</a>
+            {{else}}
+              <span class="btn-ghost disabled" style="padding:4px 10px;font-size:12px;opacity:0.4;cursor:not-allowed;">&#10094; Prev</span>
             {{end}}
             {{if .NextAssetID}}
-              <a href="/?asset_id={{.NextAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:12px;" title="Next Media (Right Arrow)">Next &#10095;</a>
+              <a href="/?asset_id={{.NextAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" style="padding:4px 10px;font-size:12px;" title="Next Media (Right Arrow)">Next &#10095;</a>
+            {{else}}
+              <span class="btn-ghost disabled" style="padding:4px 10px;font-size:12px;opacity:0.4;cursor:not-allowed;">Next &#10095;</span>
             {{end}}
             <button type="button" class="btn-ghost" onclick="setLightboxZoom(-0.3)">&#8722; Zoom Out</button>
             <button type="button" class="btn-ghost" onclick="resetLightboxZoom()">Reset 100%</button>
@@ -467,10 +491,10 @@
         <div class="lightbox-body">
           <div id="lightbox-canvas" class="lightbox-canvas">
             {{if .PrevAssetID}}
-              <a href="/?asset_id={{.PrevAssetID}}" class="stage-nav-arrow stage-nav-prev" style="position:absolute;left:18px;top:50%;transform:translateY(-50%);z-index:20;font-size:26px;width:44px;height:44px;" title="Previous Media (Left Arrow)">&#10094;</a>
+              <a href="/?asset_id={{.PrevAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="stage-nav-arrow stage-nav-prev" style="position:absolute;left:18px;top:50%;transform:translateY(-50%);z-index:20;font-size:26px;width:44px;height:44px;" title="Previous Media (Left Arrow)">&#10094;</a>
             {{end}}
             {{if .NextAssetID}}
-              <a href="/?asset_id={{.NextAssetID}}" class="stage-nav-arrow stage-nav-next" style="position:absolute;right:18px;top:50%;transform:translateY(-50%);z-index:20;font-size:26px;width:44px;height:44px;" title="Next Media (Right Arrow)">&#10095;</a>
+              <a href="/?asset_id={{.NextAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="stage-nav-arrow stage-nav-next" style="position:absolute;right:18px;top:50%;transform:translateY(-50%);z-index:20;font-size:26px;width:44px;height:44px;" title="Next Media (Right Arrow)">&#10095;</a>
             {{end}}
             {{if eq .SelectedAsset.MediaType "video"}}
               <video id="lightbox-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
@@ -556,7 +580,7 @@
           </div>
           <div class="asset-grid">
             {{range .RelatedAssets.SameCategory}}
-              <a href="/?asset_id={{.ID}}" class="asset-card">
+              <a href="/?asset_id={{.ID}}&amp;category={{$.SelectedAsset.Category}}" class="asset-card">
                 <div class="asset-thumb-wrap">
                   {{if eq .MediaType "video"}}
                     <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
@@ -597,7 +621,7 @@
           </div>
           <div class="asset-grid">
             {{range .RelatedAssets.SameCharacter}}
-              <a href="/?asset_id={{.ID}}" class="asset-card">
+              <a href="/?asset_id={{.ID}}{{if gt (len $.SelectedAsset.Characters) 0}}&amp;character_id={{(index $.SelectedAsset.Characters 0).ID}}{{end}}" class="asset-card">
                 <div class="asset-thumb-wrap">
                   {{if eq .MediaType "video"}}
                     <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
@@ -634,7 +658,7 @@
           </div>
           <div class="asset-grid">
             {{range .RelatedAssets.SameGroup}}
-              <a href="/?asset_id={{.ID}}" class="asset-card">
+              <a href="/?asset_id={{.ID}}{{if gt (len $.SelectedAsset.Groups) 0}}&amp;group_id={{(index $.SelectedAsset.Groups 0).ID}}{{end}}" class="asset-card">
                 <div class="asset-thumb-wrap">
                   {{if eq .MediaType "video"}}
                     <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
@@ -686,12 +710,16 @@
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             {{if .SelectedAsset}}
               {{if .PrevAssetID}}
-                <a href="/?tab=studio&asset_id={{.PrevAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;" title="Previous Media">&#10094; Prev</a>
+                <a href="/?tab=studio&asset_id={{.PrevAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;" title="Previous Media">&#10094; Prev</a>
+              {{else}}
+                <span class="btn-ghost disabled" style="padding:4px 10px;font-size:11.5px;opacity:0.4;cursor:not-allowed;">&#10094; Prev</span>
               {{end}}
               {{if .NextAssetID}}
-                <a href="/?tab=studio&asset_id={{.NextAssetID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;" title="Next Media">Next &#10095;</a>
+                <a href="/?tab=studio&asset_id={{.NextAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;" title="Next Media">Next &#10095;</a>
+              {{else}}
+                <span class="btn-ghost disabled" style="padding:4px 10px;font-size:11.5px;opacity:0.4;cursor:not-allowed;">Next &#10095;</span>
               {{end}}
-              <a href="/?asset_id={{.SelectedAsset.ID}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;">View Asset Details &rarr;</a>
+              <a href="/?asset_id={{.SelectedAsset.ID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;">View Asset Details &rarr;</a>
               <a href="/?tab=studio" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;color:#fca5a5;border-color:#b91c1c;" title="Detach media to create a new prompt from scratch">&#x2715; Start Blank Prompt</a>
             {{else}}
               <a href="/?tab=settings" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;">Configure Defaults &amp; System Prompts &rarr;</a>
@@ -1640,6 +1668,7 @@
         <aside class="sidebar">
           <form action="/" method="GET" autocomplete="off">
             {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
+            {{if .Filter.SortBy}}<input type="hidden" name="sort" value="{{.Filter.SortBy}}">{{end}}
 
             <div class="facet-block">
               <div class="facet-title">
@@ -1698,7 +1727,7 @@
               {{if .Page.AvailableTriggers}}
                 <div class="tag-cloud" style="max-height:110px;overflow-y:auto;">
                   {{range .Page.AvailableTriggers}}
-                    <a href="/?trigger={{.}}" class="tag-pill {{if eq $.Filter.Trigger .}}active{{end}}" style="font-size:10.5px;">{{.}}</a>
+                    <a href="/?{{filterWithTrigger $.Filter .}}" class="tag-pill {{if eq $.Filter.Trigger .}}active{{end}}" style="font-size:10.5px;">{{.}}</a>
                   {{end}}
                 </div>
               {{end}}
@@ -1777,7 +1806,7 @@
               <div class="facet-title"><span>POPULAR TAGS</span></div>
               <div class="tag-cloud">
                 {{range .Page.AvailableTags}}
-                  <a href="/?tag={{.Name}}" class="tag-pill {{if hasTag $.Filter.TagNames .Name}}active{{end}}">#{{.Name}}</a>
+                  <a href="/?{{filterWithTag $.Filter .Name}}" class="tag-pill {{if hasTag $.Filter.TagNames .Name}}active{{end}}">#{{.Name}}</a>
                 {{end}}
               </div>
             </div>
@@ -1792,11 +1821,12 @@
               {{if .Filter.FaceMode}}<span class="badge-chip character" style="margin-left:8px;">Face Explorer Mode</span>{{end}}
             </div>
             <div class="sort-tabs">
-              <a href="/?sort=newest{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if or (eq .Filter.SortBy "") (eq .Filter.SortBy "newest")}}active{{end}}">Newest</a>
-              <a href="/?sort=rating{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if or (eq .Filter.SortBy "rating") (eq .Filter.SortBy "popular")}}active{{end}}">★ Top Rated (0–10)</a>
-              <a href="/?sort=favorites{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "favorites"}}active{{end}}">♥ Favorites First</a>
-              <a href="/?sort=views{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "views"}}active{{end}}">Most Viewed</a>
-              <a href="/?sort=seed{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "seed"}}active{{end}}">Seed Order</a>
+              <a href="/?{{filterWithSort $.Filter "newest"}}" class="sort-tab {{if or (eq .Filter.SortBy "") (eq .Filter.SortBy "newest")}}active{{end}}">Newest</a>
+              <a href="/?{{filterWithSort $.Filter "rating"}}" class="sort-tab {{if or (eq .Filter.SortBy "rating") (eq .Filter.SortBy "popular")}}active{{end}}">★ Top Rated (0–10)</a>
+              <a href="/?{{filterWithSort $.Filter "favorites"}}" class="sort-tab {{if eq .Filter.SortBy "favorites"}}active{{end}}">♥ Favorites First</a>
+              <a href="/?{{filterWithSort $.Filter "views"}}" class="sort-tab {{if eq .Filter.SortBy "views"}}active{{end}}">Most Viewed</a>
+              <a href="/?{{filterWithSort $.Filter "seed"}}" class="sort-tab {{if eq .Filter.SortBy "seed"}}active{{end}}">Seed Order</a>
+              <a href="/?{{filterWithSort $.Filter "oldest"}}" class="sort-tab {{if eq .Filter.SortBy "oldest"}}active{{end}}">Oldest</a>
             </div>
           </div>
 
@@ -1804,7 +1834,7 @@
             <!-- 5-Column Extracted Face / Subject Grid -->
             <div class="asset-grid">
               {{range .Page.Faces}}
-                <a href="/?asset_id={{.AssetID}}" class="asset-card">
+                <a href="/?asset_id={{.AssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="asset-card">
                   <div class="asset-thumb-wrap square">
                     <img src="/cache/{{.CropRelPath}}" alt="{{.ClusterLabel}}" class="asset-thumb" loading="lazy">
                     <span class="asset-type-corner">{{printf "%.0f%%" (mul100 .Confidence)}}</span>
@@ -1828,7 +1858,7 @@
             <!-- 5-Column Standard Asset Grid -->
             <div class="asset-grid">
               {{range .Page.Assets}}
-                <a href="/?asset_id={{.ID}}" class="asset-card">
+                <a href="/?asset_id={{.ID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="asset-card">
                   <div class="asset-thumb-wrap">
                     {{if eq .MediaType "video"}}
                       <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
@@ -1875,7 +1905,7 @@
           <!-- Pagination -->
           <div class="pagination">
             {{range $p := pageRange .Page.TotalPages}}
-              <a href="/?page={{$p}}{{if $.Filter.FaceMode}}&amp;face_mode=1{{end}}{{if $.Filter.SortBy}}&amp;sort={{$.Filter.SortBy}}{{end}}" class="page-btn {{if eq $p $.Page.Page}}active{{end}}">{{$p}}</a>
+              <a href="/?{{filterWithPage $.Filter $p}}" class="page-btn {{if eq $p $.Page.Page}}active{{end}}">{{$p}}</a>
             {{end}}
           </div>
         </section>
@@ -2013,17 +2043,17 @@
       } else if (e.key === 'ArrowLeft') {
         {{if .PrevAssetID}}
           {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}
-            window.location.href = '/?tab=studio&asset_id={{.PrevAssetID}}';
+            window.location.href = '/?tab=studio&asset_id={{.PrevAssetID}}{{if .FilterQuery}}&{{.FilterQuery}}{{end}}';
           {{else}}
-            window.location.href = '/?asset_id={{.PrevAssetID}}';
+            window.location.href = '/?asset_id={{.PrevAssetID}}{{if .FilterQuery}}&{{.FilterQuery}}{{end}}';
           {{end}}
         {{end}}
       } else if (e.key === 'ArrowRight') {
         {{if .NextAssetID}}
           {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}
-            window.location.href = '/?tab=studio&asset_id={{.NextAssetID}}';
+            window.location.href = '/?tab=studio&asset_id={{.NextAssetID}}{{if .FilterQuery}}&{{.FilterQuery}}{{end}}';
           {{else}}
-            window.location.href = '/?asset_id={{.NextAssetID}}';
+            window.location.href = '/?asset_id={{.NextAssetID}}{{if .FilterQuery}}&{{.FilterQuery}}{{end}}';
           {{end}}
         {{end}}
       }
