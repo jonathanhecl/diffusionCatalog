@@ -17,10 +17,13 @@ type AppSettings struct {
 	OMLXAPIKey             string         `json:"omlx_api_key"`
 	VisionProvider         AIProviderType `json:"vision_provider"`
 	VisionModel            string         `json:"vision_model"`
+	VisionThink            string         `json:"vision_think"` // "default", "off", "low", "medium", "high"
 	Image2PromptProvider   AIProviderType `json:"image2prompt_provider"`
 	Image2PromptModel      string         `json:"image2prompt_model"`
+	Image2PromptThink      string         `json:"image2prompt_think"` // "default", "off", "low", "medium", "high"
 	Text2PromptProvider    AIProviderType `json:"text2prompt_provider"`
 	Text2PromptModel       string         `json:"text2prompt_model"`
+	Text2PromptThink       string         `json:"text2prompt_think"` // "default", "off", "low", "medium", "high"
 	DefaultTargetGenerator string         `json:"default_target_generator"`
 	AutoCaptionOnScan      bool           `json:"auto_caption_on_scan"`
 }
@@ -61,7 +64,17 @@ type OllamaModelInfo struct {
 	Capabilities  []string       `json:"capabilities"`
 	HasVision     bool           `json:"has_vision"`
 	VisionStatus  string         `json:"vision_status"` // "confirmed", "inferred", or "none"
+	HasThinking   bool           `json:"has_thinking"`
+	HasTools      bool           `json:"has_tools"`
 	ContextLength int            `json:"context_length"`
+}
+
+// PromptExecutionOverride allows overriding the default Settings AI backend/model and thinking level
+// at prompt-generation time without modifying persistent application settings.
+type PromptExecutionOverride struct {
+	Provider   AIProviderType `json:"provider,omitempty"`
+	Model      string         `json:"model,omitempty"`
+	ThinkLevel string         `json:"think_level,omitempty"` // "", "default", "off", "low", "medium", "high"
 }
 
 // GeneratedPrompt records a prompt synthesized by Ollama/oMLX from either a cataloged Asset or a Character folder.

@@ -222,9 +222,41 @@ func (s *CatalogService) ListGeneratedPrompts(ctx context.Context, assetID, char
 	return s.repo.ListGeneratedPrompts(ctx, assetID, characterID, limit)
 }
 
+// resolveExecutionRoute resolves the provider, model, baseURL, and thinking level for a prompt generation task,
+// applying any per-request quick overrides on top of the persistent Settings defaults.
+func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProviderType, defaultModel, defaultThink string, override domain.PromptExecutionOverride) (domain.AIProviderType, string, string, string) {
+	prov := defaultProvider
+	model := defaultModel
+	think := defaultThink
+
+	if override.Provider != "" && override.Model != "" {
+		prov = override.Provider
+		model = override.Model
+	} else if override.Model != "" {
+		model = override.Model
+	}
+	if prov == "" {
+		prov = domain.ProviderOllama
+	}
+
+	if override.ThinkLevel != "" && override.ThinkLevel != "settings" {
+		think = override.ThinkLevel
+	}
+	if think == "" {
+		think = "off"
+	}
+
+	baseURL := cfg.OllamaBaseURL
+	if prov == domain.ProviderOMLX {
+		baseURL = cfg.OMLXBaseURL
+	}
+	return prov, model, baseURL, think
+}
+
 // RunImage2Prompt runs the configured Ollama or oMLX Image2Prompt (or Remix Text2Prompt) on an asset
-// using the selected generator profile's system prompt (e.g., flux, krea2, moss, minimaxh3), selected model LoRAs, and optional character/scene direction.
-func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, loraIDs []int64, saveToAsset bool) (string, error) {
+// using the selected generator profile's system prompt (e.g., flux, krea2, moss, minimaxh3), selected model LoRAs,
+// optional character/scene direction, and optional quick model/thinking overrides.
+func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, loraIDs []int64, override domain.PromptExecutionOverride, saveToAsset bool) (string, error) {
 	if s.ollama == nil {
 		return "", fmt.Errorf("AI provider is not initialized")
 	}
@@ -272,40 +304,33 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 	var generated string
 	var usedProvider domain.AIProviderType
 	var usedModel string
+	var usedThink string
 
 	if mode == "remix" && combinedHint != "" {
 		// Remix via Text2Prompt model using the extracted prompt + character + direction
-		usedProvider = cfg.Text2PromptProvider
-		if usedProvider == "" {
-			usedProvider = domain.ProviderOllama
-		}
-		usedModel = cfg.Text2PromptModel
-		baseURL := cfg.OllamaBaseURL
-		if usedProvider == domain.ProviderOMLX {
-			baseURL = cfg.OMLXBaseURL
-		}
+		var baseURL string
+		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(
+			cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override,
+		)
 		promptInstruction := "Transform the following reference asset and scene direction into a final generation prompt for target engine '" + profileSlug + "'. Preserve any mandatory character trigger words if present:\n\n" + combinedHint
-		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, promptInstruction)
+		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, promptInstruction, usedThink)
 		if err != nil {
 			return "", err
 		}
 	} else {
 		// Vision analysis via Image2Prompt model
-		usedProvider = cfg.Image2PromptProvider
-		usedModel = cfg.Image2PromptModel
-		if usedModel == "" {
-			usedProvider = cfg.VisionProvider
-			usedModel = cfg.VisionModel
+		defProv := cfg.Image2PromptProvider
+		defMod := cfg.Image2PromptModel
+		defThink := cfg.Image2PromptThink
+		if defMod == "" {
+			defProv = cfg.VisionProvider
+			defMod = cfg.VisionModel
+			defThink = cfg.VisionThink
 		}
-		if usedProvider == "" {
-			usedProvider = domain.ProviderOllama
-		}
-		baseURL := cfg.OllamaBaseURL
-		if usedProvider == domain.ProviderOMLX {
-			baseURL = cfg.OMLXBaseURL
-		}
+		var baseURL string
+		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
 		absPath := filepath.Join(s.mediaDir, filepath.FromSlash(asset.RelPath))
-		generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, absPath, combinedHint)
+		generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, absPath, combinedHint, usedThink)
 		if err != nil {
 			return "", err
 		}
@@ -320,7 +345,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 			SceneDirection:    strings.TrimSpace(userHint),
 			OutputPrompt:      generated,
 			Provider:          usedProvider,
-			ModelName:         usedModel,
+			ModelName:         fmt.Sprintf("%s (think:%s)", usedModel, usedThink),
 		})
 	}
 
@@ -331,8 +356,8 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 }
 
 // RunCharacterPrompt synthesizes a new prompt for a specific Character in a given scene, movie style, or action
-// tailored to a target generator profile (e.g., flux, krea2, qwen-image, moss, minimaxh3 video) and optional model-specific LoRAs.
-func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int64, profileSlug, sceneDirection string, refAssetID int64, loraIDs []int64) (string, error) {
+// tailored to a target generator profile (e.g., flux, krea2, qwen-image, moss, minimaxh3 video), optional model-specific LoRAs, and optional quick model/thinking overrides.
+func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int64, profileSlug, sceneDirection string, refAssetID int64, loraIDs []int64, override domain.PromptExecutionOverride) (string, error) {
 	if s.ollama == nil {
 		return "", fmt.Errorf("AI provider is not initialized")
 	}
@@ -371,27 +396,25 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 	var generated string
 	var usedProvider domain.AIProviderType
 	var usedModel string
+	var usedThink string
 	var assetPtr *int64
 
 	if refAssetID > 0 {
 		if refAsset, err := s.repo.GetAssetByID(ctx, refAssetID); err == nil && refAsset != nil {
 			aid := refAsset.ID
 			assetPtr = &aid
-			usedProvider = cfg.Image2PromptProvider
-			usedModel = cfg.Image2PromptModel
-			if usedModel == "" {
-				usedProvider = cfg.VisionProvider
-				usedModel = cfg.VisionModel
+			defProv := cfg.Image2PromptProvider
+			defMod := cfg.Image2PromptModel
+			defThink := cfg.Image2PromptThink
+			if defMod == "" {
+				defProv = cfg.VisionProvider
+				defMod = cfg.VisionModel
+				defThink = cfg.VisionThink
 			}
-			if usedProvider == "" {
-				usedProvider = domain.ProviderOllama
-			}
-			baseURL := cfg.OllamaBaseURL
-			if usedProvider == domain.ProviderOMLX {
-				baseURL = cfg.OMLXBaseURL
-			}
+			var baseURL string
+			usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
 			absPath := filepath.Join(s.mediaDir, filepath.FromSlash(refAsset.RelPath))
-			generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, absPath, charSpec)
+			generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, absPath, charSpec, usedThink)
 			if err != nil {
 				return "", err
 			}
@@ -399,16 +422,11 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 	}
 
 	if generated == "" {
-		usedProvider = cfg.Text2PromptProvider
-		if usedProvider == "" {
-			usedProvider = domain.ProviderOllama
-		}
-		usedModel = cfg.Text2PromptModel
-		baseURL := cfg.OllamaBaseURL
-		if usedProvider == domain.ProviderOMLX {
-			baseURL = cfg.OMLXBaseURL
-		}
-		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, charSpec)
+		var baseURL string
+		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(
+			cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override,
+		)
+		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, charSpec, usedThink)
 		if err != nil {
 			return "", err
 		}
@@ -423,7 +441,7 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 			SceneDirection:    strings.TrimSpace(sceneDirection),
 			OutputPrompt:      generated,
 			Provider:          usedProvider,
-			ModelName:         usedModel,
+			ModelName:         fmt.Sprintf("%s (think:%s)", usedModel, usedThink),
 		})
 	}
 
@@ -431,8 +449,8 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 }
 
 // RunText2Prompt expands or converts a text idea/prompt into a target generator prompt using the configured
-// Ollama or oMLX Text2Prompt model, the selected generator profile's system prompt, and any selected model-specific LoRAs.
-func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profileSlug string, loraIDs []int64) (string, error) {
+// Ollama or oMLX Text2Prompt model, the selected generator profile's system prompt, any selected model-specific LoRAs, and optional quick model/thinking overrides.
+func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profileSlug string, loraIDs []int64, override domain.PromptExecutionOverride) (string, error) {
 	if s.ollama == nil {
 		return "", fmt.Errorf("AI provider is not initialized")
 	}
@@ -454,16 +472,11 @@ func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profi
 		fullUserPrompt = fmt.Sprintf("Concept / Scene Request:\n%s\n\n%s\nIncorporate the selected LoRA trigger words, stylistic guidance, and syntax tag into the final prompt.", inputConcept, loraDoc)
 	}
 
-	provider := cfg.Text2PromptProvider
-	if provider == "" {
-		provider = domain.ProviderOllama
-	}
-	baseURL := cfg.OllamaBaseURL
-	if provider == domain.ProviderOMLX {
-		baseURL = cfg.OMLXBaseURL
-	}
+	provider, model, baseURL, think := resolveExecutionRoute(
+		cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override,
+	)
 
-	generated, err := s.ollama.TextToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, cfg.Text2PromptModel, sysPrompt, fullUserPrompt)
+	generated, err := s.ollama.TextToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, model, sysPrompt, fullUserPrompt, think)
 	if err != nil {
 		return "", err
 	}
@@ -473,7 +486,7 @@ func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profi
 			SceneDirection:    strings.TrimSpace(inputConcept),
 			OutputPrompt:      generated,
 			Provider:          provider,
-			ModelName:         cfg.Text2PromptModel,
+			ModelName:         fmt.Sprintf("%s (think:%s)", model, think),
 		})
 	}
 	return generated, nil

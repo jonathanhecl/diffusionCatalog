@@ -139,10 +139,13 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 		OMLXAPIKey:             "omlx",
 		VisionProvider:         domain.ProviderOllama,
 		VisionModel:            "llama3.2-vision:latest",
+		VisionThink:            "off",
 		Image2PromptProvider:   domain.ProviderOllama,
 		Image2PromptModel:      "llama3.2-vision:latest",
+		Image2PromptThink:      "off",
 		Text2PromptProvider:    domain.ProviderOMLX,
 		Text2PromptModel:       "SuperQwen3.8-27b-abliterated-MLX-4bit",
+		Text2PromptThink:       "low",
 		DefaultTargetGenerator: "flux",
 	}
 	rows, err := r.db.QueryContext(ctx, `SELECT key, value FROM app_settings`)
@@ -165,14 +168,20 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 				s.VisionProvider = domain.AIProviderType(v)
 			case "vision_model":
 				s.VisionModel = v
+			case "vision_think":
+				s.VisionThink = v
 			case "image2prompt_provider":
 				s.Image2PromptProvider = domain.AIProviderType(v)
 			case "image2prompt_model":
 				s.Image2PromptModel = v
+			case "image2prompt_think":
+				s.Image2PromptThink = v
 			case "text2prompt_provider":
 				s.Text2PromptProvider = domain.AIProviderType(v)
 			case "text2prompt_model":
 				s.Text2PromptModel = v
+			case "text2prompt_think":
+				s.Text2PromptThink = v
 			case "default_target_generator":
 				s.DefaultTargetGenerator = v
 			case "auto_caption_on_scan":
@@ -192,11 +201,20 @@ func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) err
 	if s.VisionProvider == "" {
 		s.VisionProvider = domain.ProviderOllama
 	}
+	if s.VisionThink == "" {
+		s.VisionThink = "off"
+	}
 	if s.Image2PromptProvider == "" {
 		s.Image2PromptProvider = domain.ProviderOllama
 	}
+	if s.Image2PromptThink == "" {
+		s.Image2PromptThink = "off"
+	}
 	if s.Text2PromptProvider == "" {
 		s.Text2PromptProvider = domain.ProviderOllama
+	}
+	if s.Text2PromptThink == "" {
+		s.Text2PromptThink = "low"
 	}
 	pairs := map[string]string{
 		"ollama_base_url":          strings.TrimSpace(s.OllamaBaseURL),
@@ -204,10 +222,13 @@ func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) err
 		"omlx_api_key":             strings.TrimSpace(s.OMLXAPIKey),
 		"vision_provider":          string(s.VisionProvider),
 		"vision_model":             strings.TrimSpace(s.VisionModel),
+		"vision_think":             strings.TrimSpace(s.VisionThink),
 		"image2prompt_provider":    string(s.Image2PromptProvider),
 		"image2prompt_model":       strings.TrimSpace(s.Image2PromptModel),
+		"image2prompt_think":       strings.TrimSpace(s.Image2PromptThink),
 		"text2prompt_provider":     string(s.Text2PromptProvider),
 		"text2prompt_model":        strings.TrimSpace(s.Text2PromptModel),
+		"text2prompt_think":        strings.TrimSpace(s.Text2PromptThink),
 		"default_target_generator": strings.TrimSpace(s.DefaultTargetGenerator),
 		"auto_caption_on_scan":     autoCap,
 	}

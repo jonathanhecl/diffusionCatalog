@@ -62,12 +62,14 @@ type ollamaChatRequest struct {
 	Model    string              `json:"model"`
 	Messages []ollamaChatMessage `json:"messages"`
 	Stream   bool                `json:"stream"`
+	Think    interface{}         `json:"think,omitempty"`
 }
 
 type ollamaChatMessage struct {
-	Role    string   `json:"role"`
-	Content string   `json:"content"`
-	Images  []string `json:"images,omitempty"`
+	Role     string   `json:"role"`
+	Content  string   `json:"content"`
+	Thinking string   `json:"thinking,omitempty"`
+	Images   []string `json:"images,omitempty"`
 }
 
 type ollamaChatResponse struct {
@@ -78,18 +80,29 @@ type ollamaChatResponse struct {
 // oMLX / OpenAI-compatible payloads
 type omlxModelsResponse struct {
 	Data []struct {
-		ID               string `json:"id"`
-		OwnedBy          string `json:"owned_by"`
-		MaxModelLen      int    `json:"max_model_len"`
-		MaxContextLength int    `json:"max_context_length"`
-		ContextLength    int    `json:"context_length"`
+		ID               string   `json:"id"`
+		OwnedBy          string   `json:"owned_by"`
+		MaxModelLen      int      `json:"max_model_len"`
+		MaxContextLength int      `json:"max_context_length"`
+		ContextLength    int      `json:"context_length"`
+		Capabilities     []string `json:"capabilities"`
+		Modalities       []string `json:"modalities"`
+		InputModalities  []string `json:"input_modalities"`
+		Vision           bool     `json:"vision"`
+		SupportsVision   bool     `json:"supports_vision"`
+		Thinking         bool     `json:"thinking"`
+		SupportsThinking bool     `json:"supports_thinking"`
+		Tools            bool     `json:"tools"`
+		SupportsTools    bool     `json:"supports_tools"`
 	} `json:"data"`
 }
 
 type openAIChatRequest struct {
-	Model    string        `json:"model"`
-	Messages []interface{} `json:"messages"`
-	Stream   bool          `json:"stream"`
+	Model              string                 `json:"model"`
+	Messages           []interface{}          `json:"messages"`
+	Stream             bool                   `json:"stream"`
+	ReasoningEffort    string                 `json:"reasoning_effort,omitempty"`
+	ChatTemplateKwargs map[string]interface{} `json:"chat_template_kwargs,omitempty"`
 }
 
 type openAITextMessage struct {
@@ -115,7 +128,8 @@ type openAIImageURL struct {
 type openAIChatResponse struct {
 	Choices []struct {
 		Message struct {
-			Content string `json:"content"`
+			Content          string `json:"content"`
+			ReasoningContent string `json:"reasoning_content,omitempty"`
 		} `json:"message"`
 	} `json:"choices"`
 	Error *struct {
@@ -150,7 +164,7 @@ func (c *Client) CheckStatus(ctx context.Context, baseURL string) (string, bool)
 }
 
 // ListModels fetches installed models from GET /api/tags and enriches each model concurrently with
-// capability metadata from POST /api/show (vision confirmed vs inferred, context length).
+// capability metadata from POST /api/show (vision, thinking, tools, completion, context length).
 func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.OllamaModelInfo, error) {
 	baseURL = NormalizeOllamaURL(baseURL)
 	tagsCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
@@ -177,7 +191,9 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 
 	out := make([]domain.OllamaModelInfo, len(tags.Models))
 	for i, m := range tags.Models {
-		hasVis := inferOMLXVisionFromName(m.Name)
+		hasVis := inferVisionFromName(m.Name)
+		hasThink := inferThinkingFromName(m.Name)
+		hasTools := inferToolsFromName(m.Name)
 		visStatus := "none"
 		for _, fam := range m.Details.Families {
 			fl := strings.ToLower(fam)
@@ -193,8 +209,11 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 			Name:          m.Name,
 			ParameterSize: m.Details.ParameterSize,
 			Family:        m.Details.Family,
+			Capabilities:  buildCapabilitySlice(true, hasVis, hasThink, hasTools, nil),
 			HasVision:     hasVis,
 			VisionStatus:  visStatus,
+			HasThinking:   hasThink,
+			HasTools:      hasTools,
 		}
 	}
 
@@ -215,15 +234,25 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 				return
 			}
 			if show, err := c.inspectModel(showCtx, baseURL, out[idx].Name); err == nil {
-				out[idx].Capabilities = show.Capabilities
 				for _, capName := range show.Capabilities {
-					if capName == "vision" {
+					switch strings.ToLower(capName) {
+					case "vision":
 						out[idx].HasVision = true
 						out[idx].VisionStatus = "confirmed"
+					case "thinking":
+						out[idx].HasThinking = true
+					case "tools":
+						out[idx].HasTools = true
 					}
 				}
 				if !out[idx].HasVision && show.ProjectorInfo != nil {
 					if hasVis, ok := show.ProjectorInfo["clip.has_vision_encoder"].(bool); ok && hasVis {
+						out[idx].HasVision = true
+						out[idx].VisionStatus = "inferred"
+					}
+				}
+				if !out[idx].HasVision && show.ModelInfo != nil {
+					if vb, ok := show.ModelInfo["vision.block_count"].(float64); ok && vb > 0 {
 						out[idx].HasVision = true
 						out[idx].VisionStatus = "inferred"
 					}
@@ -235,6 +264,7 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 						}
 					}
 				}
+				out[idx].Capabilities = buildCapabilitySlice(true, out[idx].HasVision, out[idx].HasThinking, out[idx].HasTools, show.Capabilities)
 			}
 		}(i)
 	}
@@ -252,7 +282,7 @@ func (c *Client) CheckOMLXStatus(ctx context.Context, baseURL, apiKey string) (b
 	return true, len(models)
 }
 
-// ListOMLXModels queries GET {baseURL}/v1/models on an oMLX server, extracting model IDs and max_model_len.
+// ListOMLXModels queries GET {baseURL}/v1/models on an oMLX server, extracting model IDs, capabilities, and max_model_len.
 func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]domain.OllamaModelInfo, error) {
 	baseURL = NormalizeOMLXURL(baseURL)
 	if baseURL == "" {
@@ -294,21 +324,48 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 			ctxLen = m.ContextLength
 		}
 
-		hasVis := inferOMLXVisionFromName(m.ID)
+		hasVis := m.Vision || m.SupportsVision || inferVisionFromName(m.ID)
 		visStatus := "none"
-		caps := []string{"completion"}
-		if hasVis {
+		if m.Vision || m.SupportsVision {
+			visStatus = "confirmed"
+		} else if hasVis {
 			visStatus = "inferred"
-			caps = append(caps, "vision")
 		}
+
+		hasThink := m.Thinking || m.SupportsThinking || inferThinkingFromName(m.ID)
+		hasTools := m.Tools || m.SupportsTools || inferToolsFromName(m.ID)
+
+		for _, mod := range append(m.Modalities, m.InputModalities...) {
+			ml := strings.ToLower(mod)
+			if ml == "image" || ml == "vision" || ml == "multimodal" {
+				hasVis = true
+				visStatus = "confirmed"
+			}
+		}
+		for _, capName := range m.Capabilities {
+			switch strings.ToLower(capName) {
+			case "vision", "image":
+				hasVis = true
+				visStatus = "confirmed"
+			case "thinking", "reasoning":
+				hasThink = true
+			case "tools", "function_calling":
+				hasTools = true
+			}
+		}
+
+		caps := buildCapabilitySlice(true, hasVis, hasThink, hasTools, m.Capabilities)
 
 		out = append(out, domain.OllamaModelInfo{
 			Provider:      domain.ProviderOMLX,
 			Name:          m.ID,
+			ParameterSize: inferParameterSizeFromName(m.ID),
 			Family:        "MLX",
 			Capabilities:  caps,
 			HasVision:     hasVis,
 			VisionStatus:  visStatus,
+			HasThinking:   hasThink,
+			HasTools:      hasTools,
 			ContextLength: ctxLen,
 		})
 	}
@@ -338,8 +395,8 @@ func (c *Client) inspectModel(ctx context.Context, baseURL, modelName string) (*
 }
 
 // ImageToPrompt encodes a local image in base64 and sends it to either Ollama (/api/chat)
-// or oMLX (/v1/chat/completions) using the target generator's system prompt.
-func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, absImagePath, userHint string) (string, error) {
+// or oMLX (/v1/chat/completions) using the target generator's system prompt and optional thinking level.
+func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, absImagePath, userHint, thinkLevel string) (string, error) {
 	if strings.TrimSpace(model) == "" {
 		return "", fmt.Errorf("no vision / image2prompt model configured in Settings")
 	}
@@ -356,7 +413,7 @@ func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderTy
 	}
 
 	if provider == domain.ProviderOMLX {
-		return c.executeOMLXVisionChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, userContent, b64)
+		return c.executeOMLXVisionChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, userContent, b64, thinkLevel)
 	}
 
 	var messages []ollamaChatMessage
@@ -372,18 +429,18 @@ func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderTy
 		Images:  []string{b64},
 	})
 
-	return c.executeOllamaChat(ctx, NormalizeOllamaURL(baseURL), model, messages)
+	return c.executeOllamaChat(ctx, NormalizeOllamaURL(baseURL), model, messages, thinkLevel)
 }
 
 // TextToPrompt expands or converts an input concept or existing prompt into a target generator prompt
-// using either Ollama (/api/chat) or oMLX (/v1/chat/completions).
-func (c *Client) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept string) (string, error) {
+// using either Ollama (/api/chat) or oMLX (/v1/chat/completions) and optional thinking level.
+func (c *Client) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
 	if strings.TrimSpace(model) == "" {
 		return "", fmt.Errorf("no text2prompt model configured in Settings")
 	}
 
 	if provider == domain.ProviderOMLX {
-		return c.executeOMLXTextChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, inputConcept)
+		return c.executeOMLXTextChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, inputConcept, thinkLevel)
 	}
 
 	var messages []ollamaChatMessage
@@ -398,56 +455,110 @@ func (c *Client) TextToPrompt(ctx context.Context, provider domain.AIProviderTyp
 		Content: inputConcept,
 	})
 
-	return c.executeOllamaChat(ctx, NormalizeOllamaURL(baseURL), model, messages)
+	return c.executeOllamaChat(ctx, NormalizeOllamaURL(baseURL), model, messages, thinkLevel)
 }
 
-func (c *Client) executeOllamaChat(ctx context.Context, baseURL, model string, messages []ollamaChatMessage) (string, error) {
-	payload, err := json.Marshal(ollamaChatRequest{
+func mapOllamaThinkParam(model, thinkLevel string) interface{} {
+	tl := strings.ToLower(strings.TrimSpace(thinkLevel))
+	switch tl {
+	case "", "default":
+		return nil
+	case "off", "false", "none":
+		return false
+	case "low", "medium", "high":
+		// GPT-OSS supports string levels ("low", "medium", "high"); standard thinking models expect boolean true.
+		if strings.Contains(strings.ToLower(model), "gpt-oss") {
+			return tl
+		}
+		return true
+	case "on", "true":
+		return true
+	default:
+		return nil
+	}
+}
+
+func (c *Client) executeOllamaChat(ctx context.Context, baseURL, model string, messages []ollamaChatMessage, thinkLevel string) (string, error) {
+	reqPayload := ollamaChatRequest{
 		Model:    model,
 		Messages: messages,
 		Stream:   false,
-	})
+		Think:    mapOllamaThinkParam(model, thinkLevel),
+	}
+	out, statusCode, body, err := c.doOllamaChatAttempt(ctx, baseURL, reqPayload)
 	if err != nil {
 		return "", err
+	}
+	// Graceful fallback if the selected model does not support thinking or rejects the think parameter
+	if statusCode == http.StatusBadRequest && reqPayload.Think != nil {
+		reqPayload.Think = nil
+		out, statusCode, body, err = c.doOllamaChatAttempt(ctx, baseURL, reqPayload)
+		if err != nil {
+			return "", err
+		}
+	}
+	if statusCode != http.StatusOK {
+		return "", fmt.Errorf("ollama /api/chat returned status %d: %s", statusCode, string(body))
+	}
+	if out.Error != "" {
+		return "", fmt.Errorf("ollama error: %s", out.Error)
+	}
+	return stripThinkTags(out.Message.Content), nil
+}
+
+func (c *Client) doOllamaChatAttempt(ctx context.Context, baseURL string, reqPayload ollamaChatRequest) (ollamaChatResponse, int, []byte, error) {
+	var out ollamaChatResponse
+	payload, err := json.Marshal(reqPayload)
+	if err != nil {
+		return out, 0, nil, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/api/chat", bytes.NewReader(payload))
 	if err != nil {
-		return "", err
+		return out, 0, nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to connect to Ollama at %s: %w", baseURL, err)
+		return out, 0, nil, fmt.Errorf("failed to connect to Ollama at %s: %w", baseURL, err)
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("ollama /api/chat returned status %d: %s", resp.StatusCode, string(body))
+	if resp.StatusCode == http.StatusOK {
+		_ = json.Unmarshal(body, &out)
 	}
-
-	var out ollamaChatResponse
-	if err := json.Unmarshal(body, &out); err != nil {
-		return "", err
-	}
-	if out.Error != "" {
-		return "", fmt.Errorf("ollama error: %s", out.Error)
-	}
-	return strings.TrimSpace(out.Message.Content), nil
+	return out, resp.StatusCode, body, nil
 }
 
-func (c *Client) executeOMLXTextChat(ctx context.Context, baseURL, apiKey, model, systemPrompt, userPrompt string) (string, error) {
+func applyOMLXThinkingDirective(userPrompt, thinkLevel string) (string, string, map[string]interface{}) {
+	tl := strings.ToLower(strings.TrimSpace(thinkLevel))
+	switch tl {
+	case "off", "false", "none":
+		// For Qwen3 / MLX models on oMLX, chat_template_kwargs.enable_thinking=false disables <think> generation
+		return userPrompt, "", map[string]interface{}{"enable_thinking": false}
+	case "low", "medium", "high":
+		return userPrompt, tl, map[string]interface{}{"enable_thinking": true}
+	case "on", "true":
+		return userPrompt, "medium", map[string]interface{}{"enable_thinking": true}
+	default:
+		return userPrompt, "", nil
+	}
+}
+
+func (c *Client) executeOMLXTextChat(ctx context.Context, baseURL, apiKey, model, systemPrompt, userPrompt, thinkLevel string) (string, error) {
+	adjPrompt, effort, kwargs := applyOMLXThinkingDirective(userPrompt, thinkLevel)
 	var messages []interface{}
 	if strings.TrimSpace(systemPrompt) != "" {
 		messages = append(messages, openAITextMessage{Role: "system", Content: systemPrompt})
 	}
-	messages = append(messages, openAITextMessage{Role: "user", Content: userPrompt})
-	return c.doOMLXChat(ctx, baseURL, apiKey, model, messages)
+	messages = append(messages, openAITextMessage{Role: "user", Content: adjPrompt})
+	return c.doOMLXChat(ctx, baseURL, apiKey, model, messages, effort, kwargs)
 }
 
-func (c *Client) executeOMLXVisionChat(ctx context.Context, baseURL, apiKey, model, systemPrompt, userPrompt, b64Image string) (string, error) {
+func (c *Client) executeOMLXVisionChat(ctx context.Context, baseURL, apiKey, model, systemPrompt, userPrompt, b64Image, thinkLevel string) (string, error) {
+	adjPrompt, effort, kwargs := applyOMLXThinkingDirective(userPrompt, thinkLevel)
 	var messages []interface{}
 	if strings.TrimSpace(systemPrompt) != "" {
 		messages = append(messages, openAITextMessage{Role: "system", Content: systemPrompt})
@@ -455,18 +566,20 @@ func (c *Client) executeOMLXVisionChat(ctx context.Context, baseURL, apiKey, mod
 	messages = append(messages, openAIVisionMessage{
 		Role: "user",
 		Content: []openAIVisionBlock{
-			{Type: "text", Text: userPrompt},
+			{Type: "text", Text: adjPrompt},
 			{Type: "image_url", ImageURL: &openAIImageURL{URL: "data:image/png;base64," + b64Image}},
 		},
 	})
-	return c.doOMLXChat(ctx, baseURL, apiKey, model, messages)
+	return c.doOMLXChat(ctx, baseURL, apiKey, model, messages, effort, kwargs)
 }
 
-func (c *Client) doOMLXChat(ctx context.Context, baseURL, apiKey, model string, messages []interface{}) (string, error) {
+func (c *Client) doOMLXChat(ctx context.Context, baseURL, apiKey, model string, messages []interface{}, effort string, kwargs map[string]interface{}) (string, error) {
 	payload, err := json.Marshal(openAIChatRequest{
-		Model:    model,
-		Messages: messages,
-		Stream:   false,
+		Model:              model,
+		Messages:           messages,
+		Stream:             false,
+		ReasoningEffort:    effort,
+		ChatTemplateKwargs: kwargs,
 	})
 	if err != nil {
 		return "", err
@@ -502,7 +615,29 @@ func (c *Client) doOMLXChat(ctx context.Context, baseURL, apiKey, model string, 
 	if len(out.Choices) == 0 {
 		return "", fmt.Errorf("omlx returned empty choices")
 	}
-	return strings.TrimSpace(out.Choices[0].Message.Content), nil
+	return stripThinkTags(out.Choices[0].Message.Content), nil
+}
+
+// stripThinkTags removes any inline <think>...</think> or <thinking>...</thinking> blocks from the final prompt output.
+func stripThinkTags(raw string) string {
+	s := strings.TrimSpace(raw)
+	for _, tag := range []struct{ open, close string }{
+		{"<think>", "</think>"},
+		{"<thinking>", "</thinking>"},
+	} {
+		for {
+			start := strings.Index(strings.ToLower(s), tag.open)
+			if start == -1 {
+				break
+			}
+			end := strings.Index(strings.ToLower(s[start:]), tag.close)
+			if end == -1 {
+				break
+			}
+			s = strings.TrimSpace(s[:start] + s[start+end+len(tag.close):])
+		}
+	}
+	return strings.TrimSpace(s)
 }
 
 // NormalizeOllamaURL normalizes local or remote host strings (e.g. "http://mac-mini.local" -> "http://mac-mini.local:11434").
@@ -535,12 +670,85 @@ func normalizeEndpoint(raw, fallback, defaultPort string) string {
 	return u
 }
 
-func inferOMLXVisionFromName(modelID string) bool {
+func inferVisionFromName(modelID string) bool {
 	lower := strings.ToLower(modelID)
-	for _, kw := range []string{"vl", "vision", "pixtral", "llava", "minicpm-v", "gemma-3", "gemma3", "gemma4", "qwen2.5-vl", "qwen3-vl"} {
+	// Modern multimodal & MLX VLM architectures (Qwen3.5/3.8/SuperQwen, Qwen-VL, Gemma-3/4, Pixtral, LLaVA, MiniCPM-V, InternVL, Molmo, GLM-4V)
+	for _, kw := range []string{
+		"vl", "vision", "vlm", "pixtral", "llava", "minicpm-v", "minicpm",
+		"gemma-3", "gemma3", "gemma-4", "gemma4",
+		"qwen2.5-vl", "qwen3-vl", "qwen3.5", "qwen3.8", "superqwen",
+		"internvl", "molmo", "glm-4v", "qvq", "mllama", "mistral-small3.1", "mistral-small3.2",
+	} {
 		if strings.Contains(lower, kw) {
 			return true
 		}
 	}
 	return false
+}
+
+func inferThinkingFromName(modelID string) bool {
+	lower := strings.ToLower(modelID)
+	for _, kw := range []string{
+		"qwen3", "superqwen", "deepseek-r1", "r1", "qwq", "qvq",
+		"thinking", "reason", "bonsai", "gemma4", "gemma-4", "gpt-oss", "lfm2-thinking", "lfm2.5-thinking", "magistral", "cogito",
+	} {
+		if strings.Contains(lower, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+func inferToolsFromName(modelID string) bool {
+	lower := strings.ToLower(modelID)
+	for _, kw := range []string{
+		"qwen", "llama3", "llama-3", "mistral", "gemma3", "gemma-3", "gemma4", "gemma-4",
+		"bonsai", "command-r", "hermes", "nemotron", "gpt-oss", "lfm2", "granite",
+	} {
+		if strings.Contains(lower, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+func inferParameterSizeFromName(modelID string) string {
+	parts := strings.FieldsFunc(modelID, func(r rune) bool {
+		return r == '-' || r == '_' || r == ':'
+	})
+	for _, p := range parts {
+		pl := strings.ToLower(p)
+		if strings.HasSuffix(pl, "b") && len(pl) >= 2 && pl[0] >= '0' && pl[0] <= '9' {
+			return strings.ToUpper(p)
+		}
+	}
+	return ""
+}
+
+func buildCapabilitySlice(completion, vision, thinking, tools bool, existing []string) []string {
+	seen := make(map[string]bool)
+	var out []string
+	add := func(c string) {
+		c = strings.ToLower(strings.TrimSpace(c))
+		if c != "" && !seen[c] {
+			seen[c] = true
+			out = append(out, c)
+		}
+	}
+	if completion {
+		add("completion")
+	}
+	for _, c := range existing {
+		add(c)
+	}
+	if vision {
+		add("vision")
+	}
+	if thinking {
+		add("thinking")
+	}
+	if tools {
+		add("tools")
+	}
+	return out
 }

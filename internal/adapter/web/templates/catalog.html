@@ -182,11 +182,11 @@
           </div>
           {{end}}
 
-          <!-- Ollama / oMLX Image2Prompt & Prompt Remix Workbench -->
+            <!-- Ollama / oMLX Image2Prompt & Prompt Remix Workbench -->
           <div style="background:#060d1b;border:1px solid var(--border-highlight);border-radius:6px;padding:14px;">
             <div class="facet-title">
               <span>CREATE NEW PROMPT FROM THIS IMAGE (FOR TARGET MODEL X)</span>
-              <a href="/?tab=settings" style="font-size:11px;color:#60a5fa;">Models: [{{.Settings.Image2PromptProvider}}] {{.Settings.Image2PromptModel}} / [{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}} &rarr;</a>
+              <a href="/?tab=settings" style="font-size:11px;color:#60a5fa;">Defaults: [{{.Settings.Image2PromptProvider}}] {{.Settings.Image2PromptModel}} (think:{{.Settings.Image2PromptThink}}) &rarr;</a>
             </div>
 
             {{if .AIResultError}}
@@ -229,6 +229,30 @@
                     {{range .Page.Characters}}
                       <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
                     {{end}}
+                  </select>
+                </div>
+              </div>
+
+              <!-- Quick Override: LLM/Vision Backend + Model & Thinking Level -->
+              <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
+                <div>
+                  <label class="kv-label">Quick LLM / Vision Model Override (Optional)</label>
+                  <select name="override_route" class="input-dark">
+                    <option value="">Use Settings Default ([{{.Settings.Image2PromptProvider}}] {{.Settings.Image2PromptModel}})</option>
+                    {{range .AIStatus.AllModels}}
+                      <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}{{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}</option>
+                    {{end}}
+                  </select>
+                </div>
+                <div>
+                  <label class="kv-label">Quick Thinking Override</label>
+                  <select name="override_think" class="input-dark">
+                    <option value="">From Settings ({{.Settings.Image2PromptThink}})</option>
+                    <option value="off">Off (Fastest / No Reasoning)</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="default">Model Default</option>
                   </select>
                 </div>
               </div>
@@ -362,7 +386,7 @@
         {{end}}
 
         <form action="/admin/ollama/text2prompt" method="POST" style="display:flex;flex-direction:column;gap:12px;">
-          <div style="display:grid;grid-template-columns:280px 1fr;gap:12px;align-items:center;">
+          <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:center;">
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Target Generator Profile (System Prompt)</label>
               <select name="profile_slug" class="input-dark" onchange="filterLoRAsByModel(this.form, this.value)">
@@ -374,6 +398,29 @@
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Concept, Scene Idea, or Raw Prompt to Transform</label>
               <input type="text" name="concept" value="{{.AIInputConcept}}" placeholder="e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk..." class="input-dark" required>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;align-items:center;">
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Quick LLM Model Override (Optional)</label>
+              <select name="override_route" class="input-dark">
+                <option value="">Use Settings Default ([{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}})</option>
+                {{range .AIStatus.AllModels}}
+                  <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}{{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}</option>
+                {{end}}
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Quick Thinking Mode Override</label>
+              <select name="override_think" class="input-dark">
+                <option value="">From Settings ({{.Settings.Text2PromptThink}})</option>
+                <option value="off">Off (Fastest / No Reasoning)</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="default">Model Default</option>
+              </select>
             </div>
           </div>
 
@@ -395,7 +442,7 @@
           {{end}}
 
           <div>
-            <button type="submit" class="btn-primary">Synthesize Prompt via [{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}}</button>
+            <button type="submit" class="btn-primary">Synthesize Prompt (Default: [{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}} | think:{{.Settings.Text2PromptThink}})</button>
           </div>
         </form>
 
@@ -415,21 +462,39 @@
           <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px;">
             Pick any Character from your catalog (preserving their trigger words, base prompt, and LoRAs) and place them into a new scene, movie style, or video camera shot for Target Model X.
           </p>
-          <form action="/admin/ollama/character2prompt" method="POST" style="display:grid;grid-template-columns:220px 240px 1fr auto;gap:10px;align-items:center;">
+          <form action="/admin/ollama/character2prompt" method="POST" style="display:flex;flex-direction:column;gap:8px;">
             <input type="hidden" name="return_tab" value="studio">
-            <select name="character_id" class="input-dark" required>
-              <option value="">Select Character...</option>
-              {{range .Page.Characters}}
-                <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
-              {{end}}
-            </select>
-            <select name="profile_slug" class="input-dark">
-              {{range .PromptProfiles}}
-                <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
-              {{end}}
-            </select>
-            <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, lighting, camera movement (e.g. 'Blade Runner 2049 rooftop rain, slow dolly-in')..." class="input-dark" required>
-            <button type="submit" class="btn-primary">Generate Character Prompt</button>
+            <div style="display:grid;grid-template-columns:200px 220px 1fr 160px;gap:8px;align-items:center;">
+              <select name="character_id" class="input-dark" required>
+                <option value="">Select Character...</option>
+                {{range .Page.Characters}}
+                  <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+              </select>
+              <select name="profile_slug" class="input-dark">
+                {{range .PromptProfiles}}
+                  <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
+                {{end}}
+              </select>
+              <select name="override_route" class="input-dark">
+                <option value="">Model: Settings Default ([{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}})</option>
+                {{range .AIStatus.AllModels}}
+                  <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
+                {{end}}
+              </select>
+              <select name="override_think" class="input-dark">
+                <option value="">Think: Settings ({{.Settings.Text2PromptThink}})</option>
+                <option value="off">Think: Off</option>
+                <option value="low">Think: Low</option>
+                <option value="medium">Think: Medium</option>
+                <option value="high">Think: High</option>
+                <option value="default">Think: Default</option>
+              </select>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+              <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, lighting, camera movement (e.g. 'Blade Runner 2049 rooftop rain, slow dolly-in')..." class="input-dark" required>
+              <button type="submit" class="btn-primary">Generate Character Prompt</button>
+            </div>
           </form>
         </div>
 
@@ -697,58 +762,94 @@
 
             <!-- Vision Task Route -->
             <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Vision Analysis Backend &amp; Model</label>
-              <div style="display:flex;gap:6px;">
-                <select name="vision_provider" id="vision_provider" class="input-dark" style="width:105px;" onchange="filterModelSelect('vision_provider', 'vision_model_select')">
-                  <option value="ollama" {{if eq .Settings.VisionProvider "ollama"}}selected{{end}}>Ollama</option>
-                  <option value="omlx" {{if eq .Settings.VisionProvider "omlx"}}selected{{end}}>oMLX</option>
-                </select>
-                <select name="vision_model" id="vision_model_select" class="input-dark">
-                  <option value="{{.Settings.VisionModel}}" selected>{{.Settings.VisionModel}} (current)</option>
-                  {{range .AIStatus.AllModels}}
-                    <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.VisionModel .Name}}selected{{end}}>
-                      {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .HasVision}}[vision]{{end}}
-                    </option>
-                  {{end}}
-                </select>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Vision Analysis Backend, Model &amp; Thinking</label>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;gap:6px;">
+                  <select name="vision_provider" id="vision_provider" class="input-dark" style="width:95px;" onchange="filterModelSelect('vision_provider', 'vision_model_select')">
+                    <option value="ollama" {{if eq .Settings.VisionProvider "ollama"}}selected{{end}}>Ollama</option>
+                    <option value="omlx" {{if eq .Settings.VisionProvider "omlx"}}selected{{end}}>oMLX</option>
+                  </select>
+                  <select name="vision_model" id="vision_model_select" class="input-dark">
+                    <option value="{{.Settings.VisionModel}}" selected>{{.Settings.VisionModel}} (current)</option>
+                    {{range .AIStatus.AllModels}}
+                      <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.VisionModel .Name}}selected{{end}}>
+                        {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{range .Capabilities}}[{{.}}] {{end}}{{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                      </option>
+                    {{end}}
+                  </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Thinking:</span>
+                  <select name="vision_think" class="input-dark" style="font-size:12px;padding:5px 8px;">
+                    <option value="off" {{if eq .Settings.VisionThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
+                    <option value="low" {{if eq .Settings.VisionThink "low"}}selected{{end}}>Low</option>
+                    <option value="medium" {{if eq .Settings.VisionThink "medium"}}selected{{end}}>Medium</option>
+                    <option value="high" {{if eq .Settings.VisionThink "high"}}selected{{end}}>High</option>
+                    <option value="default" {{if eq .Settings.VisionThink "default"}}selected{{end}}>Model Default</option>
+                  </select>
+                </div>
               </div>
             </div>
 
             <!-- Image2Prompt Task Route -->
             <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Image2Prompt Backend &amp; Model</label>
-              <div style="display:flex;gap:6px;">
-                <select name="image2prompt_provider" id="image2prompt_provider" class="input-dark" style="width:105px;" onchange="filterModelSelect('image2prompt_provider', 'image2prompt_model_select')">
-                  <option value="ollama" {{if eq .Settings.Image2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
-                  <option value="omlx" {{if eq .Settings.Image2PromptProvider "omlx"}}selected{{end}}>oMLX</option>
-                </select>
-                <select name="image2prompt_model" id="image2prompt_model_select" class="input-dark">
-                  <option value="{{.Settings.Image2PromptModel}}" selected>{{.Settings.Image2PromptModel}} (current)</option>
-                  {{range .AIStatus.AllModels}}
-                    <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.Image2PromptModel .Name}}selected{{end}}>
-                      {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .HasVision}}[vision]{{end}}
-                    </option>
-                  {{end}}
-                </select>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Image2Prompt Backend, Model &amp; Thinking</label>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;gap:6px;">
+                  <select name="image2prompt_provider" id="image2prompt_provider" class="input-dark" style="width:95px;" onchange="filterModelSelect('image2prompt_provider', 'image2prompt_model_select')">
+                    <option value="ollama" {{if eq .Settings.Image2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
+                    <option value="omlx" {{if eq .Settings.Image2PromptProvider "omlx"}}selected{{end}}>oMLX</option>
+                  </select>
+                  <select name="image2prompt_model" id="image2prompt_model_select" class="input-dark">
+                    <option value="{{.Settings.Image2PromptModel}}" selected>{{.Settings.Image2PromptModel}} (current)</option>
+                    {{range .AIStatus.AllModels}}
+                      <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.Image2PromptModel .Name}}selected{{end}}>
+                        {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{range .Capabilities}}[{{.}}] {{end}}{{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                      </option>
+                    {{end}}
+                  </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Thinking:</span>
+                  <select name="image2prompt_think" class="input-dark" style="font-size:12px;padding:5px 8px;">
+                    <option value="off" {{if eq .Settings.Image2PromptThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
+                    <option value="low" {{if eq .Settings.Image2PromptThink "low"}}selected{{end}}>Low</option>
+                    <option value="medium" {{if eq .Settings.Image2PromptThink "medium"}}selected{{end}}>Medium</option>
+                    <option value="high" {{if eq .Settings.Image2PromptThink "high"}}selected{{end}}>High</option>
+                    <option value="default" {{if eq .Settings.Image2PromptThink "default"}}selected{{end}}>Model Default</option>
+                  </select>
+                </div>
               </div>
             </div>
 
             <!-- Text2Prompt Task Route -->
             <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Text2Prompt Backend &amp; Model</label>
-              <div style="display:flex;gap:6px;">
-                <select name="text2prompt_provider" id="text2prompt_provider" class="input-dark" style="width:105px;" onchange="filterModelSelect('text2prompt_provider', 'text2prompt_model_select')">
-                  <option value="ollama" {{if eq .Settings.Text2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
-                  <option value="omlx" {{if eq .Settings.Text2PromptProvider "omlx"}}selected{{end}}>oMLX</option>
-                </select>
-                <select name="text2prompt_model" id="text2prompt_model_select" class="input-dark">
-                  <option value="{{.Settings.Text2PromptModel}}" selected>{{.Settings.Text2PromptModel}} (current)</option>
-                  {{range .AIStatus.AllModels}}
-                    <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.Text2PromptModel .Name}}selected{{end}}>
-                      {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
-                    </option>
-                  {{end}}
-                </select>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Text2Prompt Backend, Model &amp; Thinking</label>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;gap:6px;">
+                  <select name="text2prompt_provider" id="text2prompt_provider" class="input-dark" style="width:95px;" onchange="filterModelSelect('text2prompt_provider', 'text2prompt_model_select')">
+                    <option value="ollama" {{if eq .Settings.Text2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
+                    <option value="omlx" {{if eq .Settings.Text2PromptProvider "omlx"}}selected{{end}}>oMLX</option>
+                  </select>
+                  <select name="text2prompt_model" id="text2prompt_model_select" class="input-dark">
+                    <option value="{{.Settings.Text2PromptModel}}" selected>{{.Settings.Text2PromptModel}} (current)</option>
+                    {{range .AIStatus.AllModels}}
+                      <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.Text2PromptModel .Name}}selected{{end}}>
+                        {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{range .Capabilities}}[{{.}}] {{end}}{{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                      </option>
+                    {{end}}
+                  </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Thinking:</span>
+                  <select name="text2prompt_think" class="input-dark" style="font-size:12px;padding:5px 8px;">
+                    <option value="off" {{if eq .Settings.Text2PromptThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
+                    <option value="low" {{if eq .Settings.Text2PromptThink "low"}}selected{{end}}>Low</option>
+                    <option value="medium" {{if eq .Settings.Text2PromptThink "medium"}}selected{{end}}>Medium</option>
+                    <option value="high" {{if eq .Settings.Text2PromptThink "high"}}selected{{end}}>High</option>
+                    <option value="default" {{if eq .Settings.Text2PromptThink "default"}}selected{{end}}>Model Default</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -772,13 +873,23 @@
 
           {{if .AIStatus.AllModels}}
             <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-navy);">
-              <div class="kv-label" style="margin-bottom:8px;">Discovered Models Across Ollama (/api/tags) &amp; oMLX (/v1/models)</div>
+              <div class="kv-label" style="margin-bottom:8px;">Discovered Models &amp; Capabilities Across Ollama (/api/tags + /api/show) &amp; oMLX (/v1/models)</div>
               <div class="tag-cloud">
                 {{range .AIStatus.AllModels}}
-                  <span class="badge-chip" style="padding:4px 8px;font-size:11px;">
+                  <span class="badge-chip" style="padding:4px 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px;">
                     <span style="color:#60a5fa;">[{{.Provider}}]</span> <strong>{{.Name}}</strong>
-                    {{if .ParameterSize}}({{.ParameterSize}}){{end}}
-                    {{if .HasVision}}<span style="color:#34d399;">[vision:{{.VisionStatus}}]</span>{{end}}
+                    {{if .ParameterSize}}<span style="color:#94a3b8;">({{.ParameterSize}})</span>{{end}}
+                    {{range .Capabilities}}
+                      {{if eq . "vision"}}
+                        <span style="color:#34d399;">[vision]</span>
+                      {{else if eq . "thinking"}}
+                        <span style="color:#c084fc;">[thinking]</span>
+                      {{else if eq . "tools"}}
+                        <span style="color:#38bdf8;">[tools]</span>
+                      {{else}}
+                        <span style="color:#94a3b8;">[{{.}}]</span>
+                      {{end}}
+                    {{end}}
                     {{if .ContextLength}}<span style="color:#fcd34d;">[ctx:{{.ContextLength}}]</span>{{end}}
                   </span>
                 {{end}}
@@ -867,6 +978,22 @@
                     <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>Target: {{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
                   {{end}}
                 </select>
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;">
+                  <select name="override_route" class="input-dark" style="font-size:11.5px;padding:5px 7px;">
+                    <option value="">LLM: Default ([{{$.Settings.Text2PromptProvider}}] {{$.Settings.Text2PromptModel}})</option>
+                    {{range $.AIStatus.AllModels}}
+                      <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
+                    {{end}}
+                  </select>
+                  <select name="override_think" class="input-dark" style="font-size:11.5px;padding:5px 7px;">
+                    <option value="">Think: {{$.Settings.Text2PromptThink}}</option>
+                    <option value="off">Think: Off</option>
+                    <option value="low">Think: Low</option>
+                    <option value="medium">Think: Medium</option>
+                    <option value="high">Think: High</option>
+                    <option value="default">Think: Default</option>
+                  </select>
+                </div>
                 {{if $.ModelLoRAs}}
                   <div style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 0;">
                     {{range $.ModelLoRAs}}

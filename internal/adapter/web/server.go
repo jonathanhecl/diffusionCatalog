@@ -261,10 +261,13 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		OMLXAPIKey:             r.FormValue("omlx_api_key"),
 		VisionProvider:         domain.AIProviderType(r.FormValue("vision_provider")),
 		VisionModel:            r.FormValue("vision_model"),
+		VisionThink:            r.FormValue("vision_think"),
 		Image2PromptProvider:   domain.AIProviderType(r.FormValue("image2prompt_provider")),
 		Image2PromptModel:      r.FormValue("image2prompt_model"),
+		Image2PromptThink:      r.FormValue("image2prompt_think"),
 		Text2PromptProvider:    domain.AIProviderType(r.FormValue("text2prompt_provider")),
 		Text2PromptModel:       r.FormValue("text2prompt_model"),
+		Text2PromptThink:       r.FormValue("text2prompt_think"),
 		DefaultTargetGenerator: r.FormValue("default_target_generator"),
 		AutoCaptionOnScan:      r.FormValue("auto_caption_on_scan") == "on" || r.FormValue("auto_caption_on_scan") == "true",
 	}
@@ -333,6 +336,24 @@ func parseLoRAIDs(vals []string) []int64 {
 	return out
 }
 
+func parseExecutionOverride(r *http.Request) domain.PromptExecutionOverride {
+	var ov domain.PromptExecutionOverride
+	route := strings.TrimSpace(r.FormValue("override_route"))
+	if route != "" {
+		if parts := strings.SplitN(route, "|", 2); len(parts) == 2 {
+			ov.Provider = domain.AIProviderType(parts[0])
+			ov.Model = parts[1]
+		} else {
+			ov.Model = route
+		}
+	} else {
+		ov.Provider = domain.AIProviderType(strings.TrimSpace(r.FormValue("override_provider")))
+		ov.Model = strings.TrimSpace(r.FormValue("override_model"))
+	}
+	ov.ThinkLevel = strings.TrimSpace(r.FormValue("override_think"))
+	return ov
+}
+
 func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	_ = r.ParseForm()
@@ -342,9 +363,10 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	userHint := r.FormValue("user_hint")
 	characterID, _ := strconv.ParseInt(r.FormValue("character_id"), 10, 64)
 	loraIDs := parseLoRAIDs(r.Form["lora_id"])
+	override := parseExecutionOverride(r)
 	saveToAsset := r.FormValue("save_to_asset") == "1" || r.FormValue("save_to_asset") == "on"
 
-	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, saveToAsset)
+	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, override, saveToAsset)
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
@@ -389,12 +411,13 @@ func (s *Server) handleCharacter2Prompt(w http.ResponseWriter, r *http.Request) 
 	sceneDirection := r.FormValue("scene_direction")
 	refAssetID, _ := strconv.ParseInt(r.FormValue("ref_asset_id"), 10, 64)
 	loraIDs := parseLoRAIDs(r.Form["lora_id"])
+	override := parseExecutionOverride(r)
 	returnTab := r.FormValue("return_tab")
 	if returnTab == "" {
 		returnTab = "characters"
 	}
 
-	outPrompt, runErr := s.catalog.RunCharacterPrompt(ctx, characterID, profileSlug, sceneDirection, refAssetID, loraIDs)
+	outPrompt, runErr := s.catalog.RunCharacterPrompt(ctx, characterID, profileSlug, sceneDirection, refAssetID, loraIDs, override)
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
@@ -437,8 +460,9 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 	profileSlug := r.FormValue("profile_slug")
 	concept := r.FormValue("concept")
 	loraIDs := parseLoRAIDs(r.Form["lora_id"])
+	override := parseExecutionOverride(r)
 
-	outPrompt, runErr := s.catalog.RunText2Prompt(ctx, concept, profileSlug, loraIDs)
+	outPrompt, runErr := s.catalog.RunText2Prompt(ctx, concept, profileSlug, loraIDs, override)
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)

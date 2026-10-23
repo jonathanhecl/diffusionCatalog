@@ -71,11 +71,14 @@ func TestOMLXListModelsAndTextToPrompt(t *testing.T) {
 	if models[0].ContextLength != 262144 {
 		t.Errorf("expected max_model_len 262144, got %d", models[0].ContextLength)
 	}
+	if !models[0].HasVision || !models[0].HasThinking || !models[0].HasTools {
+		t.Errorf("expected SuperQwen3.8 to report vision, thinking, and tools capabilities, got %+v", models[0].Capabilities)
+	}
 	if !models[1].HasVision {
 		t.Errorf("expected Qwen2.5-VL to be flagged HasVision=true")
 	}
 
-	out, err := client.TextToPrompt(ctx, domain.ProviderOMLX, "http://mac-mini.local:8000", "omlx", models[0].Name, "You are a Flux prompt specialist.", "cyberpunk street")
+	out, err := client.TextToPrompt(ctx, domain.ProviderOMLX, "http://mac-mini.local:8000", "omlx", models[0].Name, "You are a Flux prompt specialist.", "cyberpunk street", "low")
 	if err != nil {
 		t.Fatalf("expected oMLX TextToPrompt to succeed, got %v", err)
 	}

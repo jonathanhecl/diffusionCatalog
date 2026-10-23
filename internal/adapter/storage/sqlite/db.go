@@ -220,10 +220,13 @@ func seedDefaultSettingsAndProfiles(ctx context.Context, db *sql.DB) error {
 		"omlx_api_key":             "omlx",
 		"vision_provider":          "ollama",
 		"vision_model":             "llama3.2-vision:latest",
+		"vision_think":             "off",
 		"image2prompt_provider":    "ollama",
 		"image2prompt_model":       "llama3.2-vision:latest",
+		"image2prompt_think":       "off",
 		"text2prompt_provider":     "omlx",
 		"text2prompt_model":        "SuperQwen3.8-27b-abliterated-MLX-4bit",
+		"text2prompt_think":        "low",
 		"default_target_generator": "flux",
 		"auto_caption_on_scan":     "false",
 	}
