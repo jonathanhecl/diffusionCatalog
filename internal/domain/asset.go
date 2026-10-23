@@ -95,15 +95,22 @@ type ManifestTag struct {
 	Color string `json:"color,omitempty"`
 }
 
-// ManifestAssetEntry stores portable per-asset classification inside <media_root>/.diffusion-catalog.json.
+// ManifestAssetEntry stores portable per-asset classification and preprocessed metadata inside <media_root>/.diffusion-catalog.json.
 type ManifestAssetEntry struct {
-	Category    string        `json:"category,omitempty"`
-	Subcategory string        `json:"subcategory,omitempty"`
-	Rating      int           `json:"rating,omitempty"`
-	Favorite    bool          `json:"favorite,omitempty"`
-	Tags        []ManifestTag `json:"tags,omitempty"`
-	Groups      []string      `json:"groups,omitempty"`
-	Characters  []string      `json:"characters,omitempty"`
+	Category    string            `json:"category,omitempty"`
+	Subcategory string            `json:"subcategory,omitempty"`
+	Rating      int               `json:"rating,omitempty"`
+	Favorite    bool              `json:"favorite,omitempty"`
+	Tags        []ManifestTag     `json:"tags,omitempty"`
+	Groups      []string          `json:"groups,omitempty"`
+	Characters  []string          `json:"characters,omitempty"`
+	FileSize    int64             `json:"file_size,omitempty"`
+	FileMTime   int64             `json:"file_mtime,omitempty"`
+	FileHash    string            `json:"file_hash,omitempty"`
+	Width       int               `json:"width,omitempty"`
+	Height      int               `json:"height,omitempty"`
+	DurationSec float64           `json:"duration_sec,omitempty"`
+	Metadata    *GenerationParams `json:"metadata,omitempty"`
 }
 
 // FolderManifest represents the .diffusion-catalog.json file stored at the root of each media folder.

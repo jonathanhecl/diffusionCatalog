@@ -61,6 +61,7 @@ type CatalogRepository interface {
 
 	UpsertAsset(ctx context.Context, asset *MediaAsset) (int64, error)
 	GetAssetByID(ctx context.Context, id int64) (*MediaAsset, error)
+	GetExistingAssetFingerprints(ctx context.Context, rootID int64) (map[string]MediaAsset, error)
 	GetAdjacentAssetIDs(ctx context.Context, id int64) (prevID int64, nextID int64, err error)
 	UpdateAssetPrompt(ctx context.Context, assetID int64, positivePrompt, engine string) error
 	UpdateAssetCategory(ctx context.Context, assetID int64, category, subcategory string) error

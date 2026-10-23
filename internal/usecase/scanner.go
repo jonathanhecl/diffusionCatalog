@@ -18,28 +18,30 @@ import (
 
 // ScanReport summarizes the outcome of a non-destructive directory scan across all registered media roots.
 type ScanReport struct {
-	ScannedRoots int       `json:"scanned_roots"`
-	SkippedRoots int       `json:"skipped_roots"`
-	ScannedFiles int       `json:"scanned_files"`
-	ImagesFound  int       `json:"images_found"`
-	VideosFound  int       `json:"videos_found"`
-	FacesFound   int       `json:"faces_found"`
-	StartedAt    time.Time `json:"started_at"`
-	CompletedAt  time.Time `json:"completed_at"`
+	ScannedRoots   int       `json:"scanned_roots"`
+	SkippedRoots   int       `json:"skipped_roots"`
+	ScannedFiles   int       `json:"scanned_files"`
+	UnchangedFiles int       `json:"unchanged_files"`
+	ImagesFound    int       `json:"images_found"`
+	VideosFound    int       `json:"videos_found"`
+	FacesFound     int       `json:"faces_found"`
+	StartedAt      time.Time `json:"started_at"`
+	CompletedAt    time.Time `json:"completed_at"`
 }
 
 // ScanStatus summarizes the real-time progress of an in-progress or completed media scan.
 type ScanStatus struct {
-	IsScanning   bool       `json:"is_scanning"`
-	ProgressPct  int        `json:"progress_pct"`
-	TotalFiles   int        `json:"total_files"`
-	ScannedFiles int        `json:"scanned_files"`
-	CurrentFile  string     `json:"current_file"`
-	CurrentRoot  string     `json:"current_root"`
-	StartedAt    time.Time  `json:"started_at"`
-	CompletedAt  time.Time  `json:"completed_at"`
-	LastReport   ScanReport `json:"last_report"`
-	LastError    string     `json:"last_error,omitempty"`
+	IsScanning     bool       `json:"is_scanning"`
+	ProgressPct    int        `json:"progress_pct"`
+	TotalFiles     int        `json:"total_files"`
+	ScannedFiles   int        `json:"scanned_files"`
+	UnchangedFiles int        `json:"unchanged_files"`
+	CurrentFile    string     `json:"current_file"`
+	CurrentRoot    string     `json:"current_root"`
+	StartedAt      time.Time  `json:"started_at"`
+	CompletedAt    time.Time  `json:"completed_at"`
+	LastReport     ScanReport `json:"last_report"`
+	LastError      string     `json:"last_error,omitempty"`
 }
 
 // ScannerService walks the read-only media folder, extracts diffusion metadata, and indexes assets into SQLite.
@@ -200,6 +202,12 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			}
 		}
 
+		// Load existing asset fingerprints from database for this root
+		dbFingerprints, _ := s.repo.GetExistingAssetFingerprints(ctx, root.ID)
+		if dbFingerprints == nil {
+			dbFingerprints = make(map[string]domain.MediaAsset)
+		}
+
 		_ = filepath.WalkDir(root.Path, func(absPath string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				// Gracefully skip directories or files where the OS user lacks read permission
@@ -237,17 +245,62 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				return nil
 			}
 
-			hash, err := hashFilePrefix(absPath, fInfo.Size())
-			if err != nil {
-				return nil
-			}
-
-			meta, width, height, _ := s.extractor.Extract(ctx, absPath, mediaType)
+			fileSize := fInfo.Size()
+			fileMTime := fInfo.ModTime().UTC()
+			mtimeUnix := fileMTime.Unix()
 
 			var mEntry domain.ManifestAssetEntry
 			var hasMEntry bool
 			if manifest != nil {
 				mEntry, hasMEntry = manifest.Assets[relToRoot]
+			}
+
+			// FAST PATH: Differential check against SQLite database
+			// If file already exists in SQLite with identical size and modification time,
+			// it is already indexed. We skip disk extraction, hashing, and database upserts completely.
+			if existing, inDB := dbFingerprints[storedRelPath]; inDB {
+				if existing.FileSize == fileSize && (existing.FileMTime.Unix() == mtimeUnix || existing.FileMTime.Equal(fileMTime)) {
+					report.UnchangedFiles++
+					s.mu.Lock()
+					s.status.ScannedFiles++
+					s.status.UnchangedFiles++
+					s.status.CurrentFile = d.Name()
+					s.status.CurrentRoot = root.Label
+					if s.status.TotalFiles > 0 {
+						s.status.ProgressPct = (s.status.ScannedFiles * 100) / s.status.TotalFiles
+						if s.status.ProgressPct > 100 {
+							s.status.ProgressPct = 100
+						}
+					}
+					s.mu.Unlock()
+					return nil
+				}
+			}
+
+			// Preprocessed cache check:
+			// If .diffusion-catalog.json already has preprocessed dimensions, hash, and metadata matching current file mtime/size,
+			// use the cached metadata without having to re-parse the media file.
+			var meta domain.GenerationParams
+			var width, height int
+			var hash string
+			usedPreprocessedCache := false
+
+			if hasMEntry && mEntry.FileSize == fileSize && mEntry.FileMTime == mtimeUnix && mEntry.FileHash != "" {
+				width = mEntry.Width
+				height = mEntry.Height
+				hash = mEntry.FileHash
+				if mEntry.Metadata != nil {
+					meta = *mEntry.Metadata
+				}
+				usedPreprocessedCache = true
+			} else {
+				// File is new or changed: extract hash and metadata
+				h, hErr := hashFilePrefix(absPath, fileSize)
+				if hErr != nil {
+					return nil
+				}
+				hash = h
+				meta, width, height, _ = s.extractor.Extract(ctx, absPath, mediaType)
 			}
 
 			// Default category from top-level subfolder if not explicitly classified in manifest yet
@@ -273,8 +326,8 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				MediaType:   mediaType,
 				Width:       width,
 				Height:      height,
-				FileSize:    fInfo.Size(),
-				FileMTime:   fInfo.ModTime().UTC(),
+				FileSize:    fileSize,
+				FileMTime:   fileMTime,
 				Rating:      mEntry.Rating,
 				Favorite:    mEntry.Favorite,
 				Category:    category,
@@ -309,7 +362,11 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			pct := s.status.ProgressPct
 			s.mu.Unlock()
 
-			log.Printf("[SCAN] [%d/%d] (%d%%) Indexed %s (%s)", scannedCount, totalCount, pct, d.Name(), root.Label)
+			if usedPreprocessedCache {
+				log.Printf("[SCAN] [%d/%d] (%d%%) Synced from manifest: %s (%s)", scannedCount, totalCount, pct, d.Name(), root.Label)
+			} else {
+				log.Printf("[SCAN] [%d/%d] (%d%%) Indexed %s (%s)", scannedCount, totalCount, pct, d.Name(), root.Label)
+			}
 
 			// Auto-attach subfolder name as an agnostic Group if nested inside root.Path
 			if subFolder != "" {
@@ -342,12 +399,20 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 						_ = s.repo.AttachAssetToCharacter(ctx, cid, assetID)
 					}
 				}
-			} else if manifest != nil {
-				// Record newly discovered file in folder manifest
-				manifest.Assets[relToRoot] = domain.ManifestAssetEntry{
-					Category:    category,
-					Subcategory: subcategory,
-				}
+			}
+
+			// Update / enrich manifest with preprocessed technical metadata so subsequent scans/re-indexing are instant
+			if manifest != nil {
+				metaCopy := meta
+				mEntry.Category = category
+				mEntry.Subcategory = subcategory
+				mEntry.FileSize = fileSize
+				mEntry.FileMTime = mtimeUnix
+				mEntry.FileHash = hash
+				mEntry.Width = width
+				mEntry.Height = height
+				mEntry.Metadata = &metaCopy
+				manifest.Assets[relToRoot] = mEntry
 				manifestDirty = true
 			}
 
@@ -379,8 +444,8 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 
 	report.CompletedAt = time.Now()
 	duration := report.CompletedAt.Sub(report.StartedAt).Round(time.Millisecond)
-	log.Printf("[SCAN] Completed scan in %v: %d images, %d videos indexed across %d roots (%d skipped)",
-		duration, report.ImagesFound, report.VideosFound, report.ScannedRoots, report.SkippedRoots)
+	log.Printf("[SCAN] Completed scan in %v: %d indexed (%d images, %d videos), %d unchanged (fast skipped) across %d roots (%d skipped)",
+		duration, report.ImagesFound+report.VideosFound, report.ImagesFound, report.VideosFound, report.UnchangedFiles, report.ScannedRoots, report.SkippedRoots)
 
 	s.mu.Lock()
 	s.status.LastReport = report

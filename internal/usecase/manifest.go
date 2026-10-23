@@ -87,6 +87,28 @@ func SyncAssetToFolderManifest(rootPath string, asset *domain.MediaAsset, defaul
 	}
 	entry.Rating = asset.Rating
 	entry.Favorite = asset.Favorite
+	if asset.FileSize > 0 {
+		entry.FileSize = asset.FileSize
+	}
+	if !asset.FileMTime.IsZero() {
+		entry.FileMTime = asset.FileMTime.Unix()
+	}
+	if asset.FileHash != "" {
+		entry.FileHash = asset.FileHash
+	}
+	if asset.Width > 0 {
+		entry.Width = asset.Width
+	}
+	if asset.Height > 0 {
+		entry.Height = asset.Height
+	}
+	if asset.DurationSec > 0 {
+		entry.DurationSec = asset.DurationSec
+	}
+	if asset.Metadata.PositivePrompt != "" || asset.Metadata.Engine != "" {
+		metaCopy := asset.Metadata
+		entry.Metadata = &metaCopy
+	}
 
 	if len(asset.Tags) > 0 {
 		var tags []domain.ManifestTag

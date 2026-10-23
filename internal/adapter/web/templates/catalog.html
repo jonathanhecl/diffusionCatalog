@@ -1380,9 +1380,9 @@
             {{end}}
           </div>
 
-          <form action="/admin/roots/add" method="POST" style="display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:center;">
-            <input type="text" name="label" placeholder="Folder / Disk Label (e.g. External SSD Flux)" class="input-dark">
-            <input type="text" name="path" placeholder="Absolute or relative folder path (e.g. /Volumes/AI_Drive/outputs or ./media_extra)" class="input-dark" required>
+          <form action="/admin/roots/add" method="POST" autocomplete="off" style="display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:center;">
+            <input type="text" name="label" placeholder="Folder / Disk Label (e.g. External SSD Flux)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <input type="text" name="path" placeholder="Absolute or relative folder path (e.g. /Volumes/AI_Drive/outputs or ./media_extra)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
             <button type="submit" class="btn-primary">+ Add Media Folder &amp; Initialize Manifest</button>
           </form>
         </div>

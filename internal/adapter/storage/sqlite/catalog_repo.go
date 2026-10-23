@@ -354,6 +354,43 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 	return asset, nil
 }
 
+// GetExistingAssetFingerprints returns a lookup map keyed by rel_path containing basic metadata
+// (id, file_size, file_mtime, file_hash, rating, favorite, category, subcategory) to allow lightning-fast differential scanning.
+func (r *Repository) GetExistingAssetFingerprints(ctx context.Context, rootID int64) (map[string]domain.MediaAsset, error) {
+	db := r.conn()
+	query := `
+		SELECT id, rel_path, file_size, file_hash, COALESCE(file_mtime, indexed_at), rating, favorite, category, subcategory
+		FROM assets`
+	var rows *sql.Rows
+	var err error
+	if rootID > 0 {
+		query += ` WHERE root_id = ?`
+		rows, err = db.QueryContext(ctx, query, rootID)
+	} else {
+		rows, err = db.QueryContext(ctx, query)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[string]domain.MediaAsset)
+	for rows.Next() {
+		var a domain.MediaAsset
+		var relPath string
+		var mTime time.Time
+		var favInt int
+		if err := rows.Scan(&a.ID, &relPath, &a.FileSize, &a.FileHash, &mTime, &a.Rating, &favInt, &a.Category, &a.Subcategory); err != nil {
+			return nil, err
+		}
+		a.RelPath = relPath
+		a.FileMTime = mTime
+		a.Favorite = favInt == 1
+		out[relPath] = a
+	}
+	return out, nil
+}
+
 // GetAdjacentAssetIDs returns the previous (newer) and next (older) asset IDs relative to the specified asset ID.
 func (r *Repository) GetAdjacentAssetIDs(ctx context.Context, id int64) (int64, int64, error) {
 	db := r.conn()

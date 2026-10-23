@@ -166,4 +166,16 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 	if err != nil || len(trigPage.Assets) != 1 {
 		t.Fatalf("expected 1 asset matching caption trigger 'orbital mech drop', got %d (err=%v)", len(trigPage.Assets), err)
 	}
+
+	// 6. Test Differential Delta Scan: a second scan of the same unchanged files must skip them all
+	rescanReport, err := scannerSvc.Scan(ctx)
+	if err != nil {
+		t.Fatalf("Rescan failed: %v", err)
+	}
+	if rescanReport.UnchangedFiles == 0 {
+		t.Errorf("expected differential scanner to detect unchanged files, got %d", rescanReport.UnchangedFiles)
+	}
+	if rescanReport.ImagesFound > 0 {
+		t.Errorf("expected 0 new images indexed on unchanged rescan, got %d", rescanReport.ImagesFound)
+	}
 }
