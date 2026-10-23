@@ -178,11 +178,11 @@
           </div>
           {{end}}
 
-          <!-- Ollama Image2Prompt & Prompt Converter Panel -->
+          <!-- Ollama / oMLX Image2Prompt & Prompt Remix Workbench -->
           <div style="background:#060d1b;border:1px solid var(--border-highlight);border-radius:6px;padding:14px;">
             <div class="facet-title">
-              <span>OLLAMA AI — IMAGE2PROMPT &amp; GENERATOR CONVERTER</span>
-              <a href="/?tab=settings" style="font-size:11px;color:#60a5fa;">Configure Models ({{.Settings.Image2PromptModel}} / {{.Settings.Text2PromptModel}}) &rarr;</a>
+              <span>CREATE NEW PROMPT FROM THIS IMAGE (FOR TARGET MODEL X)</span>
+              <a href="/?tab=settings" style="font-size:11px;color:#60a5fa;">Models: [{{.Settings.Image2PromptProvider}}] {{.Settings.Image2PromptModel}} / [{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}} &rarr;</a>
             </div>
 
             {{if .AIResultError}}
@@ -193,26 +193,66 @@
             {{if .AIResultPrompt}}
               <div style="margin-bottom:10px;">
                 <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px;color:#6ee7b7;">
-                  <span>Generated Prompt for target <strong>{{.AITargetProfile}}</strong>:</span>
-                  <button type="button" class="btn-ghost" style="padding:2px 8px;" onclick="navigator.clipboard.writeText(document.getElementById('ai-gen-out').innerText)">Copy</button>
+                  <span>Synthesized Prompt for target <strong>{{.AITargetProfile}}</strong>:</span>
+                  <button type="button" class="btn-ghost" style="padding:2px 8px;" onclick="navigator.clipboard.writeText(document.getElementById('ai-gen-out').innerText)">Copy Prompt</button>
                 </div>
                 <div id="ai-gen-out" class="prompt-box" style="color:#a7f3d0;border-color:#059669;">{{.AIResultPrompt}}</div>
               </div>
             {{end}}
 
-            <form action="/admin/ollama/image2prompt" method="POST" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+            <form action="/admin/ollama/image2prompt" method="POST" style="display:flex;flex-direction:column;gap:8px;">
               <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
-              <select name="profile_slug" class="input-dark" style="width:220px;">
-                {{range .PromptProfiles}}
-                  <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
-                {{end}}
-              </select>
-              <input type="text" name="user_hint" placeholder="Optional style/character hint..." class="input-dark" style="flex:1;min-width:180px;">
-              <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
-                <input type="checkbox" name="save_to_asset" value="1"> Save as Asset Prompt
-              </label>
-              <button type="submit" class="btn-primary">Run Image2Prompt (Vision)</button>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                <div>
+                  <label class="kv-label">Target Model (System Prompt)</label>
+                  <select name="profile_slug" class="input-dark">
+                    {{range .PromptProfiles}}
+                      <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
+                    {{end}}
+                  </select>
+                </div>
+                <div>
+                  <label class="kv-label">Generation Method</label>
+                  <select name="mode" class="input-dark">
+                    <option value="vision">Vision (Analyze Image + Direction)</option>
+                    <option value="remix">Remix (Translate Existing Prompt)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="kv-label">Inject Character Identity (Optional)</label>
+                  <select name="character_id" class="input-dark">
+                    <option value="0">None (Keep Image Subject)</option>
+                    {{range .Page.Characters}}
+                      <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
+                    {{end}}
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" name="user_hint" placeholder="Optional scene/movie/camera direction (e.g. 'Adapt into a rainy 1980s sci-fi movie shot, slow dolly-in')..." class="input-dark" style="flex:1;">
+                <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;white-space:nowrap;">
+                  <input type="checkbox" name="save_to_asset" value="1"> Overwrite Asset Prompt
+                </label>
+                <button type="submit" class="btn-primary">Generate Prompt</button>
+              </div>
             </form>
+
+            {{if .GeneratedHistory}}
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border-navy);">
+                <div class="kv-label" style="margin-bottom:6px;">Prompts Previously Generated from This Asset</div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  {{range .GeneratedHistory}}
+                    <div class="prompt-box" style="font-size:11px;">
+                      <div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:3px;">
+                        <span>Target: <strong style="color:#60a5fa;">{{.TargetProfileSlug}}</strong> {{if .CharacterName}}| Character: <strong>{{.CharacterName}}</strong>{{end}} {{if .SceneDirection}}| Direction: <em>{{.SceneDirection}}</em>{{end}}</span>
+                        <span>[{{.Provider}}] {{.ModelName}}</span>
+                      </div>
+                      <div style="color:#e2e8f0;">{{.OutputPrompt}}</div>
+                    </div>
+                  {{end}}
+                </div>
+              </div>
+            {{end}}
           </div>
 
           <div class="kv-table">
@@ -320,12 +360,58 @@
         </form>
 
         {{if .AIResultPrompt}}
-          <div style="margin-top:18px;">
+          <div style="margin-top:18px;margin-bottom:18px;">
             <div class="facet-title">
               <span>SYNTHESIZED PROMPT ({{.AITargetProfile}})</span>
               <button type="button" class="btn-ghost" onclick="navigator.clipboard.writeText(document.getElementById('studio-output').innerText)">Copy Prompt</button>
             </div>
             <div id="studio-output" class="prompt-box" style="font-size:13px;padding:14px;color:#a7f3d0;border-color:#059669;">{{.AIResultPrompt}}</div>
+          </div>
+        {{end}}
+
+        <!-- Character + Scene / Movie Generator inside Studio -->
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-navy);">
+          <h3 style="font-size:15px;margin-bottom:8px;">Character Scene &amp; Movie Prompt Generator</h3>
+          <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px;">
+            Pick any Character from your catalog (preserving their trigger words, base prompt, and LoRAs) and place them into a new scene, movie style, or video camera shot for Target Model X.
+          </p>
+          <form action="/admin/ollama/character2prompt" method="POST" style="display:grid;grid-template-columns:220px 240px 1fr auto;gap:10px;align-items:center;">
+            <input type="hidden" name="return_tab" value="studio">
+            <select name="character_id" class="input-dark" required>
+              <option value="">Select Character...</option>
+              {{range .Page.Characters}}
+                <option value="{{.ID}}" {{if eq $.AICharacterID .ID}}selected{{end}}>{{.Name}}</option>
+              {{end}}
+            </select>
+            <select name="profile_slug" class="input-dark">
+              {{range .PromptProfiles}}
+                <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
+              {{end}}
+            </select>
+            <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, lighting, camera movement (e.g. 'Blade Runner 2049 rooftop rain, slow dolly-in')..." class="input-dark" required>
+            <button type="submit" class="btn-primary">Generate Character Prompt</button>
+          </form>
+        </div>
+
+        {{if .GeneratedHistory}}
+          <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border-navy);">
+            <div class="facet-title"><span>RECENT GENERATED PROMPTS HISTORY</span></div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              {{range .GeneratedHistory}}
+                <div class="prompt-box" style="font-size:11.5px;">
+                  <div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:4px;">
+                    <span>
+                      Target: <strong style="color:#60a5fa;">{{.TargetProfileSlug}}</strong>
+                      {{if .CharacterName}} | Character: <strong style="color:#6ee7b7;">{{.CharacterName}}</strong>{{end}}
+                      {{if .AssetID}} | <a href="/?asset_id={{.AssetID}}" style="color:#93c5fd;text-decoration:underline;">Source Asset #{{.AssetID}}</a>{{end}}
+                      {{if .SceneDirection}} | Direction: <em>{{.SceneDirection}}</em>{{end}}
+                    </span>
+                    <span>[{{.Provider}}] {{.ModelName}}</span>
+                  </div>
+                  <div style="color:#e2e8f0;">{{.OutputPrompt}}</div>
+                </div>
+              {{end}}
+            </div>
           </div>
         {{end}}
       </div>
@@ -551,6 +637,21 @@
         <div class="results-count">Character &amp; Subject Folders: <strong>{{len .Page.Characters}}</strong> profiles</div>
       </div>
 
+      {{if .AIResultError}}
+        <div style="margin-bottom:14px;padding:10px 12px;background:#3b0f18;border:1px solid #ef4444;border-radius:4px;color:#fca5a5;">
+          {{.AIResultError}}
+        </div>
+      {{end}}
+      {{if .AIResultPrompt}}
+        <div style="background:#061a2e;border:1px solid #10b981;border-radius:6px;padding:14px;margin-bottom:18px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="color:#6ee7b7;font-weight:700;font-size:13px;">Synthesized Character Prompt for Target Model '{{.AITargetProfile}}'</span>
+            <button type="button" class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="navigator.clipboard.writeText(document.getElementById('char-ai-out').innerText)">Copy Prompt</button>
+          </div>
+          <div id="char-ai-out" class="prompt-box" style="color:#a7f3d0;font-size:12.5px;">{{.AIResultPrompt}}</div>
+        </div>
+      {{end}}
+
       <div class="character-grid" style="margin-bottom:28px;">
         {{range .Page.Characters}}
           <div class="char-card">
@@ -578,6 +679,22 @@
             {{end}}
             <div style="font-size:11px;color:var(--text-muted);">
               <strong>Recommended Checkpoint:</strong> {{.RecommendedCheckpoint}}
+            </div>
+
+            <!-- Generate New Prompt for Model X / Movie / Scene with this Character -->
+            <div style="margin-top:auto;padding-top:10px;border-top:1px solid var(--border-navy);">
+              <div class="kv-label" style="color:#93c5fd;margin-bottom:6px;">GENERATE PROMPT WITH THIS CHARACTER (OLLAMA / OMLX)</div>
+              <form action="/admin/ollama/character2prompt" method="POST" style="display:flex;flex-direction:column;gap:6px;">
+                <input type="hidden" name="character_id" value="{{.ID}}">
+                <input type="hidden" name="return_tab" value="characters">
+                <select name="profile_slug" class="input-dark" style="font-size:12px;padding:6px 8px;">
+                  {{range $.PromptProfiles}}
+                    <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>Target: {{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
+                  {{end}}
+                </select>
+                <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, action, or camera movement..." class="input-dark" style="font-size:12px;padding:6px 8px;" required>
+                <button type="submit" class="btn-primary" style="padding:6px 12px;font-size:12px;">Generate Prompt for Model</button>
+              </form>
             </div>
           </div>
         {{end}}
