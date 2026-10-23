@@ -259,6 +259,10 @@ func ParseA1111Parameters(raw string) domain.GenerationParams {
 				params.ModelName = v
 			case "model hash":
 				params.ModelHash = v
+			case "engine":
+				if v != "" {
+					params.Engine = domain.EngineType(v)
+				}
 			case "version":
 				if strings.Contains(strings.ToLower(v), "fooocus") {
 					params.Engine = domain.EngineFooocus

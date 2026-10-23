@@ -3,6 +3,7 @@ package metadata
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -22,13 +23,34 @@ func NewExtractor() *Extractor {
 	return &Extractor{}
 }
 
-// Extract inspects a media file and optional sidecar (.txt / .json) to extract diffusion prompts and dimensions.
+// Extract inspects a companion .txt / .json sidecar first for fast prompt loading, and if missing,
+// extracts embedded diffusion prompts/parameters from the media binary and auto-creates a .txt sidecar.
 func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domain.MediaType) (domain.GenerationParams, int, int, error) {
 	ext := strings.ToLower(filepath.Ext(absPath))
 
 	var params domain.GenerationParams
 	var width, height int
 
+	// 1. Check companion .txt / .caption / .json sidecar first (fast path)
+	sidecarParams, fromTXT, hasSidecar := readSidecarMetadata(absPath)
+	if hasSidecar && sidecarParams.PositivePrompt != "" {
+		params = sidecarParams
+		if mediaType == domain.MediaTypeImage {
+			width, height = decodeStandardImageConfig(absPath)
+		} else if mediaType == domain.MediaTypeVideo {
+			width, height = 1024, 576
+		}
+		// If loaded from .json or .caption and .txt does not exist yet, persist .txt for future instant reads
+		if !fromTXT {
+			_ = WritePromptSidecarTXT(absPath, params)
+		}
+		if params.Engine == "" {
+			params.Engine = domain.EngineUnknown
+		}
+		return params, width, height, nil
+	}
+
+	// 2. Fallback: extract embedded metadata from PNG chunks / EXIF / raw parameters
 	if ext == ".png" {
 		p, w, h, err := ParsePNGFile(absPath)
 		if err == nil {
@@ -37,7 +59,6 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 			height = h
 		}
 	} else if mediaType == domain.MediaTypeImage {
-		// Decode image dimensions and scan raw bytes for embedded A1111/EXIF UserComment text
 		width, height = decodeStandardImageConfig(absPath)
 		params = scanRawFileForParameters(absPath)
 	} else if mediaType == domain.MediaTypeVideo {
@@ -45,11 +66,9 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 		params = scanRawFileForParameters(absPath)
 	}
 
-	// Check for companion .txt or .json sidecar file (common in Kohya / ComfyUI video exports)
-	if params.PositivePrompt == "" {
-		if sidecarParams, ok := readSidecarMetadata(absPath); ok {
-			params = sidecarParams
-		}
+	// 3. Auto-create companion <basename>.txt when embedded prompt metadata was extracted and no .txt exists yet
+	if !fromTXT && (strings.TrimSpace(params.PositivePrompt) != "" || strings.TrimSpace(params.RawMetadata) != "") {
+		_ = WritePromptSidecarTXT(absPath, params)
 	}
 
 	if params.Engine == "" {
@@ -99,7 +118,7 @@ func scanRawFileForParameters(absPath string) domain.GenerationParams {
 	return domain.GenerationParams{Engine: domain.EngineUnknown}
 }
 
-func readSidecarMetadata(absPath string) (domain.GenerationParams, bool) {
+func readSidecarMetadata(absPath string) (domain.GenerationParams, bool, bool) {
 	base := strings.TrimSuffix(absPath, filepath.Ext(absPath))
 	for _, sideExt := range []string{".txt", ".caption", ".json"} {
 		sidePath := base + sideExt
@@ -111,21 +130,80 @@ func readSidecarMetadata(absPath string) (domain.GenerationParams, bool) {
 		if raw == "" {
 			continue
 		}
+		isTXT := sideExt == ".txt"
 		if sideExt == ".json" {
 			if p, ok := parseJSONMetadata(raw); ok {
-				return p, true
+				return p, isTXT, true
 			}
 		}
-		if strings.Contains(raw, "Steps:") {
-			return ParseA1111Parameters(raw), true
+		if strings.Contains(raw, "Steps:") || strings.Contains(raw, "Seed:") || strings.Contains(raw, "Negative prompt:") {
+			return ParseA1111Parameters(raw), isTXT, true
 		}
 		return domain.GenerationParams{
 			Engine:         domain.EngineUnknown,
 			PositivePrompt: raw,
+			LoRAs:          extractLoRAs(raw),
 			RawMetadata:    raw,
-		}, true
+		}, isTXT, true
 	}
-	return domain.GenerationParams{}, false
+	return domain.GenerationParams{}, false, false
+}
+
+// WritePromptSidecarTXT writes the prompt and generation parameters to a companion <basename>.txt file
+// next to the media resource so future scans can read the prompt directly from .txt.
+func WritePromptSidecarTXT(absMediaPath string, params domain.GenerationParams) error {
+	base := strings.TrimSuffix(absMediaPath, filepath.Ext(absMediaPath))
+	txtPath := base + ".txt"
+
+	pos := strings.TrimSpace(params.PositivePrompt)
+	neg := strings.TrimSpace(params.NegativePrompt)
+	if pos == "" && neg == "" {
+		raw := strings.TrimSpace(params.RawMetadata)
+		if raw == "" {
+			return nil
+		}
+		return os.WriteFile(txtPath, []byte(raw+"\n"), 0644)
+	}
+
+	var b strings.Builder
+	b.WriteString(pos)
+	if neg != "" {
+		b.WriteString("\nNegative prompt: ")
+		b.WriteString(neg)
+	}
+
+	var kv []string
+	if params.Steps > 0 {
+		kv = append(kv, fmt.Sprintf("Steps: %d", params.Steps))
+	}
+	if params.Sampler != "" {
+		kv = append(kv, fmt.Sprintf("Sampler: %s", params.Sampler))
+	}
+	if params.Scheduler != "" {
+		kv = append(kv, fmt.Sprintf("Schedule type: %s", params.Scheduler))
+	}
+	if params.CFGScale > 0 {
+		kv = append(kv, fmt.Sprintf("CFG scale: %.1f", params.CFGScale))
+	}
+	if params.Seed != 0 {
+		kv = append(kv, fmt.Sprintf("Seed: %d", params.Seed))
+	}
+	if params.ModelHash != "" {
+		kv = append(kv, fmt.Sprintf("Model hash: %s", params.ModelHash))
+	}
+	if params.ModelName != "" {
+		kv = append(kv, fmt.Sprintf("Model: %s", params.ModelName))
+	}
+	if params.Engine != "" && params.Engine != domain.EngineUnknown {
+		kv = append(kv, fmt.Sprintf("Engine: %s", params.Engine))
+	}
+	if len(kv) > 0 {
+		b.WriteString("\n")
+		b.WriteString(strings.Join(kv, ", "))
+	}
+	b.WriteString("\n")
+
+	return os.WriteFile(txtPath, []byte(b.String()), 0644)
 }
 
 func cleanPrintableASCII(b []byte) string {

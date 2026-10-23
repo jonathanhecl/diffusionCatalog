@@ -370,6 +370,7 @@ func (r *Repository) UpdateAssetCategory(ctx context.Context, assetID int64, cat
 
 // GetSettings retrieves the application, Ollama, and oMLX configuration from SQLite.
 func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error) {
+	db := r.conn()
 	s := domain.AppSettings{
 		OllamaBaseURL:          "http://mac-mini.local:11434",
 		OMLXBaseURL:            "http://mac-mini.local:8000",
@@ -385,7 +386,7 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 		Text2PromptThink:       "low",
 		DefaultTargetGenerator: "flux",
 	}
-	rows, err := r.db.QueryContext(ctx, `SELECT key, value FROM app_settings`)
+	rows, err := db.QueryContext(ctx, `SELECT key, value FROM app_settings`)
 	if err != nil {
 		return s, err
 	}
@@ -431,6 +432,7 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 
 // SaveSettings persists application, Ollama, and oMLX settings into SQLite.
 func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) error {
+	db := r.conn()
 	autoCap := "false"
 	if s.AutoCaptionOnScan {
 		autoCap = "true"
@@ -470,7 +472,7 @@ func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) err
 		"auto_caption_on_scan":     autoCap,
 	}
 	for k, v := range pairs {
-		if _, err := r.db.ExecContext(ctx, `
+		if _, err := db.ExecContext(ctx, `
 			INSERT INTO app_settings (key, value) VALUES (?, ?)
 			ON CONFLICT(key) DO UPDATE SET value = excluded.value`, k, v); err != nil {
 			return err
@@ -481,6 +483,7 @@ func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) err
 
 // UpsertPromptProfile creates or updates a generator system prompt profile (flux, krea2, moss, minimaxh3, etc.).
 func (r *Repository) UpsertPromptProfile(ctx context.Context, p *domain.PromptProfile) (int64, error) {
+	db := r.conn()
 	slug := slugify(p.Slug)
 	if slug == "item" && p.Name != "" {
 		slug = slugify(p.Name)
@@ -490,7 +493,7 @@ func (r *Repository) UpsertPromptProfile(ctx context.Context, p *domain.PromptPr
 		modality = "image"
 	}
 	var id int64
-	err := r.db.QueryRowContext(ctx, `
+	err := db.QueryRowContext(ctx, `
 		INSERT INTO prompt_profiles (slug, name, target_modality, description, system_prompt, updated_at)
 		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT(slug) DO UPDATE SET
@@ -512,15 +515,17 @@ func (r *Repository) UpsertPromptProfile(ctx context.Context, p *domain.PromptPr
 
 // DeletePromptProfile removes a generator system prompt profile by ID.
 func (r *Repository) DeletePromptProfile(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM prompt_profiles WHERE id = ?`, id)
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM prompt_profiles WHERE id = ?`, id)
 	return err
 }
 
 // GetPromptProfileBySlug fetches a generator system prompt profile by its slug.
 func (r *Repository) GetPromptProfileBySlug(ctx context.Context, slug string) (*domain.PromptProfile, error) {
+	db := r.conn()
 	var p domain.PromptProfile
 	var mod string
-	err := r.db.QueryRowContext(ctx, `
+	err := db.QueryRowContext(ctx, `
 		SELECT id, slug, name, target_modality, description, system_prompt, updated_at
 		FROM prompt_profiles WHERE LOWER(slug) = LOWER(?)`, strings.TrimSpace(slug),
 	).Scan(&p.ID, &p.Slug, &p.Name, &mod, &p.Description, &p.SystemPrompt, &p.UpdatedAt)
@@ -533,7 +538,8 @@ func (r *Repository) GetPromptProfileBySlug(ctx context.Context, slug string) (*
 
 // ListPromptProfiles returns all generator system prompt profiles ordered by slug.
 func (r *Repository) ListPromptProfiles(ctx context.Context) ([]domain.PromptProfile, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
 		SELECT id, slug, name, target_modality, description, system_prompt, updated_at
 		FROM prompt_profiles
 		ORDER BY slug ASC`)
@@ -557,11 +563,12 @@ func (r *Repository) ListPromptProfiles(ctx context.Context) ([]domain.PromptPro
 
 // UpsertModelLoRA creates or updates a model-scoped LoRA documentation entry.
 func (r *Repository) UpsertModelLoRA(ctx context.Context, l *domain.ModelLoRA) (int64, error) {
+	db := r.conn()
 	if l.RecommendedWeight == "" {
 		l.RecommendedWeight = "0.8"
 	}
 	var id int64
-	err := r.db.QueryRowContext(ctx, `
+	err := db.QueryRowContext(ctx, `
 		INSERT INTO model_loras (
 			profile_slug, name, syntax_tag, trigger_words, recommended_weight, description, usage_examples
 		) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -589,22 +596,24 @@ func (r *Repository) UpsertModelLoRA(ctx context.Context, l *domain.ModelLoRA) (
 
 // DeleteModelLoRA removes a model-scoped LoRA documentation entry by ID.
 func (r *Repository) DeleteModelLoRA(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM model_loras WHERE id = ?`, id)
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM model_loras WHERE id = ?`, id)
 	return err
 }
 
 // ListModelLoRAs lists LoRA documentation entries, optionally filtered by profileSlug.
 func (r *Repository) ListModelLoRAs(ctx context.Context, profileSlug string) ([]domain.ModelLoRA, error) {
+	db := r.conn()
 	var rows *sql.Rows
 	var err error
 	if strings.TrimSpace(profileSlug) != "" {
-		rows, err = r.db.QueryContext(ctx, `
+		rows, err = db.QueryContext(ctx, `
 			SELECT id, profile_slug, name, syntax_tag, trigger_words, recommended_weight, description, usage_examples, created_at
 			FROM model_loras
 			WHERE LOWER(profile_slug) = LOWER(?)
 			ORDER BY name ASC`, strings.TrimSpace(profileSlug))
 	} else {
-		rows, err = r.db.QueryContext(ctx, `
+		rows, err = db.QueryContext(ctx, `
 			SELECT id, profile_slug, name, syntax_tag, trigger_words, recommended_weight, description, usage_examples, created_at
 			FROM model_loras
 			ORDER BY profile_slug ASC, name ASC`)
@@ -630,6 +639,7 @@ func (r *Repository) ListModelLoRAs(ctx context.Context, profileSlug string) ([]
 
 // GetModelLoRAsByIDs fetches specific ModelLoRA entries by their IDs.
 func (r *Repository) GetModelLoRAsByIDs(ctx context.Context, ids []int64) ([]domain.ModelLoRA, error) {
+	db := r.conn()
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -649,7 +659,7 @@ func (r *Repository) GetModelLoRAsByIDs(ctx context.Context, ids []int64) ([]dom
 		FROM model_loras
 		WHERE id IN (%s)
 		ORDER BY id ASC`, strings.Join(placeholders, ","))
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -671,8 +681,9 @@ func (r *Repository) GetModelLoRAsByIDs(ctx context.Context, ids []int64) ([]dom
 
 // SaveGeneratedPrompt stores a newly generated prompt linked to an Asset and/or Character.
 func (r *Repository) SaveGeneratedPrompt(ctx context.Context, gp *domain.GeneratedPrompt) (int64, error) {
+	db := r.conn()
 	var id int64
-	err := r.db.QueryRowContext(ctx, `
+	err := db.QueryRowContext(ctx, `
 		INSERT INTO generated_prompts (
 			asset_id, character_id, target_profile_slug, scene_direction, output_prompt, provider, model_name
 		) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -688,6 +699,7 @@ func (r *Repository) SaveGeneratedPrompt(ctx context.Context, gp *domain.Generat
 
 // ListGeneratedPrompts returns recent AI-generated prompts filtered optionally by assetID or characterID.
 func (r *Repository) ListGeneratedPrompts(ctx context.Context, assetID, characterID int64, limit int) ([]domain.GeneratedPrompt, error) {
+	db := r.conn()
 	if limit < 1 {
 		limit = 20
 	}
@@ -717,7 +729,7 @@ func (r *Repository) ListGeneratedPrompts(ctx context.Context, assetID, characte
 		ORDER BY gp.id DESC
 		LIMIT ?`, whereClause)
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -751,6 +763,7 @@ func (r *Repository) ListGeneratedPrompts(ctx context.Context, assetID, characte
 
 // QueryCatalog executes a filtered, faceted, and paginated search across assets (or faces when FaceMode is active).
 func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilter) (*domain.CatalogPage, error) {
+	db := r.conn()
 	if filter.Page < 1 {
 		filter.Page = 1
 	}
@@ -765,6 +778,8 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 	}
 
 	// Populate global facets
+	page.MediaRoots, _ = r.ListMediaRoots(ctx)
+	page.DefaultCategories, _ = r.ListDefaultCategories(ctx)
 	tags, _ := r.ListTags(ctx)
 	page.AvailableTags = tags
 	for _, t := range tags {
@@ -794,10 +809,22 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 
 	if q := strings.TrimSpace(filter.Query); q != "" {
 		like := "%" + q + "%"
-		where = append(where, `(a.positive_prompt LIKE ? OR a.file_name LIKE ? OR a.model_name LIKE ? OR EXISTS (
+		where = append(where, `(a.positive_prompt LIKE ? OR a.file_name LIKE ? OR a.model_name LIKE ? OR a.category LIKE ? OR a.subcategory LIKE ? OR EXISTS (
 			SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = a.id AND t.name LIKE ?
 		))`)
-		args = append(args, like, like, like, like)
+		args = append(args, like, like, like, like, like, like)
+	}
+	if filter.RootID > 0 {
+		where = append(where, `a.root_id = ?`)
+		args = append(args, filter.RootID)
+	}
+	if filter.Category != "" {
+		where = append(where, `LOWER(a.category) = LOWER(?)`)
+		args = append(args, strings.TrimSpace(filter.Category))
+	}
+	if filter.Subcategory != "" {
+		where = append(where, `LOWER(a.subcategory) = LOWER(?)`)
+		args = append(args, strings.TrimSpace(filter.Subcategory))
 	}
 	if filter.Engine != "" {
 		where = append(where, `a.engine = ?`)
@@ -837,7 +864,7 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 	}
 
 	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM assets a %s`, whereClause)
-	if err := r.db.QueryRowContext(ctx, countSQL, args...).Scan(&page.TotalCount); err != nil {
+	if err := db.QueryRowContext(ctx, countSQL, args...).Scan(&page.TotalCount); err != nil {
 		return nil, err
 	}
 
@@ -858,16 +885,19 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 
 	offset := (filter.Page - 1) * filter.PerPage
 	selectSQL := fmt.Sprintf(`
-		SELECT a.id, a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
-		       a.view_count, a.rating, a.engine, a.positive_prompt, a.negative_prompt, a.model_name, a.model_hash,
-		       a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed, a.loras_json, a.raw_metadata, a.indexed_at
+		SELECT a.id, a.root_id, COALESCE(mr.path, ''), COALESCE(mr.label, ''),
+		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
+		       a.view_count, a.rating, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
+		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
+		       a.loras_json, a.raw_metadata, a.indexed_at
 		FROM assets a
+		LEFT JOIN media_roots mr ON mr.id = a.root_id
 		%s
 		ORDER BY %s
 		LIMIT ? OFFSET ?`, whereClause, orderBy)
 
 	queryArgs := append(append([]interface{}{}, args...), filter.PerPage, offset)
-	rows, err := r.db.QueryContext(ctx, selectSQL, queryArgs...)
+	rows, err := db.QueryContext(ctx, selectSQL, queryArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -892,6 +922,7 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 
 // UpsertTag creates or updates an agnostic tag under a specified facet.
 func (r *Repository) UpsertTag(ctx context.Context, name, facet, color string) (*domain.Tag, error) {
+	db := r.conn()
 	name = strings.TrimSpace(name)
 	if facet == "" {
 		facet = "general"
@@ -900,7 +931,7 @@ func (r *Repository) UpsertTag(ctx context.Context, name, facet, color string) (
 		color = "#2563eb"
 	}
 	var t domain.Tag
-	err := r.db.QueryRowContext(ctx, `
+	err := db.QueryRowContext(ctx, `
 		INSERT INTO tags (name, facet, color) VALUES (?, ?, ?)
 		ON CONFLICT(name) DO UPDATE SET facet = excluded.facet
 		RETURNING id, name, facet, color`,
@@ -914,13 +945,15 @@ func (r *Repository) UpsertTag(ctx context.Context, name, facet, color string) (
 
 // AttachTagToAsset links a tag to an asset.
 func (r *Repository) AttachTagToAsset(ctx context.Context, assetID, tagID int64) error {
-	_, err := r.db.ExecContext(ctx, `INSERT OR IGNORE INTO asset_tags (asset_id, tag_id) VALUES (?, ?)`, assetID, tagID)
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `INSERT OR IGNORE INTO asset_tags (asset_id, tag_id) VALUES (?, ?)`, assetID, tagID)
 	return err
 }
 
 // ListTags returns all tags ordered by usage count and name.
 func (r *Repository) ListTags(ctx context.Context) ([]domain.Tag, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
 		SELECT t.id, t.name, t.facet, t.color, COUNT(at.asset_id) AS cnt
 		FROM tags t
 		LEFT JOIN asset_tags at ON at.tag_id = t.id
@@ -944,12 +977,13 @@ func (r *Repository) ListTags(ctx context.Context) ([]domain.Tag, error) {
 
 // CreateGroup creates or updates an agnostic asset collection.
 func (r *Repository) CreateGroup(ctx context.Context, g *domain.Group) (int64, error) {
+	db := r.conn()
 	slug := slugify(g.Name)
 	if g.Category == "" {
 		g.Category = "Collection"
 	}
 	var id int64
-	err := r.db.QueryRowContext(ctx, `
+	err := db.QueryRowContext(ctx, `
 		INSERT INTO groups (name, slug, description, category, cover_asset_id)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(name) DO UPDATE SET
@@ -969,13 +1003,15 @@ func (r *Repository) CreateGroup(ctx context.Context, g *domain.Group) (int64, e
 
 // AttachAssetToGroup links an asset to a group.
 func (r *Repository) AttachAssetToGroup(ctx context.Context, groupID, assetID int64) error {
-	_, err := r.db.ExecContext(ctx, `INSERT OR IGNORE INTO group_assets (group_id, asset_id) VALUES (?, ?)`, groupID, assetID)
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `INSERT OR IGNORE INTO group_assets (group_id, asset_id) VALUES (?, ?)`, groupID, assetID)
 	return err
 }
 
 // ListGroups lists all groups with their member counts.
 func (r *Repository) ListGroups(ctx context.Context) ([]domain.Group, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
 		SELECT g.id, g.name, g.slug, g.description, g.category, g.cover_asset_id, COUNT(ga.asset_id)
 		FROM groups g
 		LEFT JOIN group_assets ga ON ga.group_id = g.id
@@ -1004,6 +1040,7 @@ func (r *Repository) ListGroups(ctx context.Context) ([]domain.Group, error) {
 
 // CreateCharacter creates or updates a character profile folder with its canonical prompts and example links.
 func (r *Repository) CreateCharacter(ctx context.Context, c *domain.Character) (int64, error) {
+	db := r.conn()
 	slug := slugify(c.Name)
 	if c.Archetype == "" {
 		c.Archetype = "Character"
@@ -1014,7 +1051,7 @@ func (r *Repository) CreateCharacter(ctx context.Context, c *domain.Character) (
 	}
 
 	var id int64
-	err := r.db.QueryRowContext(ctx, `
+	err := db.QueryRowContext(ctx, `
 		INSERT INTO characters (
 			name, slug, archetype, description, trigger_words,
 			base_positive_prompt, base_negative_prompt, recommended_checkpoint, loras_json, avatar_asset_id
@@ -1042,11 +1079,12 @@ func (r *Repository) CreateCharacter(ctx context.Context, c *domain.Character) (
 
 // GetCharacterByID returns a character profile along with its linked example assets.
 func (r *Repository) GetCharacterByID(ctx context.Context, id int64) (*domain.Character, error) {
+	db := r.conn()
 	var c domain.Character
 	var lorasStr string
 	var avatarID sql.NullInt64
 
-	err := r.db.QueryRowContext(ctx, `
+	err := db.QueryRowContext(ctx, `
 		SELECT id, name, slug, archetype, description, trigger_words,
 		       base_positive_prompt, base_negative_prompt, recommended_checkpoint, loras_json, avatar_asset_id, created_at
 		FROM characters WHERE id = ?`, id,
@@ -1073,13 +1111,15 @@ func (r *Repository) GetCharacterByID(ctx context.Context, id int64) (*domain.Ch
 
 // AttachAssetToCharacter links an example asset to a character folder.
 func (r *Repository) AttachAssetToCharacter(ctx context.Context, characterID, assetID int64) error {
-	_, err := r.db.ExecContext(ctx, `INSERT OR IGNORE INTO character_examples (character_id, asset_id) VALUES (?, ?)`, characterID, assetID)
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `INSERT OR IGNORE INTO character_examples (character_id, asset_id) VALUES (?, ?)`, characterID, assetID)
 	return err
 }
 
 // ListCharacters returns all character profiles with their example counts.
 func (r *Repository) ListCharacters(ctx context.Context) ([]domain.Character, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
 		SELECT c.id, c.name, c.slug, c.archetype, c.description, c.trigger_words,
 		       c.base_positive_prompt, c.base_negative_prompt, c.recommended_checkpoint, c.loras_json,
 		       c.avatar_asset_id, c.created_at, COUNT(ce.asset_id)
@@ -1116,12 +1156,13 @@ func (r *Repository) ListCharacters(ctx context.Context) ([]domain.Character, er
 
 // SaveDetectedFace inserts a cropped face/subject region linked to an asset.
 func (r *Repository) SaveDetectedFace(ctx context.Context, face *domain.DetectedFace) (int64, error) {
+	db := r.conn()
 	embJSON, _ := json.Marshal(face.Embedding)
 	if len(embJSON) == 0 {
 		embJSON = []byte("[]")
 	}
 	var id int64
-	err := r.db.QueryRowContext(ctx, `
+	err := db.QueryRowContext(ctx, `
 		INSERT INTO faces (
 			asset_id, bbox_x, bbox_y, bbox_w, bbox_h, crop_rel_path,
 			confidence, embedding_json, cluster_label, expression_tag, character_id
@@ -1139,6 +1180,7 @@ func (r *Repository) SaveDetectedFace(ctx context.Context, face *domain.Detected
 
 // ListDetectedFaces queries detected face regions for the optional Face Explorer view.
 func (r *Repository) ListDetectedFaces(ctx context.Context, filter domain.CatalogFilter) ([]domain.DetectedFace, int, error) {
+	db := r.conn()
 	var where []string
 	var args []interface{}
 
@@ -1146,6 +1188,10 @@ func (r *Repository) ListDetectedFaces(ctx context.Context, filter domain.Catalo
 		like := "%" + q + "%"
 		where = append(where, `(f.cluster_label LIKE ? OR f.expression_tag LIKE ? OR a.positive_prompt LIKE ?)`)
 		args = append(args, like, like, like)
+	}
+	if filter.RootID > 0 {
+		where = append(where, `a.root_id = ?`)
+		args = append(args, filter.RootID)
 	}
 	if filter.CharacterID > 0 {
 		where = append(where, `f.character_id = ?`)
@@ -1166,13 +1212,13 @@ func (r *Repository) ListDetectedFaces(ctx context.Context, filter domain.Catalo
 		SELECT COUNT(*) FROM faces f
 		JOIN assets a ON a.id = f.asset_id
 		%s`, whereClause)
-	if err := r.db.QueryRowContext(ctx, countSQL, args...).Scan(&total); err != nil {
+	if err := db.QueryRowContext(ctx, countSQL, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	offset := (filter.Page - 1) * filter.PerPage
 	querySQL := fmt.Sprintf(`
-		SELECT f.id, f.asset_id, a.rel_path, a.positive_prompt, a.engine, a.model_name,
+		SELECT f.id, f.asset_id, a.root_id, a.rel_path, a.positive_prompt, a.engine, a.model_name,
 		       f.bbox_x, f.bbox_y, f.bbox_w, f.bbox_h, f.crop_rel_path, f.confidence,
 		       f.cluster_label, f.expression_tag, f.character_id, COALESCE(c.name, ''), f.created_at
 		FROM faces f
@@ -1183,7 +1229,7 @@ func (r *Repository) ListDetectedFaces(ctx context.Context, filter domain.Catalo
 		LIMIT ? OFFSET ?`, whereClause)
 
 	queryArgs := append(append([]interface{}{}, args...), filter.PerPage, offset)
-	rows, err := r.db.QueryContext(ctx, querySQL, queryArgs...)
+	rows, err := db.QueryContext(ctx, querySQL, queryArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1195,7 +1241,7 @@ func (r *Repository) ListDetectedFaces(ctx context.Context, filter domain.Catalo
 		var engineStr string
 		var charID sql.NullInt64
 		if err := rows.Scan(
-			&f.ID, &f.AssetID, &f.AssetRelPath, &f.AssetPrompt, &engineStr, &f.AssetModel,
+			&f.ID, &f.AssetID, &f.AssetRootID, &f.AssetRelPath, &f.AssetPrompt, &engineStr, &f.AssetModel,
 			&f.Box.X, &f.Box.Y, &f.Box.Width, &f.Box.Height, &f.CropRelPath, &f.Confidence,
 			&f.ClusterLabel, &f.ExpressionTag, &charID, &f.CharacterName, &f.CreatedAt,
 		); err != nil {
@@ -1219,9 +1265,10 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 	var a domain.MediaAsset
 	var mediaTypeStr, engineStr, lorasStr string
 	err := s.Scan(
-		&a.ID, &a.RelPath, &a.FileName, &a.FileHash, &mediaTypeStr,
+		&a.ID, &a.RootID, &a.RootPath, &a.RootLabel,
+		&a.RelPath, &a.FileName, &a.FileHash, &mediaTypeStr,
 		&a.Width, &a.Height, &a.DurationSec, &a.FileSize,
-		&a.ViewCount, &a.Rating, &engineStr,
+		&a.ViewCount, &a.Rating, &a.Category, &a.Subcategory, &engineStr,
 		&a.Metadata.PositivePrompt, &a.Metadata.NegativePrompt,
 		&a.Metadata.ModelName, &a.Metadata.ModelHash,
 		&a.Metadata.Sampler, &a.Metadata.Scheduler,
@@ -1238,7 +1285,8 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 }
 
 func (r *Repository) getTagsForAsset(ctx context.Context, assetID int64) ([]domain.Tag, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
 		SELECT t.id, t.name, t.facet, t.color
 		FROM tags t
 		JOIN asset_tags at ON at.tag_id = t.id
@@ -1259,7 +1307,8 @@ func (r *Repository) getTagsForAsset(ctx context.Context, assetID int64) ([]doma
 }
 
 func (r *Repository) getGroupsForAsset(ctx context.Context, assetID int64) ([]domain.Group, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
 		SELECT g.id, g.name, g.slug, g.description, g.category
 		FROM groups g
 		JOIN group_assets ga ON ga.group_id = g.id
@@ -1279,7 +1328,8 @@ func (r *Repository) getGroupsForAsset(ctx context.Context, assetID int64) ([]do
 }
 
 func (r *Repository) getCharactersForAsset(ctx context.Context, assetID int64) ([]domain.Character, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
 		SELECT c.id, c.name, c.slug, c.archetype, c.trigger_words
 		FROM characters c
 		JOIN character_examples ce ON ce.character_id = c.id
@@ -1299,7 +1349,8 @@ func (r *Repository) getCharactersForAsset(ctx context.Context, assetID int64) (
 }
 
 func (r *Repository) getFacesForAsset(ctx context.Context, assetID int64) ([]domain.DetectedFace, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
 		SELECT id, asset_id, bbox_x, bbox_y, bbox_w, bbox_h, crop_rel_path, confidence, cluster_label, expression_tag
 		FROM faces WHERE asset_id = ?`, assetID)
 	if err != nil {
@@ -1317,7 +1368,8 @@ func (r *Repository) getFacesForAsset(ctx context.Context, assetID int64) ([]dom
 }
 
 func (r *Repository) distinctStrings(ctx context.Context, query string) ([]string, error) {
-	rows, err := r.db.QueryContext(ctx, query)
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}

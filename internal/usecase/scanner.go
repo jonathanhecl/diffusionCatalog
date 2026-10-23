@@ -15,8 +15,10 @@ import (
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
 )
 
-// ScanReport summarizes the outcome of a non-destructive directory scan.
+// ScanReport summarizes the outcome of a non-destructive directory scan across all registered media roots.
 type ScanReport struct {
+	ScannedRoots int       `json:"scanned_roots"`
+	SkippedRoots int       `json:"skipped_roots"`
 	ScannedFiles int       `json:"scanned_files"`
 	ImagesFound  int       `json:"images_found"`
 	VideosFound  int       `json:"videos_found"`
