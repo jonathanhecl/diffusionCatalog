@@ -37,23 +37,23 @@ The compiled `catalogd` binary is **self-contained and self-installing**:
 - On first interactive launch (or anytime you pass `--setup`), it checks for optional system/runtime components (`ffmpeg` for video container metadata, `python3` + `.venv` for local Face Detection & Cropping) and prompts `[y/N]` to install and start them automatically.
 
 ```bash
-./catalogd --media-dir=./media --db=./catalog.db --addr=:888
+./catalogd --media-dir=./media --db=./catalog.db --addr=:1080
 # Re-run interactive dependency installer at any time:
 ./catalogd --setup
 ```
 
-Then open **http://localhost:888** in your browser.
+Then open **http://localhost:1080** in your browser.
 
-> On Linux, binding to ports below 1024 (like `:888`) requires elevated permissions (`sudo ./catalogd` or `sudo setcap 'cap_net_bind_service=+ep' ./catalogd`). You can also change the port at any time in `config.json` (e.g. `"port": 8888` or `"addr": ":8888"`) or by passing `--port=8888`.
+> Port 1080 is an unprivileged port (≥ 1024), so it runs directly on Linux without sudo or special permissions. You can change the port at any time in `config.json` (e.g. `"port": 8080`) or by passing `--port=8080`.
 
 ### 2. Configuration (`config.json`), Flags & Environment Variables
 
-DiffusionCatalog automatically creates and reads `config.json` from the current directory, which can be overridden via command-line flags or environment variables:
+DiffusionCatalog automatically reads `config.json` from the current directory, which can be overridden via command-line flags or environment variables:
 
 ```json
 {
-  "port": 888,
-  "addr": ":888",
+  "port": 1080,
+  "addr": ":1080",
   "media_dir": "./media",
   "cache_dir": "./.cache",
   "db_path": "./catalog.db",
@@ -61,14 +61,14 @@ DiffusionCatalog automatically creates and reads `config.json` from the current 
   "admin_pass": "admin123",
   "vision_url": "",
   "auto_scan": true,
-  "seed_demo": true
+  "seed_demo": false
 }
 ```
 
 | Flag | Env Variable | Default | Description |
 |------|--------------|---------|-------------|
-| `--port` | `PORT` / `CATALOG_PORT` | `888` | HTTP listen port |
-| `--addr` | `CATALOG_ADDR` | `:888` | HTTP listen address |
+| `--port` | `PORT` / `CATALOG_PORT` | `1080` | HTTP listen port |
+| `--addr` | `CATALOG_ADDR` | `:1080` | HTTP listen address |
 | `--config` | `CATALOG_CONFIG` | `config.json` | Path to JSON configuration file |
 | `--media-dir` | `CATALOG_MEDIA_DIR` | `./media` | Read-only folder containing diffusion images/videos |
 | `--cache-dir` | `CATALOG_CACHE_DIR` | `./.cache` | Local directory for cropped regions & thumbnails |
@@ -77,7 +77,7 @@ DiffusionCatalog automatically creates and reads `config.json` from the current 
 | `--admin-pass` | `CATALOG_ADMIN_PASS` | `admin123` | Default administrator password |
 | `--vision-url` | `CATALOG_VISION_URL` | `""` | Optional Python Vision Sidecar URL (`http://127.0.0.1:8091`) |
 | `--auto-scan` | `CATALOG_AUTO_SCAN` | `true` | Automatically scan `--media-dir` on startup |
-| `--seed-demo` | `CATALOG_SEED_DEMO` | `true` | Seed sample PNGs with diffusion metadata if `--media-dir` is empty |
+| `--seed-demo` | `CATALOG_SEED_DEMO` | `false` | Generate sample diffusion images in media-dir if folder does not exist or is empty |
 
 ### 3. Optional Python Vision Worker (Face Detection & Cropping)
 

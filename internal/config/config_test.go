@@ -11,8 +11,8 @@ func TestDefaultConfigAddr(t *testing.T) {
 	cfgFile := filepath.Join(tmpDir, "non_existent_config.json")
 
 	cfg := LoadWithArgs([]string{"--config=" + cfgFile})
-	if cfg.Addr != ":888" {
-		t.Fatalf("expected default Addr :888, got %s", cfg.Addr)
+	if cfg.Addr != ":1080" {
+		t.Fatalf("expected default Addr :1080, got %s", cfg.Addr)
 	}
 }
 
@@ -78,7 +78,7 @@ func TestEnsureDefaultConfigFile(t *testing.T) {
 	}
 
 	cfg := LoadWithArgs([]string{"--config=" + cfgFile})
-	if cfg.Addr != ":888" {
-		t.Fatalf("expected default :888 from generated config, got %s", cfg.Addr)
+	if cfg.Addr != ":1080" {
+		t.Fatalf("expected default :1080 from generated config, got %s", cfg.Addr)
 	}
 }

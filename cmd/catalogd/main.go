@@ -90,12 +90,12 @@ func main() {
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			if strings.Contains(err.Error(), "permission denied") {
 				log.Printf("\n[!] Error: Unable to bind to %s (permission denied).\n"+
-					"    Note: On Linux, ports below 1024 (like :888) require root privileges or CAP_NET_BIND_SERVICE.\n"+
+					"    Note: On Linux, ports below 1024 require root privileges or CAP_NET_BIND_SERVICE.\n"+
 					"    To resolve this:\n"+
 					"      1) Run with sudo: sudo ./catalogd\n"+
 					"      2) Grant capability: sudo setcap 'cap_net_bind_service=+ep' ./catalogd\n"+
-					"      3) Change port in %s (e.g. \"port\": 8888 or \"addr\": \":8888\")\n"+
-					"      4) Or pass a custom port flag: ./catalogd --port=8888\n\n", cfg.Addr, cfg.ConfigFile)
+					"      3) Change port in %s (e.g. \"port\": 1080 or \"addr\": \":1080\")\n"+
+					"      4) Or pass a custom port flag: ./catalogd --port=1080\n\n", cfg.Addr, cfg.ConfigFile)
 			}
 			log.Fatalf("http server error: %v", err)
 		}

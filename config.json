@@ -1,6 +1,6 @@
 {
-  "port": 888,
-  "addr": ":888",
+  "port": 1080,
+  "addr": ":1080",
   "media_dir": "./media",
   "cache_dir": "./.cache",
   "db_path": "./catalog.db",
@@ -8,5 +8,5 @@
   "admin_pass": "admin123",
   "vision_url": "",
   "auto_scan": true,
-  "seed_demo": true
+  "seed_demo": false
 }

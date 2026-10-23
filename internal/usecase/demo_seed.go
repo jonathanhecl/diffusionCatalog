@@ -224,6 +224,8 @@ Steps: 36, Sampler: DPM++ SDE Karras, Schedule type: Karras, CFG scale: 7.5, See
 		}
 	}
 
+	_ = seedDemoProfilesAndCategories(ctx, repo)
+
 	// Scan the folder using ScannerService
 	if _, err := scanner.Scan(ctx); err != nil {
 		return err
@@ -436,3 +438,133 @@ func writePNGWithTEXTChunk(path string, img image.Image, key, value string) erro
 
 	return os.WriteFile(path, out.Bytes(), 0644)
 }
+
+func seedDemoProfilesAndCategories(ctx context.Context, repo domain.CatalogRepository) error {
+	_ = repo.SaveSettings(ctx, domain.AppSettings{
+		DefaultTargetGenerator: "flux",
+		OllamaBaseURL:          "http://127.0.0.1:11434",
+	})
+
+	profiles := []domain.PromptProfile{
+		{
+			Slug:           "flux",
+			Name:           "Flux.1 Dev / Pro",
+			TargetModality: domain.MediaTypeImage,
+			Description:    "Natural-language T5 prose optimized for Flux.1 architecture without weight brackets.",
+			SystemPrompt:   "You are an expert prompt engineer for Flux.1 diffusion models. Write rich, natural-language descriptive prose (3 to 5 sentences). Describe the primary subject, facial expression or focal geometry, attire/materials, spatial composition, camera lens (e.g., 85mm f/1.4, anamorphic), lighting direction, color palette, and surface textures. Do NOT use Danbooru tag weights like (word:1.3). Output only the final prompt.",
+		},
+		{
+			Slug:           "krea2",
+			Name:           "Krea 2",
+			TargetModality: domain.MediaTypeImage,
+			Description:    "High-aesthetic editorial art direction, micro-texture fidelity, and organic film lighting.",
+			SystemPrompt:   "You are a senior art director crafting prompts for Krea 2. Focus on hyper-tactile surface micro-textures, skin/material translucency, editorial studio or golden-hour lighting, medium-format analog film stock aesthetics (Kodak Portra 400, Hasselblad H6D), and deliberate depth-of-field. Output only the final prompt.",
+		},
+		{
+			Slug:           "qwen-image",
+			Name:           "Qwen-Image",
+			TargetModality: domain.MediaTypeImage,
+			Description:    "Dense semantic description with accurate typography, layout spatial cues, and stylistic precision.",
+			SystemPrompt:   "You are a specialist prompt engineer for Qwen-Image. Write a clear, spatially structured prompt specifying foreground/background placement, exact subject attributes, lighting atmosphere, and any embedded signage or typography in quotes. Output only the final prompt.",
+		},
+		{
+			Slug:           "moss",
+			Name:           "MOSS Diffusion",
+			TargetModality: domain.MediaTypeImage,
+			Description:    "Structured multi-layered scene composition with explicit foreground, subject, and atmosphere.",
+			SystemPrompt:   "You are a specialist prompt architect for MOSS Diffusion. Structure the prompt into clear descriptive layers: [Subject & Pose], [Wardrobe & Materials], [Foreground & Midground Environment], [Volumetric Lighting & Atmosphere], and [Camera & Color Grading]. Output a cohesive paragraph with high semantic density and zero conversational filler.",
+		},
+		{
+			Slug:           "minimaxh3",
+			Name:           "MiniMax Hailuo H3 (Video)",
+			TargetModality: domain.MediaTypeVideo,
+			Description:    "Cinematic video generation prompt specifying camera trajectory, subject motion, and physics.",
+			SystemPrompt:   "You are a cinematic AI video prompt director for MiniMax Hailuo H3 (video generation). Structure every prompt with: 1) Explicit camera movement (e.g., slow dolly-in, orbital tracking shot, handheld pan), 2) Subject motion and temporal micro-actions, 3) Environmental physics (wind, rain ripples, shifting neon reflections, volumetric dust), and 4) Lighting and film aesthetic. Output only the final video prompt.",
+		},
+		{
+			Slug:           "sdxl",
+			Name:           "SDXL / Illustrious / Pony",
+			TargetModality: domain.MediaTypeImage,
+			Description:    "Hybrid comma-separated tag and phrase structure for SDXL checkpoints.",
+			SystemPrompt:   "You are an SDXL prompt specialist. Generate a comma-separated prompt starting with quality and medium tokens (masterpiece, best quality, highres), followed by detailed subject description, clothing, pose, background environment, lighting tags, and camera perspective. Output only the final comma-separated prompt.",
+		},
+	}
+	for _, p := range profiles {
+		_, _ = repo.UpsertPromptProfile(ctx, &p)
+	}
+
+	seedLoRAs := []domain.ModelLoRA{
+		{
+			ProfileSlug:       "flux",
+			Name:              "Dark Sci-Fi Anamorphic 70mm",
+			SyntaxTag:         "<lora:flux_anamorphic_70mm:0.85>",
+			TriggerWords:      "anamorphic70mm, horizontal cyan lens flare",
+			RecommendedWeight: "0.85",
+			Description:       "Trained on 70mm IMAX and Panavision sci-fi film stills for Flux.1. Adds oval bokeh, film grain, and subtle cyan/amber highlight halation.",
+			UsageExamples:     "A lone netrunner standing on a rain-slicked brutalist balcony, anamorphic70mm, horizontal cyan lens flare, sodium vapor streetlights reflecting on wet concrete <lora:flux_anamorphic_70mm:0.85>",
+		},
+		{
+			ProfileSlug:       "krea2",
+			Name:              "Tactile Editorial Skin & Fabric (Triggerless)",
+			SyntaxTag:         "<lora:krea2_editorial_microtexture:0.7>",
+			TriggerWords:      "",
+			RecommendedWeight: "0.70",
+			Description:       "Triggerless detail enhancer specifically tuned for Krea 2. Boosts natural skin pores, woven fabric threads, and subsurface scattering under studio softboxes without plastic over-smoothing.",
+			UsageExamples:     "Editorial medium-format close-up portrait, natural freckled skin translucency, heavy charcoal wool collar, soft key light from 45 degrees, Kodak Portra 400 <lora:krea2_editorial_microtexture:0.7>",
+		},
+		{
+			ProfileSlug:       "qwen-image",
+			Name:              "Neon Cyber-Signage & Crisp Typography",
+			SyntaxTag:         "<lora:qwen_neon_signage_v2:0.9>",
+			TriggerWords:      "cyber_signage, glowing acrylic lettering",
+			RecommendedWeight: "0.90",
+			Description:       "Qwen-Image LoRA specialized in rendering legible futuristic storefront signs, HUD telemetry overlays, and glowing glass typography.",
+			UsageExamples:     "Nighttime alley in Neo-Veridia, cyber_signage, glowing acrylic lettering reading \"ARCHIVE SECTOR 09\" above a rain-misted glass doorway <lora:qwen_neon_signage_v2:0.9>",
+		},
+		{
+			ProfileSlug:       "minimaxh3",
+			Name:              "FPV Orbital Tracking Shot (Video Motion LoRA)",
+			SyntaxTag:         "<lora:minimax_fpv_orbital:0.8>",
+			TriggerWords:      "smooth orbital camera arc, dynamic parallax motion",
+			RecommendedWeight: "0.80",
+			Description:       "Motion LoRA for MiniMax Hailuo H3 video generation. Drives a continuous 180-degree orbital camera trajectory around the main subject with strong foreground/background parallax.",
+			UsageExamples:     "[Camera: smooth orbital camera arc, dynamic parallax motion] A heavy orbital mecha unit ignites its thrusters inside a subterranean hangar as sparks and volumetric steam swirl across the lens <lora:minimax_fpv_orbital:0.8>",
+		},
+	}
+	for _, l := range seedLoRAs {
+		_, _ = repo.UpsertModelLoRA(ctx, &l)
+	}
+
+	seedCats := []domain.DefaultCategory{
+		{
+			Name:          "Characters & Portraits",
+			Facet:         "subject",
+			Color:         "#2563eb",
+			Subcategories: []string{"Protagonist", "Sci-Fi / Netrunner", "Fantasy / Scholar", "Portrait Close-Up", "Full Body Concept"},
+		},
+		{
+			Name:          "Environments & Architecture",
+			Facet:         "environment",
+			Color:         "#059669",
+			Subcategories: []string{"Cyberpunk Alley", "Brutalist Megastructure", "Celestial Observatory", "Interior Set", "Landscape"},
+		},
+		{
+			Name:          "Mecha, Vehicles & Props",
+			Facet:         "hardware",
+			Color:         "#d97706",
+			Subcategories: []string{"Heavy Orbital Mecha", "Spacecraft", "Cyberdeck / Weaponry", "Artifact / Codex"},
+		},
+		{
+			Name:          "Cinematography & Motion",
+			Facet:         "cinematography",
+			Color:         "#7c3aed",
+			Subcategories: []string{"Anamorphic 70mm", "Volumetric Neon", "Golden Hour", "Orbital Tracking Video", "Slow Dolly-In"},
+		},
+	}
+	for _, c := range seedCats {
+		_, _ = repo.UpsertDefaultCategory(ctx, &c)
+	}
+
+	return nil
+}
+

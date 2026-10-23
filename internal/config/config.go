@@ -13,7 +13,7 @@ import (
 
 const (
 	DefaultConfigFile = "config.json"
-	DefaultAddr       = ":888"
+	DefaultAddr       = ":1080"
 	DefaultMediaDir   = "./media"
 	DefaultCacheDir   = "./.cache"
 	DefaultDBPath     = "./catalog.db"
@@ -85,7 +85,7 @@ func LoadWithArgs(args []string) Config {
 		AdminPass:       DefaultAdminPass,
 		VisionWorkerURL: "",
 		AutoScanOnBoot:  true,
-		SeedDemoIfEmpty: true,
+		SeedDemoIfEmpty: false,
 		ForceSetup:      false,
 		NonInteractive:  false,
 		ConfigFile:      configPath,
@@ -243,8 +243,8 @@ func EnsureDefaultConfigFile(path string) error {
 		return nil
 	}
 	defaultJSON := `{
-  "port": 888,
-  "addr": ":888",
+  "port": 1080,
+  "addr": ":1080",
   "media_dir": "./media",
   "cache_dir": "./.cache",
   "db_path": "./catalog.db",
@@ -252,7 +252,7 @@ func EnsureDefaultConfigFile(path string) error {
   "admin_pass": "admin123",
   "vision_url": "",
   "auto_scan": true,
-  "seed_demo": true
+  "seed_demo": false
 }
 `
 	return os.WriteFile(path, []byte(defaultJSON), 0644)
