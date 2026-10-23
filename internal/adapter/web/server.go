@@ -112,30 +112,33 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/profiles/upsert", s.handleUpsertProfile)
 	mux.HandleFunc("POST /admin/profiles/delete", s.handleDeleteProfile)
 
-	// Ollama AI Actions (Image2Prompt & Text2Prompt)
+	// Ollama AI Actions (Image2Prompt, Character2Prompt & Text2Prompt)
 	mux.HandleFunc("POST /admin/ollama/image2prompt", s.handleImage2Prompt)
+	mux.HandleFunc("POST /admin/ollama/character2prompt", s.handleCharacter2Prompt)
 	mux.HandleFunc("POST /admin/ollama/text2prompt", s.handleText2Prompt)
 
 	return mux
 }
 
 type viewData struct {
-	ActiveTab        string
-	MediaDir         string
-	VisionEngineName string
-	AdminUser        string
-	Filter           domain.CatalogFilter
-	Page             *domain.CatalogPage
-	SelectedAsset    *domain.MediaAsset
-	ScanReport       usecase.ScanReport
-	Settings         domain.AppSettings
-	PromptProfiles   []domain.PromptProfile
-	AIStatus         usecase.AIBackendStatus
-	AIResultPrompt   string
-	AIResultError    string
-	AIInputConcept   string
-	AITargetProfile  string
-	FlashNotice      string
+	ActiveTab         string
+	MediaDir          string
+	VisionEngineName  string
+	AdminUser         string
+	Filter            domain.CatalogFilter
+	Page              *domain.CatalogPage
+	SelectedAsset     *domain.MediaAsset
+	ScanReport        usecase.ScanReport
+	Settings          domain.AppSettings
+	PromptProfiles    []domain.PromptProfile
+	GeneratedHistory  []domain.GeneratedPrompt
+	AIStatus          usecase.AIBackendStatus
+	AIResultPrompt    string
+	AIResultError     string
+	AIInputConcept    string
+	AITargetProfile   string
+	AICharacterID     int64
+	FlashNotice       string
 }
 
 func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
@@ -152,10 +155,12 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var selectedAsset *domain.MediaAsset
+	var assetID int64
 	if assetIDStr := r.URL.Query().Get("asset_id"); assetIDStr != "" {
 		if id, err := strconv.ParseInt(assetIDStr, 10, 64); err == nil && id > 0 {
 			if a, err := s.catalog.GetAsset(ctx, id); err == nil {
 				selectedAsset = a
+				assetID = id
 				tab = "asset_detail"
 			}
 		}
@@ -169,9 +174,10 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	history, _ := s.catalog.ListGeneratedPrompts(ctx, assetID, filter.CharacterID, 20)
 
 	var aiStatus usecase.AIBackendStatus
-	if tab == "settings" || tab == "studio" || tab == "asset_detail" {
+	if tab == "settings" || tab == "studio" || tab == "asset_detail" || tab == "characters" {
 		aiStatus = s.catalog.InspectAIBackends(ctx)
 	}
 
@@ -186,6 +192,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
+		GeneratedHistory: history,
 		AIStatus:         aiStatus,
 		AITargetProfile:  settings.DefaultTargetGenerator,
 		FlashNotice:      r.URL.Query().Get("notice"),
@@ -268,16 +275,19 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
 	profileSlug := r.FormValue("profile_slug")
+	mode := r.FormValue("mode")
 	userHint := r.FormValue("user_hint")
+	characterID, _ := strconv.ParseInt(r.FormValue("character_id"), 10, 64)
 	saveToAsset := r.FormValue("save_to_asset") == "1" || r.FormValue("save_to_asset") == "on"
 
-	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, userHint, saveToAsset)
+	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, saveToAsset)
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
 	selectedAsset, _ := s.catalog.GetAsset(ctx, assetID)
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	history, _ := s.catalog.ListGeneratedPrompts(ctx, assetID, 0, 20)
 	aiStatus := s.catalog.InspectAIBackends(ctx)
 
 	data := viewData{
@@ -291,9 +301,57 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
+		GeneratedHistory: history,
 		AIStatus:         aiStatus,
 		AIResultPrompt:   outPrompt,
 		AITargetProfile:  profileSlug,
+		AICharacterID:    characterID,
+	}
+	if runErr != nil {
+		data.AIResultError = runErr.Error()
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = s.tmpl.ExecuteTemplate(w, "catalog.html", data)
+}
+
+func (s *Server) handleCharacter2Prompt(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_ = r.ParseForm()
+	characterID, _ := strconv.ParseInt(r.FormValue("character_id"), 10, 64)
+	profileSlug := r.FormValue("profile_slug")
+	sceneDirection := r.FormValue("scene_direction")
+	refAssetID, _ := strconv.ParseInt(r.FormValue("ref_asset_id"), 10, 64)
+	returnTab := r.FormValue("return_tab")
+	if returnTab == "" {
+		returnTab = "characters"
+	}
+
+	outPrompt, runErr := s.catalog.RunCharacterPrompt(ctx, characterID, profileSlug, sceneDirection, refAssetID)
+
+	filter := parseCatalogFilter(r)
+	page, _ := s.catalog.Query(ctx, filter)
+	settings, _ := s.catalog.GetSettings(ctx)
+	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	history, _ := s.catalog.ListGeneratedPrompts(ctx, 0, 0, 20)
+	aiStatus := s.catalog.InspectAIBackends(ctx)
+
+	data := viewData{
+		ActiveTab:        returnTab,
+		MediaDir:         s.mediaDir,
+		VisionEngineName: s.visionEngineName,
+		AdminUser:        s.currentAdmin(r),
+		Filter:           filter,
+		Page:             page,
+		ScanReport:       s.scanner.LastReport(),
+		Settings:         settings,
+		PromptProfiles:   profiles,
+		GeneratedHistory: history,
+		AIStatus:         aiStatus,
+		AIResultPrompt:   outPrompt,
+		AIInputConcept:   sceneDirection,
+		AITargetProfile:  profileSlug,
+		AICharacterID:    characterID,
 	}
 	if runErr != nil {
 		data.AIResultError = runErr.Error()
@@ -316,6 +374,7 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 	page, _ := s.catalog.Query(ctx, filter)
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
+	history, _ := s.catalog.ListGeneratedPrompts(ctx, assetID, 0, 20)
 	aiStatus := s.catalog.InspectAIBackends(ctx)
 
 	activeTab := "studio"
@@ -336,6 +395,7 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
+		GeneratedHistory: history,
 		AIStatus:         aiStatus,
 		AIResultPrompt:   outPrompt,
 		AIInputConcept:   concept,

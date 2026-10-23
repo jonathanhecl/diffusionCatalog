@@ -297,6 +297,86 @@ func (r *Repository) ListPromptProfiles(ctx context.Context) ([]domain.PromptPro
 	return out, nil
 }
 
+// SaveGeneratedPrompt stores a newly generated prompt linked to an Asset and/or Character.
+func (r *Repository) SaveGeneratedPrompt(ctx context.Context, gp *domain.GeneratedPrompt) (int64, error) {
+	var id int64
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO generated_prompts (
+			asset_id, character_id, target_profile_slug, scene_direction, output_prompt, provider, model_name
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+		RETURNING id`,
+		gp.AssetID, gp.CharacterID, gp.TargetProfileSlug, gp.SceneDirection, gp.OutputPrompt, string(gp.Provider), gp.ModelName,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	gp.ID = id
+	return id, nil
+}
+
+// ListGeneratedPrompts returns recent AI-generated prompts filtered optionally by assetID or characterID.
+func (r *Repository) ListGeneratedPrompts(ctx context.Context, assetID, characterID int64, limit int) ([]domain.GeneratedPrompt, error) {
+	if limit < 1 {
+		limit = 20
+	}
+	var where []string
+	var args []interface{}
+	if assetID > 0 {
+		where = append(where, `gp.asset_id = ?`)
+		args = append(args, assetID)
+	}
+	if characterID > 0 {
+		where = append(where, `gp.character_id = ?`)
+		args = append(args, characterID)
+	}
+	whereClause := ""
+	if len(where) > 0 {
+		whereClause = "WHERE " + strings.Join(where, " AND ")
+	}
+	args = append(args, limit)
+
+	query := fmt.Sprintf(`
+		SELECT gp.id, gp.asset_id, gp.character_id, COALESCE(c.name, ''),
+		       gp.target_profile_slug, gp.scene_direction, gp.output_prompt,
+		       gp.provider, gp.model_name, gp.created_at
+		FROM generated_prompts gp
+		LEFT JOIN characters c ON c.id = gp.character_id
+		%s
+		ORDER BY gp.id DESC
+		LIMIT ?`, whereClause)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.GeneratedPrompt
+	for rows.Next() {
+		var item domain.GeneratedPrompt
+		var aID, cID sql.NullInt64
+		var prov string
+		if err := rows.Scan(
+			&item.ID, &aID, &cID, &item.CharacterName,
+			&item.TargetProfileSlug, &item.SceneDirection, &item.OutputPrompt,
+			&prov, &item.ModelName, &item.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if aID.Valid {
+			v := aID.Int64
+			item.AssetID = &v
+		}
+		if cID.Valid {
+			v := cID.Int64
+			item.CharacterID = &v
+		}
+		item.Provider = domain.AIProviderType(prov)
+		out = append(out, item)
+	}
+	return out, nil
+}
+
 // QueryCatalog executes a filtered, faceted, and paginated search across assets (or faces when FaceMode is active).
 func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilter) (*domain.CatalogPage, error) {
 	if filter.Page < 1 {

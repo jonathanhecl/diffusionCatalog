@@ -49,3 +49,17 @@ type OllamaModelInfo struct {
 	VisionStatus  string         `json:"vision_status"` // "confirmed", "inferred", or "none"
 	ContextLength int            `json:"context_length"`
 }
+
+// GeneratedPrompt records a prompt synthesized by Ollama/oMLX from either a cataloged Asset or a Character folder.
+type GeneratedPrompt struct {
+	ID                int64          `json:"id"`
+	AssetID           *int64         `json:"asset_id,omitempty"`
+	CharacterID       *int64         `json:"character_id,omitempty"`
+	CharacterName     string         `json:"character_name,omitempty"`
+	TargetProfileSlug string         `json:"target_profile_slug"`
+	SceneDirection    string         `json:"scene_direction"`
+	OutputPrompt      string         `json:"output_prompt"`
+	Provider          AIProviderType `json:"provider"`
+	ModelName         string         `json:"model_name"`
+	CreatedAt         time.Time      `json:"created_at"`
+}

@@ -179,6 +179,20 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		system_prompt TEXT NOT NULL,
 		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
+
+	CREATE TABLE IF NOT EXISTS generated_prompts (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		asset_id INTEGER,
+		character_id INTEGER,
+		target_profile_slug TEXT NOT NULL DEFAULT 'flux',
+		scene_direction TEXT NOT NULL DEFAULT '',
+		output_prompt TEXT NOT NULL,
+		provider TEXT NOT NULL DEFAULT 'ollama',
+		model_name TEXT NOT NULL DEFAULT '',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+		FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+	);
 	`
 	if _, err := db.ExecContext(ctx, schema); err != nil {
 		return err

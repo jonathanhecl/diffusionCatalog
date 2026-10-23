@@ -67,6 +67,9 @@ type CatalogRepository interface {
 	DeletePromptProfile(ctx context.Context, id int64) error
 	GetPromptProfileBySlug(ctx context.Context, slug string) (*PromptProfile, error)
 	ListPromptProfiles(ctx context.Context) ([]PromptProfile, error)
+
+	SaveGeneratedPrompt(ctx context.Context, gp *GeneratedPrompt) (int64, error)
+	ListGeneratedPrompts(ctx context.Context, assetID, characterID int64, limit int) ([]GeneratedPrompt, error)
 }
 
 // MetadataExtractor defines the port for extracting diffusion prompts and technical parameters from media files.
