@@ -1156,10 +1156,10 @@
             </div>
 
             <div style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:6px;padding:8px 10px;font-size:10.5px;color:var(--text-muted);">
-              <div style="font-weight:600;color:var(--text-main);margin-bottom:3px;">Staging Controls:</div>
-              <div>&bull; Drag joints to pose body</div>
-              <div>&bull; Scale up to 6.0x for close-ups</div>
-              <div>&bull; Drag anywhere (even partially offscreen)</div>
+              <div style="font-weight:600;color:var(--text-main);margin-bottom:3px;">Anatomical Staging:</div>
+              <div>&bull; <strong>Moving Neck</strong> moves head &amp; arms naturally</div>
+              <div>&bull; <strong>Dbl-click</strong> note, prop, or character to edit text</div>
+              <div>&bull; <strong>Layer buttons</strong> swap depth order instantly</div>
             </div>
           </aside>
 
@@ -1234,6 +1234,13 @@
                   </div>
                 </div>
 
+                <!-- Note Editing Control Group (Visible when a note is selected) -->
+                <div id="noteControlGroup" style="display:none;align-items:center;gap:6px;">
+                  <span style="font-size:11px;color:#34d399;font-weight:600;">📝 Note:</span>
+                  <input type="text" id="noteTextInput" placeholder="Directive note on canvas..." 
+                         style="width:240px;background:var(--bg-input);border:1px solid #10b981;border-radius:4px;padding:3px 8px;color:#a7f3d0;font-size:11.5px;" />
+                </div>
+
                 <!-- Body Skin / Render Mode (Skeleton, Silhouette, Hybrid) -->
                 <div id="skinControlGroup" style="display:flex;align-items:center;gap:5px;">
                   <span style="font-size:11px;color:var(--text-muted);">Skin:</span>
@@ -1256,7 +1263,7 @@
                 <!-- Rotate Slider -->
                 <div style="display:flex;align-items:center;gap:6px;">
                   <span style="font-size:11px;color:var(--text-muted);">Rot:</span>
-                  <input type="range" id="propRotateSlider" min="-180" max="180" step="5" value="0" style="width:75px;accent-color:#0284c7;" />
+                  <input type="range" id="propRotateSlider" min="-180" max="180" step="5" value="0" style="width:70px;accent-color:#0284c7;" />
                   <span id="propRotateVal" style="font-size:11px;min-width:28px;">0&deg;</span>
                 </div>
 
@@ -1272,11 +1279,18 @@
                   <button type="button" id="btnResetPose" class="btn-ghost" style="padding:3px 5px;font-size:11px;" title="Reset pose to default standing">&#8635;</button>
                 </div>
 
-                <!-- Layering & Actions -->
+                <!-- Layer Ordering (Front, Up, Down, Back) with explicit Layer Badge -->
+                <div style="display:flex;align-items:center;gap:3px;background:var(--bg-input);padding:2px 4px;border-radius:4px;border:1px solid var(--border-navy);">
+                  <span id="layerBadge" style="font-size:10.5px;color:#38bdf8;font-weight:600;margin-right:2px;">Layer 1/3</span>
+                  <button type="button" id="btnBringToFront" class="btn-ghost" style="padding:2px 6px;font-size:11px;font-weight:700;" title="Bring to Front (Delante de todo)">&#8607; Front</button>
+                  <button type="button" id="btnLayerUp" class="btn-ghost" style="padding:2px 6px;font-size:11px;" title="Bring Forward (Un nivel adelante)">&#9650; Up</button>
+                  <button type="button" id="btnLayerDown" class="btn-ghost" style="padding:2px 6px;font-size:11px;" title="Send Backward (Un nivel atrás)">&#9660; Down</button>
+                  <button type="button" id="btnSendToBack" class="btn-ghost" style="padding:2px 6px;font-size:11px;font-weight:700;" title="Send to Back (Detrás de todo)">&#8609; Back</button>
+                </div>
+
+                <!-- Actions (Flip, Duplicate, Delete) -->
                 <div style="display:flex;align-items:center;gap:3px;">
                   <button type="button" id="btnFlipH" class="btn-ghost" style="padding:3px 7px;font-size:11px;" title="Flip Horizontal">&#8644; Flip</button>
-                  <button type="button" id="btnLayerUp" class="btn-ghost" style="padding:3px 6px;font-size:11px;" title="Bring Forward">&#9650;</button>
-                  <button type="button" id="btnLayerDown" class="btn-ghost" style="padding:3px 6px;font-size:11px;" title="Send Backward">&#9660;</button>
                   <button type="button" id="btnDuplicateEl" class="btn-ghost" style="padding:3px 7px;font-size:11px;" title="Duplicate">&#10064; Copy</button>
                   <button type="button" id="btnDeleteEl" class="btn-ghost" style="padding:3px 7px;font-size:11px;color:#fca5a5;border-color:#b91c1c;" title="Delete">&#128465;</button>
                 </div>
@@ -1473,16 +1487,32 @@
     }
   };
 
-  const state = {
-    compositionId: {{if .SelectedComposition}}{{.SelectedComposition.ID}}{{else}}0{{end}},
-    aspectRatio: "16:9",
-    width: 1280,
-    height: 720,
-    elements: [],
-    selectedId: null,
-    dragTarget: null,
-    theaterMode: false
+  // Anatomical Hierarchical Kinematics (FK Tree)
+  const JOINT_CHILDREN = {
+    "neck": ["nose", "r_shoulder", "l_shoulder"],
+    "r_shoulder": ["r_elbow"],
+    "r_elbow": ["r_wrist"],
+    "l_shoulder": ["l_elbow"],
+    "l_elbow": ["l_wrist"],
+    "mid_hip": ["r_hip", "l_hip"],
+    "r_hip": ["r_knee"],
+    "r_knee": ["r_ankle"],
+    "l_hip": ["l_knee"],
+    "l_knee": ["l_ankle"]
   };
+
+  function getDescendantJoints(rootJoint) {
+    const list = [];
+    function traverse(j) {
+      const children = JOINT_CHILDREN[j] || [];
+      for (const c of children) {
+        list.push(c);
+        traverse(c);
+      }
+    }
+    traverse(rootJoint);
+    return list;
+  }
 
   const SKELETON_BONES = [
     { from: "neck", to: "nose", color: "#ec4899", width: 6 },
@@ -1500,6 +1530,17 @@
     { from: "l_hip", to: "l_knee", color: "#6366f1", width: 7 },
     { from: "l_knee", to: "l_ankle", color: "#818cf8", width: 6 }
   ];
+
+  const state = {
+    compositionId: {{if .SelectedComposition}}{{.SelectedComposition.ID}}{{else}}0{{end}},
+    aspectRatio: "16:9",
+    width: 1280,
+    height: 720,
+    elements: [],
+    selectedId: null,
+    dragTarget: null,
+    theaterMode: false
+  };
 
   const svg = document.getElementById('directorSvg');
   const elementsGroup = document.getElementById('elementsGroup');
@@ -1538,8 +1579,7 @@
         flipH: false,
         facing: "front",
         poseName: "Standing Idle",
-        pose: JSON.parse(JSON.stringify(POSE_PRESETS["Standing Idle"])),
-        layer: 1
+        pose: JSON.parse(JSON.stringify(POSE_PRESETS["Standing Idle"]))
       },
       {
         id: "prop_" + (Date.now() + 1),
@@ -1552,8 +1592,7 @@
         height: 130,
         scale: 1.1,
         rotation: 0,
-        flipH: false,
-        layer: 0
+        flipH: false
       },
       {
         id: "light_" + (Date.now() + 2),
@@ -1566,14 +1605,21 @@
         height: 150,
         scale: 1.0,
         rotation: 40,
-        color: "#fbbf24",
-        layer: 2
+        color: "#fbbf24"
       }
     ];
     state.selectedId = state.elements[0].id;
   }
 
-  // Helper: compute clean SVG transform
+  // Synchronize array z-order
+  function syncZOrder() {
+    state.elements.forEach((el, idx) => {
+      el.layer = idx;
+    });
+  }
+  syncZOrder();
+
+  // Helper: compute clean uniform SVG transform
   function computeElementTransform(el) {
     const cx = el.width / 2;
     const cy = el.height / 2;
@@ -1588,9 +1634,8 @@
     elementsGroup.innerHTML = '';
     overlayGroup.innerHTML = '';
 
-    const sorted = [...state.elements].sort((a, b) => (a.layer || 0) - (b.layer || 0));
-
-    sorted.forEach(el => {
+    // Elements rendered in exact array order: earlier = background, later = foreground
+    state.elements.forEach(el => {
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       g.setAttribute('id', 'el_' + el.id);
       g.setAttribute('data-id', el.id);
@@ -1637,7 +1682,6 @@
       const silhouetteColor = el.subtype === 'female' ? '#334155' : (el.subtype === 'child' ? '#3b4252' : '#1e293b');
       const opacity = skin === 'hybrid' ? '0.75' : '1.0';
 
-      // Torso & Pelvis Capsule
       const torso = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
       const neckPt = { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h };
       const rShPt = { x: (pose.r_shoulder.x / 100) * w, y: (pose.r_shoulder.y / 100) * h };
@@ -1645,7 +1689,6 @@
       const rHipPt = { x: (pose.r_hip.x / 100) * w, y: (pose.r_hip.y / 100) * h };
       const lHipPt = { x: (pose.l_hip.x / 100) * w, y: (pose.l_hip.y / 100) * h };
       
-      // Expand torso slightly for natural body contour
       torso.setAttribute('points', `${neckPt.x},${neckPt.y-4} ${lShPt.x+8},${lShPt.y} ${lHipPt.x+8},${lHipPt.y+10} ${rHipPt.x-8},${rHipPt.y+10} ${rShPt.x-8},${rShPt.y}`);
       torso.setAttribute('fill', silhouetteColor);
       torso.setAttribute('fill-opacity', opacity);
@@ -1653,7 +1696,6 @@
       torso.setAttribute('stroke-width', '1.5');
       g.appendChild(torso);
 
-      // Limbs Silhouette Capsules (Upper arms, Forearms, Thighs, Calves)
       const limbPairs = [
         ["r_shoulder", "r_elbow", 14], ["r_elbow", "r_wrist", 11],
         ["l_shoulder", "l_elbow", 14], ["l_elbow", "l_wrist", 11],
@@ -1679,7 +1721,7 @@
       });
     }
 
-    // 2. Render OpenPose Colored Bones (if wireframe or hybrid)
+    // 2. Render OpenPose Colored Bones
     if (skin === 'wireframe' || skin === 'hybrid') {
       SKELETON_BONES.forEach(bone => {
         const p1 = pose[bone.from];
@@ -1703,7 +1745,6 @@
     const headY = (pose.nose.y / 100) * h;
     const headR = el.subtype === 'child' ? 18 : 16;
 
-    // Head base circle
     const headCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     headCircle.setAttribute('cx', headX);
     headCircle.setAttribute('cy', headY);
@@ -1719,7 +1760,6 @@
     const f = el.facing || 'front';
 
     if (f === 'front') {
-      // Direct frontal gaze: two eyes + nose dot
       const eyeL = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       eyeL.setAttribute('cx', headX - 5); eyeL.setAttribute('cy', headY - 2); eyeL.setAttribute('r', '2.5');
       eyeL.setAttribute('fill', '#38bdf8');
@@ -1730,24 +1770,18 @@
       eyeR.setAttribute('fill', '#38bdf8');
       g.appendChild(eyeR);
 
-      // Nose center
       const nose = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       nose.setAttribute('x1', headX); nose.setAttribute('y1', headY - 1); nose.setAttribute('x2', headX); nose.setAttribute('y2', headY + 4);
       nose.setAttribute('stroke', '#38bdf8'); nose.setAttribute('stroke-width', '2');
       g.appendChild(nose);
     } else if (f === 'back') {
-      // Back of head: hair/back-of-neck lines, no eyes
       visorD = `M ${headX - 8} ${headY - 6} Q ${headX} ${headY - 2} ${headX + 8} ${headY - 6} M ${headX - 6} ${headY} Q ${headX} ${headY + 4} ${headX + 6} ${headY}`;
-      visor.setAttribute('stroke', '#64748b');
-      visor.setAttribute('stroke-width', '2');
-      visor.setAttribute('fill', 'none');
+      visor.setAttribute('stroke', '#64748b'); visor.setAttribute('stroke-width', '2'); visor.setAttribute('fill', 'none');
       visor.setAttribute('d', visorD);
       g.appendChild(visor);
     } else if (f === 'left') {
-      // Profile Left: nose pointing sharply left (90 deg)
       visorD = `M ${headX - headR} ${headY} L ${headX - headR - 10} ${headY + 2} L ${headX - headR + 2} ${headY + 6} Z`;
-      visor.setAttribute('fill', '#38bdf8');
-      visor.setAttribute('d', visorD);
+      visor.setAttribute('fill', '#38bdf8'); visor.setAttribute('d', visorD);
       g.appendChild(visor);
 
       const eyeL = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -1755,10 +1789,8 @@
       eyeL.setAttribute('fill', '#38bdf8');
       g.appendChild(eyeL);
     } else if (f === 'right') {
-      // Profile Right: nose pointing sharply right (90 deg)
       visorD = `M ${headX + headR} ${headY} L ${headX + headR + 10} ${headY + 2} L ${headX + headR - 2} ${headY + 6} Z`;
-      visor.setAttribute('fill', '#38bdf8');
-      visor.setAttribute('d', visorD);
+      visor.setAttribute('fill', '#38bdf8'); visor.setAttribute('d', visorD);
       g.appendChild(visor);
 
       const eyeR = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -1766,27 +1798,18 @@
       eyeR.setAttribute('fill', '#38bdf8');
       g.appendChild(eyeR);
     } else if (f === 'three_quarter_left') {
-      // 3/4 Left: angled gaze arrow
       visorD = `M ${headX - headR * 0.7} ${headY + headR * 0.3} L ${headX - headR - 8} ${headY + headR * 0.6} L ${headX - headR * 0.3} ${headY + headR * 0.7} Z`;
-      visor.setAttribute('fill', '#38bdf8');
-      visor.setAttribute('d', visorD);
+      visor.setAttribute('fill', '#38bdf8'); visor.setAttribute('d', visorD);
       g.appendChild(visor);
     } else if (f === 'three_quarter_right') {
-      // 3/4 Right: angled gaze arrow
       visorD = `M ${headX + headR * 0.7} ${headY + headR * 0.3} L ${headX + headR + 8} ${headY + headR * 0.6} L ${headX + headR * 0.3} ${headY + headR * 0.7} Z`;
-      visor.setAttribute('fill', '#38bdf8');
-      visor.setAttribute('d', visorD);
+      visor.setAttribute('fill', '#38bdf8'); visor.setAttribute('d', visorD);
       g.appendChild(visor);
     }
 
-    // Name label
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', w / 2);
-    text.setAttribute('y', h + 18);
-    text.setAttribute('fill', '#94a3b8');
-    text.setAttribute('font-size', '11.5');
-    text.setAttribute('font-weight', '600');
-    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('x', w / 2); text.setAttribute('y', h + 18);
+    text.setAttribute('fill', '#94a3b8'); text.setAttribute('font-size', '11.5'); text.setAttribute('font-weight', '600'); text.setAttribute('text-anchor', 'middle');
     text.textContent = el.name || 'Character';
     g.appendChild(text);
   }
@@ -1892,8 +1915,7 @@
 
     const cone = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
     cone.setAttribute('points', `20,${h/2} ${w},0 ${w},${h}`);
-    cone.setAttribute('fill', lightColor);
-    cone.setAttribute('fill-opacity', '0.25');
+    cone.setAttribute('fill', lightColor); cone.setAttribute('fill-opacity', '0.25');
     g.appendChild(cone);
 
     const bulb = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -1945,20 +1967,36 @@
     g.appendChild(text);
   }
 
+  // Render Directive Sticky Note with Header & Text
   function renderNote(g, el) {
     const w = el.width;
     const h = el.height;
 
     const noteBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     noteBg.setAttribute('x', '0'); noteBg.setAttribute('y', '0'); noteBg.setAttribute('width', w); noteBg.setAttribute('height', h);
-    noteBg.setAttribute('rx', '4'); noteBg.setAttribute('fill', '#064e3b'); noteBg.setAttribute('stroke', '#10b981'); noteBg.setAttribute('stroke-width', '2');
+    noteBg.setAttribute('rx', '6'); noteBg.setAttribute('fill', '#064e3b'); noteBg.setAttribute('stroke', '#10b981'); noteBg.setAttribute('stroke-width', '2');
     g.appendChild(noteBg);
 
-    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', '10'); text.setAttribute('y', '22');
-    text.setAttribute('fill', '#a7f3d0'); text.setAttribute('font-size', '11'); text.setAttribute('font-family', 'sans-serif');
-    text.textContent = el.text || 'Directive Note...';
-    g.appendChild(text);
+    const header = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    header.setAttribute('x', '0'); header.setAttribute('y', '0'); header.setAttribute('width', w); header.setAttribute('height', '18');
+    header.setAttribute('rx', '4'); header.setAttribute('fill', '#047857');
+    g.appendChild(header);
+
+    const hdrTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    hdrTxt.setAttribute('x', '6'); hdrTxt.setAttribute('y', '13');
+    hdrTxt.setAttribute('fill', '#d1fae5'); hdrTxt.setAttribute('font-size', '9.5'); hdrTxt.setAttribute('font-weight', '700');
+    hdrTxt.textContent = "DIRECTIVE NOTE (Dbl-click)";
+    g.appendChild(hdrTxt);
+
+    const lines = (el.text || 'Directive note...').split('\n');
+    lines.forEach((line, idx) => {
+      if (idx > 3) return;
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', '10'); text.setAttribute('y', 36 + idx * 16);
+      text.setAttribute('fill', '#a7f3d0'); text.setAttribute('font-size', '11'); text.setAttribute('font-family', 'sans-serif');
+      text.textContent = line.length > 28 ? line.substring(0, 26) + '...' : line;
+      g.appendChild(text);
+    });
   }
 
   // Render Selection Bounding Box, Handles, Joint Nodes & Facing Tag
@@ -1968,20 +2006,16 @@
 
     // Bounding Box
     const bbox = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bbox.setAttribute('x', -6);
-    bbox.setAttribute('y', -6);
-    bbox.setAttribute('width', el.width + 12);
-    bbox.setAttribute('height', el.height + 12);
-    bbox.setAttribute('fill', 'none');
-    bbox.setAttribute('stroke', '#38bdf8');
-    bbox.setAttribute('stroke-dasharray', '4,4');
-    bbox.setAttribute('stroke-width', '1.5');
+    bbox.setAttribute('x', -6); bbox.setAttribute('y', -6);
+    bbox.setAttribute('width', el.width + 12); bbox.setAttribute('height', el.height + 12);
+    bbox.setAttribute('fill', 'none'); bbox.setAttribute('stroke', '#38bdf8');
+    bbox.setAttribute('stroke-dasharray', '4,4'); bbox.setAttribute('stroke-width', '1.5');
     selG.appendChild(bbox);
 
-    // Floating Facing Pill Tag on top
+    // Floating Facing Pill Tag on top of character
     if (el.type === 'character') {
       const facingLabel = {
-        'front': '👁️ Frente / Frontal',
+        'front': '👁️ Frente / Front',
         'back': '🔙 De espaldas / Back',
         'left': '◀️ Perfil Izq / Left',
         'right': '▶️ Perfil Der / Right',
@@ -1990,13 +2024,13 @@
       }[el.facing || 'front'] || 'Front';
 
       const tagBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      tagBg.setAttribute('x', el.width / 2 - 50); tagBg.setAttribute('y', -42);
-      tagBg.setAttribute('width', '100'); tagBg.setAttribute('height', '18');
+      tagBg.setAttribute('x', el.width / 2 - 55); tagBg.setAttribute('y', -44);
+      tagBg.setAttribute('width', '110'); tagBg.setAttribute('height', '18');
       tagBg.setAttribute('rx', '9'); tagBg.setAttribute('fill', '#0284c7');
       selG.appendChild(tagBg);
 
       const tagTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      tagTxt.setAttribute('x', el.width / 2); tagTxt.setAttribute('y', -30);
+      tagTxt.setAttribute('x', el.width / 2); tagTxt.setAttribute('y', -32);
       tagTxt.setAttribute('fill', '#fff'); tagTxt.setAttribute('font-size', '9.5'); tagTxt.setAttribute('font-weight', '700'); tagTxt.setAttribute('text-anchor', 'middle');
       tagTxt.textContent = facingLabel;
       selG.appendChild(tagTxt);
@@ -2023,19 +2057,16 @@
         const jCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         const jx = (pt.x / 100) * el.width;
         const jy = (pt.y / 100) * el.height;
-        jCircle.setAttribute('cx', jx);
-        jCircle.setAttribute('cy', jy);
+        jCircle.setAttribute('cx', jx); jCircle.setAttribute('cy', jy);
         jCircle.setAttribute('r', '6.5');
-        jCircle.setAttribute('fill', '#ffffff');
-        jCircle.setAttribute('stroke', '#ec4899');
-        jCircle.setAttribute('stroke-width', '2.5');
+        jCircle.setAttribute('fill', '#ffffff'); jCircle.setAttribute('stroke', '#ec4899'); jCircle.setAttribute('stroke-width', '2.5');
         jCircle.style.cursor = 'crosshair';
         jCircle.setAttribute('data-action', 'joint');
         jCircle.setAttribute('data-joint', jointName);
         jCircle.setAttribute('data-id', el.id);
 
         const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-        title.textContent = "Drag joint: " + jointName;
+        title.textContent = `Joint: ${jointName} (Drag to pose body naturally; hold Alt for single joint)`;
         jCircle.appendChild(title);
 
         selG.appendChild(jCircle);
@@ -2053,19 +2084,55 @@
     return pt.matrixTransform(svg.getScreenCTM().inverse());
   }
 
+  // Double Click Handler (Edit Note, Character Name, or Prop Label)
+  svg.addEventListener('dblclick', (e) => {
+    const elGroup = e.target.closest('[data-id]');
+    if (elGroup) {
+      const elId = elGroup.getAttribute('data-id');
+      const el = state.elements.find(x => x.id === elId);
+      if (el) {
+        if (el.type === 'note') {
+          const newText = prompt("Edit Directive Note on Canvas:", el.text || "");
+          if (newText !== null) {
+            el.text = newText;
+            renderScene();
+          }
+        } else if (el.type === 'character') {
+          const newName = prompt("Edit Character / Persona Name:", el.name || "");
+          if (newName !== null) {
+            el.name = newName;
+            renderScene();
+          }
+        } else if (el.type === 'prop') {
+          const newLabel = prompt("Edit Prop / Object Label:", el.label || "");
+          if (newLabel !== null) {
+            el.label = newLabel;
+            renderScene();
+          }
+        }
+      }
+    }
+  });
+
   svg.addEventListener('pointerdown', (e) => {
     const pt = getSvgPoint(e);
     const target = e.target;
 
-    // 1. Joint dragging
+    // 1. Joint dragging (with Hierarchical Kinematics!)
     if (target.getAttribute('data-action') === 'joint') {
       const elId = target.getAttribute('data-id');
       const jointName = target.getAttribute('data-joint');
       state.selectedId = elId;
+      const el = state.elements.find(x => x.id === elId);
+
+      // Snapshot initial pose
+      const initialPose = JSON.parse(JSON.stringify(el.pose));
       state.dragTarget = {
         type: 'joint',
         elId: elId,
-        jointName: jointName
+        jointName: jointName,
+        initialPose: initialPose,
+        startPt: pt
       };
       svg.setPointerCapture(e.pointerId);
       renderScene();
@@ -2130,42 +2197,58 @@
     if (dt.type === 'element') {
       const dx = pt.x - dt.startX;
       const dy = pt.y - dt.startY;
-      // Allow moving close to borders or partially offscreen!
       el.x = Math.round(dt.origX + dx);
       el.y = Math.round(dt.origY + dy);
       renderScene();
     } else if (dt.type === 'joint') {
+      // Kinematic transformation with parent-child hierarchical propagation
       const cx = el.width / 2;
       const cy = el.height / 2;
       const scaleX = el.flipH ? -(el.scale || 1.0) : (el.scale || 1.0);
       const scaleY = el.scale || 1.0;
       const rad = -(el.rotation || 0) * (Math.PI / 180);
 
-      // Invert element translation
-      let rx = pt.x - (el.x + cx);
-      let ry = pt.y - (el.y + cy);
+      // Current point in element local space
+      const curRx = pt.x - (el.x + cx);
+      const curRy = pt.y - (el.y + cy);
+      const curUnrotX = curRx * Math.cos(rad) - curRy * Math.sin(rad);
+      const curUnrotY = curRx * Math.sin(rad) + curRy * Math.cos(rad);
+      const curLocalX = curUnrotX / scaleX + cx;
+      const curLocalY = curUnrotY / scaleY + cy;
 
-      // Invert rotation
-      const unrotX = rx * Math.cos(rad) - ry * Math.sin(rad);
-      const unrotY = rx * Math.sin(rad) + ry * Math.cos(rad);
+      // Start point in element local space
+      const startRx = dt.startPt.x - (el.x + cx);
+      const startRy = dt.startPt.y - (el.y + cy);
+      const startUnrotX = startRx * Math.cos(rad) - startRy * Math.sin(rad);
+      const startUnrotY = startRx * Math.sin(rad) + startRy * Math.cos(rad);
+      const startLocalX = startUnrotX / scaleX + cx;
+      const startLocalY = startUnrotY / scaleY + cy;
 
-      // Invert scale
-      const unscaleX = unrotX / scaleX + cx;
-      const unscaleY = unrotY / scaleY + cy;
+      const deltaNormX = Math.round(((curLocalX - startLocalX) / el.width) * 100);
+      const deltaNormY = Math.round(((curLocalY - startLocalY) / el.height) * 100);
 
-      const normX = Math.round(Math.max(2, Math.min(98, (unscaleX / el.width) * 100)));
-      const normY = Math.round(Math.max(2, Math.min(98, (unscaleY / el.height) * 100)));
+      const origJoint = dt.initialPose[dt.jointName];
+      if (origJoint) {
+        // Update the dragged joint
+        el.pose[dt.jointName].x = Math.max(2, Math.min(98, origJoint.x + deltaNormX));
+        el.pose[dt.jointName].y = Math.max(2, Math.min(98, origJoint.y + deltaNormY));
 
-      if (el.pose && el.pose[dt.jointName]) {
-        el.pose[dt.jointName].x = normX;
-        el.pose[dt.jointName].y = normY;
+        // Hierarchical Propagation (unless holding Alt for isolated single-joint drag)
+        if (!e.altKey) {
+          const descendants = getDescendantJoints(dt.jointName);
+          descendants.forEach(child => {
+            if (el.pose[child] && dt.initialPose[child]) {
+              el.pose[child].x = Math.max(2, Math.min(98, dt.initialPose[child].x + deltaNormX));
+              el.pose[child].y = Math.max(2, Math.min(98, dt.initialPose[child].y + deltaNormY));
+            }
+          });
+        }
         el.poseName = 'Custom Pose';
       }
       renderScene();
     } else if (dt.type === 'rotate') {
       const currentAngle = Math.atan2(pt.y - dt.centerY, pt.x - dt.centerX) * (180 / Math.PI);
       let newRot = Math.round(dt.origRotation + (currentAngle - dt.startAngle));
-      // Snapping
       [0, 45, 90, 135, 180, -45, -90, -135, -180].forEach(snap => {
         if (Math.abs(newRot - snap) < 4) newRot = snap;
       });
@@ -2209,7 +2292,7 @@
     }
   });
 
-  // --- Palette Item Addition (100% Articulated Characters!) ---
+  // --- Palette Item Addition ---
   document.querySelectorAll('.palette-item').forEach(btn => {
     btn.addEventListener('click', () => {
       const type = btn.getAttribute('data-type');
@@ -2220,7 +2303,6 @@
 
   function addElement(type, subtype) {
     const id = "el_" + Date.now();
-    const maxLayer = state.elements.reduce((max, el) => Math.max(max, el.layer || 0), 0);
     const newEl = {
       id: id,
       type: type,
@@ -2231,8 +2313,7 @@
       height: 270,
       scale: 1.0,
       rotation: 0,
-      flipH: false,
-      layer: maxLayer + 1
+      flipH: false
     };
 
     if (type === 'character') {
@@ -2243,7 +2324,6 @@
       if (subtype === 'female') {
         newEl.name = "Female Figure";
         newEl.skin = "silhouette";
-        // Proportions: narrower waist, distinct hip lines
         newEl.pose.r_shoulder.x = 42; newEl.pose.l_shoulder.x = 58;
         newEl.pose.r_hip.x = 42; newEl.pose.l_hip.x = 58;
       } else if (subtype === 'child') {
@@ -2275,10 +2355,11 @@
     } else if (type === 'camera') {
       newEl.width = 160; newEl.height = 180; newEl.label = "Camera FOV Cone";
     } else if (type === 'note') {
-      newEl.width = 160; newEl.height = 90; newEl.text = "Directive: e.g. Neon rain, cyberpunk atmosphere";
+      newEl.width = 170; newEl.height = 95; newEl.text = "Directive: e.g. Neon rain, cyberpunk atmosphere";
     }
 
     state.elements.push(newEl);
+    syncZOrder();
     state.selectedId = id;
     renderScene();
   }
@@ -2291,6 +2372,8 @@
     const facingGrp = document.getElementById('facingControlGroup');
     const skinGrp = document.getElementById('skinControlGroup');
     const poseGrp = document.getElementById('poseControlGroup');
+    const noteGrp = document.getElementById('noteControlGroup');
+    const layerBadge = document.getElementById('layerBadge');
 
     if (!selEl) {
       noMsg.style.display = 'block';
@@ -2301,7 +2384,19 @@
     noMsg.style.display = 'none';
     ctrl.style.display = 'flex';
 
-    // Facing buttons
+    // Layer Badge
+    const idx = state.elements.findIndex(x => x.id === selEl.id);
+    layerBadge.textContent = `Layer ${idx + 1}/${state.elements.length}`;
+
+    // Note Editing
+    if (selEl.type === 'note') {
+      noteGrp.style.display = 'flex';
+      document.getElementById('noteTextInput').value = selEl.text || '';
+    } else {
+      noteGrp.style.display = 'none';
+    }
+
+    // Character controls
     if (selEl.type === 'character') {
       facingGrp.style.display = 'flex';
       skinGrp.style.display = 'flex';
@@ -2335,6 +2430,15 @@
     rotSlider.value = selEl.rotation || 0;
     rotVal.innerHTML = (selEl.rotation || 0) + '&deg;';
   }
+
+  // Note text input listener
+  document.getElementById('noteTextInput').addEventListener('input', (e) => {
+    const selEl = state.elements.find(x => x.id === state.selectedId);
+    if (selEl && selEl.type === 'note') {
+      selEl.text = e.target.value;
+      renderScene();
+    }
+  });
 
   // Facing buttons handlers
   document.querySelectorAll('.facing-btn').forEach(btn => {
@@ -2390,7 +2494,50 @@
     }
   });
 
-  // Layering & Actions Handlers
+  // --- Layer Ordering Logic (Array-based Z-Index Guarantee) ---
+  document.getElementById('btnBringToFront').addEventListener('click', () => {
+    const idx = state.elements.findIndex(x => x.id === state.selectedId);
+    if (idx !== -1 && idx < state.elements.length - 1) {
+      const [el] = state.elements.splice(idx, 1);
+      state.elements.push(el);
+      syncZOrder();
+      renderScene();
+    }
+  });
+
+  document.getElementById('btnSendToBack').addEventListener('click', () => {
+    const idx = state.elements.findIndex(x => x.id === state.selectedId);
+    if (idx > 0) {
+      const [el] = state.elements.splice(idx, 1);
+      state.elements.unshift(el);
+      syncZOrder();
+      renderScene();
+    }
+  });
+
+  document.getElementById('btnLayerUp').addEventListener('click', () => {
+    const idx = state.elements.findIndex(x => x.id === state.selectedId);
+    if (idx !== -1 && idx < state.elements.length - 1) {
+      const temp = state.elements[idx];
+      state.elements[idx] = state.elements[idx + 1];
+      state.elements[idx + 1] = temp;
+      syncZOrder();
+      renderScene();
+    }
+  });
+
+  document.getElementById('btnLayerDown').addEventListener('click', () => {
+    const idx = state.elements.findIndex(x => x.id === state.selectedId);
+    if (idx > 0) {
+      const temp = state.elements[idx];
+      state.elements[idx] = state.elements[idx - 1];
+      state.elements[idx - 1] = temp;
+      syncZOrder();
+      renderScene();
+    }
+  });
+
+  // Flip Horizontal
   document.getElementById('btnFlipH').addEventListener('click', () => {
     const selEl = state.elements.find(x => x.id === state.selectedId);
     if (selEl) {
@@ -2399,22 +2546,7 @@
     }
   });
 
-  document.getElementById('btnLayerUp').addEventListener('click', () => {
-    const selEl = state.elements.find(x => x.id === state.selectedId);
-    if (selEl) {
-      selEl.layer = (selEl.layer || 0) + 1;
-      renderScene();
-    }
-  });
-
-  document.getElementById('btnLayerDown').addEventListener('click', () => {
-    const selEl = state.elements.find(x => x.id === state.selectedId);
-    if (selEl) {
-      selEl.layer = Math.max(0, (selEl.layer || 0) - 1);
-      renderScene();
-    }
-  });
-
+  // Duplicate Element
   document.getElementById('btnDuplicateEl').addEventListener('click', () => {
     const selEl = state.elements.find(x => x.id === state.selectedId);
     if (selEl) {
@@ -2422,16 +2554,18 @@
       clone.id = "el_" + Date.now();
       clone.x += 40;
       clone.y += 40;
-      clone.layer = (selEl.layer || 0) + 1;
       state.elements.push(clone);
+      syncZOrder();
       state.selectedId = clone.id;
       renderScene();
     }
   });
 
+  // Delete Element
   function deleteSelectedElement() {
     if (state.selectedId) {
       state.elements = state.elements.filter(x => x.id !== state.selectedId);
+      syncZOrder();
       state.selectedId = null;
       renderScene();
     }
