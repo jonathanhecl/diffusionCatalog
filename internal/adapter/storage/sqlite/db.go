@@ -334,6 +334,18 @@ func seedDefaultPoses(ctx context.Context, db *sql.DB) error {
 			desc:     "Dramatic reach with one arm pointing up and forward",
 			poseJSON: `{"nose":{"x":54,"y":18},"neck":{"x":52,"y":28},"r_shoulder":{"x":42,"y":30},"r_elbow":{"x":32,"y":44},"r_wrist":{"x":26,"y":58},"l_shoulder":{"x":62,"y":28},"l_elbow":{"x":72,"y":18},"l_wrist":{"x":82,"y":8},"mid_hip":{"x":50,"y":56},"r_hip":{"x":44,"y":58},"r_knee":{"x":42,"y":76},"r_ankle":{"x":40,"y":95},"l_hip":{"x":56,"y":58},"l_knee":{"x":62,"y":75},"l_ankle":{"x":68,"y":94}}`,
 		},
+		{
+			name:     "Running / Sprint",
+			category: "Action",
+			desc:     "High-speed sprint with angled torso and pumping limbs",
+			poseJSON: `{"nose":{"x":58,"y":22},"neck":{"x":54,"y":30},"r_shoulder":{"x":46,"y":32},"r_elbow":{"x":36,"y":24},"r_wrist":{"x":30,"y":16},"l_shoulder":{"x":62,"y":32},"l_elbow":{"x":70,"y":46},"l_wrist":{"x":78,"y":58},"mid_hip":{"x":50,"y":56},"r_hip":{"x":44,"y":58},"r_knee":{"x":26,"y":68},"r_ankle":{"x":18,"y":84},"l_hip":{"x":56,"y":58},"l_knee":{"x":72,"y":70},"l_ankle":{"x":82,"y":88}}`,
+		},
+		{
+			name:     "Lying Down",
+			category: "Lying",
+			desc:     "Horizontal recline resting flat",
+			poseJSON: `{"nose":{"x":15,"y":52},"neck":{"x":25,"y":54},"r_shoulder":{"x":27,"y":46},"r_elbow":{"x":40,"y":44},"r_wrist":{"x":52,"y":46},"l_shoulder":{"x":27,"y":62},"l_elbow":{"x":40,"y":64},"l_wrist":{"x":52,"y":62},"mid_hip":{"x":55,"y":55},"r_hip":{"x":56,"y":48},"r_knee":{"x":75,"y":49},"r_ankle":{"x":94,"y":50},"l_hip":{"x":56,"y":62},"l_knee":{"x":75,"y":61},"l_ankle":{"x":94,"y":60}}`,
+		},
 	}
 	for _, p := range poses {
 		_, _ = db.ExecContext(ctx, `INSERT OR IGNORE INTO studio_poses (name, category, description, pose_json) VALUES (?, ?, ?, ?)`,

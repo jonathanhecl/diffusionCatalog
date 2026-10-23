@@ -263,7 +263,7 @@ func TestDirectorTabRendering(t *testing.T) {
 	if !strings.Contains(body, "directorSvg") {
 		t.Errorf("expected body to contain directorSvg canvas element")
 	}
-	if !strings.Contains(body, "CHARACTERS &amp; FIGURES") {
+	if !strings.Contains(body, "ARTICULATED CHARACTERS") {
 		t.Errorf("expected body to contain character palette")
 	}
 	if !strings.Contains(body, "aspect-btn") {

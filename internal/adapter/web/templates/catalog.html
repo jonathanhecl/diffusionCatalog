@@ -1011,14 +1011,14 @@
 
     {{else if eq .ActiveTab "director"}}
       <!-- 2D Scene Director & Staging Canvas -->
-      <div class="director-container" style="margin: 16px 0 40px;">
+      <div id="directorContainer" class="director-container" style="margin: 8px 0 40px; width: 100%; transition: all 0.25s ease;">
         <!-- Top Toolbar & Status -->
-        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:12px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:10px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="badge-chip" style="background:#0369a1;color:#bae6fd;border-color:#0284c7;font-weight:700;">&#127916; 2D Scene Director</span>
             <input type="text" id="sceneNameInput" value="{{if .SelectedComposition}}{{.SelectedComposition.Name}}{{else}}Cinematic Staging Scene{{end}}" 
                    placeholder="Scene Title..." 
-                   style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:6px 12px;color:#fff;font-weight:600;font-size:14px;min-width:220px;" />
+                   style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:6px 10px;color:#fff;font-weight:600;font-size:13px;min-width:200px;" />
             <span id="sceneIdBadge" style="font-size:11px;color:var(--text-muted);">{{if .SelectedComposition}}#{{.SelectedComposition.ID}}{{else}}Unsaved Scene{{end}}</span>
           </div>
 
@@ -1033,48 +1033,70 @@
               <button type="button" class="btn-ghost aspect-btn" data-ratio="21:9" style="padding:3px 8px;font-size:11px;">21:9</button>
             </div>
 
-            <button type="button" id="btnNewScene" class="btn-ghost" style="padding:6px 12px;font-size:12px;" title="Reset canvas to start a new composition">&#x2715; New</button>
-            <button type="button" id="btnOpenScenesModal" class="btn-ghost" style="padding:6px 12px;font-size:12px;color:#38bdf8;border-color:#0284c7;" title="Open saved scene compositions">&#128194; Open Scenes ({{len .StudioCompositions}})</button>
-            <button type="button" id="btnSaveComposition" class="btn-primary" style="padding:6px 14px;font-size:12px;background:#0284c7;border-color:#0369a1;font-weight:600;" title="Save current scene to SQLite">&#128190; Save Scene</button>
-            <button type="button" id="btnExportPng" class="btn-ghost" style="padding:6px 12px;font-size:12px;" title="Download rendered composition as PNG image">&#128247; Export PNG</button>
-            <button type="button" id="btnCopyImg" class="btn-ghost" style="padding:6px 12px;font-size:12px;" title="Copy composition image to clipboard">&#128203; Copy Image</button>
+            <!-- Fullscreen / Theater Mode Toggle -->
+            <button type="button" id="btnToggleTheater" class="btn-ghost" style="padding:5px 10px;font-size:11.5px;" title="Expand canvas to full available screen width">&#x26F6; Theater Mode</button>
+            <button type="button" id="btnNewScene" class="btn-ghost" style="padding:5px 10px;font-size:11.5px;" title="Reset canvas to start a new composition">&#x2715; New</button>
+            <button type="button" id="btnOpenScenesModal" class="btn-ghost" style="padding:5px 10px;font-size:11.5px;color:#38bdf8;border-color:#0284c7;" title="Open saved scene compositions">&#128194; Open Scenes ({{len .StudioCompositions}})</button>
+            <button type="button" id="btnSaveComposition" class="btn-primary" style="padding:5px 12px;font-size:11.5px;background:#0284c7;border-color:#0369a1;font-weight:600;" title="Save current scene to SQLite">&#128190; Save Scene</button>
+            <button type="button" id="btnExportPng" class="btn-ghost" style="padding:5px 10px;font-size:11.5px;" title="Download rendered composition as PNG image">&#128247; Export PNG</button>
+            <button type="button" id="btnCopyImg" class="btn-ghost" style="padding:5px 10px;font-size:11.5px;" title="Copy composition image to clipboard">&#128203; Copy Image</button>
           </div>
         </div>
 
         <!-- Main Workspace Layout: Palette | Canvas | Synthesizer -->
-        <div style="display:grid;grid-template-columns: 240px 1fr 340px; gap: 16px; align-items: start;">
+        <div id="directorWorkspaceGrid" style="display:grid;grid-template-columns: 240px 1fr 340px; gap: 14px; align-items: start;">
           
           <!-- LEFT SIDEBAR: Figures, Props, Direction Palette -->
-          <aside style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:16px;">
+          <aside id="paletteSidebar" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:14px;">
             <div>
-              <div class="facet-title" style="margin-bottom:8px;font-size:11px;color:#38bdf8;">
-                <span>CHARACTERS &amp; FIGURES</span>
+              <div class="facet-title" style="margin-bottom:8px;font-size:11px;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;">
+                <span>ARTICULATED CHARACTERS</span>
+                <span class="badge-chip" style="font-size:9px;background:#082f49;color:#38bdf8;">100% Posed</span>
               </div>
               <div style="display:grid;grid-template-columns: 1fr 1fr; gap:6px;">
-                <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="articulated" 
-                        style="display:flex;flex-direction:column;align-items:center;padding:10px 6px;text-align:center;border-color:#0284c7;background:rgba(2,132,199,0.08);" 
-                        title="Add articulated 2D character with OpenPose joints">
-                  <span style="font-size:22px;line-height:1;">&#129485;</span>
-                  <span style="font-size:11px;font-weight:600;margin-top:4px;color:#38bdf8;">Articulated</span>
+                <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="mannequin" 
+                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#0284c7;background:rgba(2,132,199,0.08);" 
+                        title="Add OpenPose articulated character (wireframe &amp; joints)">
+                  <span style="font-size:20px;line-height:1;">&#129485;</span>
+                  <span style="font-size:11px;font-weight:600;margin-top:3px;color:#38bdf8;">OpenPose</span>
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="silhouette" data-subtype="male" 
-                        style="display:flex;flex-direction:column;align-items:center;padding:10px 6px;text-align:center;" 
-                        title="Add male silhouette">
-                  <span style="font-size:22px;line-height:1;">&#128104;</span>
-                  <span style="font-size:11px;margin-top:4px;">Male</span>
+                <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="male" 
+                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#475569;" 
+                        title="Add articulated male figure with silhouette skin">
+                  <span style="font-size:20px;line-height:1;">&#128104;</span>
+                  <span style="font-size:11px;margin-top:3px;">Male Pose</span>
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="silhouette" data-subtype="female" 
-                        style="display:flex;flex-direction:column;align-items:center;padding:10px 6px;text-align:center;" 
-                        title="Add female silhouette">
-                  <span style="font-size:22px;line-height:1;">&#128105;</span>
-                  <span style="font-size:11px;margin-top:4px;">Female</span>
+                <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="female" 
+                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#475569;" 
+                        title="Add articulated female figure with silhouette skin">
+                  <span style="font-size:20px;line-height:1;">&#128105;</span>
+                  <span style="font-size:11px;margin-top:3px;">Female Pose</span>
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="silhouette" data-subtype="child" 
-                        style="display:flex;flex-direction:column;align-items:center;padding:10px 6px;text-align:center;" 
-                        title="Add child silhouette">
-                  <span style="font-size:22px;line-height:1;">&#129491;</span>
-                  <span style="font-size:11px;margin-top:4px;">Child</span>
+                <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="child" 
+                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#475569;" 
+                        title="Add articulated child figure">
+                  <span style="font-size:20px;line-height:1;">&#129491;</span>
+                  <span style="font-size:11px;margin-top:3px;">Child Pose</span>
                 </button>
+              </div>
+            </div>
+
+            <!-- Quick Pose Presets Shelf (Always accessible!) -->
+            <div style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:6px;padding:8px 10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="font-size:10.5px;font-weight:700;color:#67e8f9;">QUICK POSES (PRESETS)</span>
+                <span style="font-size:9.5px;color:var(--text-muted);">Click to apply</span>
+              </div>
+              <div style="display:grid;grid-template-columns: repeat(3, 1fr); gap:4px;" id="quickPoseGrid">
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Standing Idle" style="padding:4px 2px;font-size:10.5px;" title="Neutral standing">&#129485; Idle</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Walking / Striding" style="padding:4px 2px;font-size:10.5px;" title="Mid-stride walk">&#128694; Walk</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Running / Sprint" style="padding:4px 2px;font-size:10.5px;" title="Dynamic sprint">&#127939; Run</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Relaxed" style="padding:4px 2px;font-size:10.5px;" title="Seated">&#129681; Sit</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crouching Action" style="padding:4px 2px;font-size:10.5px;" title="Combat crouch">&#129355; Crouch</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed" style="padding:4px 2px;font-size:10.5px;" title="Arms folded">&#128581; Crossed</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Hips" style="padding:4px 2px;font-size:10.5px;" title="Heroic wide stance">&#128170; Hips</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Reaching Dynamic" style="padding:4px 2px;font-size:10.5px;" title="Reaching up">&#128587; Reach</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Lying Down" style="padding:4px 2px;font-size:10.5px;" title="Horizontal rest">&#128716; Lying</button>
               </div>
             </div>
 
@@ -1083,31 +1105,31 @@
                 <span>PROPS &amp; FURNITURE</span>
               </div>
               <div style="display:grid;grid-template-columns: 1fr 1fr; gap:6px;">
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="sofa" style="padding:8px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="sofa" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
                   <span>&#128715;</span> Sofa
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="chair" style="padding:8px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="chair" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
                   <span>&#129681;</span> Chair
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="table" style="padding:8px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="table" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
                   <span>&#129701;</span> Table / Desk
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="bed" style="padding:8px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="bed" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
                   <span>&#128716;</span> Bed
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="car" style="padding:8px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
-                  <span>&#128663;</span> Car / Vehicle
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="car" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
+                  <span>&#128663;</span> Car
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="tree" style="padding:8px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
-                  <span>&#127795;</span> Tree / Foliage
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="tree" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
+                  <span>&#127795;</span> Tree
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="streetlight" style="padding:8px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="streetlight" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
                   <span>&#127982;</span> Streetlight
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="window" style="padding:8px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="window" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
                   <span>&#129687;</span> Window
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="door" style="padding:8px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="door" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
                   <span>&#128682;</span> Doorway
                 </button>
               </div>
@@ -1119,56 +1141,50 @@
               </div>
               <div style="display:flex;flex-direction:column;gap:6px;">
                 <button type="button" class="palette-item btn-ghost" data-type="light" data-subtype="key" 
-                        style="padding:8px 10px;font-size:11.5px;display:flex;align-items:center;gap:8px;color:#fbbf24;border-color:rgba(251,191,36,0.3);">
+                        style="padding:7px 10px;font-size:11px;display:flex;align-items:center;gap:8px;color:#fbbf24;border-color:rgba(251,191,36,0.3);">
                   <span>&#128161;</span> Directional Light Arrow
                 </button>
                 <button type="button" class="palette-item btn-ghost" data-type="camera" data-subtype="cone" 
-                        style="padding:8px 10px;font-size:11.5px;display:flex;align-items:center;gap:8px;color:#38bdf8;border-color:rgba(56,189,248,0.3);">
+                        style="padding:7px 10px;font-size:11px;display:flex;align-items:center;gap:8px;color:#38bdf8;border-color:rgba(56,189,248,0.3);">
                   <span>&#128247;</span> Camera Angle &amp; FOV Cone
                 </button>
                 <button type="button" class="palette-item btn-ghost" data-type="note" data-subtype="sticky" 
-                        style="padding:8px 10px;font-size:11.5px;display:flex;align-items:center;gap:8px;color:#34d399;border-color:rgba(52,211,153,0.3);">
+                        style="padding:7px 10px;font-size:11px;display:flex;align-items:center;gap:8px;color:#34d399;border-color:rgba(52,211,153,0.3);">
                   <span>&#128221;</span> Canvas Directive Note
                 </button>
               </div>
             </div>
 
-            <!-- Canvas Guides & Quick Legend -->
-            <div style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:6px;padding:10px;font-size:11px;color:var(--text-muted);">
-              <div style="font-weight:600;color:var(--text-main);margin-bottom:4px;">Staging Hints:</div>
-              <div style="margin-bottom:2px;">&bull; Drag &amp; drop any figure on canvas</div>
-              <div style="margin-bottom:2px;">&bull; Drag joints to pose character</div>
-              <div style="margin-bottom:2px;">&bull; Top = Background, Bottom = Foreground</div>
-              <div>&bull; Del / Backspace to remove</div>
+            <div style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:6px;padding:8px 10px;font-size:10.5px;color:var(--text-muted);">
+              <div style="font-weight:600;color:var(--text-main);margin-bottom:3px;">Staging Controls:</div>
+              <div>&bull; Drag joints to pose body</div>
+              <div>&bull; Scale up to 6.0x for close-ups</div>
+              <div>&bull; Drag anywhere (even partially offscreen)</div>
             </div>
           </aside>
 
           <!-- CENTER: Interactive Staging Canvas & Transform Controls -->
-          <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;flex-direction:column;gap:8px;">
             <!-- Canvas Container -->
             <div id="canvasViewport" style="background:#070d18;border:2px solid #1e3a66;border-radius:8px;position:relative;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;">
               <svg id="directorSvg" viewBox="0 0 1280 720" style="width:100%;height:auto;display:block;user-select:none;touch-action:none;cursor:default;">
                 <defs>
-                  <!-- Perspective & Depth Gradients -->
                   <linearGradient id="gridGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stop-color="#0a1426" stop-opacity="0.8" />
                     <stop offset="50%" stop-color="#0e1f3d" stop-opacity="0.6" />
                     <stop offset="100%" stop-color="#070e1d" stop-opacity="0.9" />
                   </linearGradient>
 
-                  <!-- Light Cone Gradient -->
                   <linearGradient id="lightConeGrad" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.45" />
                     <stop offset="100%" stop-color="#fbbf24" stop-opacity="0.0" />
                   </linearGradient>
 
-                  <!-- Camera Cone Gradient -->
                   <linearGradient id="cameraConeGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25" />
                     <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.02" />
                   </linearGradient>
 
-                  <!-- Grid Pattern -->
                   <pattern id="canvasGrid" width="40" height="40" patternUnits="userSpaceOnUse">
                     <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#162c4e" stroke-width="0.8" opacity="0.4" />
                   </pattern>
@@ -1184,7 +1200,7 @@
 
                 <line x1="0" y1="480" x2="1280" y2="480" stroke="#0284c7" stroke-dasharray="4,6" stroke-width="1.2" opacity="0.3" />
                 <text x="20" y="472" fill="#38bdf8" font-size="11" font-weight="600" opacity="0.6">&#9654; MIDGROUND</text>
-                <text x="20" y="700" fill="#93c5fd" font-size="11" font-weight="600" opacity="0.6">&#9660; FOREGROUND</text>
+                <text x="20" y="700" fill="#93c5fd" font-size="11" font-weight="600" opacity="0.6">&#9660; FOREGROUND / CLOSE TO CAMERA</text>
 
                 <!-- Quadrant Rule-of-Thirds Guides -->
                 <line x1="426" y1="0" x2="426" y2="720" stroke="#1e3a66" stroke-dasharray="2,6" stroke-width="0.8" opacity="0.3" />
@@ -1199,67 +1215,77 @@
             </div>
 
             <!-- Floating / Bottom Properties Bar (Active when an element is selected) -->
-            <div id="elementPropertiesBar" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div id="elementPropertiesBar" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
               <div id="noSelectionMsg" style="color:var(--text-muted);font-size:12px;">
-                Select any figure on the canvas to inspect and adjust posing, rotation, scale, facing, and depth layering.
+                Select any figure on the canvas to inspect, pose, scale (up to 6.0x), rotate, or set facing direction.
               </div>
 
-              <div id="selectionControls" style="display:none;width:100%;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+              <div id="selectionControls" style="display:none;width:100%;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
                 <!-- Facing Direction (Front, Back, Left, Right, 3/4) -->
                 <div id="facingControlGroup" style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:var(--text-muted);">Facing:</span>
+                  <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Facing:</span>
                   <div style="display:flex;gap:3px;background:var(--bg-input);padding:2px;border-radius:4px;border:1px solid var(--border-navy);">
-                    <button type="button" class="btn-ghost facing-btn" data-facing="front" style="padding:2px 7px;font-size:11px;" title="Facing Forward towards Camera">Front</button>
-                    <button type="button" class="btn-ghost facing-btn" data-facing="three_quarter_left" style="padding:2px 7px;font-size:11px;" title="Three-quarter facing Left">3/4 L</button>
-                    <button type="button" class="btn-ghost facing-btn" data-facing="left" style="padding:2px 7px;font-size:11px;" title="Profile Left">Left</button>
-                    <button type="button" class="btn-ghost facing-btn" data-facing="three_quarter_right" style="padding:2px 7px;font-size:11px;" title="Three-quarter facing Right">3/4 R</button>
-                    <button type="button" class="btn-ghost facing-btn" data-facing="right" style="padding:2px 7px;font-size:11px;" title="Profile Right">Right</button>
-                    <button type="button" class="btn-ghost facing-btn" data-facing="back" style="padding:2px 7px;font-size:11px;" title="Facing Away / Back View">Back</button>
+                    <button type="button" class="btn-ghost facing-btn" data-facing="front" style="padding:2px 7px;font-size:11px;" title="Frontal view (looking directly at camera)">👁️ Front</button>
+                    <button type="button" class="btn-ghost facing-btn" data-facing="three_quarter_left" style="padding:2px 7px;font-size:11px;" title="Three-quarter facing Left">↖️ 3/4 L</button>
+                    <button type="button" class="btn-ghost facing-btn" data-facing="left" style="padding:2px 7px;font-size:11px;" title="Profile Left (90 deg)">◀️ Left</button>
+                    <button type="button" class="btn-ghost facing-btn" data-facing="three_quarter_right" style="padding:2px 7px;font-size:11px;" title="Three-quarter facing Right">↗️ 3/4 R</button>
+                    <button type="button" class="btn-ghost facing-btn" data-facing="right" style="padding:2px 7px;font-size:11px;" title="Profile Right (90 deg)">▶️ Right</button>
+                    <button type="button" class="btn-ghost facing-btn" data-facing="back" style="padding:2px 7px;font-size:11px;" title="Back view (turned away from camera)">🔙 Back</button>
                   </div>
                 </div>
 
-                <!-- Scale & Rotation Sliders -->
-                <div style="display:flex;align-items:center;gap:14px;">
-                  <div style="display:flex;align-items:center;gap:6px;">
-                    <span style="font-size:11px;color:var(--text-muted);">Scale:</span>
-                    <input type="range" id="propScaleSlider" min="0.3" max="2.5" step="0.05" value="1.0" style="width:85px;accent-color:#0284c7;" />
-                    <span id="propScaleVal" style="font-size:11px;min-width:28px;">1.0x</span>
-                  </div>
-
-                  <div style="display:flex;align-items:center;gap:6px;">
-                    <span style="font-size:11px;color:var(--text-muted);">Rotate:</span>
-                    <input type="range" id="propRotateSlider" min="-180" max="180" step="5" value="0" style="width:85px;accent-color:#0284c7;" />
-                    <span id="propRotateVal" style="font-size:11px;min-width:32px;">0&deg;</span>
-                  </div>
+                <!-- Body Skin / Render Mode (Skeleton, Silhouette, Hybrid) -->
+                <div id="skinControlGroup" style="display:flex;align-items:center;gap:5px;">
+                  <span style="font-size:11px;color:var(--text-muted);">Skin:</span>
+                  <select id="charSkinSelect" style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 6px;color:#fff;font-size:11px;">
+                    <option value="silhouette">👤 Silhouette</option>
+                    <option value="wireframe">🦴 OpenPose</option>
+                    <option value="hybrid">✨ Combined</option>
+                  </select>
                 </div>
 
-                <!-- Pose Presets & Articulation for Character -->
-                <div id="poseControlGroup" style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:#38bdf8;font-weight:600;">Pose:</span>
-                  <select id="posePresetSelect" style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 6px;color:#fff;font-size:11px;">
-                    <option value="">-- Apply Pose Preset --</option>
+                <!-- Scale Slider (0.2x to 6.0x) -->
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Scale:</span>
+                  <button type="button" id="btnScaleDown" class="btn-ghost" style="padding:1px 6px;font-size:11px;">-</button>
+                  <input type="range" id="propScaleSlider" min="0.2" max="6.0" step="0.05" value="1.0" style="width:100px;accent-color:#0284c7;" />
+                  <button type="button" id="btnScaleUp" class="btn-ghost" style="padding:1px 6px;font-size:11px;">+</button>
+                  <span id="propScaleVal" style="font-size:11px;font-weight:700;color:#38bdf8;min-width:32px;">1.00x</span>
+                </div>
+
+                <!-- Rotate Slider -->
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:11px;color:var(--text-muted);">Rot:</span>
+                  <input type="range" id="propRotateSlider" min="-180" max="180" step="5" value="0" style="width:75px;accent-color:#0284c7;" />
+                  <span id="propRotateVal" style="font-size:11px;min-width:28px;">0&deg;</span>
+                </div>
+
+                <!-- Pose Dropdown + Save Pose Preset -->
+                <div id="poseControlGroup" style="display:flex;align-items:center;gap:5px;">
+                  <select id="posePresetSelect" style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 6px;color:#fff;font-size:11px;max-width:130px;">
+                    <option value="">-- Apply Pose --</option>
                     {{range .StudioPoses}}
-                      <option value="{{.Name}}" data-pose="{{.PoseJSON}}">{{.Name}} ({{.Category}})</option>
+                      <option value="{{.Name}}" data-pose="{{.PoseJSON}}">{{.Name}}</option>
                     {{end}}
                   </select>
-                  <button type="button" id="btnSavePoseModal" class="btn-ghost" style="padding:3px 8px;font-size:11px;color:#67e8f9;border-color:#0891b2;" title="Save current keypoint pose to DB as reusable preset">&#128190; Save Pose</button>
-                  <button type="button" id="btnResetPose" class="btn-ghost" style="padding:3px 6px;font-size:11px;" title="Reset pose to default standing">&#8635;</button>
+                  <button type="button" id="btnSavePoseModal" class="btn-ghost" style="padding:3px 7px;font-size:11px;color:#67e8f9;border-color:#0891b2;" title="Save current pose to DB">&#128190; Save</button>
+                  <button type="button" id="btnResetPose" class="btn-ghost" style="padding:3px 5px;font-size:11px;" title="Reset pose to default standing">&#8635;</button>
                 </div>
 
-                <!-- Layering & Actions (Front, Back, Flip, Duplicate, Delete) -->
-                <div style="display:flex;align-items:center;gap:4px;">
-                  <button type="button" id="btnFlipH" class="btn-ghost" style="padding:4px 8px;font-size:11px;" title="Flip Horizontal / Mirror">&#8644; Flip</button>
-                  <button type="button" id="btnLayerUp" class="btn-ghost" style="padding:4px 7px;font-size:11px;" title="Bring Forward">&#9650;</button>
-                  <button type="button" id="btnLayerDown" class="btn-ghost" style="padding:4px 7px;font-size:11px;" title="Send Backward">&#9660;</button>
-                  <button type="button" id="btnDuplicateEl" class="btn-ghost" style="padding:4px 8px;font-size:11px;" title="Duplicate Element">&#10064; Copy</button>
-                  <button type="button" id="btnDeleteEl" class="btn-ghost" style="padding:4px 8px;font-size:11px;color:#fca5a5;border-color:#b91c1c;" title="Delete selected element">&#128465;</button>
+                <!-- Layering & Actions -->
+                <div style="display:flex;align-items:center;gap:3px;">
+                  <button type="button" id="btnFlipH" class="btn-ghost" style="padding:3px 7px;font-size:11px;" title="Flip Horizontal">&#8644; Flip</button>
+                  <button type="button" id="btnLayerUp" class="btn-ghost" style="padding:3px 6px;font-size:11px;" title="Bring Forward">&#9650;</button>
+                  <button type="button" id="btnLayerDown" class="btn-ghost" style="padding:3px 6px;font-size:11px;" title="Send Backward">&#9660;</button>
+                  <button type="button" id="btnDuplicateEl" class="btn-ghost" style="padding:3px 7px;font-size:11px;" title="Duplicate">&#10064; Copy</button>
+                  <button type="button" id="btnDeleteEl" class="btn-ghost" style="padding:3px 7px;font-size:11px;color:#fca5a5;border-color:#b91c1c;" title="Delete">&#128465;</button>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- RIGHT SIDEBAR: Real-Time Spatial Manifest & AI Prompt Synthesis -->
-          <aside style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:14px;">
+          <aside id="synthesizerSidebar" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:12px;">
             <div style="display:flex;align-items:center;justify-content:space-between;">
               <span class="facet-title" style="font-size:11px;color:#38bdf8;">PROMPT SYNTHESIZER</span>
               <span class="badge-chip" style="font-size:10px;background:#1e1b4b;color:#c084fc;border-color:#7c3aed;">Spatial Director</span>
@@ -1267,8 +1293,8 @@
 
             <!-- Target Generator Profile -->
             <div>
-              <label style="font-size:11.5px;font-weight:600;color:var(--text-main);display:block;margin-bottom:4px;">Target Diffusion Generator:</label>
-              <select id="directorTargetProfile" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:7px 10px;color:#fff;font-size:12px;">
+              <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:3px;">Target Generator:</label>
+              <select id="directorTargetProfile" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;">
                 {{range .PromptProfiles}}
                   <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}})</option>
                 {{end}}
@@ -1277,8 +1303,8 @@
 
             <!-- Optional Linked Character Sheet -->
             <div>
-              <label style="font-size:11.5px;font-weight:600;color:var(--text-main);display:block;margin-bottom:4px;">Attach Character Sheet (Optional):</label>
-              <select id="directorCharacterSelect" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 10px;color:#fff;font-size:12px;">
+              <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:3px;">Attach Character Sheet (Optional):</label>
+              <select id="directorCharacterSelect" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 8px;color:#fff;font-size:11.5px;">
                 <option value="0">-- No Character Linked --</option>
                 {{range .Page.Characters}}
                   <option value="{{.ID}}" data-trigger="{{.TriggerWords}}">{{.Name}} [{{.Archetype}}]</option>
@@ -1288,35 +1314,35 @@
 
             <!-- Style, Mood & Atmosphere Directive Input -->
             <div>
-              <label style="font-size:11.5px;font-weight:600;color:var(--text-main);display:block;margin-bottom:4px;">Atmosphere &amp; Style Directives:</label>
+              <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:3px;">Atmosphere &amp; Style Directives:</label>
               <textarea id="directorUserHint" rows="3" placeholder="e.g. Cinematic lighting, octane 8k, moody cyberpunk rain, Kodak Portra 35mm photograph, anamorphic lens flare..." 
-                        style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;color:#fff;font-size:12px;resize:vertical;"></textarea>
+                        style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;resize:vertical;"></textarea>
             </div>
 
             <!-- Synthesize Prompt Button -->
             <button type="button" id="btnSynthesizePrompt" class="btn-primary" 
-                    style="width:100%;padding:10px;font-size:13px;background:linear-gradient(135deg,#0284c7,#2563eb);border-color:#1d4ed8;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(2,132,199,0.35);">
+                    style="width:100%;padding:9px;font-size:12.5px;background:linear-gradient(135deg,#0284c7,#2563eb);border-color:#1d4ed8;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(2,132,199,0.35);">
               <span id="synthSpinner" style="display:none;" class="spinner"></span>
               <span id="synthBtnText">&#128640; Synthesize Diffusion Prompt</span>
             </button>
 
             <!-- Generated Output Area -->
-            <div id="directorOutputContainer" style="display:flex;flex-direction:column;gap:8px;">
+            <div id="directorOutputContainer" style="display:flex;flex-direction:column;gap:6px;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
-                <label style="font-size:11.5px;font-weight:600;color:#6ee7b7;">Compiled Diffusion Prompt:</label>
+                <label style="font-size:11px;font-weight:600;color:#6ee7b7;">Compiled Diffusion Prompt:</label>
                 <div style="display:flex;gap:4px;">
-                  <button type="button" id="btnCopyPrompt" class="btn-ghost" style="padding:2px 8px;font-size:11px;" title="Copy to clipboard">&#128203; Copy</button>
-                  <a id="btnSendToRemix" href="/?tab=studio" class="btn-ghost" style="padding:2px 8px;font-size:11px;color:#c084fc;border-color:#7c3aed;" title="Open in Prompt Studio &amp; Remix">&#10024; Remix</a>
+                  <button type="button" id="btnCopyPrompt" class="btn-ghost" style="padding:2px 7px;font-size:10.5px;" title="Copy to clipboard">&#128203; Copy</button>
+                  <a id="btnSendToRemix" href="/?tab=studio" class="btn-ghost" style="padding:2px 7px;font-size:10.5px;color:#c084fc;border-color:#7c3aed;" title="Open in Prompt Studio &amp; Remix">&#10024; Remix</a>
                 </div>
               </div>
-              <textarea id="directorPromptOutput" rows="5" readonly 
-                        style="width:100%;background:var(--bg-input);border:1px solid #164e63;border-radius:5px;padding:8px 10px;color:#a7f3d0;font-size:12px;font-family:monospace;line-height:1.4;resize:vertical;">{{if .SelectedComposition}}{{.SelectedComposition.PromptOutput}}{{else}}Click 'Synthesize Diffusion Prompt' to compile your visual staging into a high-quality prompt.{{end}}</textarea>
+              <textarea id="directorPromptOutput" rows="4" readonly 
+                        style="width:100%;background:var(--bg-input);border:1px solid #164e63;border-radius:5px;padding:6px 8px;color:#a7f3d0;font-size:11.5px;font-family:monospace;line-height:1.4;resize:vertical;">{{if .SelectedComposition}}{{.SelectedComposition.PromptOutput}}{{else}}Click 'Synthesize Diffusion Prompt' to compile your visual staging into a high-quality prompt.{{end}}</textarea>
             </div>
 
             <!-- Collapsible Spatial Manifest Inspector -->
-            <details style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;font-size:11px;">
+            <details style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;font-size:11px;">
               <summary style="cursor:pointer;color:var(--text-muted);font-weight:600;">&#128065; Inspect Spatial Manifest</summary>
-              <pre id="manifestViewer" style="margin-top:8px;color:#93c5fd;font-family:monospace;font-size:10.5px;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow-y:auto;background:#030712;padding:6px;border-radius:4px;border:1px solid #111827;">(Compiles in real-time as you arrange elements)</pre>
+              <pre id="manifestViewer" style="margin-top:6px;color:#93c5fd;font-family:monospace;font-size:10px;white-space:pre-wrap;word-break:break-word;max-height:160px;overflow-y:auto;background:#030712;padding:6px;border-radius:4px;border:1px solid #111827;">(Compiles in real-time as you arrange elements)</pre>
             </details>
           </aside>
         </div>
@@ -1398,7 +1424,55 @@
 
 <script>
 (function() {
-  // --- Director State & Defaults ---
+  // --- Director State & Presets ---
+  const POSE_PRESETS = {
+    "Standing Idle": {
+      nose:{x:50,y:14},neck:{x:50,y:24},r_shoulder:{x:40,y:26},r_elbow:{x:36,y:42},r_wrist:{x:34,y:57},
+      l_shoulder:{x:60,y:26},l_elbow:{x:64,y:42},l_wrist:{x:66,y:57},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:43,y:74},r_ankle:{x:42,y:95},l_hip:{x:56,y:56},l_knee:{x:57,y:74},l_ankle:{x:58,y:95}
+    },
+    "Walking / Striding": {
+      nose:{x:52,y:14},neck:{x:51,y:24},r_shoulder:{x:42,y:26},r_elbow:{x:33,y:38},r_wrist:{x:27,y:50},
+      l_shoulder:{x:60,y:26},l_elbow:{x:67,y:38},l_wrist:{x:74,y:49},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:35,y:72},r_ankle:{x:28,y:92},l_hip:{x:56,y:56},l_knee:{x:63,y:73},l_ankle:{x:72,y:93}
+    },
+    "Running / Sprint": {
+      nose:{x:58,y:22},neck:{x:54,y:30},r_shoulder:{x:46,y:32},r_elbow:{x:36,y:24},r_wrist:{x:30,y:16},
+      l_shoulder:{x:62,y:32},l_elbow:{x:70,y:46},l_wrist:{x:78,y:58},mid_hip:{x:50,y:56},
+      r_hip:{x:44,y:58},r_knee:{x:26,y:68},r_ankle:{x:18,y:84},l_hip:{x:56,y:58},l_knee:{x:72,y:70},l_ankle:{x:82,y:88}
+    },
+    "Sitting Relaxed": {
+      nose:{x:48,y:18},neck:{x:48,y:28},r_shoulder:{x:38,y:30},r_elbow:{x:34,y:46},r_wrist:{x:40,y:58},
+      l_shoulder:{x:58,y:30},l_elbow:{x:62,y:46},l_wrist:{x:56,y:58},mid_hip:{x:48,y:58},
+      r_hip:{x:42,y:60},r_knee:{x:66,y:65},r_ankle:{x:67,y:92},l_hip:{x:54,y:60},l_knee:{x:74,y:66},l_ankle:{x:75,y:93}
+    },
+    "Crouching Action": {
+      nose:{x:50,y:32},neck:{x:50,y:42},r_shoulder:{x:38,y:44},r_elbow:{x:28,y:58},r_wrist:{x:32,y:75},
+      l_shoulder:{x:62,y:44},l_elbow:{x:70,y:55},l_wrist:{x:64,y:72},mid_hip:{x:50,y:65},
+      r_hip:{x:42,y:67},r_knee:{x:32,y:82},r_ankle:{x:40,y:95},l_hip:{x:58,y:67},l_knee:{x:72,y:78},l_ankle:{x:65,y:95}
+    },
+    "Arms Crossed": {
+      nose:{x:50,y:14},neck:{x:50,y:24},r_shoulder:{x:39,y:26},r_elbow:{x:36,y:42},r_wrist:{x:55,y:42},
+      l_shoulder:{x:61,y:26},l_elbow:{x:64,y:42},l_wrist:{x:45,y:42},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:43,y:74},r_ankle:{x:42,y:95},l_hip:{x:56,y:56},l_knee:{x:57,y:74},l_ankle:{x:58,y:95}
+    },
+    "Hands on Hips": {
+      nose:{x:50,y:14},neck:{x:50,y:24},r_shoulder:{x:39,y:26},r_elbow:{x:28,y:38},r_wrist:{x:40,y:54},
+      l_shoulder:{x:61,y:26},l_elbow:{x:72,y:38},l_wrist:{x:60,y:54},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:42,y:74},r_ankle:{x:40,y:95},l_hip:{x:56,y:56},l_knee:{x:58,y:74},l_ankle:{x:60,y:95}
+    },
+    "Reaching Dynamic": {
+      nose:{x:54,y:18},neck:{x:52,y:28},r_shoulder:{x:42,y:30},r_elbow:{x:32,y:44},r_wrist:{x:26,y:58},
+      l_shoulder:{x:62,y:28},l_elbow:{x:72,y:18},l_wrist:{x:82,y:8},mid_hip:{x:50,y:56},
+      r_hip:{x:44,y:58},r_knee:{x:42,y:76},r_ankle:{x:40,y:95},l_hip:{x:56,y:58},l_knee:{x:62,y:75},l_ankle:{x:68,y:94}
+    },
+    "Lying Down": {
+      nose:{x:15,y:52},neck:{x:25,y:54},r_shoulder:{x:27,y:46},r_elbow:{x:40,y:44},r_wrist:{x:52,y:46},
+      l_shoulder:{x:27,y:62},l_elbow:{x:40,y:64},l_wrist:{x:52,y:62},mid_hip:{x:55,y:55},
+      r_hip:{x:56,y:48},r_knee:{x:75,y:49},r_ankle:{x:94,y:50},l_hip:{x:56,y:62},l_knee:{x:75,y:61},l_ankle:{x:94,y:60}
+    }
+  };
+
   const state = {
     compositionId: {{if .SelectedComposition}}{{.SelectedComposition.ID}}{{else}}0{{end}},
     aspectRatio: "16:9",
@@ -1406,42 +1480,25 @@
     height: 720,
     elements: [],
     selectedId: null,
-    dragTarget: null, // { elId, type: 'element'|'joint'|'rotate', jointName, startX, startY, origX, origY, origAngle }
-    defaultPose: {
-      nose: {x: 50, y: 14},
-      neck: {x: 50, y: 24},
-      r_shoulder: {x: 40, y: 26},
-      r_elbow: {x: 36, y: 42},
-      r_wrist: {x: 34, y: 57},
-      l_shoulder: {x: 60, y: 26},
-      l_elbow: {x: 64, y: 42},
-      l_wrist: {x: 66, y: 57},
-      mid_hip: {x: 50, y: 54},
-      r_hip: {x: 44, y: 56},
-      r_knee: {x: 43, y: 74},
-      r_ankle: {x: 42, y: 95},
-      l_hip: {x: 56, y: 56},
-      l_knee: {x: 57, y: 74},
-      l_ankle: {x: 58, y: 95}
-    }
+    dragTarget: null,
+    theaterMode: false
   };
 
-  // OpenPose Limb Bone Connections
   const SKELETON_BONES = [
-    { from: "neck", to: "nose", color: "#ec4899" },
-    { from: "neck", to: "mid_hip", color: "#f43f5e" },
-    { from: "neck", to: "r_shoulder", color: "#f59e0b" },
-    { from: "r_shoulder", to: "r_elbow", color: "#eab308" },
-    { from: "r_elbow", to: "r_wrist", color: "#facc15" },
-    { from: "neck", to: "l_shoulder", color: "#06b6d4" },
-    { from: "l_shoulder", to: "l_elbow", color: "#0ea5e9" },
-    { from: "l_elbow", to: "l_wrist", color: "#38bdf8" },
-    { from: "mid_hip", to: "r_hip", color: "#10b981" },
-    { from: "r_hip", to: "r_knee", color: "#22c55e" },
-    { from: "r_knee", to: "r_ankle", color: "#4ade80" },
-    { from: "mid_hip", to: "l_hip", color: "#3b82f6" },
-    { from: "l_hip", to: "l_knee", color: "#6366f1" },
-    { from: "l_knee", to: "l_ankle", color: "#818cf8" }
+    { from: "neck", to: "nose", color: "#ec4899", width: 6 },
+    { from: "neck", to: "mid_hip", color: "#f43f5e", width: 8 },
+    { from: "neck", to: "r_shoulder", color: "#f59e0b", width: 6 },
+    { from: "r_shoulder", to: "r_elbow", color: "#eab308", width: 6 },
+    { from: "r_elbow", to: "r_wrist", color: "#facc15", width: 5 },
+    { from: "neck", to: "l_shoulder", color: "#06b6d4", width: 6 },
+    { from: "l_shoulder", to: "l_elbow", color: "#0ea5e9", width: 6 },
+    { from: "l_elbow", to: "l_wrist", color: "#38bdf8", width: 5 },
+    { from: "mid_hip", to: "r_hip", color: "#10b981", width: 7 },
+    { from: "r_hip", to: "r_knee", color: "#22c55e", width: 7 },
+    { from: "r_knee", to: "r_ankle", color: "#4ade80", width: 6 },
+    { from: "mid_hip", to: "l_hip", color: "#3b82f6", width: 7 },
+    { from: "l_hip", to: "l_knee", color: "#6366f1", width: 7 },
+    { from: "l_knee", to: "l_ankle", color: "#818cf8", width: 6 }
   ];
 
   const svg = document.getElementById('directorSvg');
@@ -1469,18 +1526,19 @@
       {
         id: "char_" + Date.now(),
         type: "character",
-        subtype: "articulated",
+        subtype: "mannequin",
+        skin: "hybrid",
         name: "Protagonist",
         x: 480,
-        y: 280,
-        width: 140,
-        height: 240,
-        scale: 1.0,
+        y: 240,
+        width: 150,
+        height: 270,
+        scale: 1.2,
         rotation: 0,
         flipH: false,
         facing: "front",
         poseName: "Standing Idle",
-        pose: JSON.parse(JSON.stringify(state.defaultPose)),
+        pose: JSON.parse(JSON.stringify(POSE_PRESETS["Standing Idle"])),
         layer: 1
       },
       {
@@ -1488,10 +1546,10 @@
         type: "prop",
         subtype: "sofa",
         label: "Studio Sofa",
-        x: 750,
-        y: 380,
-        width: 220,
-        height: 120,
+        x: 740,
+        y: 420,
+        width: 240,
+        height: 130,
         scale: 1.1,
         rotation: 0,
         flipH: false,
@@ -1502,10 +1560,10 @@
         type: "light",
         subtype: "key",
         label: "Warm Key Light",
-        x: 220,
-        y: 160,
-        width: 140,
-        height: 140,
+        x: 200,
+        y: 140,
+        width: 150,
+        height: 150,
         scale: 1.0,
         rotation: 40,
         color: "#fbbf24",
@@ -1515,12 +1573,21 @@
     state.selectedId = state.elements[0].id;
   }
 
+  // Helper: compute clean SVG transform
+  function computeElementTransform(el) {
+    const cx = el.width / 2;
+    const cy = el.height / 2;
+    const scaleX = el.flipH ? -(el.scale || 1.0) : (el.scale || 1.0);
+    const scaleY = el.scale || 1.0;
+    const rot = el.rotation || 0;
+    return `translate(${el.x}, ${el.y}) translate(${cx}, ${cy}) rotate(${rot}) scale(${scaleX}, ${scaleY}) translate(${-cx}, ${-cy})`;
+  }
+
   // --- Rendering Elements & SVG ---
   function renderScene() {
     elementsGroup.innerHTML = '';
     overlayGroup.innerHTML = '';
 
-    // Sort by layer
     const sorted = [...state.elements].sort((a, b) => (a.layer || 0) - (b.layer || 0));
 
     sorted.forEach(el => {
@@ -1529,26 +1596,12 @@
       g.setAttribute('data-id', el.id);
       g.style.cursor = 'grab';
 
-      // Translation, rotation, and scaling
-      const centerX = el.x + el.width / 2;
-      const centerY = el.y + el.height / 2;
-      let transform = `translate(${el.x}, ${el.y})`;
-      if (el.rotation) {
-        transform += ` rotate(${el.rotation}, ${el.width/2}, ${el.height/2})`;
-      }
-      if (el.scale && el.scale !== 1.0) {
-        transform += ` scale(${el.scale}) translate(${(el.width/2)*(1 - el.scale)/el.scale}, ${(el.height/2)*(1 - el.scale)/el.scale})`;
-      }
-      if (el.flipH) {
-        transform += ` translate(${el.width}, 0) scale(-1, 1)`;
-      }
+      const transform = computeElementTransform(el);
       g.setAttribute('transform', transform);
 
-      // Render element content by type
       renderElementContent(g, el);
       elementsGroup.appendChild(g);
 
-      // Render Selection & Joints Overlay
       if (el.id === state.selectedId) {
         renderSelectionOverlay(el, transform);
       }
@@ -1559,10 +1612,8 @@
   }
 
   function renderElementContent(g, el) {
-    if (el.type === 'character' && el.subtype === 'articulated') {
+    if (el.type === 'character') {
       renderArticulatedCharacter(g, el);
-    } else if (el.type === 'silhouette') {
-      renderSilhouette(g, el);
     } else if (el.type === 'prop') {
       renderProp(g, el);
     } else if (el.type === 'light') {
@@ -1574,166 +1625,184 @@
     }
   }
 
-  // Render OpenPose Articulated Skeleton & Facing
+  // Render Articulated Character with Skin Modes (Wireframe, Silhouette, Hybrid)
   function renderArticulatedCharacter(g, el) {
-    const pose = el.pose || state.defaultPose;
+    const pose = el.pose || POSE_PRESETS["Standing Idle"];
     const w = el.width;
     const h = el.height;
+    const skin = el.skin || (el.subtype === 'mannequin' ? 'hybrid' : 'silhouette');
 
-    // Background torso shadow for depth
-    const torsoShadow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    const neckX = (pose.neck.x / 100) * w;
-    const neckY = (pose.neck.y / 100) * h;
-    const rShX = (pose.r_shoulder.x / 100) * w;
-    const rShY = (pose.r_shoulder.y / 100) * h;
-    const lShX = (pose.l_shoulder.x / 100) * w;
-    const lShY = (pose.l_shoulder.y / 100) * h;
-    const rHipX = (pose.r_hip.x / 100) * w;
-    const rHipY = (pose.r_hip.y / 100) * h;
-    const lHipX = (pose.l_hip.x / 100) * w;
-    const lHipY = (pose.l_hip.y / 100) * h;
-    torsoShadow.setAttribute('points', `${rShX},${rShY} ${lShX},${lShY} ${lHipX},${lHipY} ${rHipX},${rHipY}`);
-    torsoShadow.setAttribute('fill', 'rgba(236, 72, 153, 0.15)');
-    g.appendChild(torsoShadow);
+    // 1. Render Silhouette Body Limbs (Smooth Mannequin Silhouette)
+    if (skin === 'silhouette' || skin === 'hybrid') {
+      const silhouetteColor = el.subtype === 'female' ? '#334155' : (el.subtype === 'child' ? '#3b4252' : '#1e293b');
+      const opacity = skin === 'hybrid' ? '0.75' : '1.0';
 
-    // Draw Skeleton Bones
-    SKELETON_BONES.forEach(bone => {
-      const p1 = pose[bone.from];
-      const p2 = pose[bone.to];
-      if (p1 && p2) {
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', (p1.x / 100) * w);
-        line.setAttribute('y1', (p1.y / 100) * h);
-        line.setAttribute('x2', (p2.x / 100) * w);
-        line.setAttribute('y2', (p2.y / 100) * h);
-        line.setAttribute('stroke', bone.color);
-        line.setAttribute('stroke-width', '5');
-        line.setAttribute('stroke-linecap', 'round');
-        g.appendChild(line);
-      }
-    });
+      // Torso & Pelvis Capsule
+      const torso = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      const neckPt = { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h };
+      const rShPt = { x: (pose.r_shoulder.x / 100) * w, y: (pose.r_shoulder.y / 100) * h };
+      const lShPt = { x: (pose.l_shoulder.x / 100) * w, y: (pose.l_shoulder.y / 100) * h };
+      const rHipPt = { x: (pose.r_hip.x / 100) * w, y: (pose.r_hip.y / 100) * h };
+      const lHipPt = { x: (pose.l_hip.x / 100) * w, y: (pose.l_hip.y / 100) * h };
+      
+      // Expand torso slightly for natural body contour
+      torso.setAttribute('points', `${neckPt.x},${neckPt.y-4} ${lShPt.x+8},${lShPt.y} ${lHipPt.x+8},${lHipPt.y+10} ${rHipPt.x-8},${rHipPt.y+10} ${rShPt.x-8},${rShPt.y}`);
+      torso.setAttribute('fill', silhouetteColor);
+      torso.setAttribute('fill-opacity', opacity);
+      torso.setAttribute('stroke', '#475569');
+      torso.setAttribute('stroke-width', '1.5');
+      g.appendChild(torso);
 
-    // Draw Head & Facing Orientation Visualizer
+      // Limbs Silhouette Capsules (Upper arms, Forearms, Thighs, Calves)
+      const limbPairs = [
+        ["r_shoulder", "r_elbow", 14], ["r_elbow", "r_wrist", 11],
+        ["l_shoulder", "l_elbow", 14], ["l_elbow", "l_wrist", 11],
+        ["r_hip", "r_knee", 18], ["r_knee", "r_ankle", 14],
+        ["l_hip", "l_knee", 18], ["l_knee", "l_ankle", 14]
+      ];
+
+      limbPairs.forEach(([p1Name, p2Name, thickness]) => {
+        const p1 = pose[p1Name];
+        const p2 = pose[p2Name];
+        if (p1 && p2) {
+          const limb = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          limb.setAttribute('x1', (p1.x / 100) * w);
+          limb.setAttribute('y1', (p1.y / 100) * h);
+          limb.setAttribute('x2', (p2.x / 100) * w);
+          limb.setAttribute('y2', (p2.y / 100) * h);
+          limb.setAttribute('stroke', silhouetteColor);
+          limb.setAttribute('stroke-opacity', opacity);
+          limb.setAttribute('stroke-width', thickness);
+          limb.setAttribute('stroke-linecap', 'round');
+          g.appendChild(limb);
+        }
+      });
+    }
+
+    // 2. Render OpenPose Colored Bones (if wireframe or hybrid)
+    if (skin === 'wireframe' || skin === 'hybrid') {
+      SKELETON_BONES.forEach(bone => {
+        const p1 = pose[bone.from];
+        const p2 = pose[bone.to];
+        if (p1 && p2) {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', (p1.x / 100) * w);
+          line.setAttribute('y1', (p1.y / 100) * h);
+          line.setAttribute('x2', (p2.x / 100) * w);
+          line.setAttribute('y2', (p2.y / 100) * h);
+          line.setAttribute('stroke', bone.color);
+          line.setAttribute('stroke-width', skin === 'hybrid' ? '3.5' : bone.width);
+          line.setAttribute('stroke-linecap', 'round');
+          g.appendChild(line);
+        }
+      });
+    }
+
+    // 3. Render Head & Facing Visualizer
     const headX = (pose.nose.x / 100) * w;
     const headY = (pose.nose.y / 100) * h;
-    
-    // Head circle
+    const headR = el.subtype === 'child' ? 18 : 16;
+
+    // Head base circle
     const headCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     headCircle.setAttribute('cx', headX);
     headCircle.setAttribute('cy', headY);
-    headCircle.setAttribute('r', '14');
-    headCircle.setAttribute('fill', el.facing === 'back' ? '#1e293b' : '#334155');
-    headCircle.setAttribute('stroke', '#ec4899');
+    headCircle.setAttribute('r', headR);
+    headCircle.setAttribute('fill', el.facing === 'back' ? '#0f172a' : '#1e293b');
+    headCircle.setAttribute('stroke', el.facing === 'back' ? '#475569' : '#38bdf8');
     headCircle.setAttribute('stroke-width', '2.5');
     g.appendChild(headCircle);
 
-    // Facing Direction Pointer / Visor
-    const facingVisor = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    // Dynamic Facial Direction & Gaze Indicator
+    const visor = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     let visorD = '';
-    if (el.facing === 'back') {
-      // Dark hatch pattern indicating back of head
-      visorD = `M ${headX - 6} ${headY - 4} L ${headX + 6} ${headY + 4} M ${headX - 6} ${headY + 4} L ${headX + 6} ${headY - 4}`;
-      facingVisor.setAttribute('stroke', '#64748b');
-      facingVisor.setAttribute('stroke-width', '2');
-    } else if (el.facing === 'left') {
-      visorD = `M ${headX - 14} ${headY} L ${headX - 22} ${headY} L ${headX - 14} ${headY - 4} Z`;
-      facingVisor.setAttribute('fill', '#38bdf8');
-    } else if (el.facing === 'right') {
-      visorD = `M ${headX + 14} ${headY} L ${headX + 22} ${headY} L ${headX + 14} ${headY - 4} Z`;
-      facingVisor.setAttribute('fill', '#38bdf8');
-    } else if (el.facing === 'three_quarter_left') {
-      visorD = `M ${headX - 10} ${headY + 6} L ${headX - 18} ${headY + 12} L ${headX - 6} ${headY + 10} Z`;
-      facingVisor.setAttribute('fill', '#38bdf8');
-    } else if (el.facing === 'three_quarter_right') {
-      visorD = `M ${headX + 10} ${headY + 6} L ${headX + 18} ${headY + 12} L ${headX + 6} ${headY + 10} Z`;
-      facingVisor.setAttribute('fill', '#38bdf8');
-    } else {
-      // Frontal facing eyes
-      visorD = `M ${headX - 5} ${headY - 1} A 1.5 1.5 0 1 1 ${headX - 2} ${headY - 1} M ${headX + 2} ${headY - 1} A 1.5 1.5 0 1 1 ${headX + 5} ${headY - 1}`;
-      facingVisor.setAttribute('stroke', '#38bdf8');
-      facingVisor.setAttribute('stroke-width', '2.5');
-      facingVisor.setAttribute('fill', 'none');
-    }
-    facingVisor.setAttribute('d', visorD);
-    g.appendChild(facingVisor);
+    const f = el.facing || 'front';
 
-    // Label below
+    if (f === 'front') {
+      // Direct frontal gaze: two eyes + nose dot
+      const eyeL = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      eyeL.setAttribute('cx', headX - 5); eyeL.setAttribute('cy', headY - 2); eyeL.setAttribute('r', '2.5');
+      eyeL.setAttribute('fill', '#38bdf8');
+      g.appendChild(eyeL);
+
+      const eyeR = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      eyeR.setAttribute('cx', headX + 5); eyeR.setAttribute('cy', headY - 2); eyeR.setAttribute('r', '2.5');
+      eyeR.setAttribute('fill', '#38bdf8');
+      g.appendChild(eyeR);
+
+      // Nose center
+      const nose = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      nose.setAttribute('x1', headX); nose.setAttribute('y1', headY - 1); nose.setAttribute('x2', headX); nose.setAttribute('y2', headY + 4);
+      nose.setAttribute('stroke', '#38bdf8'); nose.setAttribute('stroke-width', '2');
+      g.appendChild(nose);
+    } else if (f === 'back') {
+      // Back of head: hair/back-of-neck lines, no eyes
+      visorD = `M ${headX - 8} ${headY - 6} Q ${headX} ${headY - 2} ${headX + 8} ${headY - 6} M ${headX - 6} ${headY} Q ${headX} ${headY + 4} ${headX + 6} ${headY}`;
+      visor.setAttribute('stroke', '#64748b');
+      visor.setAttribute('stroke-width', '2');
+      visor.setAttribute('fill', 'none');
+      visor.setAttribute('d', visorD);
+      g.appendChild(visor);
+    } else if (f === 'left') {
+      // Profile Left: nose pointing sharply left (90 deg)
+      visorD = `M ${headX - headR} ${headY} L ${headX - headR - 10} ${headY + 2} L ${headX - headR + 2} ${headY + 6} Z`;
+      visor.setAttribute('fill', '#38bdf8');
+      visor.setAttribute('d', visorD);
+      g.appendChild(visor);
+
+      const eyeL = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      eyeL.setAttribute('cx', headX - 7); eyeL.setAttribute('cy', headY - 2); eyeL.setAttribute('r', '2.5');
+      eyeL.setAttribute('fill', '#38bdf8');
+      g.appendChild(eyeL);
+    } else if (f === 'right') {
+      // Profile Right: nose pointing sharply right (90 deg)
+      visorD = `M ${headX + headR} ${headY} L ${headX + headR + 10} ${headY + 2} L ${headX + headR - 2} ${headY + 6} Z`;
+      visor.setAttribute('fill', '#38bdf8');
+      visor.setAttribute('d', visorD);
+      g.appendChild(visor);
+
+      const eyeR = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      eyeR.setAttribute('cx', headX + 7); eyeR.setAttribute('cy', headY - 2); eyeR.setAttribute('r', '2.5');
+      eyeR.setAttribute('fill', '#38bdf8');
+      g.appendChild(eyeR);
+    } else if (f === 'three_quarter_left') {
+      // 3/4 Left: angled gaze arrow
+      visorD = `M ${headX - headR * 0.7} ${headY + headR * 0.3} L ${headX - headR - 8} ${headY + headR * 0.6} L ${headX - headR * 0.3} ${headY + headR * 0.7} Z`;
+      visor.setAttribute('fill', '#38bdf8');
+      visor.setAttribute('d', visorD);
+      g.appendChild(visor);
+    } else if (f === 'three_quarter_right') {
+      // 3/4 Right: angled gaze arrow
+      visorD = `M ${headX + headR * 0.7} ${headY + headR * 0.3} L ${headX + headR + 8} ${headY + headR * 0.6} L ${headX + headR * 0.3} ${headY + headR * 0.7} Z`;
+      visor.setAttribute('fill', '#38bdf8');
+      visor.setAttribute('d', visorD);
+      g.appendChild(visor);
+    }
+
+    // Name label
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', w / 2);
-    text.setAttribute('y', h + 16);
+    text.setAttribute('y', h + 18);
     text.setAttribute('fill', '#94a3b8');
-    text.setAttribute('font-size', '11');
+    text.setAttribute('font-size', '11.5');
     text.setAttribute('font-weight', '600');
     text.setAttribute('text-anchor', 'middle');
     text.textContent = el.name || 'Character';
     g.appendChild(text);
   }
 
-  // Render Solid Silhouettes
-  function renderSilhouette(g, el) {
-    const w = el.width;
-    const h = el.height;
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    let d = '';
-
-    if (el.subtype === 'female') {
-      d = `M ${w*0.5} ${h*0.06} 
-           A ${w*0.13} ${h*0.07} 0 1 1 ${w*0.501} ${h*0.06} 
-           M ${w*0.48} ${h*0.15} L ${w*0.42} ${h*0.22} L ${w*0.3} ${h*0.46} L ${w*0.34} ${h*0.47} L ${w*0.43} ${h*0.28} L ${w*0.44} ${h*0.38} 
-           L ${w*0.32} ${h*0.7} L ${w*0.68} ${h*0.7} L ${w*0.56} ${h*0.38} L ${w*0.57} ${h*0.28} L ${w*0.66} ${h*0.47} L ${w*0.7} ${h*0.46} 
-           L ${w*0.58} ${h*0.22} L ${w*0.52} ${h*0.15} Z
-           M ${w*0.42} ${h*0.7} L ${w*0.42} ${h*0.96} L ${w*0.38} ${h*0.96} L ${w*0.38} ${h*0.7} Z
-           M ${w*0.58} ${h*0.7} L ${w*0.58} ${h*0.96} L ${w*0.62} ${h*0.96} L ${w*0.62} ${h*0.7} Z`;
-    } else if (el.subtype === 'child') {
-      d = `M ${w*0.5} ${h*0.1} 
-           A ${w*0.16} ${h*0.11} 0 1 1 ${w*0.501} ${h*0.1}
-           M ${w*0.47} ${h*0.23} L ${w*0.38} ${h*0.32} L ${w*0.28} ${h*0.58} L ${w*0.33} ${h*0.59} L ${w*0.42} ${h*0.38}
-           L ${w*0.42} ${h*0.62} L ${w*0.36} ${h*0.95} L ${w*0.42} ${h*0.95} L ${w*0.48} ${h*0.66} 
-           L ${w*0.52} ${h*0.66} L ${w*0.58} ${h*0.95} L ${w*0.64} ${h*0.95} L ${w*0.58} ${h*0.62}
-           L ${w*0.58} ${h*0.38} L ${w*0.67} ${h*0.59} L ${w*0.72} ${h*0.58} L ${w*0.62} ${h*0.32} L ${w*0.53} ${h*0.23} Z`;
-    } else {
-      // Male default silhouette
-      d = `M ${w*0.5} ${h*0.06} 
-           A ${w*0.14} ${h*0.075} 0 1 1 ${w*0.501} ${h*0.06}
-           M ${w*0.46} ${h*0.16} L ${w*0.34} ${h*0.22} L ${w*0.24} ${h*0.54} L ${w*0.29} ${h*0.55} L ${w*0.38} ${h*0.3}
-           L ${w*0.39} ${h*0.56} L ${w*0.34} ${h*0.96} L ${w*0.42} ${h*0.96} L ${w*0.48} ${h*0.62}
-           L ${w*0.52} ${h*0.62} L ${w*0.58} ${h*0.96} L ${w*0.66} ${h*0.96} L ${w*0.61} ${h*0.56}
-           L ${w*0.62} ${h*0.3} L ${w*0.71} ${h*0.55} L ${w*0.76} ${h*0.54} L ${w*0.66} ${h*0.22} L ${w*0.54} ${h*0.16} Z`;
-    }
-
-    path.setAttribute('d', d);
-    path.setAttribute('fill', '#475569');
-    path.setAttribute('stroke', '#64748b');
-    path.setAttribute('stroke-width', '1.5');
-    g.appendChild(path);
-
-    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', w / 2);
-    text.setAttribute('y', h + 16);
-    text.setAttribute('fill', '#94a3b8');
-    text.setAttribute('font-size', '11');
-    text.setAttribute('text-anchor', 'middle');
-    text.textContent = el.label || el.subtype;
-    g.appendChild(text);
-  }
-
-  // Render 2D/2.5D Props & Furniture
+  // Render Props & Furniture
   function renderProp(g, el) {
     const w = el.width;
     const h = el.height;
     const propType = el.subtype;
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
 
     if (propType === 'sofa') {
-      // 2.5D Couch with cushions
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('d', `M 10 20 L ${w-10} 20 Q ${w} 20 ${w} 30 L ${w} ${h-10} Q ${w} ${h} ${w-10} ${h} L 10 ${h} Q 0 ${h} 0 ${h-10} L 0 30 Q 0 20 10 20 Z`);
-      path.setAttribute('fill', '#334155');
-      path.setAttribute('stroke', '#64748b');
-      path.setAttribute('stroke-width', '2');
+      path.setAttribute('fill', '#334155'); path.setAttribute('stroke', '#64748b'); path.setAttribute('stroke-width', '2');
       g.appendChild(path);
 
-      // Armrests & Cushions
       const armL = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       armL.setAttribute('x', '0'); armL.setAttribute('y', '35'); armL.setAttribute('width', '26'); armL.setAttribute('height', h - 40);
       armL.setAttribute('rx', '6'); armL.setAttribute('fill', '#1e293b'); armL.setAttribute('stroke', '#475569');
@@ -1744,19 +1813,16 @@
       armR.setAttribute('rx', '6'); armR.setAttribute('fill', '#1e293b'); armR.setAttribute('stroke', '#475569');
       g.appendChild(armR);
 
-      // Backrest
       const back = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       back.setAttribute('x', '26'); back.setAttribute('y', '20'); back.setAttribute('width', w - 52); back.setAttribute('height', '30');
       back.setAttribute('rx', '4'); back.setAttribute('fill', '#1e293b'); back.setAttribute('stroke', '#475569');
       g.appendChild(back);
     } else if (propType === 'table') {
-      // Table top surface + legs
       const top = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       top.setAttribute('x', '0'); top.setAttribute('y', '15'); top.setAttribute('width', w); top.setAttribute('height', '25');
       top.setAttribute('rx', '4'); top.setAttribute('fill', '#78350f'); top.setAttribute('stroke', '#b45309'); top.setAttribute('stroke-width', '2');
       g.appendChild(top);
 
-      // Legs
       [10, w - 20].forEach(lx => {
         const leg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         leg.setAttribute('x', lx); leg.setAttribute('y', '40'); leg.setAttribute('width', '10'); leg.setAttribute('height', h - 40);
@@ -1764,18 +1830,16 @@
         g.appendChild(leg);
       });
     } else if (propType === 'chair') {
-      // Armchair
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('x', '0'); rect.setAttribute('y', '0'); rect.setAttribute('width', w); rect.setAttribute('height', h);
       rect.setAttribute('rx', '8'); rect.setAttribute('fill', '#334155'); rect.setAttribute('stroke', '#0284c7'); rect.setAttribute('stroke-width', '2');
       g.appendChild(rect);
     } else if (propType === 'car') {
-      // Sedan car outline
       const carPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       carPath.setAttribute('d', `M 10 ${h*0.75} L ${w*0.15} ${h*0.75} Q ${w*0.22} ${h*0.5} ${w*0.3} ${h*0.75} L ${w*0.7} ${h*0.75} Q ${w*0.78} ${h*0.5} ${w*0.85} ${h*0.75} L ${w-10} ${h*0.75} Q ${w} ${h*0.75} ${w} ${h*0.6} L ${w*0.88} ${h*0.45} L ${w*0.72} ${h*0.18} Q ${w*0.7} ${h*0.15} ${w*0.65} ${h*0.15} L ${w*0.35} ${h*0.15} Q ${w*0.3} ${h*0.15} ${w*0.25} ${h*0.35} L ${w*0.12} ${h*0.48} L 0 ${h*0.55} L 0 ${h*0.7} Q 0 ${h*0.75} 10 ${h*0.75} Z`);
       carPath.setAttribute('fill', '#1e293b'); carPath.setAttribute('stroke', '#38bdf8'); carPath.setAttribute('stroke-width', '2');
       g.appendChild(carPath);
 
-      // Wheels
       [w * 0.22, w * 0.78].forEach(cx => {
         const wheel = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         wheel.setAttribute('cx', cx); wheel.setAttribute('cy', h * 0.75); wheel.setAttribute('r', h * 0.18);
@@ -1783,7 +1847,6 @@
         g.appendChild(wheel);
       });
     } else if (propType === 'tree') {
-      // Tree canopy & trunk
       const trunk = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       trunk.setAttribute('x', w * 0.44); trunk.setAttribute('y', h * 0.55); trunk.setAttribute('width', w * 0.12); trunk.setAttribute('height', h * 0.45);
       trunk.setAttribute('fill', '#451a03'); trunk.setAttribute('stroke', '#78350f'); trunk.setAttribute('rx', '3');
@@ -1794,12 +1857,11 @@
       canopy.setAttribute('fill', '#14532d'); canopy.setAttribute('stroke', '#22c55e'); canopy.setAttribute('stroke-width', '2');
       g.appendChild(canopy);
     } else if (propType === 'window') {
-      // Window frame
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('x', '0'); rect.setAttribute('y', '0'); rect.setAttribute('width', w); rect.setAttribute('height', h);
       rect.setAttribute('fill', '#0284c7'); rect.setAttribute('fill-opacity', '0.2'); rect.setAttribute('stroke', '#38bdf8'); rect.setAttribute('stroke-width', '3');
       g.appendChild(rect);
 
-      // Cross mullions
       const hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       hLine.setAttribute('x1', '0'); hLine.setAttribute('y1', h / 2); hLine.setAttribute('x2', w); hLine.setAttribute('y2', h / 2);
       hLine.setAttribute('stroke', '#38bdf8'); hLine.setAttribute('stroke-width', '2');
@@ -1810,7 +1872,7 @@
       vLine.setAttribute('stroke', '#38bdf8'); vLine.setAttribute('stroke-width', '2');
       g.appendChild(vLine);
     } else {
-      // Generic prop rectangle
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('x', '0'); rect.setAttribute('y', '0'); rect.setAttribute('width', w); rect.setAttribute('height', h);
       rect.setAttribute('rx', '6'); rect.setAttribute('fill', '#1e293b'); rect.setAttribute('stroke', '#475569'); rect.setAttribute('stroke-width', '2');
       g.appendChild(rect);
@@ -1823,26 +1885,22 @@
     g.appendChild(text);
   }
 
-  // Render Directional Lighting Vector & Cone
   function renderLight(g, el) {
     const w = el.width;
     const h = el.height;
     const lightColor = el.color || '#fbbf24';
 
-    // Projected Light Beam Cone
     const cone = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
     cone.setAttribute('points', `20,${h/2} ${w},0 ${w},${h}`);
     cone.setAttribute('fill', lightColor);
-    cone.setAttribute('fill-opacity', '0.22');
+    cone.setAttribute('fill-opacity', '0.25');
     g.appendChild(cone);
 
-    // Light Source Spotlight Icon
     const bulb = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     bulb.setAttribute('cx', '20'); bulb.setAttribute('cy', h / 2); bulb.setAttribute('r', '14');
     bulb.setAttribute('fill', lightColor); bulb.setAttribute('stroke', '#fff'); bulb.setAttribute('stroke-width', '2');
     g.appendChild(bulb);
 
-    // Directional Arrow Vector
     const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     arrow.setAttribute('x1', '20'); arrow.setAttribute('y1', h / 2); arrow.setAttribute('x2', w * 0.75); arrow.setAttribute('y2', h / 2);
     arrow.setAttribute('stroke', '#fff'); arrow.setAttribute('stroke-width', '3'); arrow.setAttribute('stroke-linecap', 'round');
@@ -1860,21 +1918,16 @@
     g.appendChild(text);
   }
 
-  // Render Camera Angle & FOV Cone
   function renderCamera(g, el) {
     const w = el.width;
     const h = el.height;
 
-    // FOV Frustum Cone
     const fov = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
     fov.setAttribute('points', `${w/2},${h} 0,0 ${w},0`);
     fov.setAttribute('fill', 'url(#cameraConeGrad)');
-    fov.setAttribute('stroke', '#38bdf8');
-    fov.setAttribute('stroke-dasharray', '4,4');
-    fov.setAttribute('stroke-width', '1.5');
+    fov.setAttribute('stroke', '#38bdf8'); fov.setAttribute('stroke-dasharray', '4,4'); fov.setAttribute('stroke-width', '1.5');
     g.appendChild(fov);
 
-    // Camera body icon
     const body = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     body.setAttribute('x', w/2 - 20); body.setAttribute('y', h - 22); body.setAttribute('width', '40'); body.setAttribute('height', '22');
     body.setAttribute('rx', '4'); body.setAttribute('fill', '#0284c7'); body.setAttribute('stroke', '#38bdf8'); body.setAttribute('stroke-width', '2');
@@ -1892,7 +1945,6 @@
     g.appendChild(text);
   }
 
-  // Render Directive Sticky Note
   function renderNote(g, el) {
     const w = el.width;
     const h = el.height;
@@ -1909,7 +1961,7 @@
     g.appendChild(text);
   }
 
-  // Render Selection Bounding Box & Joint Handles
+  // Render Selection Bounding Box, Handles, Joint Nodes & Facing Tag
   function renderSelectionOverlay(el, parentTransform) {
     const selG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     selG.setAttribute('transform', parentTransform);
@@ -1926,31 +1978,55 @@
     bbox.setAttribute('stroke-width', '1.5');
     selG.appendChild(bbox);
 
+    // Floating Facing Pill Tag on top
+    if (el.type === 'character') {
+      const facingLabel = {
+        'front': '👁️ Frente / Frontal',
+        'back': '🔙 De espaldas / Back',
+        'left': '◀️ Perfil Izq / Left',
+        'right': '▶️ Perfil Der / Right',
+        'three_quarter_left': '↖️ 3/4 Izq',
+        'three_quarter_right': '↗️ 3/4 Der'
+      }[el.facing || 'front'] || 'Front';
+
+      const tagBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      tagBg.setAttribute('x', el.width / 2 - 50); tagBg.setAttribute('y', -42);
+      tagBg.setAttribute('width', '100'); tagBg.setAttribute('height', '18');
+      tagBg.setAttribute('rx', '9'); tagBg.setAttribute('fill', '#0284c7');
+      selG.appendChild(tagBg);
+
+      const tagTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      tagTxt.setAttribute('x', el.width / 2); tagTxt.setAttribute('y', -30);
+      tagTxt.setAttribute('fill', '#fff'); tagTxt.setAttribute('font-size', '9.5'); tagTxt.setAttribute('font-weight', '700'); tagTxt.setAttribute('text-anchor', 'middle');
+      tagTxt.textContent = facingLabel;
+      selG.appendChild(tagTxt);
+    }
+
     // Rotation Handle at Top
     const rotLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     rotLine.setAttribute('x1', el.width / 2); rotLine.setAttribute('y1', -6);
-    rotLine.setAttribute('x2', el.width / 2); rotLine.setAttribute('y2', -24);
+    rotLine.setAttribute('x2', el.width / 2); rotLine.setAttribute('y2', -22);
     rotLine.setAttribute('stroke', '#38bdf8'); rotLine.setAttribute('stroke-width', '1.5');
     selG.appendChild(rotLine);
 
     const rotCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    rotCircle.setAttribute('cx', el.width / 2); rotCircle.setAttribute('cy', -24); rotCircle.setAttribute('r', '7');
+    rotCircle.setAttribute('cx', el.width / 2); rotCircle.setAttribute('cy', -22); rotCircle.setAttribute('r', '7');
     rotCircle.setAttribute('fill', '#0284c7'); rotCircle.setAttribute('stroke', '#fff'); rotCircle.setAttribute('stroke-width', '2');
     rotCircle.style.cursor = 'grab';
     rotCircle.setAttribute('data-action', 'rotate');
     rotCircle.setAttribute('data-id', el.id);
     selG.appendChild(rotCircle);
 
-    // If Articulated Character, render draggable OpenPose joint nodes!
-    if (el.type === 'character' && el.subtype === 'articulated' && el.pose) {
+    // Draggable OpenPose Joint Nodes
+    if (el.type === 'character' && el.pose) {
       for (const [jointName, pt] of Object.entries(el.pose)) {
         const jCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         const jx = (pt.x / 100) * el.width;
         const jy = (pt.y / 100) * el.height;
         jCircle.setAttribute('cx', jx);
         jCircle.setAttribute('cy', jy);
-        jCircle.setAttribute('r', '6');
-        jCircle.setAttribute('fill', '#fff');
+        jCircle.setAttribute('r', '6.5');
+        jCircle.setAttribute('fill', '#ffffff');
         jCircle.setAttribute('stroke', '#ec4899');
         jCircle.setAttribute('stroke-width', '2.5');
         jCircle.style.cursor = 'crosshair';
@@ -1981,7 +2057,7 @@
     const pt = getSvgPoint(e);
     const target = e.target;
 
-    // Check if clicked a joint node
+    // 1. Joint dragging
     if (target.getAttribute('data-action') === 'joint') {
       const elId = target.getAttribute('data-id');
       const jointName = target.getAttribute('data-joint');
@@ -1996,7 +2072,7 @@
       return;
     }
 
-    // Check if clicked the rotate handle
+    // 2. Rotation dragging
     if (target.getAttribute('data-action') === 'rotate') {
       const elId = target.getAttribute('data-id');
       const el = state.elements.find(x => x.id === elId);
@@ -2018,7 +2094,7 @@
       }
     }
 
-    // Check if clicked an element group
+    // 3. Element translation dragging
     const elGroup = target.closest('[data-id]');
     if (elGroup) {
       const elId = elGroup.getAttribute('data-id');
@@ -2039,7 +2115,7 @@
       }
     }
 
-    // Clicked empty canvas -> Deselect
+    // Deselect if clicked empty background
     state.selectedId = null;
     renderScene();
   });
@@ -2054,15 +2130,32 @@
     if (dt.type === 'element') {
       const dx = pt.x - dt.startX;
       const dy = pt.y - dt.startY;
-      el.x = Math.max(0, Math.min(state.width - el.width, dt.origX + dx));
-      el.y = Math.max(0, Math.min(state.height - el.height, dt.origY + dy));
+      // Allow moving close to borders or partially offscreen!
+      el.x = Math.round(dt.origX + dx);
+      el.y = Math.round(dt.origY + dy);
       renderScene();
     } else if (dt.type === 'joint') {
-      // Joint drag relative to element bounding box
-      const relX = pt.x - el.x;
-      const relY = pt.y - el.y;
-      const normX = Math.round(Math.max(5, Math.min(95, (relX / el.width) * 100)));
-      const normY = Math.round(Math.max(5, Math.min(98, (relY / el.height) * 100)));
+      const cx = el.width / 2;
+      const cy = el.height / 2;
+      const scaleX = el.flipH ? -(el.scale || 1.0) : (el.scale || 1.0);
+      const scaleY = el.scale || 1.0;
+      const rad = -(el.rotation || 0) * (Math.PI / 180);
+
+      // Invert element translation
+      let rx = pt.x - (el.x + cx);
+      let ry = pt.y - (el.y + cy);
+
+      // Invert rotation
+      const unrotX = rx * Math.cos(rad) - ry * Math.sin(rad);
+      const unrotY = rx * Math.sin(rad) + ry * Math.cos(rad);
+
+      // Invert scale
+      const unscaleX = unrotX / scaleX + cx;
+      const unscaleY = unrotY / scaleY + cy;
+
+      const normX = Math.round(Math.max(2, Math.min(98, (unscaleX / el.width) * 100)));
+      const normY = Math.round(Math.max(2, Math.min(98, (unscaleY / el.height) * 100)));
+
       if (el.pose && el.pose[dt.jointName]) {
         el.pose[dt.jointName].x = normX;
         el.pose[dt.jointName].y = normY;
@@ -2071,15 +2164,11 @@
       renderScene();
     } else if (dt.type === 'rotate') {
       const currentAngle = Math.atan2(pt.y - dt.centerY, pt.x - dt.centerX) * (180 / Math.PI);
-      let newRot = Math.round((dt.origRotation + (currentAngle - dt.startAngle)));
-      // Snap to 0, 45, 90, 180
-      if (Math.abs(newRot) < 5) newRot = 0;
-      if (Math.abs(newRot - 45) < 4) newRot = 45;
-      if (Math.abs(newRot - 90) < 4) newRot = 90;
-      if (Math.abs(newRot - 180) < 4) newRot = 180;
-      if (Math.abs(newRot + 45) < 4) newRot = -45;
-      if (Math.abs(newRot + 90) < 4) newRot = -90;
-      if (Math.abs(newRot + 180) < 4) newRot = -180;
+      let newRot = Math.round(dt.origRotation + (currentAngle - dt.startAngle));
+      // Snapping
+      [0, 45, 90, 135, 180, -45, -90, -135, -180].forEach(snap => {
+        if (Math.abs(newRot - snap) < 4) newRot = snap;
+      });
       el.rotation = newRot;
       renderScene();
     }
@@ -2102,25 +2191,25 @@
       deleteSelectedElement();
       e.preventDefault();
     } else if (e.key === 'ArrowLeft') {
-      el.x = Math.max(0, el.x - (e.shiftKey ? 20 : 5));
+      el.x -= (e.shiftKey ? 20 : 5);
       renderScene();
       e.preventDefault();
     } else if (e.key === 'ArrowRight') {
-      el.x = Math.min(state.width - el.width, el.x + (e.shiftKey ? 20 : 5));
+      el.x += (e.shiftKey ? 20 : 5);
       renderScene();
       e.preventDefault();
     } else if (e.key === 'ArrowUp') {
-      el.y = Math.max(0, el.y - (e.shiftKey ? 20 : 5));
+      el.y -= (e.shiftKey ? 20 : 5);
       renderScene();
       e.preventDefault();
     } else if (e.key === 'ArrowDown') {
-      el.y = Math.min(state.height - el.height, el.y + (e.shiftKey ? 20 : 5));
+      el.y += (e.shiftKey ? 20 : 5);
       renderScene();
       e.preventDefault();
     }
   });
 
-  // --- Palette Item Addition ---
+  // --- Palette Item Addition (100% Articulated Characters!) ---
   document.querySelectorAll('.palette-item').forEach(btn => {
     btn.addEventListener('click', () => {
       const type = btn.getAttribute('data-type');
@@ -2136,52 +2225,57 @@
       id: id,
       type: type,
       subtype: subtype,
-      x: 540 + (Math.random() * 80 - 40),
-      y: 300 + (Math.random() * 80 - 40),
-      width: 140,
-      height: 200,
+      x: 520 + (Math.random() * 60 - 30),
+      y: 260 + (Math.random() * 60 - 30),
+      width: 150,
+      height: 270,
       scale: 1.0,
       rotation: 0,
       flipH: false,
       layer: maxLayer + 1
     };
 
-    if (type === 'character' && subtype === 'articulated') {
-      newEl.width = 140;
-      newEl.height = 240;
-      newEl.name = "Character " + (state.elements.filter(x => x.type === 'character').length + 1);
+    if (type === 'character') {
       newEl.facing = "front";
       newEl.poseName = "Standing Idle";
-      newEl.pose = JSON.parse(JSON.stringify(state.defaultPose));
-    } else if (type === 'silhouette') {
-      newEl.width = 120;
-      newEl.height = 220;
-      newEl.label = subtype.charAt(0).toUpperCase() + subtype.slice(1) + " Silhouette";
-      newEl.facing = "front";
+      newEl.pose = JSON.parse(JSON.stringify(POSE_PRESETS["Standing Idle"]));
+
+      if (subtype === 'female') {
+        newEl.name = "Female Figure";
+        newEl.skin = "silhouette";
+        // Proportions: narrower waist, distinct hip lines
+        newEl.pose.r_shoulder.x = 42; newEl.pose.l_shoulder.x = 58;
+        newEl.pose.r_hip.x = 42; newEl.pose.l_hip.x = 58;
+      } else if (subtype === 'child') {
+        newEl.name = "Child Figure";
+        newEl.skin = "silhouette";
+        newEl.width = 120; newEl.height = 200;
+        newEl.scale = 0.9;
+      } else if (subtype === 'male') {
+        newEl.name = "Male Figure";
+        newEl.skin = "silhouette";
+        newEl.pose.r_shoulder.x = 36; newEl.pose.l_shoulder.x = 64;
+      } else {
+        newEl.name = "Articulated Mannequin";
+        newEl.skin = "hybrid";
+      }
     } else if (type === 'prop') {
-      if (subtype === 'sofa') { newEl.width = 220; newEl.height = 120; newEl.label = "Leather Sofa"; }
+      if (subtype === 'sofa') { newEl.width = 240; newEl.height = 130; newEl.label = "Leather Sofa"; }
       else if (subtype === 'chair') { newEl.width = 90; newEl.height = 110; newEl.label = "Armchair"; }
-      else if (subtype === 'table') { newEl.width = 180; newEl.height = 100; newEl.label = "Dining Table"; }
-      else if (subtype === 'bed') { newEl.width = 240; newEl.height = 160; newEl.label = "King Bed"; }
-      else if (subtype === 'car') { newEl.width = 280; newEl.height = 120; newEl.label = "Automobile"; }
-      else if (subtype === 'tree') { newEl.width = 160; newEl.height = 240; newEl.label = "Green Tree"; }
+      else if (subtype === 'table') { newEl.width = 190; newEl.height = 100; newEl.label = "Dining Table"; }
+      else if (subtype === 'bed') { newEl.width = 250; newEl.height = 160; newEl.label = "Bed"; }
+      else if (subtype === 'car') { newEl.width = 290; newEl.height = 120; newEl.label = "Automobile"; }
+      else if (subtype === 'tree') { newEl.width = 160; newEl.height = 240; newEl.label = "Tree"; }
       else if (subtype === 'streetlight') { newEl.width = 60; newEl.height = 260; newEl.label = "Streetlight"; }
       else if (subtype === 'window') { newEl.width = 140; newEl.height = 180; newEl.label = "Window Frame"; }
       else if (subtype === 'door') { newEl.width = 110; newEl.height = 230; newEl.label = "Doorway"; }
     } else if (type === 'light') {
-      newEl.width = 140;
-      newEl.height = 140;
-      newEl.rotation = 45;
-      newEl.color = '#fbbf24';
-      newEl.label = "Directional Key Light";
+      newEl.width = 150; newEl.height = 150;
+      newEl.rotation = 45; newEl.color = '#fbbf24'; newEl.label = "Directional Key Light";
     } else if (type === 'camera') {
-      newEl.width = 160;
-      newEl.height = 180;
-      newEl.label = "Camera FOV Cone";
+      newEl.width = 160; newEl.height = 180; newEl.label = "Camera FOV Cone";
     } else if (type === 'note') {
-      newEl.width = 160;
-      newEl.height = 90;
-      newEl.text = "Directive: e.g. Neon rain, cyberpunk atmosphere";
+      newEl.width = 160; newEl.height = 90; newEl.text = "Directive: e.g. Neon rain, cyberpunk atmosphere";
     }
 
     state.elements.push(newEl);
@@ -2192,10 +2286,10 @@
   // --- Properties Bar Synchronization ---
   function updatePropertiesBar() {
     const selEl = state.elements.find(x => x.id === state.selectedId);
-    const bar = document.getElementById('elementPropertiesBar');
     const noMsg = document.getElementById('noSelectionMsg');
     const ctrl = document.getElementById('selectionControls');
     const facingGrp = document.getElementById('facingControlGroup');
+    const skinGrp = document.getElementById('skinControlGroup');
     const poseGrp = document.getElementById('poseControlGroup');
 
     if (!selEl) {
@@ -2208,28 +2302,25 @@
     ctrl.style.display = 'flex';
 
     // Facing buttons
-    if (selEl.type === 'character' || selEl.type === 'silhouette') {
+    if (selEl.type === 'character') {
       facingGrp.style.display = 'flex';
+      skinGrp.style.display = 'flex';
+      poseGrp.style.display = 'flex';
+
       document.querySelectorAll('.facing-btn').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-facing') === (selEl.facing || 'front'));
         if (btn.classList.contains('active')) {
-          btn.style.background = '#0284c7';
-          btn.style.color = '#fff';
+          btn.style.background = '#0284c7'; btn.style.color = '#fff';
         } else {
-          btn.style.background = 'transparent';
-          btn.style.color = 'var(--text-muted)';
+          btn.style.background = 'transparent'; btn.style.color = 'var(--text-muted)';
         }
       });
+
+      document.getElementById('charSkinSelect').value = selEl.skin || 'silhouette';
+      document.getElementById('posePresetSelect').value = selEl.poseName || '';
     } else {
       facingGrp.style.display = 'none';
-    }
-
-    // Pose presets (for articulated characters only)
-    if (selEl.type === 'character' && selEl.subtype === 'articulated') {
-      poseGrp.style.display = 'flex';
-      const select = document.getElementById('posePresetSelect');
-      select.value = selEl.poseName || '';
-    } else {
+      skinGrp.style.display = 'none';
       poseGrp.style.display = 'none';
     }
 
@@ -2256,14 +2347,38 @@
     });
   });
 
-  // Sliders handlers
-  document.getElementById('propScaleSlider').addEventListener('input', (e) => {
+  // Skin Select Handler
+  document.getElementById('charSkinSelect').addEventListener('change', (e) => {
     const selEl = state.elements.find(x => x.id === state.selectedId);
     if (selEl) {
-      selEl.scale = parseFloat(e.target.value);
+      selEl.skin = e.target.value;
+      renderScene();
+    }
+  });
+
+  // Scale Slider & Buttons
+  function applyScale(newScale) {
+    const selEl = state.elements.find(x => x.id === state.selectedId);
+    if (selEl) {
+      selEl.scale = Math.max(0.2, Math.min(6.0, Math.round(newScale * 100) / 100));
+      document.getElementById('propScaleSlider').value = selEl.scale;
       document.getElementById('propScaleVal').textContent = selEl.scale.toFixed(2) + 'x';
       renderScene();
     }
+  }
+
+  document.getElementById('propScaleSlider').addEventListener('input', (e) => {
+    applyScale(parseFloat(e.target.value));
+  });
+
+  document.getElementById('btnScaleDown').addEventListener('click', () => {
+    const selEl = state.elements.find(x => x.id === state.selectedId);
+    if (selEl) applyScale((selEl.scale || 1.0) - 0.2);
+  });
+
+  document.getElementById('btnScaleUp').addEventListener('click', () => {
+    const selEl = state.elements.find(x => x.id === state.selectedId);
+    if (selEl) applyScale((selEl.scale || 1.0) + 0.2);
   });
 
   document.getElementById('propRotateSlider').addEventListener('input', (e) => {
@@ -2323,28 +2438,45 @@
   }
   document.getElementById('btnDeleteEl').addEventListener('click', deleteSelectedElement);
 
-  // Pose Presets Applying & Resetting
+  // Quick Poses Bar Handlers (Applies pose immediately!)
+  function applyPoseByName(poseName) {
+    const selEl = state.elements.find(x => x.id === state.selectedId);
+    if (!selEl || selEl.type !== 'character') return;
+
+    if (POSE_PRESETS[poseName]) {
+      selEl.pose = JSON.parse(JSON.stringify(POSE_PRESETS[poseName]));
+      selEl.poseName = poseName;
+      renderScene();
+    }
+  }
+
+  document.querySelectorAll('.quick-pose-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pName = btn.getAttribute('data-pose-name');
+      applyPoseByName(pName);
+    });
+  });
+
   document.getElementById('posePresetSelect').addEventListener('change', (e) => {
     const selEl = state.elements.find(x => x.id === state.selectedId);
     const opt = e.target.selectedOptions[0];
-    if (selEl && opt && opt.getAttribute('data-pose')) {
-      try {
-        selEl.pose = JSON.parse(opt.getAttribute('data-pose'));
-        selEl.poseName = opt.value;
-        renderScene();
-      } catch(err) {
-        console.error("Invalid pose JSON:", err);
+    if (selEl && opt) {
+      if (opt.getAttribute('data-pose')) {
+        try {
+          selEl.pose = JSON.parse(opt.getAttribute('data-pose'));
+          selEl.poseName = opt.value;
+          renderScene();
+        } catch(err) {
+          console.error("Invalid pose JSON:", err);
+        }
+      } else if (POSE_PRESETS[opt.value]) {
+        applyPoseByName(opt.value);
       }
     }
   });
 
   document.getElementById('btnResetPose').addEventListener('click', () => {
-    const selEl = state.elements.find(x => x.id === state.selectedId);
-    if (selEl && selEl.type === 'character') {
-      selEl.pose = JSON.parse(JSON.stringify(state.defaultPose));
-      selEl.poseName = "Standing Idle";
-      renderScene();
-    }
+    applyPoseByName("Standing Idle");
   });
 
   // Save Custom Pose Modal
@@ -2376,7 +2508,7 @@
       });
       const data = await resp.json();
       if (data.status === 'ok') {
-        // Add to select dropdown
+        POSE_PRESETS[name] = JSON.parse(JSON.stringify(selEl.pose));
         const select = document.getElementById('posePresetSelect');
         const opt = document.createElement('option');
         opt.value = name;
@@ -2395,18 +2527,38 @@
     }
   });
 
+  // Theater Mode Toggle (Full Width Canvas)
+  document.getElementById('btnToggleTheater').addEventListener('click', () => {
+    state.theaterMode = !state.theaterMode;
+    const btn = document.getElementById('btnToggleTheater');
+    const container = document.getElementById('directorContainer');
+    const grid = document.getElementById('directorWorkspaceGrid');
+
+    if (state.theaterMode) {
+      container.style.maxWidth = '100vw';
+      grid.style.gridTemplateColumns = '200px 1fr 300px';
+      btn.style.color = '#38bdf8';
+      btn.style.borderColor = '#0284c7';
+      btn.textContent = 'Standard Mode';
+    } else {
+      container.style.maxWidth = '100%';
+      grid.style.gridTemplateColumns = '240px 1fr 340px';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+      btn.textContent = 'Theater Mode';
+    }
+    renderScene();
+  });
+
   // Aspect Ratio Buttons
   function setAspectRatio(ratio) {
     state.aspectRatio = ratio;
-    const viewport = document.getElementById('canvasViewport');
     document.querySelectorAll('.aspect-btn').forEach(btn => {
       btn.classList.toggle('active', btn.getAttribute('data-ratio') === ratio);
       if (btn.classList.contains('active')) {
-        btn.style.background = '#0284c7';
-        btn.style.color = '#fff';
+        btn.style.background = '#0284c7'; btn.style.color = '#fff';
       } else {
-        btn.style.background = 'transparent';
-        btn.style.color = 'var(--text-muted)';
+        btn.style.background = 'transparent'; btn.style.color = 'var(--text-muted)';
       }
     });
 
@@ -2419,7 +2571,6 @@
     } else if (ratio === '21:9') {
       state.width = 1440; state.height = 617;
     } else {
-      // 16:9
       state.width = 1280; state.height = 720;
     }
     svg.setAttribute('viewBox', `0 0 ${state.width} ${state.height}`);
@@ -2430,7 +2581,7 @@
     btn.addEventListener('click', () => setAspectRatio(btn.getAttribute('data-ratio')));
   });
 
-  // --- Real-Time Spatial Manifest Compilation ---
+  // --- Real-Time Spatial Manifest Compilation with Orientation Clarity ---
   function updateSpatialManifest() {
     const viewer = document.getElementById('manifestViewer');
     if (!viewer) return;
@@ -2448,35 +2599,36 @@
 
       const vNorm = el.y / state.height;
       let vPos = "Midground";
-      if (vNorm > 0.65 || el.scale > 1.25) vPos = "Foreground";
-      else if (vNorm < 0.35 || (el.scale > 0 && el.scale < 0.75)) vPos = "Background";
+      if (vNorm > 0.60 || (el.scale || 1.0) > 1.35) vPos = "Foreground (Close to Camera)";
+      else if (vNorm < 0.35 || (el.scale && el.scale < 0.75)) vPos = "Background";
       const loc = `${vPos}-${hPos}`;
 
-      if (el.type === 'character' || el.type === 'silhouette') {
-        let facingDesc = "facing camera forward";
-        if (el.facing === 'back') facingDesc = "facing away (back view)";
-        else if (el.facing === 'left') facingDesc = "left profile";
-        else if (el.facing === 'right') facingDesc = "right profile";
-        else if (el.facing === 'three_quarter_left') facingDesc = "three-quarters looking left";
-        else if (el.facing === 'three_quarter_right') facingDesc = "three-quarters looking right";
+      if (el.type === 'character') {
+        let facingDesc = "FACING CAMERA (Direct frontal gaze looking at viewer)";
+        if (el.facing === 'back') facingDesc = "FACING AWAY FROM CAMERA (Full back view, back turned to viewer)";
+        else if (el.facing === 'left') facingDesc = "IN PROFILE FACING LEFT (Side view looking left)";
+        else if (el.facing === 'right') facingDesc = "IN PROFILE FACING RIGHT (Side view looking right)";
+        else if (el.facing === 'three_quarter_left') facingDesc = "THREE-QUARTER VIEW FACING LEFT (Angled perspective looking slightly left)";
+        else if (el.facing === 'three_quarter_right') facingDesc = "THREE-QUARTER VIEW FACING RIGHT (Angled perspective looking slightly right)";
 
         const poseStr = el.poseName ? ` in ${el.poseName} stance` : '';
-        const mirrorStr = el.flipH ? ` (mirrored)` : '';
-        subjects.push(`- [${el.name || el.label || 'Character'}] in ${loc}: ${facingDesc}${poseStr}${mirrorStr}`);
+        const scaleStr = (el.scale && el.scale > 1.5) ? ` [Scale: ${el.scale.toFixed(1)}x CLOSE-UP FRAMING]` : '';
+        const mirrorStr = el.flipH ? ` (mirrored pose)` : '';
+        subjects.push(`- [${el.name || 'Character'}] positioned in ${loc}:\n    ${facingDesc}${poseStr}${scaleStr}${mirrorStr}`);
       } else if (el.type === 'prop') {
         props.push(`- [${el.label || el.subtype}] placed in ${loc}`);
       } else if (el.type === 'light') {
-        lights.push(`- ${el.label || 'Light'} from ${loc} at ${el.rotation || 0}° angle`);
+        lights.push(`- ${el.label || 'Light'} shining from ${loc} at ${el.rotation || 0}° angle`);
       } else if (el.type === 'note' && el.text) {
         notes.push(`- Directive: "${el.text}"`);
       }
     });
 
     let manifest = `[SPATIAL COMPOSITION MANIFEST]\nAspect Ratio: ${state.aspectRatio}\n\n`;
-    if (subjects.length) manifest += `Subjects:\n${subjects.join('\n')}\n\n`;
+    if (subjects.length) manifest += `Subjects & Characters:\n${subjects.join('\n')}\n\n`;
     if (props.length) manifest += `Props & Environment:\n${props.join('\n')}\n\n`;
-    if (lights.length) manifest += `Lighting:\n${lights.join('\n')}\n\n`;
-    if (notes.length) manifest += `Directives:\n${notes.join('\n')}`;
+    if (lights.length) manifest += `Lighting Vectors:\n${lights.join('\n')}\n\n`;
+    if (notes.length) manifest += `Directives & Notes:\n${notes.join('\n')}`;
 
     viewer.textContent = manifest.trim();
   }
@@ -2484,7 +2636,6 @@
   // --- Export Canvas as PNG & Copy to Clipboard ---
   function exportCanvasToDataURL(callback) {
     const svgClone = svg.cloneNode(true);
-    // Remove selection overlay from export
     const ov = svgClone.getElementById('selectionOverlayGroup');
     if (ov) ov.remove();
 
@@ -2602,7 +2753,6 @@
     });
   });
 
-  // Delete composition from modal
   document.querySelectorAll('.btn-delete-comp').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -2636,10 +2786,8 @@
     spinner.style.display = 'inline-block';
     btnText.textContent = "Compiling Spatial Manifest & Synthesizing...";
 
-    // Link character trigger words if selected
     if (charId > 0) {
       const opt = charSelect.selectedOptions[0];
-      const trigger = opt.getAttribute('data-trigger');
       const charEl = state.elements.find(x => x.type === 'character');
       if (charEl) {
         charEl.characterId = charId;
@@ -2667,7 +2815,6 @@
       const data = await resp.json();
       if (data.status === 'ok') {
         output.value = data.prompt;
-        // Update Remix button link
         const remixBtn = document.getElementById('btnSendToRemix');
         remixBtn.href = `/?tab=studio&concept=${encodeURIComponent(data.prompt)}&target_profile=${encodeURIComponent(targetProfile)}`;
       } else {
