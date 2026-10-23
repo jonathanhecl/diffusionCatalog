@@ -90,15 +90,27 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 		t.Errorf("expected prompt from .txt sidecar, got %q", assetR2.Metadata.PositivePrompt)
 	}
 
-	// 3. Classify the asset and tag it; verify it persists to root2Dir/.diffusion-catalog.json
+	// 3. Classify the asset, tag it, and rate it (score 9/10 + favorite); verify it persists to root2Dir/.diffusion-catalog.json
 	if err := catalogSvc.SetAssetCategory(ctx, assetR2.ID, "Mecha, Vehicles & Props", "Heavy Orbital Mecha"); err != nil {
 		t.Fatalf("SetAssetCategory failed: %v", err)
 	}
 	if err := catalogSvc.AddTagToAsset(ctx, assetR2.ID, "orbital-drop-v2", "action"); err != nil {
 		t.Fatalf("AddTagToAsset failed: %v", err)
 	}
+	if err := catalogSvc.RateAsset(ctx, assetR2.ID, 9, true); err != nil {
+		t.Fatalf("RateAsset failed: %v", err)
+	}
 
-	// 4. Switch to a brand new global SQLite database (db2Path), register root2Dir, scan, and verify classifications are restored from .diffusion-catalog.json!
+	manifest2Path := filepath.Join(root2Dir, ManifestFileName)
+	manifestData, err := os.ReadFile(manifest2Path)
+	if err != nil {
+		t.Fatalf("failed to read root2 manifest: %v", err)
+	}
+	if !strings.Contains(string(manifestData), `"rating": 9`) || !strings.Contains(string(manifestData), `"favorite": true`) {
+		t.Fatalf("expected manifest to contain rating 9 and favorite true, got: %s", string(manifestData))
+	}
+
+	// 4. Switch to a brand new global SQLite database (db2Path), register root2Dir, scan, and verify classifications, ratings, and favorites are restored from .diffusion-catalog.json!
 	if err := catalogSvc.SwitchDatabase(ctx, db2Path); err != nil {
 		t.Fatalf("SwitchDatabase failed: %v", err)
 	}
@@ -111,15 +123,35 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 		t.Fatalf("Scan on db2 failed: %v", err)
 	}
 
-	restoredPage, err := catalogSvc.Query(ctx, domain.CatalogFilter{Category: "Mecha, Vehicles & Props"})
+	restoredPage, err := catalogSvc.Query(ctx, domain.CatalogFilter{Category: "Mecha, Vehicles & Props", MinRating: 8, FavoritesOnly: true})
 	if err != nil {
 		t.Fatalf("Query on db2 failed: %v", err)
 	}
 	if len(restoredPage.Assets) != 1 {
-		t.Fatalf("expected 1 asset restored from folder manifest in db2, got %d", len(restoredPage.Assets))
+		t.Fatalf("expected 1 asset restored with rating >= 8 and favorites_only in db2, got %d", len(restoredPage.Assets))
 	}
 	if restoredPage.Assets[0].Subcategory != "Heavy Orbital Mecha" {
 		t.Errorf("expected subcategory 'Heavy Orbital Mecha' restored from manifest, got %q", restoredPage.Assets[0].Subcategory)
+	}
+	if restoredPage.Assets[0].Rating != 9 || !restoredPage.Assets[0].Favorite {
+		t.Errorf("expected rating 9 and favorite true restored from manifest, got rating=%d favorite=%v", restoredPage.Assets[0].Rating, restoredPage.Assets[0].Favorite)
+	}
+
+	// Verify sorting by rating and favorites
+	favSortPage, err := catalogSvc.Query(ctx, domain.CatalogFilter{SortBy: "favorites"})
+	if err != nil || len(favSortPage.Assets) == 0 || !favSortPage.Assets[0].Favorite {
+		t.Fatalf("expected top asset in favorites sort to be favorite, got: %+v (err=%v)", favSortPage, err)
+	}
+
+	rateSortPage, err := catalogSvc.Query(ctx, domain.CatalogFilter{SortBy: "rating"})
+	if err != nil || len(rateSortPage.Assets) < 2 {
+		t.Fatalf("expected at least 2 assets in rating sort, got: %+v (err=%v)", rateSortPage, err)
+	}
+	if rateSortPage.Assets[0].Rating < rateSortPage.Assets[1].Rating {
+		t.Errorf("expected descending rating order, got %d then %d", rateSortPage.Assets[0].Rating, rateSortPage.Assets[1].Rating)
+	}
+	if rateSortPage.Assets[0].Rating != 10 {
+		t.Errorf("expected top asset in rating sort to have rating 10, got %d", rateSortPage.Assets[0].Rating)
 	}
 
 	// 5. Verify Caption Trigger Filter and Related Assets by Category

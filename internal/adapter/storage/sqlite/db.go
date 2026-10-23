@@ -65,6 +65,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		file_size INTEGER NOT NULL DEFAULT 0,
 		view_count INTEGER NOT NULL DEFAULT 0,
 		rating INTEGER NOT NULL DEFAULT 0,
+		favorite INTEGER NOT NULL DEFAULT 0,
 		category TEXT NOT NULL DEFAULT '',
 		subcategory TEXT NOT NULL DEFAULT '',
 		engine TEXT NOT NULL DEFAULT 'unknown',
@@ -234,6 +235,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN root_id INTEGER NOT NULL DEFAULT 1`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN category TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN subcategory TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`)
 
 	return seedDefaultSettingsAndProfiles(ctx, db)
 }

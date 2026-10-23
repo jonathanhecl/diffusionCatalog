@@ -29,6 +29,7 @@ type demoSpec struct {
 	ClusterLabel   string
 	Views          int64
 	Rating         int
+	Favorite       bool
 }
 
 // SeedDemoFolderIfEmpty checks if mediaDir contains any media files; if empty, it creates
@@ -70,7 +71,8 @@ Steps: 30, Sampler: DPM++ 2M Karras, Schedule type: Karras, CFG scale: 6.5, Seed
 			ExpressionTag: "Focused Gaze",
 			ClusterLabel:  "Cluster #01 (Kaelen)",
 			Views:         1420,
-			Rating:        5,
+			Rating:        9,
+			Favorite:      true,
 		},
 		{
 			Subfolder:    "Cyberpunk_Chronicles",
@@ -96,7 +98,8 @@ Steps: 30, Sampler: DPM++ 2M Karras, Schedule type: Karras, CFG scale: 6.5, Seed
 			ExpressionTag: "Analytical",
 			ClusterLabel:  "Cluster #01 (Kaelen)",
 			Views:         980,
-			Rating:        5,
+			Rating:        8,
+			Favorite:      false,
 		},
 		{
 			Subfolder:    "Astral_Archivists",
@@ -118,7 +121,8 @@ Steps: 34, Sampler: Euler a, Schedule type: Automatic, CFG scale: 7.0, Seed: 771
 			ExpressionTag: "Wonder",
 			ClusterLabel:  "Cluster #02 (Lyra)",
 			Views:         1650,
-			Rating:        5,
+			Rating:        10,
+			Favorite:      true,
 		},
 		{
 			Subfolder:    "Astral_Archivists",
@@ -147,7 +151,8 @@ Steps: 34, Sampler: Euler a, Schedule type: Automatic, CFG scale: 7.0, Seed: 771
 			ExpressionTag: "Serene Smile",
 			ClusterLabel:  "Cluster #02 (Lyra)",
 			Views:         1120,
-			Rating:        4,
+			Rating:        7,
+			Favorite:      false,
 		},
 		{
 			Subfolder:    "Mecha_Architecture",
@@ -169,7 +174,8 @@ Steps: 36, Sampler: DPM++ SDE Karras, Schedule type: Karras, CFG scale: 7.5, See
 			ExpressionTag: "Optic Array Active",
 			ClusterLabel:  "Cluster #03 (Solaris)",
 			Views:         840,
-			Rating:        4,
+			Rating:        8,
+			Favorite:      false,
 		},
 		{
 			Subfolder:    "Mecha_Architecture",
@@ -198,7 +204,8 @@ Steps: 36, Sampler: DPM++ SDE Karras, Schedule type: Karras, CFG scale: 7.5, See
 			ExpressionTag: "Combat Telemetry",
 			ClusterLabel:  "Cluster #03 (Solaris)",
 			Views:         1310,
-			Rating:        5,
+			Rating:        9,
+			Favorite:      true,
 		},
 	}
 
@@ -274,6 +281,7 @@ Steps: 36, Sampler: DPM++ SDE Karras, Schedule type: Karras, CFG scale: 7.5, See
 			if asset.FileName == sp.FileName {
 				asset.ViewCount = sp.Views
 				asset.Rating = sp.Rating
+				asset.Favorite = sp.Favorite
 				_, _ = repo.UpsertAsset(ctx, &asset)
 
 				for _, tg := range sp.Tags {

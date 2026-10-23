@@ -263,6 +263,21 @@ func (s *CatalogService) SetAssetCategory(ctx context.Context, assetID int64, ca
 	return nil
 }
 
+// RateAsset updates an asset's 0-10 score and favorite flag in SQLite and persists both into its folder's .diffusion-catalog.json.
+func (s *CatalogService) RateAsset(ctx context.Context, assetID int64, rating int, favorite bool) error {
+	if rating < 0 {
+		rating = 0
+	}
+	if rating > 10 {
+		rating = 10
+	}
+	if err := s.repo.UpdateAssetRating(ctx, assetID, rating, favorite); err != nil {
+		return err
+	}
+	s.syncAssetManifestByID(ctx, assetID)
+	return nil
+}
+
 // AddTagToAsset creates or updates an agnostic tag, attaches it to an asset, and updates .diffusion-catalog.json.
 func (s *CatalogService) AddTagToAsset(ctx context.Context, assetID int64, name, facet string) error {
 	name = strings.TrimSpace(strings.TrimPrefix(name, "#"))

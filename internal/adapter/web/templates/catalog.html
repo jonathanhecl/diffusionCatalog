@@ -218,7 +218,44 @@
         <div style="display:flex;flex-direction:column;gap:14px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <h2 style="font-size:20px;">{{.SelectedAsset.FileName}}</h2>
-            <span class="badge-chip" style="font-size:12px;padding:4px 10px;">Engine: {{.SelectedAsset.Metadata.Engine}}</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              {{if .SelectedAsset.Favorite}}<span class="fav-badge" style="font-size:11px;padding:3px 8px;">♥ Favorited</span>{{end}}
+              {{if gt .SelectedAsset.Rating 0}}<span class="score-badge" style="font-size:11px;padding:3px 8px;">★ {{.SelectedAsset.Rating}}/10</span>{{end}}
+              <span class="badge-chip" style="font-size:12px;padding:4px 10px;">Engine: {{.SelectedAsset.Metadata.Engine}}</span>
+            </div>
+          </div>
+
+          <!-- 0-10 Rating & Favorite Portable Classification Bar -->
+          <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span class="kv-label" style="margin-bottom:0;">SCORE (0–10):</span>
+              <div class="score-bar">
+                {{range scoreRange}}
+                  <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                    <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
+                    <input type="hidden" name="rating" value="{{.}}">
+                    <input type="hidden" name="favorite" value="{{if $.SelectedAsset.Favorite}}1{{else}}0{{end}}">
+                    <button type="submit" class="score-btn {{if eq $.SelectedAsset.Rating .}}active{{end}}" title="Rate {{.}}/10">{{.}}</button>
+                  </form>
+                {{end}}
+              </div>
+              {{if gt .SelectedAsset.Rating 0}}
+                <span style="color:#fbbf24;font-weight:700;font-size:12px;">★ {{.SelectedAsset.Rating}}/10</span>
+              {{else}}
+                <span style="color:var(--text-dim);font-size:11px;">(Unrated)</span>
+              {{end}}
+            </div>
+
+            <div>
+              <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+                <input type="hidden" name="rating" value="{{.SelectedAsset.Rating}}">
+                <input type="hidden" name="toggle_favorite" value="1">
+                <button type="submit" class="fav-toggle-btn {{if .SelectedAsset.Favorite}}active{{end}}">
+                  {{if .SelectedAsset.Favorite}}♥ Favorited{{else}}♡ Add to Favorites{{end}}
+                </button>
+              </form>
+            </div>
           </div>
 
           <div>
@@ -438,6 +475,8 @@
         <div class="lightbox-topbar">
           <div style="display:flex;align-items:center;gap:12px;">
             <strong style="color:#fff;font-size:14px;">{{.SelectedAsset.FileName}}</strong>
+            {{if .SelectedAsset.Favorite}}<span class="fav-badge">♥ Favorited</span>{{end}}
+            {{if gt .SelectedAsset.Rating 0}}<span class="score-badge">★ {{.SelectedAsset.Rating}}/10</span>{{end}}
             <span class="badge-chip">Engine: {{.SelectedAsset.Metadata.Engine}}</span>
             <span class="badge-chip">{{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px</span>
             {{if .SelectedAsset.Category}}<span class="badge-chip" style="color:#6ee7b7;">{{.SelectedAsset.Category}}{{if .SelectedAsset.Subcategory}} / {{.SelectedAsset.Subcategory}}{{end}}</span>{{end}}
@@ -458,6 +497,31 @@
             {{end}}
           </div>
           <aside class="lightbox-meta-drawer">
+            <!-- Score & Favorite Quick Bar in Lightbox -->
+            <div style="background:#040915;border:1px solid var(--border-navy);padding:8px 10px;border-radius:4px;">
+              <div class="kv-label" style="margin-bottom:6px;">SCORE &amp; FAVORITE (Saves to .diffusion-catalog.json)</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                <div class="score-bar">
+                  {{range scoreRange}}
+                    <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                      <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
+                      <input type="hidden" name="rating" value="{{.}}">
+                      <input type="hidden" name="favorite" value="{{if $.SelectedAsset.Favorite}}1{{else}}0{{end}}">
+                      <button type="submit" class="score-btn {{if eq $.SelectedAsset.Rating .}}active{{end}}" style="min-width:24px;height:24px;font-size:10px;">{{.}}</button>
+                    </form>
+                  {{end}}
+                </div>
+                <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                  <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+                  <input type="hidden" name="rating" value="{{.SelectedAsset.Rating}}">
+                  <input type="hidden" name="toggle_favorite" value="1">
+                  <button type="submit" class="fav-toggle-btn {{if .SelectedAsset.Favorite}}active{{end}}" style="height:24px;font-size:11px;">
+                    {{if .SelectedAsset.Favorite}}♥ Favorited{{else}}♡ Favorite{{end}}
+                  </button>
+                </form>
+              </div>
+            </div>
+
             <div class="facet-title">
               <span>POSITIVE PROMPT</span>
               <button type="button" class="btn-ghost" style="padding:2px 8px;" onclick="navigator.clipboard.writeText(document.getElementById('pos-prompt').innerText)">Copy</button>
@@ -518,6 +582,10 @@
                     <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
                   {{end}}
                   <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                  <div class="asset-score-corner">
+                    {{if .Favorite}}<span class="fav-badge" title="Favorite">♥</span>{{end}}
+                    {{if gt .Rating 0}}<span class="score-badge" title="Score: {{.Rating}}/10">★ {{.Rating}}/10</span>{{end}}
+                  </div>
                 </div>
                 <div class="asset-meta">
                   <div class="badge-row">
@@ -555,6 +623,10 @@
                     <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
                   {{end}}
                   <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                  <div class="asset-score-corner">
+                    {{if .Favorite}}<span class="fav-badge" title="Favorite">♥</span>{{end}}
+                    {{if gt .Rating 0}}<span class="score-badge" title="Score: {{.Rating}}/10">★ {{.Rating}}/10</span>{{end}}
+                  </div>
                 </div>
                 <div class="asset-meta">
                   <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
@@ -588,6 +660,10 @@
                     <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
                   {{end}}
                   <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                  <div class="asset-score-corner">
+                    {{if .Favorite}}<span class="fav-badge" title="Favorite">♥</span>{{end}}
+                    {{if gt .Rating 0}}<span class="score-badge" title="Score: {{.Rating}}/10">★ {{.Rating}}/10</span>{{end}}
+                  </div>
                 </div>
                 <div class="asset-meta">
                   <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
@@ -1419,6 +1495,29 @@
             </div>
 
             <div class="facet-block">
+              <div class="facet-title"><span>FAVORITES &amp; SCORE</span></div>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <label class="checkbox-item" style="color:#fda4af;font-weight:600;">
+                  <span>
+                    <input type="checkbox" name="favorites" value="1" {{if .Filter.FavoritesOnly}}checked{{end}} onchange="this.form.submit()">
+                    ♥ Favorites Only
+                  </span>
+                </label>
+                <div>
+                  <span class="kv-label" style="margin-bottom:3px;display:block;">Minimum Score (0–10)</span>
+                  <select name="min_rating" class="input-dark" onchange="this.form.submit()">
+                    <option value="0">All Scores (0–10)</option>
+                    {{range scoreRange}}
+                      {{if gt . 0}}
+                        <option value="{{.}}" {{if eq $.Filter.MinRating .}}selected{{end}}>★ {{.}}+ and higher</option>
+                      {{end}}
+                    {{end}}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="facet-block">
               <div class="facet-title"><span>CAPTION TRIGGER FILTER</span></div>
               <input type="text" name="trigger" list="caption-triggers-list" value="{{.Filter.Trigger}}" placeholder="Trigger word in caption (e.g. kaelen7, anamorphic70mm)..." class="input-dark" style="margin-bottom:6px;font-size:12px;">
               <datalist id="caption-triggers-list">
@@ -1523,10 +1622,11 @@
               {{if .Filter.FaceMode}}<span class="badge-chip character" style="margin-left:8px;">Face Explorer Mode</span>{{end}}
             </div>
             <div class="sort-tabs">
-              <a href="/?sort=newest{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if or (eq .Filter.SortBy "") (eq .Filter.SortBy "newest")}}active{{end}}">Newest</a>
-              <a href="/?sort=popular{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "popular"}}active{{end}}">Popular</a>
-              <a href="/?sort=views{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "views"}}active{{end}}">Most Viewed</a>
-              <a href="/?sort=seed{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "seed"}}active{{end}}">Seed Order</a>
+              <a href="/?sort=newest{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if or (eq .Filter.SortBy "") (eq .Filter.SortBy "newest")}}active{{end}}">Newest</a>
+              <a href="/?sort=rating{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if or (eq .Filter.SortBy "rating") (eq .Filter.SortBy "popular")}}active{{end}}">★ Top Rated (0–10)</a>
+              <a href="/?sort=favorites{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "favorites"}}active{{end}}">♥ Favorites First</a>
+              <a href="/?sort=views{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "views"}}active{{end}}">Most Viewed</a>
+              <a href="/?sort=seed{{if .Filter.FavoritesOnly}}&amp;favorites=1{{end}}{{if .Filter.MinRating}}&amp;min_rating={{.Filter.MinRating}}{{end}}{{if .Filter.FaceMode}}&amp;face_mode=1{{end}}" class="sort-tab {{if eq .Filter.SortBy "seed"}}active{{end}}">Seed Order</a>
             </div>
           </div>
 
@@ -1566,6 +1666,10 @@
                       <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
                     {{end}}
                     <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                    <div class="asset-score-corner">
+                      {{if .Favorite}}<span class="fav-badge" title="Favorite">♥</span>{{end}}
+                      {{if gt .Rating 0}}<span class="score-badge" title="Score: {{.Rating}}/10">★ {{.Rating}}/10</span>{{end}}
+                    </div>
                   </div>
                   <div class="asset-meta">
                     <div class="badge-row">

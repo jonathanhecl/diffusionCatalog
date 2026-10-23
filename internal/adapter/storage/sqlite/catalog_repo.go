@@ -272,13 +272,17 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 	if len(lorasBytes) == 0 {
 		lorasBytes = []byte("[]")
 	}
+	favInt := 0
+	if a.Favorite {
+		favInt = 1
+	}
 
 	query := `
 	INSERT INTO assets (
 		root_id, rel_path, file_name, file_hash, media_type, width, height, duration_sec, file_size,
-		view_count, rating, category, subcategory, engine, positive_prompt, negative_prompt, model_name, model_hash,
+		view_count, rating, favorite, category, subcategory, engine, positive_prompt, negative_prompt, model_name, model_hash,
 		sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(rel_path) DO UPDATE SET
 		root_id = excluded.root_id,
 		file_hash = excluded.file_hash,
@@ -288,6 +292,7 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		category = CASE WHEN excluded.category != '' THEN excluded.category ELSE assets.category END,
 		subcategory = CASE WHEN excluded.subcategory != '' THEN excluded.subcategory ELSE assets.subcategory END,
 		rating = CASE WHEN excluded.rating > 0 THEN excluded.rating ELSE assets.rating END,
+		favorite = CASE WHEN excluded.favorite > 0 THEN excluded.favorite ELSE assets.favorite END,
 		view_count = CASE WHEN excluded.view_count > assets.view_count THEN excluded.view_count ELSE assets.view_count END,
 		engine = excluded.engine,
 		positive_prompt = excluded.positive_prompt,
@@ -306,7 +311,7 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 	var id int64
 	err := db.QueryRowContext(ctx, query,
 		a.RootID, a.RelPath, a.FileName, a.FileHash, string(a.MediaType), a.Width, a.Height, a.DurationSec, a.FileSize,
-		a.ViewCount, a.Rating, a.Category, a.Subcategory, string(a.Metadata.Engine), a.Metadata.PositivePrompt, a.Metadata.NegativePrompt,
+		a.ViewCount, a.Rating, favInt, a.Category, a.Subcategory, string(a.Metadata.Engine), a.Metadata.PositivePrompt, a.Metadata.NegativePrompt,
 		a.Metadata.ModelName, a.Metadata.ModelHash, a.Metadata.Sampler, a.Metadata.Scheduler,
 		a.Metadata.Steps, a.Metadata.CFGScale, a.Metadata.Seed, string(lorasBytes), a.Metadata.RawMetadata,
 	).Scan(&id)
@@ -323,7 +328,7 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 	row := db.QueryRowContext(ctx, `
 		SELECT a.id, a.root_id, COALESCE(mr.path, ''), COALESCE(mr.label, ''),
 		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
-		       a.view_count, a.rating, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
+		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
 		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
 		       a.loras_json, a.raw_metadata, a.indexed_at
 		FROM assets a
@@ -365,6 +370,23 @@ func (r *Repository) UpdateAssetCategory(ctx context.Context, assetID int64, cat
 	db := r.conn()
 	_, err := db.ExecContext(ctx, `UPDATE assets SET category = ?, subcategory = ? WHERE id = ?`,
 		strings.TrimSpace(category), strings.TrimSpace(subcategory), assetID)
+	return err
+}
+
+// UpdateAssetRating updates an asset's 0-10 score and favorite status in SQLite.
+func (r *Repository) UpdateAssetRating(ctx context.Context, assetID int64, rating int, favorite bool) error {
+	db := r.conn()
+	if rating < 0 {
+		rating = 0
+	}
+	if rating > 10 {
+		rating = 10
+	}
+	favInt := 0
+	if favorite {
+		favInt = 1
+	}
+	_, err := db.ExecContext(ctx, `UPDATE assets SET rating = ?, favorite = ? WHERE id = ?`, rating, favInt, assetID)
 	return err
 }
 
@@ -836,6 +858,13 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 		where = append(where, `LOWER(a.subcategory) = LOWER(?)`)
 		args = append(args, strings.TrimSpace(filter.Subcategory))
 	}
+	if filter.MinRating > 0 {
+		where = append(where, `a.rating >= ?`)
+		args = append(args, filter.MinRating)
+	}
+	if filter.FavoritesOnly {
+		where = append(where, `a.favorite = 1`)
+	}
 	if filter.Engine != "" {
 		where = append(where, `a.engine = ?`)
 		args = append(args, filter.Engine)
@@ -885,8 +914,10 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 
 	orderBy := "a.indexed_at DESC, a.id DESC"
 	switch filter.SortBy {
-	case "popular":
-		orderBy = "a.rating DESC, a.view_count DESC, a.id DESC"
+	case "rating", "popular":
+		orderBy = "a.rating DESC, a.favorite DESC, a.view_count DESC, a.id DESC"
+	case "favorites":
+		orderBy = "a.favorite DESC, a.rating DESC, a.view_count DESC, a.id DESC"
 	case "views":
 		orderBy = "a.view_count DESC, a.id DESC"
 	case "seed":
@@ -897,7 +928,7 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 	selectSQL := fmt.Sprintf(`
 		SELECT a.id, a.root_id, COALESCE(mr.path, ''), COALESCE(mr.label, ''),
 		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
-		       a.view_count, a.rating, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
+		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
 		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
 		       a.loras_json, a.raw_metadata, a.indexed_at
 		FROM assets a
@@ -1274,11 +1305,12 @@ type rowScanner interface {
 func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 	var a domain.MediaAsset
 	var mediaTypeStr, engineStr, lorasStr string
+	var favInt int
 	err := s.Scan(
 		&a.ID, &a.RootID, &a.RootPath, &a.RootLabel,
 		&a.RelPath, &a.FileName, &a.FileHash, &mediaTypeStr,
 		&a.Width, &a.Height, &a.DurationSec, &a.FileSize,
-		&a.ViewCount, &a.Rating, &a.Category, &a.Subcategory, &engineStr,
+		&a.ViewCount, &a.Rating, &favInt, &a.Category, &a.Subcategory, &engineStr,
 		&a.Metadata.PositivePrompt, &a.Metadata.NegativePrompt,
 		&a.Metadata.ModelName, &a.Metadata.ModelHash,
 		&a.Metadata.Sampler, &a.Metadata.Scheduler,
@@ -1288,6 +1320,7 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 	if err != nil {
 		return nil, err
 	}
+	a.Favorite = favInt == 1
 	a.MediaType = domain.MediaType(mediaTypeStr)
 	a.Metadata.Engine = domain.EngineType(engineStr)
 	_ = json.Unmarshal([]byte(lorasStr), &a.Metadata.LoRAs)

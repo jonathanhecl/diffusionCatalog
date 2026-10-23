@@ -4,21 +4,23 @@ import "context"
 
 // CatalogFilter specifies search, facet, and pagination criteria for querying the catalog.
 type CatalogFilter struct {
-	Query       string
-	Trigger     string
-	RootID      int64
-	Category    string
-	Subcategory string
-	Engine      string
-	ModelName   string
-	MediaType   string
-	GroupID     int64
-	CharacterID int64
-	TagNames    []string
-	FaceMode    bool
-	SortBy      string // "newest", "popular", "views", "seed"
-	Page        int
-	PerPage     int
+	Query         string
+	Trigger       string
+	RootID        int64
+	Category      string
+	Subcategory   string
+	MinRating     int
+	FavoritesOnly bool
+	Engine        string
+	ModelName     string
+	MediaType     string
+	GroupID       int64
+	CharacterID   int64
+	TagNames      []string
+	FaceMode      bool
+	SortBy        string // "newest", "rating", "favorites", "popular", "views", "seed"
+	Page          int
+	PerPage       int
 }
 
 // CatalogPage contains a paginated slice of assets along with total counts and facet aggregations.
@@ -61,6 +63,7 @@ type CatalogRepository interface {
 	GetAssetByID(ctx context.Context, id int64) (*MediaAsset, error)
 	UpdateAssetPrompt(ctx context.Context, assetID int64, positivePrompt, engine string) error
 	UpdateAssetCategory(ctx context.Context, assetID int64, category, subcategory string) error
+	UpdateAssetRating(ctx context.Context, assetID int64, rating int, favorite bool) error
 	QueryCatalog(ctx context.Context, filter CatalogFilter) (*CatalogPage, error)
 	IncrementAssetView(ctx context.Context, id int64) error
 

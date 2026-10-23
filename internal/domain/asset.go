@@ -54,6 +54,7 @@ type MediaAsset struct {
 	FileSize    int64            `json:"file_size"`
 	ViewCount   int64            `json:"view_count"`
 	Rating      int              `json:"rating"`
+	Favorite    bool             `json:"favorite"`
 	Category    string           `json:"category,omitempty"`
 	Subcategory string           `json:"subcategory,omitempty"`
 	Metadata    GenerationParams `json:"metadata"`
@@ -98,6 +99,7 @@ type ManifestAssetEntry struct {
 	Category    string        `json:"category,omitempty"`
 	Subcategory string        `json:"subcategory,omitempty"`
 	Rating      int           `json:"rating,omitempty"`
+	Favorite    bool          `json:"favorite,omitempty"`
 	Tags        []ManifestTag `json:"tags,omitempty"`
 	Groups      []string      `json:"groups,omitempty"`
 	Characters  []string      `json:"characters,omitempty"`

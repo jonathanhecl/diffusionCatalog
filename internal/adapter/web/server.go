@@ -84,6 +84,13 @@ func NewServer(
 			}
 			return out
 		},
+		"scoreRange": func() []int {
+			out := make([]int, 11)
+			for i := 0; i <= 10; i++ {
+				out[i] = i
+			}
+			return out
+		},
 	}
 
 	tmpl, err := template.New("catalog.html").Funcs(funcs).ParseFS(embeddedAssets, "templates/*.html")
@@ -126,6 +133,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/scan", s.handleScan)
 	mux.HandleFunc("POST /admin/assets/tag", s.handleAddTag)
 	mux.HandleFunc("POST /admin/assets/category", s.handleSetAssetCategory)
+	mux.HandleFunc("POST /admin/assets/rate", s.handleRateAsset)
 	mux.HandleFunc("POST /admin/groups/create", s.handleCreateGroup)
 	mux.HandleFunc("POST /admin/groups/attach", s.handleAttachGroup)
 	mux.HandleFunc("POST /admin/characters/create", s.handleCreateCharacter)
@@ -390,6 +398,43 @@ func (s *Server) handleSetAssetCategory(w http.ResponseWriter, r *http.Request) 
 		_ = s.catalog.SetAssetCategory(r.Context(), assetID, cat, sub)
 	}
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Asset+classification+saved+to+.diffusion-catalog.json", http.StatusSeeOther)
+}
+
+func (s *Server) handleRateAsset(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	if assetID <= 0 {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	current, _ := s.catalog.GetAsset(ctx, assetID)
+	rating := 0
+	favorite := false
+	if current != nil {
+		rating = current.Rating
+		favorite = current.Favorite
+	}
+
+	if rStr := strings.TrimSpace(r.FormValue("rating")); rStr != "" {
+		if parsed, err := strconv.Atoi(rStr); err == nil {
+			rating = parsed
+		}
+	}
+	if fStr := strings.TrimSpace(r.FormValue("favorite")); fStr != "" {
+		favorite = fStr == "1" || fStr == "true" || fStr == "on"
+	} else if r.FormValue("toggle_favorite") == "1" {
+		favorite = !favorite
+	}
+
+	_ = s.catalog.RateAsset(ctx, assetID, rating, favorite)
+
+	if ret := strings.TrimSpace(r.FormValue("return_url")); ret != "" && strings.HasPrefix(ret, "/") {
+		http.Redirect(w, r, ret, http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Score+and+favorite+saved+to+.diffusion-catalog.json", http.StatusSeeOther)
 }
 
 func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
@@ -770,23 +815,27 @@ func parseCatalogFilter(r *http.Request) domain.CatalogFilter {
 	rootID, _ := strconv.ParseInt(q.Get("root_id"), 10, 64)
 	groupID, _ := strconv.ParseInt(q.Get("group_id"), 10, 64)
 	charID, _ := strconv.ParseInt(q.Get("character_id"), 10, 64)
+	minRating, _ := strconv.Atoi(q.Get("min_rating"))
+	favoritesOnly := q.Get("favorites") == "1" || q.Get("favorites") == "true" || q.Get("favorites") == "on"
 	faceMode := q.Get("face_mode") == "1" || q.Get("face_mode") == "true"
 
 	return domain.CatalogFilter{
-		Query:       q.Get("q"),
-		Trigger:     q.Get("trigger"),
-		RootID:      rootID,
-		Category:    q.Get("category"),
-		Subcategory: q.Get("subcategory"),
-		Engine:      q.Get("engine"),
-		ModelName:   q.Get("model"),
-		MediaType:   q.Get("media_type"),
-		GroupID:     groupID,
-		CharacterID: charID,
-		TagNames:    q["tag"],
-		FaceMode:    faceMode,
-		SortBy:      q.Get("sort"),
-		Page:        page,
-		PerPage:     perPage,
+		Query:         q.Get("q"),
+		Trigger:       q.Get("trigger"),
+		RootID:        rootID,
+		Category:      q.Get("category"),
+		Subcategory:   q.Get("subcategory"),
+		MinRating:     minRating,
+		FavoritesOnly: favoritesOnly,
+		Engine:        q.Get("engine"),
+		ModelName:     q.Get("model"),
+		MediaType:     q.Get("media_type"),
+		GroupID:       groupID,
+		CharacterID:   charID,
+		TagNames:      q["tag"],
+		FaceMode:      faceMode,
+		SortBy:        q.Get("sort"),
+		Page:          page,
+		PerPage:       perPage,
 	}
 }

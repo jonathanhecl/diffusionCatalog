@@ -85,9 +85,8 @@ func SyncAssetToFolderManifest(rootPath string, asset *domain.MediaAsset, defaul
 	if asset.Subcategory != "" {
 		entry.Subcategory = asset.Subcategory
 	}
-	if asset.Rating > 0 {
-		entry.Rating = asset.Rating
-	}
+	entry.Rating = asset.Rating
+	entry.Favorite = asset.Favorite
 
 	if len(asset.Tags) > 0 {
 		var tags []domain.ManifestTag

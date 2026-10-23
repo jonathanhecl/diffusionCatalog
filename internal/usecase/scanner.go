@@ -185,6 +185,7 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				Height:      height,
 				FileSize:    fInfo.Size(),
 				Rating:      mEntry.Rating,
+				Favorite:    mEntry.Favorite,
 				Category:    category,
 				Subcategory: subcategory,
 				Metadata:    meta,
