@@ -37,10 +37,27 @@ func TestEndToEndSeedScanAndCatalogQuery(t *testing.T) {
 
 	extractor := metadata.NewExtractor()
 	scannerSvc := NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
-	catalogSvc := NewCatalogService(repo)
+	catalogSvc := NewCatalogService(mediaDir, repo, nil)
 
 	if err := SeedDemoFolderIfEmpty(ctx, mediaDir, cacheDir, repo, scannerSvc); err != nil {
 		t.Fatalf("failed to seed demo folder: %v", err)
+	}
+
+	// Verify seeded Settings and Generator System Prompt Profiles (flux, krea2, moss, minimaxh3, sdxl)
+	settings, err := catalogSvc.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("failed to get settings: %v", err)
+	}
+	if settings.DefaultTargetGenerator != "flux" {
+		t.Errorf("expected default generator 'flux', got %q", settings.DefaultTargetGenerator)
+	}
+
+	profiles, err := catalogSvc.ListPromptProfiles(ctx)
+	if err != nil {
+		t.Fatalf("failed to list prompt profiles: %v", err)
+	}
+	if len(profiles) < 5 {
+		t.Fatalf("expected at least 5 seeded generator profiles (flux, krea2, moss, minimaxh3, sdxl), got %d", len(profiles))
 	}
 
 	page, err := catalogSvc.Query(ctx, domain.CatalogFilter{PerPage: 50})

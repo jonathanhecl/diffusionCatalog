@@ -20,6 +20,7 @@
         <form action="/admin/scan" method="POST" style="display:inline;">
           <button type="submit" class="btn-ghost" title="Non-destructive rescan of configured media folder">Rescan Folder ({{.MediaDir}})</button>
         </form>
+        <a href="/?tab=settings" class="btn-ghost">Settings</a>
         {{if .AdminUser}}
           <span class="badge-chip">Admin: {{.AdminUser}}</span>
           <form action="/admin/logout" method="POST" style="display:inline;">
@@ -39,7 +40,8 @@
       <a href="/?tab=characters" class="nav-tab {{if eq .ActiveTab "characters"}}active{{end}}">Character Folders ({{len .Page.Characters}})</a>
       <a href="/?tab=groups" class="nav-tab {{if eq .ActiveTab "groups"}}active{{end}}">Agnostic Groups ({{len .Page.Groups}})</a>
       <a href="/?face_mode=1" class="nav-tab {{if eq .ActiveTab "faces"}}active{{end}}">Face &amp; Subject Explorer</a>
-      <a href="/?tab=system" class="nav-tab {{if eq .ActiveTab "system"}}active{{end}}">System &amp; Vision Port</a>
+      <a href="/?tab=studio" class="nav-tab {{if eq .ActiveTab "studio"}}active{{end}}">Prompt Studio (Ollama)</a>
+      <a href="/?tab=settings" class="nav-tab {{if eq .ActiveTab "settings"}}active{{end}}">Settings &amp; System Prompts</a>
     </div>
   </nav>
 
@@ -56,6 +58,12 @@
         {{else if eq .ActiveTab "groups"}}
           <h1 class="hero-title">Agnostic <span class="highlight">Collections &amp; Folders</span></h1>
           <p class="hero-sub">Organize diffusion images and videos into arbitrary collections without altering your underlying filesystem.</p>
+        {{else if eq .ActiveTab "studio"}}
+          <h1 class="hero-title">Ollama <span class="highlight">Text2Prompt &amp; Image2Prompt</span> Studio</h1>
+          <p class="hero-sub">Synthesize and translate diffusion/video prompts using model-specific system prompts (Flux, Krea 2, MOSS, MiniMax H3 Video, SDXL).</p>
+        {{else if eq .ActiveTab "settings"}}
+          <h1 class="hero-title">Application <span class="highlight">Settings &amp; Model System Prompts</span></h1>
+          <p class="hero-sub">Configure Ollama model routing (Vision, Image2Prompt, Text2Prompt) and customize system prompts per target generator.</p>
         {{else}}
           <h1 class="hero-title">AI Diffusion <span class="highlight">Prompt &amp; Asset</span> Database</h1>
           <p class="hero-sub">Every generation prompt, checkpoint model, LoRA, seed, and character sheet — indexed locally from your media folder.</p>
@@ -93,6 +101,26 @@
   </section>
 
   <main class="container">
+    {{if .FlashNotice}}
+      <div style="margin-top:14px;padding:10px 14px;background:#0e2a47;border:1px solid #257bf0;border-radius:5px;color:#bfdbfe;font-weight:600;">
+        {{.FlashNotice}}
+      </div>
+    {{end}}
+
+    <!-- Datalist of detected Ollama models for inputs -->
+    <datalist id="ollama-models-all">
+      {{range .OllamaModels}}
+        <option value="{{.Name}}">{{.Family}} ({{.ParameterSize}}) — [{{joinStrings .Capabilities}}]</option>
+      {{end}}
+    </datalist>
+    <datalist id="ollama-models-vision">
+      {{range .OllamaModels}}
+        {{if .HasVision}}
+          <option value="{{.Name}}">Vision ({{.VisionStatus}}) — {{.ParameterSize}}</option>
+        {{end}}
+      {{end}}
+    </datalist>
+
     {{if eq .ActiveTab "login"}}
       <div style="max-width:420px;margin:40px auto;background:var(--bg-panel);border:1px solid var(--border-navy);padding:24px;border-radius:6px;">
         <h2 style="margin-bottom:12px;font-size:18px;">Administrator Login</h2>
@@ -149,6 +177,43 @@
             <div class="prompt-box" style="color:#fca5a5;">{{.SelectedAsset.Metadata.NegativePrompt}}</div>
           </div>
           {{end}}
+
+          <!-- Ollama Image2Prompt & Prompt Converter Panel -->
+          <div style="background:#060d1b;border:1px solid var(--border-highlight);border-radius:6px;padding:14px;">
+            <div class="facet-title">
+              <span>OLLAMA AI — IMAGE2PROMPT &amp; GENERATOR CONVERTER</span>
+              <a href="/?tab=settings" style="font-size:11px;color:#60a5fa;">Configure Models ({{.Settings.Image2PromptModel}} / {{.Settings.Text2PromptModel}}) &rarr;</a>
+            </div>
+
+            {{if .AIResultError}}
+              <div style="margin-bottom:10px;padding:8px 10px;background:#3b0f18;border:1px solid #ef4444;border-radius:4px;color:#fca5a5;font-size:12px;">
+                {{.AIResultError}}
+              </div>
+            {{end}}
+            {{if .AIResultPrompt}}
+              <div style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px;color:#6ee7b7;">
+                  <span>Generated Prompt for target <strong>{{.AITargetProfile}}</strong>:</span>
+                  <button type="button" class="btn-ghost" style="padding:2px 8px;" onclick="navigator.clipboard.writeText(document.getElementById('ai-gen-out').innerText)">Copy</button>
+                </div>
+                <div id="ai-gen-out" class="prompt-box" style="color:#a7f3d0;border-color:#059669;">{{.AIResultPrompt}}</div>
+              </div>
+            {{end}}
+
+            <form action="/admin/ollama/image2prompt" method="POST" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+              <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+              <select name="profile_slug" class="input-dark" style="width:220px;">
+                {{range .PromptProfiles}}
+                  <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
+                {{end}}
+              </select>
+              <input type="text" name="user_hint" placeholder="Optional style/character hint..." class="input-dark" style="flex:1;min-width:180px;">
+              <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+                <input type="checkbox" name="save_to_asset" value="1"> Save as Asset Prompt
+              </label>
+              <button type="submit" class="btn-primary">Run Image2Prompt (Vision)</button>
+            </form>
+          </div>
 
           <div class="kv-table">
             <div class="kv-box">
@@ -208,6 +273,228 @@
                 </select>
                 <button type="submit" class="btn-ghost">Add to Group</button>
               </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    {{else if eq .ActiveTab "studio"}}
+      <!-- Ollama Text2Prompt Studio -->
+      <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;margin:20px 0 40px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div>
+            <h2 style="font-size:18px;">Ollama Text2Prompt Studio</h2>
+            <p style="color:var(--text-muted);font-size:12px;">
+              Active Text2Prompt Model: <code>{{.Settings.Text2PromptModel}}</code> | Ollama Endpoint: <code>{{.Settings.OllamaBaseURL}}</code>
+              ({{if .OllamaOnline}}<span style="color:#34d399;">Online v{{.OllamaVersion}}</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}})
+            </p>
+          </div>
+          <a href="/?tab=settings" class="btn-ghost">Configure Models &amp; System Prompts</a>
+        </div>
+
+        {{if .AIResultError}}
+          <div style="margin-bottom:14px;padding:10px 12px;background:#3b0f18;border:1px solid #ef4444;border-radius:4px;color:#fca5a5;">
+            {{.AIResultError}}
+          </div>
+        {{end}}
+
+        <form action="/admin/ollama/text2prompt" method="POST" style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:grid;grid-template-columns:280px 1fr;gap:12px;align-items:center;">
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Target Generator Profile (System Prompt)</label>
+              <select name="profile_slug" class="input-dark">
+                {{range .PromptProfiles}}
+                  <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} — {{.TargetModality}})</option>
+                {{end}}
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Concept, Scene Idea, or Raw Prompt to Transform</label>
+              <input type="text" name="concept" value="{{.AIInputConcept}}" placeholder="e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk..." class="input-dark" required>
+            </div>
+          </div>
+          <div>
+            <button type="submit" class="btn-primary">Synthesize Prompt with Ollama ({{.Settings.Text2PromptModel}})</button>
+          </div>
+        </form>
+
+        {{if .AIResultPrompt}}
+          <div style="margin-top:18px;">
+            <div class="facet-title">
+              <span>SYNTHESIZED PROMPT ({{.AITargetProfile}})</span>
+              <button type="button" class="btn-ghost" onclick="navigator.clipboard.writeText(document.getElementById('studio-output').innerText)">Copy Prompt</button>
+            </div>
+            <div id="studio-output" class="prompt-box" style="font-size:13px;padding:14px;color:#a7f3d0;border-color:#059669;">{{.AIResultPrompt}}</div>
+          </div>
+        {{end}}
+      </div>
+
+    {{else if eq .ActiveTab "settings"}}
+      <!-- Settings Menu: Ollama Model Routing + Generator System Prompts + System Status -->
+      <div style="display:flex;flex-direction:column;gap:22px;margin:20px 0 44px;">
+
+        <!-- 1. Ollama Connection & Model Routing -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div>
+              <h2 style="font-size:18px;">1. Ollama Model Routing (Vision, Image2Prompt, Text2Prompt)</h2>
+              <p style="color:var(--text-muted);font-size:12px;">Assign dedicated local or remote Ollama models for each capability.</p>
+            </div>
+            <div>
+              {{if .OllamaOnline}}
+                <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
+                  Ollama Online (v{{.OllamaVersion}}) — {{len .OllamaModels}} models detected
+                </span>
+              {{else}}
+                <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
+                  Ollama Unreachable ({{.Settings.OllamaBaseURL}})
+                </span>
+              {{end}}
+            </div>
+          </div>
+
+          <form action="/admin/settings/save" method="POST" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Ollama Base URL</label>
+              <input type="text" name="ollama_base_url" value="{{.Settings.OllamaBaseURL}}" class="input-dark" placeholder="http://localhost:11434" required>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Default Target Generator Profile</label>
+              <select name="default_target_generator" class="input-dark">
+                {{range .PromptProfiles}}
+                  <option value="{{.Slug}}" {{if eq $.Settings.DefaultTargetGenerator .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} — {{.TargetModality}})</option>
+                {{end}}
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Vision Analysis Model (Multimodal)</label>
+              <input type="text" name="vision_model" list="ollama-models-vision" value="{{.Settings.VisionModel}}" class="input-dark" placeholder="e.g. llama3.2-vision:latest, qwen2.5vl:7b, gemma4:e2b">
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Image2Prompt Model (Vision reverse-prompting)</label>
+              <input type="text" name="image2prompt_model" list="ollama-models-vision" value="{{.Settings.Image2PromptModel}}" class="input-dark" placeholder="e.g. llama3.2-vision:latest, minicpm-v:latest">
+            </div>
+
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Text2Prompt Model (Prompt expansion &amp; engine conversion)</label>
+              <input type="text" name="text2prompt_model" list="ollama-models-all" value="{{.Settings.Text2PromptModel}}" class="input-dark" placeholder="e.g. qwen3:8b, gemma4:e2b, llama3.3:latest">
+            </div>
+            <div style="display:flex;align-items:flex-end;padding-bottom:6px;">
+              <label class="checkbox-item" style="font-size:12.5px;color:var(--text-main);">
+                <span>
+                  <input type="checkbox" name="auto_caption_on_scan" {{if .Settings.AutoCaptionOnScan}}checked{{end}}>
+                  Auto-run Image2Prompt during folder scan for assets missing embedded prompts
+                </span>
+              </label>
+            </div>
+
+            <div style="grid-column:span 2;display:flex;justify-content:space-between;align-items:center;padding-top:6px;">
+              <button type="submit" class="btn-primary">Save Ollama &amp; App Settings</button>
+              <a href="/?tab=settings" class="btn-ghost">Refresh Detected Ollama Models</a>
+            </div>
+          </form>
+
+          {{if .OllamaModels}}
+            <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-navy);">
+              <div class="kv-label" style="margin-bottom:8px;">Detected Local Ollama Models &amp; Capabilities (via /api/tags + /api/show)</div>
+              <div class="tag-cloud">
+                {{range .OllamaModels}}
+                  <span class="badge-chip" style="padding:4px 8px;font-size:11px;">
+                    <strong>{{.Name}}</strong> ({{.ParameterSize}})
+                    {{if .HasVision}}<span style="color:#34d399;">[vision:{{.VisionStatus}}]</span>{{end}}
+                    {{if .ContextLength}}<span style="color:#93c5fd;">[ctx:{{.ContextLength}}]</span>{{end}}
+                  </span>
+                {{end}}
+              </div>
+            </div>
+          {{end}}
+        </div>
+
+        <!-- 2. System Prompts per Generator Model (flux, krea2, moss, minimaxh3, etc.) -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+          <h2 style="font-size:18px;margin-bottom:4px;">2. Generator System Prompts (Flux, Krea 2, MOSS, MiniMax H3 Video, SDXL &amp; Custom)</h2>
+          <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">
+            Each generator profile defines the exact <code>system</code> prompt sent to your Ollama <code>image2prompt</code> or <code>text2prompt</code> model. Edit any profile below or register new image/video engines.
+          </p>
+
+          <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px;">
+            {{range .PromptProfiles}}
+              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:14px;">
+                <form action="/admin/profiles/upsert" method="POST" style="display:flex;flex-direction:column;gap:10px;">
+                  <div style="display:grid;grid-template-columns:160px 240px 140px 1fr;gap:10px;">
+                    <div>
+                      <label class="kv-label">Slug ID</label>
+                      <input type="text" name="slug" value="{{.Slug}}" class="input-dark" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Display Name</label>
+                      <input type="text" name="name" value="{{.Name}}" class="input-dark" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Target Modality</label>
+                      <select name="target_modality" class="input-dark">
+                        <option value="image" {{if eq .TargetModality "image"}}selected{{end}}>Image Generator</option>
+                        <option value="video" {{if eq .TargetModality "video"}}selected{{end}}>Video Generator</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="kv-label">Short Description</label>
+                      <input type="text" name="description" value="{{.Description}}" class="input-dark">
+                    </div>
+                  </div>
+                  <div>
+                    <label class="kv-label">System Prompt (Sent to Ollama for {{.Name}})</label>
+                    <textarea name="system_prompt" rows="3" class="input-dark" style="font-family:monospace;font-size:12px;" required>{{.SystemPrompt}}</textarea>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <button type="submit" class="btn-primary" style="padding:6px 14px;font-size:12px;">Update '{{.Slug}}' Profile</button>
+                  </div>
+                </form>
+                <form action="/admin/profiles/delete" method="POST" style="margin-top:6px;text-align:right;">
+                  <input type="hidden" name="id" value="{{.ID}}">
+                  <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:4px 10px;font-size:11px;">Delete Profile</button>
+                </form>
+              </div>
+            {{end}}
+          </div>
+
+          <!-- Add New Generator System Prompt Profile -->
+          <div style="background:#071124;border:1px dashed var(--border-highlight);border-radius:6px;padding:16px;">
+            <h3 style="font-size:15px;margin-bottom:10px;">Add New Generator System Prompt Profile (e.g. wan2.1, hunyuan-video, midjourney-v7)</h3>
+            <form action="/admin/profiles/upsert" method="POST" style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:grid;grid-template-columns:160px 240px 160px 1fr;gap:10px;">
+                <input type="text" name="slug" placeholder="Slug (e.g. wan21)" class="input-dark" required>
+                <input type="text" name="name" placeholder="Generator Name (e.g. Wan 2.1 Video)" class="input-dark" required>
+                <select name="target_modality" class="input-dark">
+                  <option value="image">Image Generator</option>
+                  <option value="video">Video Generator</option>
+                </select>
+                <input type="text" name="description" placeholder="Notes on token style / architecture..." class="input-dark">
+              </div>
+              <textarea name="system_prompt" rows="4" class="input-dark" placeholder="Write the system instructions explaining how Ollama should structure prompts for this generator..." required></textarea>
+              <div>
+                <button type="submit" class="btn-primary">Create System Prompt Profile</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 3. Runtime & Vision Adapter Status -->
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+          <h2 style="font-size:18px;margin-bottom:10px;">3. Storage &amp; Pluggable Face Vision Adapter</h2>
+          <div class="kv-table">
+            <div class="kv-box">
+              <div class="kv-label">Source Media Directory (Read-Only)</div>
+              <div class="kv-val"><code>{{.MediaDir}}</code></div>
+            </div>
+            <div class="kv-box">
+              <div class="kv-label">Active Face Vision Adapter</div>
+              <div class="kv-val"><code>{{.VisionEngineName}}</code></div>
+            </div>
+            <div class="kv-box">
+              <div class="kv-label">Last Scan Summary</div>
+              <div class="kv-val">{{.ScanReport.ScannedFiles}} files ({{.ScanReport.ImagesFound}} images, {{.ScanReport.VideosFound}} videos)</div>
             </div>
           </div>
         </div>
@@ -291,29 +578,6 @@
           <input type="text" name="description" placeholder="Description..." class="input-dark">
           <div><button type="submit" class="btn-primary">Create Group</button></div>
         </form>
-      </div>
-
-    {{else if eq .ActiveTab "system"}}
-      <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:22px;margin:20px 0 40px;">
-        <h2 style="margin-bottom:12px;">System Status &amp; Pluggable Vision Engine</h2>
-        <div class="kv-table">
-          <div class="kv-box">
-            <div class="kv-label">Source Media Directory (Read-Only)</div>
-            <div class="kv-val"><code>{{.MediaDir}}</code></div>
-          </div>
-          <div class="kv-box">
-            <div class="kv-label">Active Vision Adapter</div>
-            <div class="kv-val"><code>{{.VisionEngineName}}</code></div>
-          </div>
-          <div class="kv-box">
-            <div class="kv-label">Last Scan Summary</div>
-            <div class="kv-val">{{.ScanReport.ScannedFiles}} files ({{.ScanReport.ImagesFound}} images, {{.ScanReport.VideosFound}} videos)</div>
-          </div>
-        </div>
-        <p style="color:var(--text-muted);margin-top:12px;">
-          To enable automated Python face/subject detection and 512-d embeddings, run the companion FastAPI worker in
-          <code>scripts/vision_worker/app.py</code> and pass <code>--vision-url=http://127.0.0.1:8091</code> to <code>catalogd</code>.
-        </p>
       </div>
 
     {{else}}
