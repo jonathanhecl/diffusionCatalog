@@ -2,12 +2,13 @@ package domain
 
 import "time"
 
-// AIProviderType identifies which inference server handles a task ("ollama" or "omlx").
+// AIProviderType identifies which inference server handles a task ("ollama" or "openai" / "omlx").
 type AIProviderType string
 
 const (
 	ProviderOllama AIProviderType = "ollama"
-	ProviderOMLX   AIProviderType = "omlx"
+	ProviderOpenAI AIProviderType = "openai"
+	ProviderOMLX   AIProviderType = "omlx" // legacy alias for ProviderOpenAI
 )
 
 // AppSettings stores configurable application options and dual Ollama / oMLX model routing preferences.

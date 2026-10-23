@@ -2,12 +2,17 @@ package web
 
 import (
 	"embed"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"html/template"
+	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
 	"github.com/jonathanhecl/diffusionCatalog/internal/usecase"
@@ -151,12 +156,40 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/loras/upsert", s.handleUpsertLoRA)
 	mux.HandleFunc("POST /admin/loras/delete", s.handleDeleteLoRA)
 
+	// Live scan status API endpoint
+	mux.HandleFunc("GET /api/scan/status", s.handleScanStatus)
+
 	// Ollama AI Actions (Image2Prompt, Character2Prompt & Text2Prompt)
 	mux.HandleFunc("POST /admin/ollama/image2prompt", s.handleImage2Prompt)
 	mux.HandleFunc("POST /admin/ollama/character2prompt", s.handleCharacter2Prompt)
 	mux.HandleFunc("POST /admin/ollama/text2prompt", s.handleText2Prompt)
 
-	return mux
+	return s.loggingMiddleware(mux)
+}
+
+type statusResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *statusResponseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rw := &statusResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		next.ServeHTTP(rw, r)
+		duration := time.Since(start).Round(time.Millisecond)
+
+		// Don't flood console with periodic scan status polling
+		if r.URL.Path == "/api/scan/status" {
+			return
+		}
+		log.Printf("[HTTP] %d %s %s (%v) - %s", rw.statusCode, r.Method, r.URL.RequestURI(), duration, r.RemoteAddr)
+	})
 }
 
 type viewData struct {
@@ -168,8 +201,11 @@ type viewData struct {
 	Filter            domain.CatalogFilter
 	Page              *domain.CatalogPage
 	SelectedAsset     *domain.MediaAsset
+	PrevAssetID       int64
+	NextAssetID       int64
 	RelatedAssets     usecase.RelatedAssetsBundle
 	ScanReport        usecase.ScanReport
+	ScanStatus        usecase.ScanStatus
 	Settings          domain.AppSettings
 	PromptProfiles    []domain.PromptProfile
 	SelectedGenSlug   string
@@ -231,13 +267,17 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	var selectedAsset *domain.MediaAsset
 	var relatedAssets usecase.RelatedAssetsBundle
 	var assetID int64
+	var prevAssetID, nextAssetID int64
 	if assetIDStr := r.URL.Query().Get("asset_id"); assetIDStr != "" {
 		if id, err := strconv.ParseInt(assetIDStr, 10, 64); err == nil && id > 0 {
 			if a, err := s.catalog.GetAsset(ctx, id); err == nil {
 				selectedAsset = a
 				relatedAssets = s.catalog.GetRelatedAssets(ctx, a)
 				assetID = id
-				tab = "asset_detail"
+				if tab == "" {
+					tab = "asset_detail"
+				}
+				prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, id)
 			}
 		}
 	}
@@ -246,6 +286,15 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Failed to query catalog: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// If opening remix page with no asset specified, default to first available asset
+	if tab == "remix" && selectedAsset == nil && len(page.Assets) > 0 {
+		if a, err := s.catalog.GetAsset(ctx, page.Assets[0].ID); err == nil {
+			selectedAsset = a
+			assetID = a.ID
+			prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, assetID)
+		}
 	}
 
 	settings, _ := s.catalog.GetSettings(ctx)
@@ -266,7 +315,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var aiStatus usecase.AIBackendStatus
-	if tab == "settings" || tab == "studio" || tab == "asset_detail" || tab == "characters" {
+	if tab == "settings" || tab == "studio" || tab == "asset_detail" || tab == "characters" || tab == "remix" {
 		aiStatus = s.catalog.InspectAIBackends(ctx)
 	}
 
@@ -284,8 +333,11 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		Filter:           filter,
 		Page:             page,
 		SelectedAsset:    selectedAsset,
+		PrevAssetID:      prevAssetID,
+		NextAssetID:      nextAssetID,
 		RelatedAssets:    relatedAssets,
 		ScanReport:       s.scanner.LastReport(),
+		ScanStatus:       s.scanner.Status(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
 		SelectedGenSlug:  selectedGenSlug,
@@ -343,7 +395,7 @@ func (s *Server) handleSwitchDB(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.FormValue("rescan") == "1" || r.FormValue("rescan") == "on" {
-		_, _ = s.scanner.Scan(r.Context())
+		s.scanner.StartScanAsync()
 	}
 	http.Redirect(w, r, "/?tab=settings&notice=Switched+active+global+database+to+"+newPath, http.StatusSeeOther)
 }
@@ -353,10 +405,16 @@ func (s *Server) handleAddMediaRoot(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimSpace(r.FormValue("path"))
 	label := strings.TrimSpace(r.FormValue("label"))
 	if path != "" {
+		log.Printf("[CATALOG] Adding media root folder: %s (label: %s)", path, label)
 		_, _ = s.catalog.AddMediaRoot(r.Context(), path, label)
-		_, _ = s.scanner.Scan(r.Context())
+		s.scanner.StartScanAsync()
 	}
-	http.Redirect(w, r, "/?tab=settings&notice=Media+folder+registered+and+scanned", http.StatusSeeOther)
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "added_and_scanning"})
+		return
+	}
+	http.Redirect(w, r, "/?tab=settings&notice=Media+folder+registered+and+scan+started", http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteMediaRoot(w http.ResponseWriter, r *http.Request) {
@@ -550,11 +608,32 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	override := parseExecutionOverride(r)
 	saveToAsset := r.FormValue("save_to_asset") == "1" || r.FormValue("save_to_asset") == "on"
 
-	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, override, saveToAsset)
+	var frameImagePath string
+	if frameData := strings.TrimSpace(r.FormValue("video_frame_data")); frameData != "" {
+		idx := strings.Index(frameData, ";base64,")
+		b64Content := frameData
+		if idx != -1 {
+			b64Content = frameData[idx+8:]
+		}
+		if rawDecoded, err := base64.StdEncoding.DecodeString(b64Content); err == nil && len(rawDecoded) > 0 {
+			framesDir := filepath.Join(s.cacheDir, "frames")
+			_ = os.MkdirAll(framesDir, 0755)
+			frameImagePath = filepath.Join(framesDir, fmt.Sprintf("frame_asset_%d_%d.jpg", assetID, time.Now().UnixNano()))
+			if err := os.WriteFile(frameImagePath, rawDecoded, 0644); err != nil {
+				log.Printf("[REMIX] Failed to write video frame: %v", err)
+				frameImagePath = ""
+			} else {
+				log.Printf("[REMIX] Video frame captured: %s (%d bytes)", frameImagePath, len(rawDecoded))
+			}
+		}
+	}
+
+	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, override, saveToAsset, frameImagePath)
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
 	selectedAsset, _ := s.catalog.GetAsset(ctx, assetID)
+	prevAssetID, nextAssetID, _ := s.catalog.GetAdjacentAssetIDs(ctx, assetID)
 	relatedAssets := s.catalog.GetRelatedAssets(ctx, selectedAsset)
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
@@ -562,8 +641,13 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	history, _ := s.catalog.ListGeneratedPrompts(ctx, assetID, 0, 20)
 	aiStatus := s.catalog.InspectAIBackends(ctx)
 
+	activeTab := "remix"
+	if r.FormValue("source_tab") == "asset_detail" {
+		activeTab = "asset_detail"
+	}
+
 	data := viewData{
-		ActiveTab:        "asset_detail",
+		ActiveTab:        activeTab,
 		MediaDir:         s.mediaDir,
 		CurrentDBPath:    s.catalog.CurrentDBPath(),
 		VisionEngineName: s.visionEngineName,
@@ -571,8 +655,11 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		Filter:           filter,
 		Page:             page,
 		SelectedAsset:    selectedAsset,
+		PrevAssetID:      prevAssetID,
+		NextAssetID:      nextAssetID,
 		RelatedAssets:    relatedAssets,
 		ScanReport:       s.scanner.LastReport(),
+		ScanStatus:       s.scanner.Status(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
 		ModelLoRAs:       loras,
@@ -728,8 +815,24 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
-	_, _ = s.scanner.Scan(r.Context())
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	log.Printf("[CATALOG] Folder rescan triggered")
+	s.scanner.StartScanAsync()
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "started"})
+		return
+	}
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		referer = "/"
+	}
+	http.Redirect(w, r, referer, http.StatusSeeOther)
+}
+
+func (s *Server) handleScanStatus(w http.ResponseWriter, r *http.Request) {
+	st := s.scanner.Status()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(st)
 }
 
 func (s *Server) handleAddTag(w http.ResponseWriter, r *http.Request) {

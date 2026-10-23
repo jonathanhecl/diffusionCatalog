@@ -118,7 +118,7 @@ Steps: 25, Sampler: Euler, CFG scale: 3.5, Seed: 777111, Model: flux1-dev`
 		t.Errorf("expected sidecar .txt to contain prompt, got %q", string(sidecarBytes))
 	}
 
-	// 2. Modify cyber_scene.txt and verify .txt takes priority over embedded PNG chunk
+	// 2. Modify cyber_scene.txt and verify Extract does NOT overwrite existing .txt
 	overrideTXT := `overridden prompt from companion txt sidecar, <lora:krea2_skin:0.7>
 Negative prompt: plastic skin
 Steps: 30, Sampler: DPM++ 2M, CFG scale: 5.0, Seed: 999888, Model: krea2-pro, Engine: comfyui`
@@ -126,18 +126,33 @@ Steps: 30, Sampler: DPM++ 2M, CFG scale: 5.0, Seed: 999888, Model: krea2-pro, En
 		t.Fatalf("failed to write override txt: %v", err)
 	}
 
-	params2, w2, h2, err := ext.Extract(context.Background(), imgPath, domain.MediaTypeImage)
+	_, _, _, err = ext.Extract(context.Background(), imgPath, domain.MediaTypeImage)
 	if err != nil {
-		t.Fatalf("Extract from .txt failed: %v", err)
+		t.Fatalf("Extract failed: %v", err)
 	}
-	if w2 != 320 || h2 != 480 {
-		t.Errorf("expected 320x480 on .txt fast path, got %dx%d", w2, h2)
+	txtContentAfter, err := os.ReadFile(txtPath)
+	if err != nil {
+		t.Fatalf("failed to read txt: %v", err)
 	}
-	if !strings.Contains(params2.PositivePrompt, "overridden prompt from companion txt sidecar") {
-		t.Errorf("expected .txt prompt priority, got %q", params2.PositivePrompt)
+	if string(txtContentAfter) != overrideTXT {
+		t.Errorf("expected existing (media).txt to NOT be overwritten, got: %q", string(txtContentAfter))
 	}
-	if params2.Engine != domain.EngineComfyUI {
-		t.Errorf("expected engine comfyui from .txt, got %s", params2.Engine)
+
+	// 3. For media WITHOUT embedded metadata, verify it uses what (media).txt says
+	noMetaImgPath := filepath.Join(tmpDir, "plain_scene.png")
+	noMetaTxtPath := filepath.Join(tmpDir, "plain_scene.txt")
+	writeTestPNGWithChunk(t, noMetaImgPath, 320, 480, "Software", "Adobe Photoshop")
+	plainTXT := "a sunset over mountains, 8k photo\nNegative prompt: blurry\nSteps: 20, Model: sd_xl_base"
+	if err := os.WriteFile(noMetaTxtPath, []byte(plainTXT), 0644); err != nil {
+		t.Fatalf("failed to write plain txt: %v", err)
+	}
+
+	plainParams, _, _, err := ext.Extract(context.Background(), noMetaImgPath, domain.MediaTypeImage)
+	if err != nil {
+		t.Fatalf("Extract from no-meta image failed: %v", err)
+	}
+	if !strings.Contains(plainParams.PositivePrompt, "a sunset over mountains") {
+		t.Errorf("expected prompt from (media).txt when not in metadata, got: %q", plainParams.PositivePrompt)
 	}
 }
 

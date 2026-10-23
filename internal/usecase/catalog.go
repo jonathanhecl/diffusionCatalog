@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log"
 	"path/filepath"
 	"strings"
 
@@ -191,6 +192,11 @@ func (s *CatalogService) Query(ctx context.Context, filter domain.CatalogFilter)
 func (s *CatalogService) GetAsset(ctx context.Context, id int64) (*domain.MediaAsset, error) {
 	_ = s.repo.IncrementAssetView(ctx, id)
 	return s.repo.GetAssetByID(ctx, id)
+}
+
+// GetAdjacentAssetIDs returns the previous (newer) and next (older) asset IDs relative to the specified asset ID.
+func (s *CatalogService) GetAdjacentAssetIDs(ctx context.Context, id int64) (int64, int64, error) {
+	return s.repo.GetAdjacentAssetIDs(ctx, id)
 }
 
 // RelatedAssetsBundle holds related assets sharing the same Category, Character, or Group as a selected asset.
@@ -502,7 +508,7 @@ func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProv
 	}
 
 	baseURL := cfg.OllamaBaseURL
-	if prov == domain.ProviderOMLX {
+	if prov == domain.ProviderOpenAI || prov == domain.ProviderOMLX {
 		baseURL = cfg.OMLXBaseURL
 	}
 	return prov, model, baseURL, think
@@ -511,7 +517,7 @@ func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProv
 // RunImage2Prompt runs the configured Ollama or oMLX Image2Prompt (or Remix Text2Prompt) on an asset
 // using the selected generator profile's system prompt (e.g., flux, krea2, moss, minimaxh3), selected model LoRAs,
 // optional character/scene direction, and optional quick model/thinking overrides.
-func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, loraIDs []int64, override domain.PromptExecutionOverride, saveToAsset bool) (string, error) {
+func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, loraIDs []int64, override domain.PromptExecutionOverride, saveToAsset bool, frameImagePath string) (string, error) {
 	if s.ollama == nil {
 		return "", fmt.Errorf("AI provider is not initialized")
 	}
@@ -561,7 +567,10 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 	var usedModel string
 	var usedThink string
 
-	if mode == "remix" && combinedHint != "" {
+	// For videos with a captured frame, send the frame to ImageToPrompt so the model uses it as visual reference
+	isFrameRef := frameImagePath != "" && (asset.MediaType == domain.MediaTypeVideo || mode == "vision")
+
+	if !isFrameRef && mode == "remix" && combinedHint != "" {
 		// Remix via Text2Prompt model using the extracted prompt + character + direction
 		var baseURL string
 		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(
@@ -585,6 +594,10 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		var baseURL string
 		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
 		absPath := s.ResolveAssetAbsPath(ctx, asset)
+		if frameImagePath != "" {
+			absPath = frameImagePath
+			log.Printf("[AI] Video remix using captured video frame: %s (model: %s)", absPath, usedModel)
+		}
 		generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, absPath, combinedHint, usedThink)
 		if err != nil {
 			return "", err

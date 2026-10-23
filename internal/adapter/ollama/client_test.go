@@ -16,14 +16,14 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func TestNormalizeURLs(t *testing.T) {
-	if got := NormalizeOllamaURL("http://mac-mini.local"); got != "http://mac-mini.local:11434" {
-		t.Errorf("expected http://mac-mini.local:11434, got %s", got)
+	if got := NormalizeOllamaURL("http://127.0.0.1"); got != "http://127.0.0.1:11434" {
+		t.Errorf("expected http://127.0.0.1:11434, got %s", got)
 	}
-	if got := NormalizeOMLXURL("http://mac-mini.local"); got != "http://mac-mini.local:8000" {
-		t.Errorf("expected http://mac-mini.local:8000, got %s", got)
+	if got := NormalizeOMLXURL("http://127.0.0.1"); got != "http://127.0.0.1:8000" {
+		t.Errorf("expected http://127.0.0.1:8000, got %s", got)
 	}
-	if got := NormalizeOMLXURL("http://mac-mini.local:8000/v1"); got != "http://mac-mini.local:8000" {
-		t.Errorf("expected http://mac-mini.local:8000, got %s", got)
+	if got := NormalizeOMLXURL("http://127.0.0.1:8000/v1"); got != "http://127.0.0.1:8000" {
+		t.Errorf("expected http://127.0.0.1:8000, got %s", got)
 	}
 }
 
@@ -61,7 +61,7 @@ func TestOMLXListModelsAndTextToPrompt(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	models, err := client.ListOMLXModels(ctx, "http://mac-mini.local:8000", "omlx")
+	models, err := client.ListOMLXModels(ctx, "http://127.0.0.1:8000", "omlx")
 	if err != nil {
 		t.Fatalf("expected ListOMLXModels to succeed, got %v", err)
 	}
@@ -78,7 +78,7 @@ func TestOMLXListModelsAndTextToPrompt(t *testing.T) {
 		t.Errorf("expected Qwen2.5-VL to be flagged HasVision=true")
 	}
 
-	out, err := client.TextToPrompt(ctx, domain.ProviderOMLX, "http://mac-mini.local:8000", "omlx", models[0].Name, "You are a Flux prompt specialist.", "cyberpunk street", "low")
+	out, err := client.TextToPrompt(ctx, domain.ProviderOMLX, "http://127.0.0.1:8000", "omlx", models[0].Name, "You are a Flux prompt specialist.", "cyberpunk street", "low")
 	if err != nil {
 		t.Fatalf("expected oMLX TextToPrompt to succeed, got %v", err)
 	}

@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,9 +58,15 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 	img2Path := filepath.Join(root2Dir, "mecha_test.png")
 	txt2Path := filepath.Join(root2Dir, "mecha_test.txt")
 	img := renderSyntheticArtwork(200, 200, color.RGBA{20, 30, 40, 255}, color.RGBA{100, 200, 250, 255}, 1)
-	if err := writePNGWithTEXTChunk(img2Path, img, "Comment", "ignored embedded comment"); err != nil {
-		t.Fatalf("write img2: %v", err)
+	imgFile, err := os.Create(img2Path)
+	if err != nil {
+		t.Fatalf("create img2: %v", err)
 	}
+	if err := png.Encode(imgFile, img); err != nil {
+		imgFile.Close()
+		t.Fatalf("encode img2: %v", err)
+	}
+	imgFile.Close()
 	if err := os.WriteFile(txt2Path, []byte("orbital mech drop from txt sidecar\nSteps: 20, Seed: 12345, Model: flux1-dev\n"), 0644); err != nil {
 		t.Fatalf("write txt2: %v", err)
 	}

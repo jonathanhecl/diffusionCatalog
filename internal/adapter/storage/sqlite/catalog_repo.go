@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
 )
@@ -277,18 +278,24 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		favInt = 1
 	}
 
+	var fileMTimeVal interface{} = nil
+	if !a.FileMTime.IsZero() {
+		fileMTimeVal = a.FileMTime.UTC()
+	}
+
 	query := `
 	INSERT INTO assets (
 		root_id, rel_path, file_name, file_hash, media_type, width, height, duration_sec, file_size,
 		view_count, rating, favorite, category, subcategory, engine, positive_prompt, negative_prompt, model_name, model_hash,
-		sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata, file_mtime
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(rel_path) DO UPDATE SET
 		root_id = excluded.root_id,
 		file_hash = excluded.file_hash,
 		width = excluded.width,
 		height = excluded.height,
 		file_size = excluded.file_size,
+		file_mtime = excluded.file_mtime,
 		category = CASE WHEN excluded.category != '' THEN excluded.category ELSE assets.category END,
 		subcategory = CASE WHEN excluded.subcategory != '' THEN excluded.subcategory ELSE assets.subcategory END,
 		rating = CASE WHEN excluded.rating > 0 THEN excluded.rating ELSE assets.rating END,
@@ -313,7 +320,7 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		a.RootID, a.RelPath, a.FileName, a.FileHash, string(a.MediaType), a.Width, a.Height, a.DurationSec, a.FileSize,
 		a.ViewCount, a.Rating, favInt, a.Category, a.Subcategory, string(a.Metadata.Engine), a.Metadata.PositivePrompt, a.Metadata.NegativePrompt,
 		a.Metadata.ModelName, a.Metadata.ModelHash, a.Metadata.Sampler, a.Metadata.Scheduler,
-		a.Metadata.Steps, a.Metadata.CFGScale, a.Metadata.Seed, string(lorasBytes), a.Metadata.RawMetadata,
+		a.Metadata.Steps, a.Metadata.CFGScale, a.Metadata.Seed, string(lorasBytes), a.Metadata.RawMetadata, fileMTimeVal,
 	).Scan(&id)
 	if err != nil {
 		return 0, err
@@ -330,7 +337,7 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
 		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
 		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
-		       a.loras_json, a.raw_metadata, a.indexed_at
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at
 		FROM assets a
 		LEFT JOIN media_roots mr ON mr.id = a.root_id
 		WHERE a.id = ?`, id)
@@ -345,6 +352,36 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 	asset.Characters, _ = r.getCharactersForAsset(ctx, asset.ID)
 	asset.Faces, _ = r.getFacesForAsset(ctx, asset.ID)
 	return asset, nil
+}
+
+// GetAdjacentAssetIDs returns the previous (newer) and next (older) asset IDs relative to the specified asset ID.
+func (r *Repository) GetAdjacentAssetIDs(ctx context.Context, id int64) (int64, int64, error) {
+	db := r.conn()
+
+	var curMTime time.Time
+	var curID int64
+	err := db.QueryRowContext(ctx, `SELECT COALESCE(file_mtime, indexed_at), id FROM assets WHERE id = ?`, id).Scan(&curMTime, &curID)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	var prevID, nextID int64
+
+	// Prev: newer in time or same time with higher ID
+	_ = db.QueryRowContext(ctx, `
+		SELECT id FROM assets
+		WHERE (COALESCE(file_mtime, indexed_at) > ?) OR (COALESCE(file_mtime, indexed_at) = ? AND id > ?)
+		ORDER BY COALESCE(file_mtime, indexed_at) ASC, id ASC
+		LIMIT 1`, curMTime, curMTime, curID).Scan(&prevID)
+
+	// Next: older in time or same time with lower ID
+	_ = db.QueryRowContext(ctx, `
+		SELECT id FROM assets
+		WHERE (COALESCE(file_mtime, indexed_at) < ?) OR (COALESCE(file_mtime, indexed_at) = ? AND id < ?)
+		ORDER BY COALESCE(file_mtime, indexed_at) DESC, id DESC
+		LIMIT 1`, curMTime, curMTime, curID).Scan(&nextID)
+
+	return prevID, nextID, nil
 }
 
 // IncrementAssetView increments the view counter of an asset.
@@ -394,16 +431,16 @@ func (r *Repository) UpdateAssetRating(ctx context.Context, assetID int64, ratin
 func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error) {
 	db := r.conn()
 	s := domain.AppSettings{
-		OllamaBaseURL:          "http://mac-mini.local:11434",
-		OMLXBaseURL:            "http://mac-mini.local:8000",
-		OMLXAPIKey:             "omlx",
+		OllamaBaseURL:          "http://127.0.0.1:11434",
+		OMLXBaseURL:            "http://127.0.0.1:8000",
+		OMLXAPIKey:             "",
 		VisionProvider:         domain.ProviderOllama,
 		VisionModel:            "llama3.2-vision:latest",
 		VisionThink:            "off",
 		Image2PromptProvider:   domain.ProviderOllama,
 		Image2PromptModel:      "llama3.2-vision:latest",
 		Image2PromptThink:      "off",
-		Text2PromptProvider:    domain.ProviderOMLX,
+		Text2PromptProvider:    domain.ProviderOpenAI,
 		Text2PromptModel:       "SuperQwen3.8-27b-abliterated-MLX-4bit",
 		Text2PromptThink:       "low",
 		DefaultTargetGenerator: "flux",
@@ -912,8 +949,10 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 		page.TotalPages = 1
 	}
 
-	orderBy := "a.indexed_at DESC, a.id DESC"
+	orderBy := "COALESCE(a.file_mtime, a.indexed_at) DESC, a.id DESC"
 	switch filter.SortBy {
+	case "oldest":
+		orderBy = "COALESCE(a.file_mtime, a.indexed_at) ASC, a.id ASC"
 	case "rating", "popular":
 		orderBy = "a.rating DESC, a.favorite DESC, a.view_count DESC, a.id DESC"
 	case "favorites":
@@ -930,7 +969,7 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
 		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
 		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
-		       a.loras_json, a.raw_metadata, a.indexed_at
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at
 		FROM assets a
 		LEFT JOIN media_roots mr ON mr.id = a.root_id
 		%s
@@ -1306,6 +1345,7 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 	var a domain.MediaAsset
 	var mediaTypeStr, engineStr, lorasStr string
 	var favInt int
+	var fileMTime sql.NullTime
 	err := s.Scan(
 		&a.ID, &a.RootID, &a.RootPath, &a.RootLabel,
 		&a.RelPath, &a.FileName, &a.FileHash, &mediaTypeStr,
@@ -1315,10 +1355,15 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 		&a.Metadata.ModelName, &a.Metadata.ModelHash,
 		&a.Metadata.Sampler, &a.Metadata.Scheduler,
 		&a.Metadata.Steps, &a.Metadata.CFGScale, &a.Metadata.Seed,
-		&lorasStr, &a.Metadata.RawMetadata, &a.IndexedAt,
+		&lorasStr, &a.Metadata.RawMetadata, &fileMTime, &a.IndexedAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if fileMTime.Valid {
+		a.FileMTime = fileMTime.Time
+	} else {
+		a.FileMTime = a.IndexedAt
 	}
 	a.Favorite = favInt == 1
 	a.MediaType = domain.MediaType(mediaTypeStr)

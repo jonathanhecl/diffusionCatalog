@@ -62,6 +62,7 @@ type MediaAsset struct {
 	Groups      []Group          `json:"groups"`
 	Characters  []Character      `json:"characters"`
 	Faces       []DetectedFace   `json:"faces"`
+	FileMTime   time.Time        `json:"file_mtime"`
 	IndexedAt   time.Time        `json:"indexed_at"`
 }
 

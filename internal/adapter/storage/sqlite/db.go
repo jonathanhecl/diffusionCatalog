@@ -80,6 +80,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		seed INTEGER NOT NULL DEFAULT 0,
 		loras_json TEXT NOT NULL DEFAULT '[]',
 		raw_metadata TEXT NOT NULL DEFAULT '',
+		file_mtime DATETIME,
 		indexed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -236,6 +237,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN category TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN subcategory TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`)
+	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN file_mtime DATETIME`)
 
 	return seedDefaultSettingsAndProfiles(ctx, db)
 }

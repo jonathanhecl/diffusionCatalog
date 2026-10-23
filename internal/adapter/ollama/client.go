@@ -18,8 +18,8 @@ import (
 )
 
 // Client implements domain.OllamaProvider supporting both native Ollama REST endpoints
-// (/api/version, /api/tags, /api/show, /api/chat) and oMLX OpenAI-compatible endpoints
-// (/v1/models, /v1/chat/completions) on local or remote hosts (e.g. http://mac-mini.local).
+// (/api/version, /api/tags, /api/show, /api/chat) and OpenAI-compatible endpoints (oMLX, LMStudio, vLLM, etc.)
+// (/v1/models, /v1/chat/completions) on local or remote hosts (e.g. http://127.0.0.1).
 type Client struct {
 	httpClient *http.Client
 }
@@ -273,7 +273,7 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 	return out, nil
 }
 
-// CheckOMLXStatus checks if an oMLX server (e.g. http://mac-mini.local:8000) is reachable via GET /v1/models.
+// CheckOMLXStatus checks if an OpenAI-compatible / oMLX server (e.g. http://127.0.0.1:8000) is reachable via GET /v1/models.
 func (c *Client) CheckOMLXStatus(ctx context.Context, baseURL, apiKey string) (bool, int) {
 	models, err := c.ListOMLXModels(ctx, baseURL, apiKey)
 	if err != nil {
@@ -640,14 +640,14 @@ func stripThinkTags(raw string) string {
 	return strings.TrimSpace(s)
 }
 
-// NormalizeOllamaURL normalizes local or remote host strings (e.g. "http://mac-mini.local" -> "http://mac-mini.local:11434").
+// NormalizeOllamaURL normalizes local or remote host strings (e.g. "http://127.0.0.1" -> "http://127.0.0.1:11434").
 func NormalizeOllamaURL(raw string) string {
-	return normalizeEndpoint(raw, "http://localhost:11434", "11434")
+	return normalizeEndpoint(raw, "http://127.0.0.1:11434", "11434")
 }
 
-// NormalizeOMLXURL normalizes local or remote oMLX host strings (e.g. "http://mac-mini.local" -> "http://mac-mini.local:8000").
+// NormalizeOMLXURL normalizes local or remote OpenAI-compatible host strings (e.g. "http://127.0.0.1" -> "http://127.0.0.1:8000").
 func NormalizeOMLXURL(raw string) string {
-	return normalizeEndpoint(raw, "http://mac-mini.local:8000", "8000")
+	return normalizeEndpoint(raw, "http://127.0.0.1:8000", "8000")
 }
 
 func normalizeEndpoint(raw, fallback, defaultPort string) string {

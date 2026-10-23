@@ -23,34 +23,15 @@ func NewExtractor() *Extractor {
 	return &Extractor{}
 }
 
-// Extract inspects a companion .txt / .json sidecar first for fast prompt loading, and if missing,
-// extracts embedded diffusion prompts/parameters from the media binary and auto-creates a .txt sidecar.
+// Extract checks embedded diffusion metadata first: if present, it is used and saved to (media).txt
+// (only if (media).txt does not already exist). If the prompt is not in metadata, it uses what (media).txt says.
 func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domain.MediaType) (domain.GenerationParams, int, int, error) {
 	ext := strings.ToLower(filepath.Ext(absPath))
 
 	var params domain.GenerationParams
 	var width, height int
 
-	// 1. Check companion .txt / .caption / .json sidecar first (fast path)
-	sidecarParams, fromTXT, hasSidecar := readSidecarMetadata(absPath)
-	if hasSidecar && sidecarParams.PositivePrompt != "" {
-		params = sidecarParams
-		if mediaType == domain.MediaTypeImage {
-			width, height = decodeStandardImageConfig(absPath)
-		} else if mediaType == domain.MediaTypeVideo {
-			width, height = 1024, 576
-		}
-		// If loaded from .json or .caption and .txt does not exist yet, persist .txt for future instant reads
-		if !fromTXT {
-			_ = WritePromptSidecarTXT(absPath, params)
-		}
-		if params.Engine == "" {
-			params.Engine = domain.EngineUnknown
-		}
-		return params, width, height, nil
-	}
-
-	// 2. Fallback: extract embedded metadata from PNG chunks / EXIF / raw parameters
+	// 1. Attempt to extract embedded metadata from PNG chunks / EXIF / raw parameters
 	if ext == ".png" {
 		p, w, h, err := ParsePNGFile(absPath)
 		if err == nil {
@@ -66,9 +47,22 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 		params = scanRawFileForParameters(absPath)
 	}
 
-	// 3. Auto-create companion <basename>.txt when embedded prompt metadata was extracted and no .txt exists yet
-	if !fromTXT && (strings.TrimSpace(params.PositivePrompt) != "" || strings.TrimSpace(params.RawMetadata) != "") {
+	if mediaType == domain.MediaTypeImage && (width == 0 || height == 0) {
+		width, height = decodeStandardImageConfig(absPath)
+	}
+
+	hasMetadataPrompt := strings.TrimSpace(params.PositivePrompt) != "" || strings.TrimSpace(params.RawMetadata) != ""
+
+	if hasMetadataPrompt {
+		// Contains the prompt that generated it in metadata.
+		// Save it to companion <media>.txt only if (media).txt does not already exist.
 		_ = WritePromptSidecarTXT(absPath, params)
+	} else {
+		// If not in metadata, use what (media).txt (or companion sidecar) says
+		sidecarParams, _, hasSidecar := readSidecarMetadata(absPath)
+		if hasSidecar && sidecarParams.PositivePrompt != "" {
+			params = sidecarParams
+		}
 	}
 
 	if params.Engine == "" {
@@ -154,6 +148,11 @@ func readSidecarMetadata(absPath string) (domain.GenerationParams, bool, bool) {
 func WritePromptSidecarTXT(absMediaPath string, params domain.GenerationParams) error {
 	base := strings.TrimSuffix(absMediaPath, filepath.Ext(absMediaPath))
 	txtPath := base + ".txt"
+
+	// If (media).txt already exists, do not recreate or overwrite it
+	if _, err := os.Stat(txtPath); err == nil {
+		return nil
+	}
 
 	pos := strings.TrimSpace(params.PositivePrompt)
 	neg := strings.TrimSpace(params.NegativePrompt)

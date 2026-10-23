@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,20 @@ type ScanReport struct {
 	CompletedAt  time.Time `json:"completed_at"`
 }
 
+// ScanStatus summarizes the real-time progress of an in-progress or completed media scan.
+type ScanStatus struct {
+	IsScanning   bool       `json:"is_scanning"`
+	ProgressPct  int        `json:"progress_pct"`
+	TotalFiles   int        `json:"total_files"`
+	ScannedFiles int        `json:"scanned_files"`
+	CurrentFile  string     `json:"current_file"`
+	CurrentRoot  string     `json:"current_root"`
+	StartedAt    time.Time  `json:"started_at"`
+	CompletedAt  time.Time  `json:"completed_at"`
+	LastReport   ScanReport `json:"last_report"`
+	LastError    string     `json:"last_error,omitempty"`
+}
+
 // ScannerService walks the read-only media folder, extracts diffusion metadata, and indexes assets into SQLite.
 type ScannerService struct {
 	mediaDir  string
@@ -35,8 +50,8 @@ type ScannerService struct {
 	extractor domain.MetadataExtractor
 	vision    domain.VisionEngine
 
-	mu         sync.Mutex
-	lastReport ScanReport
+	mu     sync.Mutex
+	status ScanStatus
 }
 
 // NewScannerService creates a new folder scanner service.
@@ -55,18 +70,57 @@ func NewScannerService(
 	}
 }
 
+// Status returns the current live scan status and progress percentage.
+func (s *ScannerService) Status() ScanStatus {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.status
+}
+
 // LastReport returns the most recent scan report.
 func (s *ScannerService) LastReport() ScanReport {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.lastReport
+	return s.status.LastReport
+}
+
+// StartScanAsync starts the directory scan in a background goroutine if one is not already running.
+func (s *ScannerService) StartScanAsync() bool {
+	s.mu.Lock()
+	if s.status.IsScanning {
+		s.mu.Unlock()
+		return false
+	}
+	s.status.IsScanning = true
+	s.status.ProgressPct = 0
+	s.status.ScannedFiles = 0
+	s.status.TotalFiles = 0
+	s.status.CurrentFile = ""
+	s.status.CurrentRoot = ""
+	s.status.StartedAt = time.Now()
+	s.status.LastError = ""
+	s.mu.Unlock()
+
+	log.Printf("[SCAN] Background folder scan started")
+	go func() {
+		_, err := s.Scan(context.Background())
+		if err != nil {
+			log.Printf("[SCAN] Background folder scan error: %v", err)
+		}
+	}()
+	return true
 }
 
 // Scan walks all registered and accessible media root folders, syncs their .diffusion-catalog.json manifests,
 // and indexes all supported image and video files up to accessible subdirectories.
 func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.status.IsScanning = true
+	s.status.StartedAt = time.Now()
+	s.status.ProgressPct = 0
+	s.status.ScannedFiles = 0
+	s.status.LastError = ""
+	s.mu.Unlock()
 
 	report := ScanReport{StartedAt: time.Now()}
 	_ = os.MkdirAll(s.mediaDir, 0755)
@@ -84,6 +138,42 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	}
 
 	defaultCats, _ := s.repo.ListDefaultCategories(ctx)
+
+	// Phase 1: Rapid discovery count of candidate files across enabled roots to calculate %
+	totalCandidateFiles := 0
+	for _, root := range roots {
+		if !root.Enabled {
+			continue
+		}
+		info, statErr := os.Stat(root.Path)
+		if statErr != nil || !info.IsDir() {
+			continue
+		}
+		_ = filepath.WalkDir(root.Path, func(absPath string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				if d != nil && d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if d.IsDir() {
+				if absPath != root.Path && strings.HasPrefix(d.Name(), ".") {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if _, ok := classifyMediaExtension(filepath.Ext(d.Name())); ok {
+				totalCandidateFiles++
+			}
+			return nil
+		})
+	}
+
+	s.mu.Lock()
+	s.status.TotalFiles = totalCandidateFiles
+	s.mu.Unlock()
+
+	log.Printf("[SCAN] Discovered %d candidate media file(s) across %d registered root(s)", totalCandidateFiles, len(roots))
 
 	for _, root := range roots {
 		if !root.Enabled {
@@ -184,6 +274,7 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				Width:       width,
 				Height:      height,
 				FileSize:    fInfo.Size(),
+				FileMTime:   fInfo.ModTime().UTC(),
 				Rating:      mEntry.Rating,
 				Favorite:    mEntry.Favorite,
 				Category:    category,
@@ -202,6 +293,23 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			} else {
 				report.VideosFound++
 			}
+
+			s.mu.Lock()
+			s.status.ScannedFiles++
+			s.status.CurrentFile = d.Name()
+			s.status.CurrentRoot = root.Label
+			if s.status.TotalFiles > 0 {
+				s.status.ProgressPct = (s.status.ScannedFiles * 100) / s.status.TotalFiles
+				if s.status.ProgressPct > 100 {
+					s.status.ProgressPct = 100
+				}
+			}
+			scannedCount := s.status.ScannedFiles
+			totalCount := s.status.TotalFiles
+			pct := s.status.ProgressPct
+			s.mu.Unlock()
+
+			log.Printf("[SCAN] [%d/%d] (%d%%) Indexed %s (%s)", scannedCount, totalCount, pct, d.Name(), root.Label)
 
 			// Auto-attach subfolder name as an agnostic Group if nested inside root.Path
 			if subFolder != "" {
@@ -270,7 +378,16 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	}
 
 	report.CompletedAt = time.Now()
-	s.lastReport = report
+	duration := report.CompletedAt.Sub(report.StartedAt).Round(time.Millisecond)
+	log.Printf("[SCAN] Completed scan in %v: %d images, %d videos indexed across %d roots (%d skipped)",
+		duration, report.ImagesFound, report.VideosFound, report.ScannedRoots, report.SkippedRoots)
+
+	s.mu.Lock()
+	s.status.LastReport = report
+	s.status.IsScanning = false
+	s.status.CompletedAt = report.CompletedAt
+	s.status.ProgressPct = 100
+	s.mu.Unlock()
 	return report, nil
 }
 

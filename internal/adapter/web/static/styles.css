@@ -773,3 +773,151 @@ a {
   font-weight: 700;
   color: #e2e8f0;
 }
+
+/* Global Scan Progress Banner */
+.scan-progress-banner {
+  background: linear-gradient(90deg, #091a38, #0b224d);
+  border-bottom: 1px solid #1e3a8a;
+  padding: 8px 18px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  position: sticky;
+  top: 0;
+  z-index: 999;
+}
+
+.scan-progress-inner {
+  max-width: 1380px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.scan-progress-track {
+  flex: 1;
+  height: 8px;
+  background: #030816;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #1e293b;
+  position: relative;
+}
+
+.scan-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #2563eb, #38bdf8, #10b981);
+  background-size: 200% 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease-out;
+}
+
+.scan-progress-text {
+  font-size: 12px;
+  color: #dbeafe;
+  white-space: nowrap;
+}
+
+/* Media Navigation Arrows */
+.media-stage-viewport {
+  position: relative;
+}
+
+.stage-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(6, 13, 27, 0.75);
+  border: 1px solid var(--border-highlight);
+  color: #f8fafc;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  text-decoration: none;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.stage-nav-arrow:hover {
+  background: rgba(22, 104, 220, 0.9);
+  border-color: #38bdf8;
+  color: #ffffff;
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+}
+
+.stage-nav-prev {
+  left: 14px;
+}
+
+.stage-nav-next {
+  right: 14px;
+}
+
+/* Remix Studio Layout */
+.remix-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 20px;
+  margin-top: 18px;
+}
+
+@media (max-width: 960px) {
+  .remix-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.remix-preview-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-navy);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.remix-media-frame {
+  background: #02050b;
+  border: 1px solid var(--border-navy);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  max-height: 520px;
+  overflow: hidden;
+  position: relative;
+}
+
+.remix-media-frame img,
+.remix-media-frame video {
+  max-width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+}
+
+.remix-frame-indicator {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #a7f3d0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(4px);
+}
+
