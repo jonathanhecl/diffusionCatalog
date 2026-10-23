@@ -34,9 +34,11 @@ catalog.db-shm
 catalog.db-wal
 .cache/
 media/
-catalogd
-build/
+/catalogd
+/build/
 
 # Editor/IDE
 # .idea/
 # .vscode/
+
+.engram/

@@ -37,20 +37,39 @@ The compiled `catalogd` binary is **self-contained and self-installing**:
 - On first interactive launch (or anytime you pass `--setup`), it checks for optional system/runtime components (`ffmpeg` for video container metadata, `python3` + `.venv` for local Face Detection & Cropping) and prompts `[y/N]` to install and start them automatically.
 
 ```bash
-./catalogd --media-dir=./media --db=./catalog.db --addr=:8080
+./catalogd --media-dir=./media --db=./catalog.db --addr=:888
 # Re-run interactive dependency installer at any time:
 ./catalogd --setup
 ```
 
-Then open **http://localhost:8080** in your browser.
+Then open **http://localhost:888** in your browser.
 
-> If `./media` is empty on first launch and `--seed-demo=true` (default), `catalogd` generates sample diffusion PNG files with embedded A1111, ComfyUI, Fooocus, SwarmUI, and InvokeAI metadata chunks, along with sample Character Folders, Agnostic Groups, and cropped focus regions so you can explore every view immediately.
+> On Linux, binding to ports below 1024 (like `:888`) requires elevated permissions (`sudo ./catalogd` or `sudo setcap 'cap_net_bind_service=+ep' ./catalogd`). You can also change the port at any time in `config.json` (e.g. `"port": 8888` or `"addr": ":8888"`) or by passing `--port=8888`.
 
-### 2. Command-Line Flags & Environment Variables
+### 2. Configuration (`config.json`), Flags & Environment Variables
+
+DiffusionCatalog automatically creates and reads `config.json` from the current directory, which can be overridden via command-line flags or environment variables:
+
+```json
+{
+  "port": 888,
+  "addr": ":888",
+  "media_dir": "./media",
+  "cache_dir": "./.cache",
+  "db_path": "./catalog.db",
+  "admin_user": "admin",
+  "admin_pass": "admin123",
+  "vision_url": "",
+  "auto_scan": true,
+  "seed_demo": true
+}
+```
 
 | Flag | Env Variable | Default | Description |
 |------|--------------|---------|-------------|
-| `--addr` | `CATALOG_ADDR` | `:8080` | HTTP listen address |
+| `--port` | `PORT` / `CATALOG_PORT` | `888` | HTTP listen port |
+| `--addr` | `CATALOG_ADDR` | `:888` | HTTP listen address |
+| `--config` | `CATALOG_CONFIG` | `config.json` | Path to JSON configuration file |
 | `--media-dir` | `CATALOG_MEDIA_DIR` | `./media` | Read-only folder containing diffusion images/videos |
 | `--cache-dir` | `CATALOG_CACHE_DIR` | `./.cache` | Local directory for cropped regions & thumbnails |
 | `--db` | `CATALOG_DB_PATH` | `./catalog.db` | Local SQLite database path |
