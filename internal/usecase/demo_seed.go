@@ -320,15 +320,6 @@ Steps: 36, Sampler: DPM++ SDE Karras, Schedule type: Karras, CFG scale: 7.5, See
 						CharacterID:   &cidCopy,
 					})
 				}
-
-				if fullAsset, err := repo.GetAssetByID(ctx, asset.ID); err == nil && fullAsset != nil {
-					rootPath := fullAsset.RootPath
-					if rootPath == "" {
-						rootPath = mediaDir
-					}
-					defaults, _ := repo.ListDefaultCategories(ctx)
-					_ = SyncAssetToFolderManifest(rootPath, fullAsset, defaults)
-				}
 			}
 		}
 	}

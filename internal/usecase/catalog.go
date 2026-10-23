@@ -50,7 +50,7 @@ func (s *CatalogService) SwitchDatabase(ctx context.Context, newDBPath string) e
 	return nil
 }
 
-// ListMediaRoots returns all registered media root folders enriched with their .diffusion-catalog.json categories.
+// ListMediaRoots returns all registered media root folders enriched with their default categories.
 func (s *CatalogService) ListMediaRoots(ctx context.Context) ([]domain.MediaRoot, error) {
 	roots, err := s.repo.ListMediaRoots(ctx)
 	if err != nil {
@@ -58,31 +58,19 @@ func (s *CatalogService) ListMediaRoots(ctx context.Context) ([]domain.MediaRoot
 	}
 	defaults, _ := s.repo.ListDefaultCategories(ctx)
 	for i := range roots {
-		if roots[i].Accessible {
-			if m, err := EnsureFolderManifest(roots[i].Path, roots[i].Label, defaults); err == nil && m != nil {
-				roots[i].Categories = m.Categories
-			}
-		} else {
-			roots[i].Categories = defaults
-		}
+		roots[i].Categories = defaults
 	}
 	return roots, nil
 }
 
-// AddMediaRoot registers a new media root folder (local directory or external drive) and initializes its .diffusion-catalog.json manifest.
+// AddMediaRoot registers a new media root folder (local directory or external drive).
 func (s *CatalogService) AddMediaRoot(ctx context.Context, path, label string) (int64, error) {
 	root := &domain.MediaRoot{
 		Path:    strings.TrimSpace(path),
 		Label:   strings.TrimSpace(label),
 		Enabled: true,
 	}
-	id, err := s.repo.UpsertMediaRoot(ctx, root)
-	if err != nil {
-		return 0, err
-	}
-	defaults, _ := s.repo.ListDefaultCategories(ctx)
-	_, _ = EnsureFolderManifest(root.Path, root.Label, defaults)
-	return id, nil
+	return s.repo.UpsertMediaRoot(ctx, root)
 }
 
 // DeleteMediaRoot removes a media root folder from the catalog index without deleting any files on disk.
@@ -114,22 +102,6 @@ func (s *CatalogService) UpsertDefaultCategory(ctx context.Context, name, facet,
 	if err != nil {
 		return 0, err
 	}
-	// Sync new default category to accessible media roots' manifests
-	defaults, _ := s.repo.ListDefaultCategories(ctx)
-	roots, _ := s.repo.ListMediaRoots(ctx)
-	for _, r := range roots {
-		if r.Accessible {
-			if m, err := EnsureFolderManifest(r.Path, r.Label, defaults); err == nil && m != nil {
-				for _, sub := range subs {
-					ensureManifestCategory(m, cat.Name, sub)
-				}
-				if len(subs) == 0 {
-					ensureManifestCategory(m, cat.Name, "")
-				}
-				_ = SaveFolderManifest(r.Path, m)
-			}
-		}
-	}
 	return id, nil
 }
 
@@ -156,19 +128,6 @@ func (s *CatalogService) ResolveAssetAbsPath(ctx context.Context, asset *domain.
 	return filepath.Join(rootPath, filepath.FromSlash(cleanRel))
 }
 
-func (s *CatalogService) syncAssetManifestByID(ctx context.Context, assetID int64) {
-	asset, err := s.repo.GetAssetByID(ctx, assetID)
-	if err != nil || asset == nil {
-		return
-	}
-	rootPath := strings.TrimSpace(asset.RootPath)
-	if rootPath == "" {
-		rootPath = s.mediaDir
-	}
-	defaults, _ := s.repo.ListDefaultCategories(ctx)
-	_ = SyncAssetToFolderManifest(rootPath, asset, defaults)
-}
-
 // Query returns a paginated, facet-filtered catalog page.
 func (s *CatalogService) Query(ctx context.Context, filter domain.CatalogFilter) (*domain.CatalogPage, error) {
 	page, err := s.repo.QueryCatalog(ctx, filter)
@@ -177,13 +136,7 @@ func (s *CatalogService) Query(ctx context.Context, filter domain.CatalogFilter)
 	}
 	defaults, _ := s.repo.ListDefaultCategories(ctx)
 	for i := range page.MediaRoots {
-		if page.MediaRoots[i].Accessible {
-			if m, mErr := EnsureFolderManifest(page.MediaRoots[i].Path, page.MediaRoots[i].Label, defaults); mErr == nil && m != nil {
-				page.MediaRoots[i].Categories = m.Categories
-			}
-		} else {
-			page.MediaRoots[i].Categories = defaults
-		}
+		page.MediaRoots[i].Categories = defaults
 	}
 	return page, nil
 }
@@ -250,7 +203,7 @@ func (s *CatalogService) GetRelatedAssets(ctx context.Context, asset *domain.Med
 	return b
 }
 
-// SetAssetCategory updates an asset's category and subcategory in SQLite and in its folder's .diffusion-catalog.json.
+// SetAssetCategory updates an asset's category and subcategory in SQLite.
 func (s *CatalogService) SetAssetCategory(ctx context.Context, assetID int64, category, subcategory string) error {
 	if err := s.repo.UpdateAssetCategory(ctx, assetID, category, subcategory); err != nil {
 		return err
@@ -265,11 +218,10 @@ func (s *CatalogService) SetAssetCategory(ctx context.Context, assetID int64, ca
 			_ = s.repo.AttachTagToAsset(ctx, assetID, t.ID)
 		}
 	}
-	s.syncAssetManifestByID(ctx, assetID)
 	return nil
 }
 
-// RateAsset updates an asset's 0-10 score and favorite flag in SQLite and persists both into its folder's .diffusion-catalog.json.
+// RateAsset updates an asset's 0-10 score and favorite flag in SQLite.
 func (s *CatalogService) RateAsset(ctx context.Context, assetID int64, rating int, favorite bool) error {
 	if rating < 0 {
 		rating = 0
@@ -277,14 +229,10 @@ func (s *CatalogService) RateAsset(ctx context.Context, assetID int64, rating in
 	if rating > 10 {
 		rating = 10
 	}
-	if err := s.repo.UpdateAssetRating(ctx, assetID, rating, favorite); err != nil {
-		return err
-	}
-	s.syncAssetManifestByID(ctx, assetID)
-	return nil
+	return s.repo.UpdateAssetRating(ctx, assetID, rating, favorite)
 }
 
-// AddTagToAsset creates or updates an agnostic tag, attaches it to an asset, and updates .diffusion-catalog.json.
+// AddTagToAsset creates or updates an agnostic tag and attaches it to an asset in SQLite.
 func (s *CatalogService) AddTagToAsset(ctx context.Context, assetID int64, name, facet string) error {
 	name = strings.TrimSpace(strings.TrimPrefix(name, "#"))
 	if name == "" {
@@ -297,11 +245,12 @@ func (s *CatalogService) AddTagToAsset(ctx context.Context, assetID int64, name,
 	if err != nil {
 		return err
 	}
-	if err := s.repo.AttachTagToAsset(ctx, assetID, t.ID); err != nil {
-		return err
-	}
-	s.syncAssetManifestByID(ctx, assetID)
-	return nil
+	return s.repo.AttachTagToAsset(ctx, assetID, t.ID)
+}
+
+// RemoveTagFromAsset detaches an agnostic tag from an asset.
+func (s *CatalogService) RemoveTagFromAsset(ctx context.Context, assetID, tagID int64) error {
+	return s.repo.DetachTagFromAsset(ctx, assetID, tagID)
 }
 
 // CreateGroup creates a new agnostic group and optionally links an initial asset.
@@ -320,18 +269,18 @@ func (s *CatalogService) CreateGroup(ctx context.Context, name, category, descri
 	}
 	if initialAssetID > 0 {
 		_ = s.repo.AttachAssetToGroup(ctx, gid, initialAssetID)
-		s.syncAssetManifestByID(ctx, initialAssetID)
 	}
 	return gid, nil
 }
 
-// AssignAssetToGroup attaches an existing asset to a group and syncs the folder manifest.
+// AssignAssetToGroup attaches an existing asset to a group.
 func (s *CatalogService) AssignAssetToGroup(ctx context.Context, groupID, assetID int64) error {
-	if err := s.repo.AttachAssetToGroup(ctx, groupID, assetID); err != nil {
-		return err
-	}
-	s.syncAssetManifestByID(ctx, assetID)
-	return nil
+	return s.repo.AttachAssetToGroup(ctx, groupID, assetID)
+}
+
+// RemoveAssetFromGroup detaches an asset from a group.
+func (s *CatalogService) RemoveAssetFromGroup(ctx context.Context, groupID, assetID int64) error {
+	return s.repo.DetachAssetFromGroup(ctx, groupID, assetID)
 }
 
 // ListGroups returns all agnostic groups.
@@ -350,18 +299,18 @@ func (s *CatalogService) CreateCharacter(ctx context.Context, c *domain.Characte
 	}
 	if exampleAssetID > 0 {
 		_ = s.repo.AttachAssetToCharacter(ctx, cid, exampleAssetID)
-		s.syncAssetManifestByID(ctx, exampleAssetID)
 	}
 	return cid, nil
 }
 
-// AssignAssetToCharacter links an asset as a reference example for a character and syncs the folder manifest.
+// AssignAssetToCharacter links an asset as a reference example for a character.
 func (s *CatalogService) AssignAssetToCharacter(ctx context.Context, characterID, assetID int64) error {
-	if err := s.repo.AttachAssetToCharacter(ctx, characterID, assetID); err != nil {
-		return err
-	}
-	s.syncAssetManifestByID(ctx, assetID)
-	return nil
+	return s.repo.AttachAssetToCharacter(ctx, characterID, assetID)
+}
+
+// RemoveAssetFromCharacter detaches an example asset from a character folder.
+func (s *CatalogService) RemoveAssetFromCharacter(ctx context.Context, characterID, assetID int64) error {
+	return s.repo.DetachAssetFromCharacter(ctx, characterID, assetID)
 }
 
 // GetCharacter retrieves a character profile and its example gallery.

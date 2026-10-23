@@ -125,8 +125,7 @@ func (s *ScannerService) StartScanAsync() bool {
 	return true
 }
 
-// Scan walks all registered and accessible media root folders, syncs their .diffusion-catalog.json manifests,
-// and indexes all supported image and video files up to accessible subdirectories.
+// Scan walks all registered and accessible media root folders and indexes all supported image and video files up to accessible subdirectories.
 func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	s.mu.Lock()
 	s.status.IsScanning = true
@@ -204,18 +203,14 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 		}
 
 		report.ScannedRoots++
-		manifest, _ := EnsureFolderManifest(root.Path, root.Label, defaultCats)
-		manifestDirty := false
 
-		// Register manifest categories as tags under their respective facets so sidebar filters reflect folder categories
-		if manifest != nil {
-			for _, cat := range manifest.Categories {
-				facet := strings.TrimSpace(cat.Facet)
-				if facet == "" {
-					facet = "category"
-				}
-				_, _ = s.repo.UpsertTag(ctx, cat.Name, facet, cat.Color)
+		// Register default categories as tags under their respective facets so sidebar filters reflect categories
+		for _, cat := range defaultCats {
+			facet := strings.TrimSpace(cat.Facet)
+			if facet == "" {
+				facet = "category"
 			}
+			_, _ = s.repo.UpsertTag(ctx, cat.Name, facet, cat.Color)
 		}
 
 		// Load existing asset fingerprints from database for this root
@@ -271,16 +266,11 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			fileMTime := fInfo.ModTime().UTC()
 			mtimeUnix := fileMTime.Unix()
 
-			var mEntry domain.ManifestAssetEntry
-			var hasMEntry bool
-			if manifest != nil {
-				mEntry, hasMEntry = manifest.Assets[relToRoot]
-			}
-
 			// FAST PATH: Differential check against SQLite database
 			// If file already exists in SQLite with identical size and modification time,
 			// it is already indexed. We skip disk extraction, hashing, and database upserts completely.
-			if existing, inDB := dbFingerprints[storedRelPath]; inDB {
+			existing, inDB := dbFingerprints[storedRelPath]
+			if inDB {
 				if existing.FileSize == fileSize && (existing.FileMTime.Unix() == mtimeUnix || existing.FileMTime.Equal(fileMTime)) {
 					report.UnchangedFiles++
 					s.mu.Lock()
@@ -299,42 +289,30 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				}
 			}
 
-			// Preprocessed cache check:
-			// If .diffusion-catalog.json already has preprocessed dimensions, hash, and metadata matching current file mtime/size,
-			// use the cached metadata without having to re-parse the media file.
-			var meta domain.GenerationParams
-			var width, height int
-			var hash string
-			usedPreprocessedCache := false
-
-			if hasMEntry && mEntry.FileSize == fileSize && mEntry.FileMTime == mtimeUnix && mEntry.FileHash != "" {
-				width = mEntry.Width
-				height = mEntry.Height
-				hash = mEntry.FileHash
-				if mEntry.Metadata != nil {
-					meta = *mEntry.Metadata
-				}
-				usedPreprocessedCache = true
-			} else {
-				// File is new or changed: extract hash and metadata
-				h, hErr := hashFilePrefix(absPath, fileSize)
-				if hErr != nil {
-					return nil
-				}
-				hash = h
-				meta, width, height, _ = s.extractor.Extract(ctx, absPath, mediaType)
+			// File is new or changed: extract hash and metadata
+			hash, hErr := hashFilePrefix(absPath, fileSize)
+			if hErr != nil {
+				return nil
 			}
+			meta, width, height, _ := s.extractor.Extract(ctx, absPath, mediaType)
 
-			// Default category from top-level subfolder if not explicitly classified in manifest yet
+			// Default category from top-level subfolder if not already classified in database
 			dirRel := filepath.Dir(relToRoot)
 			subFolder := ""
 			if dirRel != "." && dirRel != "/" {
 				parts := strings.Split(filepath.ToSlash(dirRel), "/")
 				subFolder = parts[0]
 			}
-			category := mEntry.Category
-			subcategory := mEntry.Subcategory
-			if category == "" && subFolder != "" {
+			category := ""
+			subcategory := ""
+			rating := 0
+			favorite := false
+			if inDB {
+				category = existing.Category
+				subcategory = existing.Subcategory
+				rating = existing.Rating
+				favorite = existing.Favorite
+			} else if subFolder != "" {
 				category = strings.ReplaceAll(subFolder, "_", " ")
 			}
 
@@ -350,8 +328,8 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				Height:      height,
 				FileSize:    fileSize,
 				FileMTime:   fileMTime,
-				Rating:      mEntry.Rating,
-				Favorite:    mEntry.Favorite,
+				Rating:      rating,
+				Favorite:    favorite,
 				Category:    category,
 				Subcategory: subcategory,
 				Metadata:    meta,
@@ -384,11 +362,7 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			pct := s.status.ProgressPct
 			s.mu.Unlock()
 
-			if usedPreprocessedCache {
-				log.Printf("[SCAN] [%d/%d] (%d%%) Synced from manifest: %s (%s)", scannedCount, totalCount, pct, d.Name(), root.Label)
-			} else {
-				log.Printf("[SCAN] [%d/%d] (%d%%) Indexed %s (%s)", scannedCount, totalCount, pct, d.Name(), root.Label)
-			}
+			log.Printf("[SCAN] [%d/%d] (%d%%) Indexed %s (%s)", scannedCount, totalCount, pct, d.Name(), root.Label)
 
 			// Auto-attach subfolder name as an agnostic Group if nested inside root.Path
 			if subFolder != "" {
@@ -399,43 +373,6 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				}); err == nil {
 					_ = s.repo.AttachAssetToGroup(ctx, gid, assetID)
 				}
-			}
-
-			// Sync groups, tags, and characters from the folder's .diffusion-catalog.json manifest
-			if hasMEntry {
-				for _, gName := range mEntry.Groups {
-					if gid, err := s.repo.CreateGroup(ctx, &domain.Group{
-						Name:     gName,
-						Category: "Manifest",
-					}); err == nil {
-						_ = s.repo.AttachAssetToGroup(ctx, gid, assetID)
-					}
-				}
-				for _, mt := range mEntry.Tags {
-					if t, err := s.repo.UpsertTag(ctx, mt.Name, mt.Facet, mt.Color); err == nil {
-						_ = s.repo.AttachTagToAsset(ctx, assetID, t.ID)
-					}
-				}
-				for _, cName := range mEntry.Characters {
-					if cid, err := s.repo.CreateCharacter(ctx, &domain.Character{Name: cName}); err == nil {
-						_ = s.repo.AttachAssetToCharacter(ctx, cid, assetID)
-					}
-				}
-			}
-
-			// Update / enrich manifest with preprocessed technical metadata so subsequent scans/re-indexing are instant
-			if manifest != nil {
-				metaCopy := meta
-				mEntry.Category = category
-				mEntry.Subcategory = subcategory
-				mEntry.FileSize = fileSize
-				mEntry.FileMTime = mtimeUnix
-				mEntry.FileHash = hash
-				mEntry.Width = width
-				mEntry.Height = height
-				mEntry.Metadata = &metaCopy
-				manifest.Assets[relToRoot] = mEntry
-				manifestDirty = true
 			}
 
 			// Auto-attach LoRAs as agnostic tags under facet "lora"
@@ -482,23 +419,6 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				s.mu.Unlock()
 				log.Printf("[SCAN] Cleaned up %d deleted media file(s) from catalog in root %s", len(toDeleteIDs), root.Label)
 			}
-		}
-
-		// Also clean up missing entries in .diffusion-catalog.json manifest
-		if manifest != nil {
-			for manifestRelPath := range manifest.Assets {
-				if !seenRelToRoot[manifestRelPath] {
-					fullCheckPath := filepath.Join(root.Path, filepath.FromSlash(manifestRelPath))
-					if _, statErr := os.Stat(fullCheckPath); os.IsNotExist(statErr) {
-						delete(manifest.Assets, manifestRelPath)
-						manifestDirty = true
-					}
-				}
-			}
-		}
-
-		if manifest != nil && manifestDirty {
-			_ = SaveFolderManifest(root.Path, manifest)
 		}
 	}
 

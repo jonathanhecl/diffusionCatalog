@@ -138,12 +138,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/logout", s.handleLogout)
 	mux.HandleFunc("POST /admin/scan", s.handleScan)
 	mux.HandleFunc("POST /admin/assets/tag", s.handleAddTag)
+	mux.HandleFunc("POST /admin/assets/tag/remove", s.handleRemoveTag)
 	mux.HandleFunc("POST /admin/assets/category", s.handleSetAssetCategory)
 	mux.HandleFunc("POST /admin/assets/rate", s.handleRateAsset)
 	mux.HandleFunc("POST /admin/groups/create", s.handleCreateGroup)
 	mux.HandleFunc("POST /admin/groups/attach", s.handleAttachGroup)
+	mux.HandleFunc("POST /admin/groups/detach", s.handleDetachGroup)
 	mux.HandleFunc("POST /admin/characters/create", s.handleCreateCharacter)
 	mux.HandleFunc("POST /admin/characters/attach", s.handleAttachCharacter)
+	mux.HandleFunc("POST /admin/characters/detach", s.handleDetachCharacter)
 
 	// Settings, Multi-Root Media Folders, Default Categories, DB Switcher, Generator System Prompts & Per-Model LoRA Docs
 	mux.HandleFunc("POST /admin/settings/save", s.handleSaveSettings)
@@ -457,7 +460,7 @@ func (s *Server) handleSetAssetCategory(w http.ResponseWriter, r *http.Request) 
 	if assetID > 0 {
 		_ = s.catalog.SetAssetCategory(r.Context(), assetID, cat, sub)
 	}
-	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Asset+classification+saved+to+.diffusion-catalog.json", http.StatusSeeOther)
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Asset+classification+saved", http.StatusSeeOther)
 }
 
 func (s *Server) handleRateAsset(w http.ResponseWriter, r *http.Request) {
@@ -494,7 +497,7 @@ func (s *Server) handleRateAsset(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, ret, http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Score+and+favorite+saved+to+.diffusion-catalog.json", http.StatusSeeOther)
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Score+and+favorite+saved", http.StatusSeeOther)
 }
 
 func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
@@ -882,6 +885,16 @@ func (s *Server) handleAddTag(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10), http.StatusSeeOther)
 }
 
+func (s *Server) handleRemoveTag(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	tagID, _ := strconv.ParseInt(r.FormValue("tag_id"), 10, 64)
+	if assetID > 0 && tagID > 0 {
+		_ = s.catalog.RemoveTagFromAsset(r.Context(), assetID, tagID)
+	}
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Tag+removed", http.StatusSeeOther)
+}
+
 func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	name := r.FormValue("name")
@@ -901,6 +914,16 @@ func (s *Server) handleAttachGroup(w http.ResponseWriter, r *http.Request) {
 		_ = s.catalog.AssignAssetToGroup(r.Context(), groupID, assetID)
 	}
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10), http.StatusSeeOther)
+}
+
+func (s *Server) handleDetachGroup(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	groupID, _ := strconv.ParseInt(r.FormValue("group_id"), 10, 64)
+	if assetID > 0 && groupID > 0 {
+		_ = s.catalog.RemoveAssetFromGroup(r.Context(), groupID, assetID)
+	}
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Removed+from+group", http.StatusSeeOther)
 }
 
 func (s *Server) handleCreateCharacter(w http.ResponseWriter, r *http.Request) {
@@ -928,6 +951,16 @@ func (s *Server) handleAttachCharacter(w http.ResponseWriter, r *http.Request) {
 		_ = s.catalog.AssignAssetToCharacter(r.Context(), charID, assetID)
 	}
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10), http.StatusSeeOther)
+}
+
+func (s *Server) handleDetachCharacter(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	charID, _ := strconv.ParseInt(r.FormValue("character_id"), 10, 64)
+	if assetID > 0 && charID > 0 {
+		_ = s.catalog.RemoveAssetFromCharacter(r.Context(), charID, assetID)
+	}
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Removed+from+character", http.StatusSeeOther)
 }
 
 func (s *Server) currentAdmin(r *http.Request) string {

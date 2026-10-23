@@ -1104,6 +1104,13 @@ func (r *Repository) AttachTagToAsset(ctx context.Context, assetID, tagID int64)
 	return err
 }
 
+// DetachTagFromAsset unlinks a tag from an asset.
+func (r *Repository) DetachTagFromAsset(ctx context.Context, assetID, tagID int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM asset_tags WHERE asset_id = ? AND tag_id = ?`, assetID, tagID)
+	return err
+}
+
 // ListTags returns all tags ordered by usage count and name.
 func (r *Repository) ListTags(ctx context.Context) ([]domain.Tag, error) {
 	db := r.conn()
@@ -1159,6 +1166,13 @@ func (r *Repository) CreateGroup(ctx context.Context, g *domain.Group) (int64, e
 func (r *Repository) AttachAssetToGroup(ctx context.Context, groupID, assetID int64) error {
 	db := r.conn()
 	_, err := db.ExecContext(ctx, `INSERT OR IGNORE INTO group_assets (group_id, asset_id) VALUES (?, ?)`, groupID, assetID)
+	return err
+}
+
+// DetachAssetFromGroup unlinks an asset from a group.
+func (r *Repository) DetachAssetFromGroup(ctx context.Context, groupID, assetID int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM group_assets WHERE group_id = ? AND asset_id = ?`, groupID, assetID)
 	return err
 }
 
@@ -1267,6 +1281,13 @@ func (r *Repository) GetCharacterByID(ctx context.Context, id int64) (*domain.Ch
 func (r *Repository) AttachAssetToCharacter(ctx context.Context, characterID, assetID int64) error {
 	db := r.conn()
 	_, err := db.ExecContext(ctx, `INSERT OR IGNORE INTO character_examples (character_id, asset_id) VALUES (?, ?)`, characterID, assetID)
+	return err
+}
+
+// DetachAssetFromCharacter unlinks an example asset from a character folder.
+func (r *Repository) DetachAssetFromCharacter(ctx context.Context, characterID, assetID int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM character_examples WHERE character_id = ? AND asset_id = ?`, characterID, assetID)
 	return err
 }
 

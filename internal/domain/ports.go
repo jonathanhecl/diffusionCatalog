@@ -73,15 +73,18 @@ type CatalogRepository interface {
 
 	UpsertTag(ctx context.Context, name, facet, color string) (*Tag, error)
 	AttachTagToAsset(ctx context.Context, assetID, tagID int64) error
+	DetachTagFromAsset(ctx context.Context, assetID, tagID int64) error
 	ListTags(ctx context.Context) ([]Tag, error)
 
 	CreateGroup(ctx context.Context, group *Group) (int64, error)
 	AttachAssetToGroup(ctx context.Context, groupID, assetID int64) error
+	DetachAssetFromGroup(ctx context.Context, groupID, assetID int64) error
 	ListGroups(ctx context.Context) ([]Group, error)
 
 	CreateCharacter(ctx context.Context, char *Character) (int64, error)
 	GetCharacterByID(ctx context.Context, id int64) (*Character, error)
 	AttachAssetToCharacter(ctx context.Context, characterID, assetID int64) error
+	DetachAssetFromCharacter(ctx context.Context, characterID, assetID int64) error
 	ListCharacters(ctx context.Context) ([]Character, error)
 
 	SaveDetectedFace(ctx context.Context, face *DetectedFace) (int64, error)

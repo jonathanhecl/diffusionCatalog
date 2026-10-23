@@ -325,6 +325,41 @@ a {
   color: #fff;
 }
 
+.tag-pill-removable {
+  display: inline-flex;
+  align-items: center;
+  background: #060e1e;
+  border: 1px solid var(--border-navy);
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 11px;
+}
+
+.tag-pill-removable .tag-pill {
+  border: none;
+  background: transparent;
+  padding: 3px 6px 3px 8px;
+  border-radius: 0;
+}
+
+.tag-del-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 7px 2px 2px;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.tag-del-btn:hover {
+  color: #ef4444;
+}
+
 /* Results Header & Sort Tabs */
 .results-bar {
   display: flex;
