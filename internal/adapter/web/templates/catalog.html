@@ -788,9 +788,9 @@
                 <div style="margin-bottom:14px;background:#064e3b;border:1px solid #059669;border-radius:6px;padding:12px;">
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#6ee7b7;">
                     <span>SYNTHESIZED PROMPT for target <strong>{{.AITargetProfile}}</strong>:</span>
-                    <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="navigator.clipboard.writeText(document.getElementById('studio-result-out').innerText)">Copy Prompt</button>
+                    <button type="button" id="btn-copy-prompt" class="btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="copyStudioPrompt()">Copy Prompt</button>
                   </div>
-                  <div id="studio-result-out" class="prompt-box" style="color:#a7f3d0;background:#03281f;border-color:#059669;font-size:12.5px;">{{.AIResultPrompt}}</div>
+                  <div id="studio-result-out" class="prompt-box" style="color:#a7f3d0;background:#03281f;border-color:#059669;font-size:12.5px;white-space:pre-wrap;word-break:break-word;">{{.AIResultPrompt}}</div>
                 </div>
               {{end}}
 
@@ -1957,6 +1957,20 @@
       if (val) {
         localStorage.setItem('dc_last_studio_mode', val);
       }
+    }
+
+    function copyStudioPrompt() {
+      var el = document.getElementById('studio-result-out');
+      if (!el) return;
+      var text = el.innerText || el.textContent;
+      navigator.clipboard.writeText(text.trim()).then(function() {
+        var btn = document.getElementById('btn-copy-prompt');
+        if (btn) {
+          var orig = btn.innerText;
+          btn.innerText = 'Copied!';
+          setTimeout(function() { btn.innerText = orig; }, 1500);
+        }
+      });
     }
 
     document.addEventListener('DOMContentLoaded', function() {
