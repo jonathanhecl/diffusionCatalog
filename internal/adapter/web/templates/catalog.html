@@ -88,7 +88,7 @@
         <div class="search-main-group">
           <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
           <button type="submit" class="btn-primary">Search</button>
-          {{if or .Filter.Query .Filter.RootID .Filter.Category .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0)}}
+          {{if or .Filter.Query .Filter.Trigger .Filter.RootID .Filter.Category .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0)}}
             <a href="{{if .Filter.FaceMode}}/?face_mode=1{{else}}/{{end}}" class="btn-ghost" style="display:inline-flex;align-items:center;">Reset</a>
           {{end}}
         </div>
@@ -143,23 +143,76 @@
       </div>
 
     {{else if eq .ActiveTab "asset_detail"}}
-      <div style="margin-top:16px;">
-        <a href="/" class="btn-ghost">&larr; Back to Catalog</a>
+      <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <a href="/" class="btn-ghost">&larr; Back to Catalog</a>
+          {{if .SelectedAsset.RootID}}
+            <a href="/?root_id={{.SelectedAsset.RootID}}" class="btn-ghost">Folder: {{if .SelectedAsset.RootLabel}}{{.SelectedAsset.RootLabel}}{{else}}Root #{{.SelectedAsset.RootID}}{{end}}</a>
+          {{end}}
+          {{if .SelectedAsset.Category}}
+            <a href="/?category={{.SelectedAsset.Category}}" class="btn-ghost" style="border-color:#059669;color:#6ee7b7;">Category: {{.SelectedAsset.Category}}</a>
+          {{end}}
+          {{if .SelectedAsset.Subcategory}}
+            <a href="/?category={{.SelectedAsset.Category}}&amp;subcategory={{.SelectedAsset.Subcategory}}" class="btn-ghost" style="color:#a7f3d0;">Subcategory: {{.SelectedAsset.Subcategory}}</a>
+          {{end}}
+          {{range .SelectedAsset.Characters}}
+            <a href="/?character_id={{.ID}}" class="btn-ghost" style="border-color:#2563eb;color:#93c5fd;">Character: {{.Name}}</a>
+          {{end}}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button type="button" class="btn-primary" onclick="openMediaLightbox()">&#x26F6; Fullscreen &amp; Metadata Inspector</button>
+          <a href="/media/{{.SelectedAsset.RelPath}}" target="_blank" class="btn-ghost">Open Raw File</a>
+        </div>
       </div>
+
       <div class="detail-grid">
         <div>
-          <div class="asset-thumb-wrap" style="border:1px solid var(--border-navy);border-radius:6px;">
+          <!-- Interactive Zoom & Pan Media Stage -->
+          <div class="media-stage-toolbar">
+            <span style="font-size:11.5px;color:var(--text-muted);font-weight:600;">
+              {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <span id="zoom-pct-label">100%</span> (Wheel to zoom, drag to pan, double-click 1:1)
+            </span>
+            <div style="display:flex;gap:4px;">
+              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setStageZoom(-0.25)">&#8722;</button>
+              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="resetStageZoom()">Fit</button>
+              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setExactStageZoom(1.5)">1.5&times;</button>
+              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setExactStageZoom(2.5)">2.5&times;</button>
+              <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="setStageZoom(0.25)">+</button>
+              <button type="button" class="btn-primary" style="padding:3px 10px;font-size:11px;" onclick="openMediaLightbox()">Fullscreen</button>
+            </div>
+          </div>
+          <div id="media-stage-viewport" class="media-stage-viewport">
             {{if eq .SelectedAsset.MediaType "video"}}
-              <video src="/media/{{.SelectedAsset.RelPath}}" controls class="asset-thumb"></video>
+              <video id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
             {{else}}
-              <img src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" class="asset-thumb">
+              <img id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" draggable="false">
             {{end}}
           </div>
-          <div style="margin-top:12px;font-size:12px;color:var(--text-muted);">
+
+          <div style="margin-top:12px;font-size:12px;color:var(--text-muted);display:flex;flex-direction:column;gap:4px;background:#060d1b;border:1px solid var(--border-navy);padding:10px 12px;border-radius:6px;">
             <div><strong>Source Folder:</strong> <code>{{if .SelectedAsset.RootLabel}}{{.SelectedAsset.RootLabel}} ({{.SelectedAsset.RootPath}}){{else}}{{.MediaDir}}{{end}}</code></div>
             <div><strong>Relative Path:</strong> <code>{{.SelectedAsset.RelPath}}</code> | <strong>Sidecar Prompt:</strong> <code>.txt</code> + <code>.diffusion-catalog.json</code></div>
-            <div><strong>Dimensions:</strong> {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <strong>SHA-256 Prefix:</strong> <code>{{.SelectedAsset.FileHash}}</code></div>
+            <div><strong>Dimensions:</strong> {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <strong>SHA-256 Prefix:</strong> <code>{{.SelectedAsset.FileHash}}</code> | <strong>Views:</strong> {{.SelectedAsset.ViewCount}}</div>
           </div>
+
+          <!-- Extracted Prompt Tokens & Trigger Quick Filters -->
+          {{if .SelectedAsset.Metadata.PositivePrompt}}
+            <div style="margin-top:12px;background:#060d1b;border:1px solid var(--border-navy);padding:10px 12px;border-radius:6px;">
+              <div class="kv-label" style="margin-bottom:6px;">Click Any Prompt Token / Trigger to Filter Catalog</div>
+              <div class="tag-cloud">
+                {{range promptTokens .SelectedAsset.Metadata.PositivePrompt}}
+                  <a href="/?trigger={{.}}" class="tag-pill" title="Filter catalog by caption trigger: {{.}}">{{.}}</a>
+                {{end}}
+              </div>
+            </div>
+          {{end}}
+
+          {{if .SelectedAsset.Metadata.RawMetadata}}
+            <details style="margin-top:12px;background:#060d1b;border:1px solid var(--border-navy);padding:10px 12px;border-radius:6px;">
+              <summary style="cursor:pointer;font-size:12px;font-weight:700;color:#93c5fd;">Inspect Full Raw Metadata / Sidecar / Workflow Payload</summary>
+              <pre class="prompt-box" style="margin-top:8px;max-height:240px;overflow:auto;white-space:pre-wrap;">{{.SelectedAsset.Metadata.RawMetadata}}</pre>
+            </details>
+          {{end}}
         </div>
 
         <div style="display:flex;flex-direction:column;gap:14px;">
@@ -379,6 +432,171 @@
           </div>
         </div>
       </div>
+
+      <!-- Fullscreen Lightbox Modal with Zoom/Pan & Metadata Drawer -->
+      <div id="media-lightbox" class="lightbox-overlay">
+        <div class="lightbox-topbar">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <strong style="color:#fff;font-size:14px;">{{.SelectedAsset.FileName}}</strong>
+            <span class="badge-chip">Engine: {{.SelectedAsset.Metadata.Engine}}</span>
+            <span class="badge-chip">{{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px</span>
+            {{if .SelectedAsset.Category}}<span class="badge-chip" style="color:#6ee7b7;">{{.SelectedAsset.Category}}{{if .SelectedAsset.Subcategory}} / {{.SelectedAsset.Subcategory}}{{end}}</span>{{end}}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button type="button" class="btn-ghost" onclick="setLightboxZoom(-0.3)">&#8722; Zoom Out</button>
+            <button type="button" class="btn-ghost" onclick="resetLightboxZoom()">Reset 100%</button>
+            <button type="button" class="btn-ghost" onclick="setLightboxZoom(0.3)">+ Zoom In</button>
+            <button type="button" class="btn-primary" onclick="closeMediaLightbox()">Close (ESC)</button>
+          </div>
+        </div>
+        <div class="lightbox-body">
+          <div id="lightbox-canvas" class="lightbox-canvas">
+            {{if eq .SelectedAsset.MediaType "video"}}
+              <video id="lightbox-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
+            {{else}}
+              <img id="lightbox-media-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" draggable="false">
+            {{end}}
+          </div>
+          <aside class="lightbox-meta-drawer">
+            <div class="facet-title">
+              <span>POSITIVE PROMPT</span>
+              <button type="button" class="btn-ghost" style="padding:2px 8px;" onclick="navigator.clipboard.writeText(document.getElementById('pos-prompt').innerText)">Copy</button>
+            </div>
+            <div class="prompt-box" style="font-size:12px;">{{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}(No positive prompt){{end}}</div>
+
+            {{if .SelectedAsset.Metadata.NegativePrompt}}
+              <div class="facet-title"><span>NEGATIVE PROMPT</span></div>
+              <div class="prompt-box" style="color:#fca5a5;">{{.SelectedAsset.Metadata.NegativePrompt}}</div>
+            {{end}}
+
+            <div class="kv-box">
+              <div class="kv-label">Checkpoint &amp; Hash</div>
+              <div class="kv-val">{{if .SelectedAsset.Metadata.ModelName}}{{.SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}} {{if .SelectedAsset.Metadata.ModelHash}}({{.SelectedAsset.Metadata.ModelHash}}){{end}}</div>
+            </div>
+            <div class="kv-box">
+              <div class="kv-label">Generation Parameters</div>
+              <div class="kv-val">Steps: {{.SelectedAsset.Metadata.Steps}} | CFG: {{.SelectedAsset.Metadata.CFGScale}} | Seed: {{.SelectedAsset.Metadata.Seed}} | {{.SelectedAsset.Metadata.Sampler}} {{.SelectedAsset.Metadata.Scheduler}}</div>
+            </div>
+
+            {{if .SelectedAsset.Metadata.PositivePrompt}}
+              <div>
+                <div class="kv-label" style="margin-bottom:6px;">Filter Catalog by Caption Trigger</div>
+                <div class="tag-cloud">
+                  {{range promptTokens .SelectedAsset.Metadata.PositivePrompt}}
+                    <a href="/?trigger={{.}}" class="tag-pill">{{.}}</a>
+                  {{end}}
+                </div>
+              </div>
+            {{end}}
+
+            {{if .SelectedAsset.Metadata.RawMetadata}}
+              <div>
+                <div class="kv-label" style="margin-bottom:6px;">Raw Metadata / Sidecar (.txt)</div>
+                <pre class="prompt-box" style="max-height:220px;overflow:auto;white-space:pre-wrap;">{{.SelectedAsset.Metadata.RawMetadata}}</pre>
+              </div>
+            {{end}}
+          </aside>
+        </div>
+      </div>
+
+      <!-- Related Media Carousels: Same Category, Same Character, Same Group, Same Model -->
+      {{if .RelatedAssets.SameCategory}}
+        <div style="margin-bottom:26px;">
+          <div class="results-bar">
+            <div class="results-count" style="font-size:14px;">
+              More Media in Category <strong style="font-size:16px;color:#6ee7b7;">{{.SelectedAsset.Category}}</strong>
+            </div>
+            <a href="/?category={{.SelectedAsset.Category}}" class="btn-ghost">Browse All in '{{.SelectedAsset.Category}}' &rarr;</a>
+          </div>
+          <div class="asset-grid">
+            {{range .RelatedAssets.SameCategory}}
+              <a href="/?asset_id={{.ID}}" class="asset-card">
+                <div class="asset-thumb-wrap">
+                  {{if eq .MediaType "video"}}
+                    <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                  {{else}}
+                    <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
+                  {{end}}
+                  <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                </div>
+                <div class="asset-meta">
+                  <div class="badge-row">
+                    {{if .Subcategory}}<span class="badge-chip" style="color:#6ee7b7;">{{.Subcategory}}</span>{{end}}
+                    {{if .Metadata.ModelName}}<span class="badge-chip">{{.Metadata.ModelName}}</span>{{end}}
+                  </div>
+                  <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
+                </div>
+              </a>
+            {{end}}
+          </div>
+        </div>
+      {{end}}
+
+      {{if .RelatedAssets.SameCharacter}}
+        <div style="margin-bottom:26px;">
+          <div class="results-bar">
+            <div class="results-count" style="font-size:14px;">
+              More Media Featuring Character
+              {{range $idx, $ch := .SelectedAsset.Characters}}
+                {{if eq $idx 0}}<strong style="font-size:16px;color:#60a5fa;">{{$ch.Name}}</strong>{{end}}
+              {{end}}
+            </div>
+            {{range $idx, $ch := .SelectedAsset.Characters}}
+              {{if eq $idx 0}}<a href="/?character_id={{$ch.ID}}" class="btn-ghost">View Character Gallery &rarr;</a>{{end}}
+            {{end}}
+          </div>
+          <div class="asset-grid">
+            {{range .RelatedAssets.SameCharacter}}
+              <a href="/?asset_id={{.ID}}" class="asset-card">
+                <div class="asset-thumb-wrap">
+                  {{if eq .MediaType "video"}}
+                    <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                  {{else}}
+                    <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
+                  {{end}}
+                  <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                </div>
+                <div class="asset-meta">
+                  <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
+                </div>
+              </a>
+            {{end}}
+          </div>
+        </div>
+      {{end}}
+
+      {{if .RelatedAssets.SameGroup}}
+        <div style="margin-bottom:36px;">
+          <div class="results-bar">
+            <div class="results-count" style="font-size:14px;">
+              More Media in Group / Folder
+              {{range $idx, $gr := .SelectedAsset.Groups}}
+                {{if eq $idx 0}}<strong style="font-size:16px;color:#93c5fd;">{{$gr.Name}}</strong>{{end}}
+              {{end}}
+            </div>
+            {{range $idx, $gr := .SelectedAsset.Groups}}
+              {{if eq $idx 0}}<a href="/?group_id={{$gr.ID}}" class="btn-ghost">Browse Group &rarr;</a>{{end}}
+            {{end}}
+          </div>
+          <div class="asset-grid">
+            {{range .RelatedAssets.SameGroup}}
+              <a href="/?asset_id={{.ID}}" class="asset-card">
+                <div class="asset-thumb-wrap">
+                  {{if eq .MediaType "video"}}
+                    <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                  {{else}}
+                    <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
+                  {{end}}
+                  <span class="asset-type-corner">{{.Metadata.Engine}}</span>
+                </div>
+                <div class="asset-meta">
+                  <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
+                </div>
+              </a>
+            {{end}}
+          </div>
+        </div>
+      {{end}}
 
     {{else if eq .ActiveTab "studio"}}
       <!-- Ollama / oMLX Text2Prompt Studio -->
@@ -1201,6 +1419,23 @@
             </div>
 
             <div class="facet-block">
+              <div class="facet-title"><span>CAPTION TRIGGER FILTER</span></div>
+              <input type="text" name="trigger" list="caption-triggers-list" value="{{.Filter.Trigger}}" placeholder="Trigger word in caption (e.g. kaelen7, anamorphic70mm)..." class="input-dark" style="margin-bottom:6px;font-size:12px;">
+              <datalist id="caption-triggers-list">
+                {{range .Page.AvailableTriggers}}
+                  <option value="{{.}}"></option>
+                {{end}}
+              </datalist>
+              {{if .Page.AvailableTriggers}}
+                <div class="tag-cloud" style="max-height:110px;overflow-y:auto;">
+                  {{range .Page.AvailableTriggers}}
+                    <a href="/?trigger={{.}}" class="tag-pill {{if eq $.Filter.Trigger .}}active{{end}}" style="font-size:10.5px;">{{.}}</a>
+                  {{end}}
+                </div>
+              {{end}}
+            </div>
+
+            <div class="facet-block">
               <div class="facet-title"><span>GENERATOR ENGINE</span></div>
               <div class="checkbox-list">
                 {{range .Page.Engines}}
@@ -1428,7 +1663,118 @@
       filterModelSelect('vision_provider', 'vision_model_select');
       filterModelSelect('image2prompt_provider', 'image2prompt_model_select');
       filterModelSelect('text2prompt_provider', 'text2prompt_model_select');
+      initZoomableStage('media-stage-viewport', 'stage-media-el', 'zoom-pct-label');
+      initZoomableStage('lightbox-canvas', 'lightbox-media-el', null);
     });
+
+    var stageZoomState = { scale: 1, x: 0, y: 0, dragging: false, startX: 0, startY: 0 };
+    var lbZoomState = { scale: 1, x: 0, y: 0, dragging: false, startX: 0, startY: 0 };
+
+    function applyZoomTransform(el, state, labelId) {
+      if (!el) return;
+      el.style.transform = 'translate(' + state.x + 'px, ' + state.y + 'px) scale(' + state.scale + ')';
+      if (labelId) {
+        var lbl = document.getElementById(labelId);
+        if (lbl) lbl.innerText = Math.round(state.scale * 100) + '%';
+      }
+    }
+
+    function setStageZoom(delta) {
+      var el = document.getElementById('stage-media-el');
+      stageZoomState.scale = Math.max(0.5, Math.min(8, stageZoomState.scale + delta));
+      if (stageZoomState.scale === 1) { stageZoomState.x = 0; stageZoomState.y = 0; }
+      applyZoomTransform(el, stageZoomState, 'zoom-pct-label');
+    }
+
+    function setExactStageZoom(val) {
+      var el = document.getElementById('stage-media-el');
+      stageZoomState.scale = val;
+      applyZoomTransform(el, stageZoomState, 'zoom-pct-label');
+    }
+
+    function resetStageZoom() {
+      var el = document.getElementById('stage-media-el');
+      stageZoomState.scale = 1;
+      stageZoomState.x = 0;
+      stageZoomState.y = 0;
+      applyZoomTransform(el, stageZoomState, 'zoom-pct-label');
+    }
+
+    function setLightboxZoom(delta) {
+      var el = document.getElementById('lightbox-media-el');
+      lbZoomState.scale = Math.max(0.5, Math.min(10, lbZoomState.scale + delta));
+      if (lbZoomState.scale === 1) { lbZoomState.x = 0; lbZoomState.y = 0; }
+      applyZoomTransform(el, lbZoomState, null);
+    }
+
+    function resetLightboxZoom() {
+      var el = document.getElementById('lightbox-media-el');
+      lbZoomState.scale = 1;
+      lbZoomState.x = 0;
+      lbZoomState.y = 0;
+      applyZoomTransform(el, lbZoomState, null);
+    }
+
+    function openMediaLightbox() {
+      var lb = document.getElementById('media-lightbox');
+      if (lb) {
+        lb.classList.add('open');
+        resetLightboxZoom();
+      }
+    }
+
+    function closeMediaLightbox() {
+      var lb = document.getElementById('media-lightbox');
+      if (lb) lb.classList.remove('open');
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeMediaLightbox();
+    });
+
+    function initZoomableStage(viewportId, mediaId, labelId) {
+      var vp = document.getElementById(viewportId);
+      var el = document.getElementById(mediaId);
+      if (!vp || !el) return;
+      var st = (viewportId === 'lightbox-canvas') ? lbZoomState : stageZoomState;
+
+      vp.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var delta = e.deltaY < 0 ? 0.2 : -0.2;
+        st.scale = Math.max(0.5, Math.min(10, st.scale + delta));
+        if (st.scale === 1) { st.x = 0; st.y = 0; }
+        applyZoomTransform(el, st, labelId);
+      }, { passive: false });
+
+      vp.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return;
+        st.dragging = true;
+        st.startX = e.clientX - st.x;
+        st.startY = e.clientY - st.y;
+      });
+
+      window.addEventListener('mousemove', function(e) {
+        if (!st.dragging) return;
+        st.x = e.clientX - st.startX;
+        st.y = e.clientY - st.startY;
+        applyZoomTransform(el, st, labelId);
+      });
+
+      window.addEventListener('mouseup', function() {
+        st.dragging = false;
+      });
+
+      vp.addEventListener('dblclick', function() {
+        if (st.scale > 1.05) {
+          st.scale = 1;
+          st.x = 0;
+          st.y = 0;
+        } else {
+          st.scale = 2.25;
+        }
+        applyZoomTransform(el, st, labelId);
+      });
+    }
   </script>
 </body>
 </html>

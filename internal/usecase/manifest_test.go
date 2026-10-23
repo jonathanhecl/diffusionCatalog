@@ -121,4 +121,10 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 	if restoredPage.Assets[0].Subcategory != "Heavy Orbital Mecha" {
 		t.Errorf("expected subcategory 'Heavy Orbital Mecha' restored from manifest, got %q", restoredPage.Assets[0].Subcategory)
 	}
+
+	// 5. Verify Caption Trigger Filter and Related Assets by Category
+	trigPage, err := catalogSvc.Query(ctx, domain.CatalogFilter{Trigger: "orbital mech drop"})
+	if err != nil || len(trigPage.Assets) != 1 {
+		t.Fatalf("expected 1 asset matching caption trigger 'orbital mech drop', got %d (err=%v)", len(trigPage.Assets), err)
+	}
 }

@@ -193,6 +193,57 @@ func (s *CatalogService) GetAsset(ctx context.Context, id int64) (*domain.MediaA
 	return s.repo.GetAssetByID(ctx, id)
 }
 
+// RelatedAssetsBundle holds related assets sharing the same Category, Character, or Group as a selected asset.
+type RelatedAssetsBundle struct {
+	SameCategory  []domain.MediaAsset
+	SameCharacter []domain.MediaAsset
+	SameGroup     []domain.MediaAsset
+	SameModel     []domain.MediaAsset
+}
+
+// GetRelatedAssets finds other cataloged assets that share the same Category, Character, Group, or Checkpoint Model.
+func (s *CatalogService) GetRelatedAssets(ctx context.Context, asset *domain.MediaAsset) RelatedAssetsBundle {
+	var b RelatedAssetsBundle
+	if asset == nil {
+		return b
+	}
+
+	excludeSelf := func(items []domain.MediaAsset, max int) []domain.MediaAsset {
+		var out []domain.MediaAsset
+		for _, a := range items {
+			if a.ID != asset.ID {
+				out = append(out, a)
+				if len(out) >= max {
+					break
+				}
+			}
+		}
+		return out
+	}
+
+	if asset.Category != "" {
+		if p, err := s.repo.QueryCatalog(ctx, domain.CatalogFilter{Category: asset.Category, PerPage: 12}); err == nil && p != nil {
+			b.SameCategory = excludeSelf(p.Assets, 8)
+		}
+	}
+	if len(asset.Characters) > 0 {
+		if p, err := s.repo.QueryCatalog(ctx, domain.CatalogFilter{CharacterID: asset.Characters[0].ID, PerPage: 12}); err == nil && p != nil {
+			b.SameCharacter = excludeSelf(p.Assets, 8)
+		}
+	}
+	if len(asset.Groups) > 0 {
+		if p, err := s.repo.QueryCatalog(ctx, domain.CatalogFilter{GroupID: asset.Groups[0].ID, PerPage: 12}); err == nil && p != nil {
+			b.SameGroup = excludeSelf(p.Assets, 8)
+		}
+	}
+	if asset.Metadata.ModelName != "" {
+		if p, err := s.repo.QueryCatalog(ctx, domain.CatalogFilter{ModelName: asset.Metadata.ModelName, PerPage: 12}); err == nil && p != nil {
+			b.SameModel = excludeSelf(p.Assets, 8)
+		}
+	}
+	return b
+}
+
 // SetAssetCategory updates an asset's category and subcategory in SQLite and in its folder's .diffusion-catalog.json.
 func (s *CatalogService) SetAssetCategory(ctx context.Context, assetID int64, category, subcategory string) error {
 	if err := s.repo.UpdateAssetCategory(ctx, assetID, category, subcategory); err != nil {

@@ -5,6 +5,7 @@ import "context"
 // CatalogFilter specifies search, facet, and pagination criteria for querying the catalog.
 type CatalogFilter struct {
 	Query       string
+	Trigger     string
 	RootID      int64
 	Category    string
 	Subcategory string
@@ -30,6 +31,7 @@ type CatalogPage struct {
 	TotalPages        int
 	MediaRoots        []MediaRoot
 	DefaultCategories []DefaultCategory
+	AvailableTriggers []string
 	AvailableTags     []Tag
 	FacetTags         map[string][]Tag
 	Engines           []string

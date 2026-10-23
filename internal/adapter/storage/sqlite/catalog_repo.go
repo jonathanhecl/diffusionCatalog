@@ -789,6 +789,7 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 	page.Models, _ = r.distinctStrings(ctx, `SELECT DISTINCT model_name FROM assets WHERE model_name != '' ORDER BY model_name`)
 	page.Groups, _ = r.ListGroups(ctx)
 	page.Characters, _ = r.ListCharacters(ctx)
+	page.AvailableTriggers = r.collectTriggerWords(ctx, page.Characters)
 
 	if filter.FaceMode {
 		faces, total, err := r.ListDetectedFaces(ctx, filter)
@@ -813,6 +814,15 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 			SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = a.id AND t.name LIKE ?
 		))`)
 		args = append(args, like, like, like, like, like, like)
+	}
+	if trig := strings.TrimSpace(filter.Trigger); trig != "" {
+		tlike := "%" + trig + "%"
+		where = append(where, `(a.positive_prompt LIKE ? OR a.loras_json LIKE ? OR EXISTS (
+			SELECT 1 FROM character_examples ce JOIN characters c ON c.id = ce.character_id WHERE ce.asset_id = a.id AND c.trigger_words LIKE ?
+		) OR EXISTS (
+			SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = a.id AND t.name LIKE ?
+		))`)
+		args = append(args, tlike, tlike, tlike, tlike)
 	}
 	if filter.RootID > 0 {
 		where = append(where, `a.root_id = ?`)
@@ -1382,6 +1392,36 @@ func (r *Repository) distinctStrings(ctx context.Context, query string) ([]strin
 		}
 	}
 	return out, nil
+}
+
+func (r *Repository) collectTriggerWords(ctx context.Context, chars []domain.Character) []string {
+	var out []string
+	seen := make(map[string]bool)
+	addToken := func(tok string) {
+		tok = strings.TrimSpace(tok)
+		if tok == "" || len(tok) > 48 {
+			return
+		}
+		key := strings.ToLower(tok)
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, tok)
+		}
+	}
+
+	for _, c := range chars {
+		for _, part := range strings.Split(c.TriggerWords, ",") {
+			addToken(part)
+		}
+	}
+
+	loras, _ := r.ListModelLoRAs(ctx, "")
+	for _, l := range loras {
+		for _, part := range strings.Split(l.TriggerWords, ",") {
+			addToken(part)
+		}
+	}
+	return out
 }
 
 func slugify(s string) string {

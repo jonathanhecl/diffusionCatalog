@@ -49,6 +49,28 @@ func NewServer(
 		"joinStrings": func(items []string) string {
 			return strings.Join(items, ", ")
 		},
+		"promptTokens": func(prompt string) []string {
+			if strings.TrimSpace(prompt) == "" {
+				return nil
+			}
+			var out []string
+			seen := make(map[string]bool)
+			for _, part := range strings.Split(prompt, ",") {
+				tok := strings.TrimSpace(part)
+				if tok == "" || len(tok) > 54 {
+					continue
+				}
+				k := strings.ToLower(tok)
+				if !seen[k] {
+					seen[k] = true
+					out = append(out, tok)
+					if len(out) >= 18 {
+						break
+					}
+				}
+			}
+			return out
+		},
 		"pageRange": func(total int) []int {
 			if total < 1 {
 				total = 1
@@ -138,6 +160,7 @@ type viewData struct {
 	Filter            domain.CatalogFilter
 	Page              *domain.CatalogPage
 	SelectedAsset     *domain.MediaAsset
+	RelatedAssets     usecase.RelatedAssetsBundle
 	ScanReport        usecase.ScanReport
 	Settings          domain.AppSettings
 	PromptProfiles    []domain.PromptProfile
@@ -198,11 +221,13 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var selectedAsset *domain.MediaAsset
+	var relatedAssets usecase.RelatedAssetsBundle
 	var assetID int64
 	if assetIDStr := r.URL.Query().Get("asset_id"); assetIDStr != "" {
 		if id, err := strconv.ParseInt(assetIDStr, 10, 64); err == nil && id > 0 {
 			if a, err := s.catalog.GetAsset(ctx, id); err == nil {
 				selectedAsset = a
+				relatedAssets = s.catalog.GetRelatedAssets(ctx, a)
 				assetID = id
 				tab = "asset_detail"
 			}
@@ -251,6 +276,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		Filter:           filter,
 		Page:             page,
 		SelectedAsset:    selectedAsset,
+		RelatedAssets:    relatedAssets,
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
@@ -484,6 +510,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
 	selectedAsset, _ := s.catalog.GetAsset(ctx, assetID)
+	relatedAssets := s.catalog.GetRelatedAssets(ctx, selectedAsset)
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
 	loras, _ := s.catalog.ListModelLoRAs(ctx, "")
@@ -499,6 +526,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		Filter:           filter,
 		Page:             page,
 		SelectedAsset:    selectedAsset,
+		RelatedAssets:    relatedAssets,
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
@@ -589,8 +617,10 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 
 	activeTab := "studio"
 	var selectedAsset *domain.MediaAsset
+	var relatedAssets usecase.RelatedAssetsBundle
 	if assetID > 0 {
 		selectedAsset, _ = s.catalog.GetAsset(ctx, assetID)
+		relatedAssets = s.catalog.GetRelatedAssets(ctx, selectedAsset)
 		activeTab = "asset_detail"
 	}
 
@@ -603,6 +633,7 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 		Filter:           filter,
 		Page:             page,
 		SelectedAsset:    selectedAsset,
+		RelatedAssets:    relatedAssets,
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
 		PromptProfiles:   profiles,
@@ -743,6 +774,7 @@ func parseCatalogFilter(r *http.Request) domain.CatalogFilter {
 
 	return domain.CatalogFilter{
 		Query:       q.Get("q"),
+		Trigger:     q.Get("trigger"),
 		RootID:      rootID,
 		Category:    q.Get("category"),
 		Subcategory: q.Get("subcategory"),
