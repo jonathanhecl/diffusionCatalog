@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -96,6 +97,21 @@ func NewServer(
 				out[i] = i
 			}
 			return out
+		},
+		"filterQuery": func(f domain.CatalogFilter) string {
+			return f.QueryString()
+		},
+		"filterWithSort": func(f domain.CatalogFilter, sort string) string {
+			return f.QueryWithSort(sort)
+		},
+		"filterWithPage": func(f domain.CatalogFilter, page int) string {
+			return f.QueryWithPage(page)
+		},
+		"filterWithTrigger": func(f domain.CatalogFilter, trigger string) string {
+			return f.QueryWithTrigger(trigger)
+		},
+		"filterWithTag": func(f domain.CatalogFilter, tag string) string {
+			return f.QueryWithTag(tag)
 		},
 	}
 
@@ -200,6 +216,7 @@ type viewData struct {
 	VisionEngineName  string
 	AdminUser         string
 	Filter            domain.CatalogFilter
+	FilterQuery       string
 	Page              *domain.CatalogPage
 	SelectedAsset     *domain.MediaAsset
 	PrevAssetID       int64
@@ -254,12 +271,62 @@ func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	filter := parseCatalogFilter(r)
+
+	// Reset filter request: clears the saved filter cookie and redirects to clean root
+	if r.URL.Query().Get("reset") == "1" {
+		http.SetCookie(w, &http.Cookie{
+			Name:     "dc_catalog_filter",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		})
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
 
 	rawTab := r.URL.Query().Get("tab")
 	tab := rawTab
 	if tab == "remix" {
 		tab = "studio"
+	}
+
+	// If opening the catalog grid directly with no query parameters, and a saved filter cookie exists,
+	// redirect to restore the saved filters in the URL so user sees them clearly.
+	if (rawTab == "" || rawTab == "catalog") && r.URL.Query().Get("asset_id") == "" && !hasExplicitFilterParams(r.URL.Query()) && !r.URL.Query().Has("page") {
+		if c, err := r.Cookie("dc_catalog_filter"); err == nil && strings.TrimSpace(c.Value) != "" {
+			http.Redirect(w, r, "/?"+c.Value, http.StatusFound)
+			return
+		}
+	}
+
+	filter := parseCatalogFilter(r)
+	filterQuery := filter.QueryString()
+
+	// Update cookie when browsing the catalog grid:
+	// - If active filters or sort are present, persist them.
+	// - If explicit empty filter params were submitted (e.g. user selected "All Categories" and "All Folders"), clear the cookie.
+	if (rawTab == "" || rawTab == "catalog") && r.URL.Query().Get("asset_id") == "" {
+		if filter.HasActiveFilters() || filter.SortBy != "" {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "dc_catalog_filter",
+				Value:    filterQuery,
+				Path:     "/",
+				MaxAge:   86400 * 30, // 30 days
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+			})
+		} else if hasExplicitFilterParams(r.URL.Query()) {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "dc_catalog_filter",
+				Value:    "",
+				Path:     "/",
+				MaxAge:   -1,
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+			})
+		}
 	}
 
 	var selectedAsset *domain.MediaAsset
@@ -272,7 +339,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 				selectedAsset = a
 				relatedAssets = s.catalog.GetRelatedAssets(ctx, a)
 				assetID = id
-				prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, id)
+				prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, id, filter)
 			}
 		}
 	}
@@ -332,6 +399,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		VisionEngineName: s.visionEngineName,
 		AdminUser:        s.currentAdmin(r),
 		Filter:           filter,
+		FilterQuery:      filterQuery,
 		Page:             page,
 		SelectedAsset:    selectedAsset,
 		PrevAssetID:      prevAssetID,
@@ -456,6 +524,10 @@ func (s *Server) handleSetAssetCategory(w http.ResponseWriter, r *http.Request) 
 	sub := strings.TrimSpace(r.FormValue("subcategory"))
 	if assetID > 0 {
 		_ = s.catalog.SetAssetCategory(r.Context(), assetID, cat, sub)
+	}
+	if ret := strings.TrimSpace(r.FormValue("return_url")); ret != "" && strings.HasPrefix(ret, "/") {
+		http.Redirect(w, r, ret, http.StatusSeeOther)
+		return
 	}
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Asset+classification+saved+to+.diffusion-catalog.json", http.StatusSeeOther)
 }
@@ -667,7 +739,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	var relatedAssets usecase.RelatedAssetsBundle
 	if assetID > 0 {
 		selectedAsset, _ = s.catalog.GetAsset(ctx, assetID)
-		prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, assetID)
+		prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, assetID, filter)
 		relatedAssets = s.catalog.GetRelatedAssets(ctx, selectedAsset)
 	}
 	settings, _ := s.catalog.GetSettings(ctx)
@@ -688,6 +760,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		VisionEngineName: s.visionEngineName,
 		AdminUser:        s.currentAdmin(r),
 		Filter:           filter,
+		FilterQuery:      filter.QueryString(),
 		Page:             page,
 		SelectedAsset:    selectedAsset,
 		PrevAssetID:      prevAssetID,
@@ -786,9 +859,11 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 	activeTab := "studio"
 	var selectedAsset *domain.MediaAsset
 	var relatedAssets usecase.RelatedAssetsBundle
+	var prevAssetID, nextAssetID int64
 	if assetID > 0 {
 		selectedAsset, _ = s.catalog.GetAsset(ctx, assetID)
 		relatedAssets = s.catalog.GetRelatedAssets(ctx, selectedAsset)
+		prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, assetID, filter)
 		activeTab = "asset_detail"
 	}
 
@@ -799,8 +874,11 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 		VisionEngineName: s.visionEngineName,
 		AdminUser:        s.currentAdmin(r),
 		Filter:           filter,
+		FilterQuery:      filter.QueryString(),
 		Page:             page,
 		SelectedAsset:    selectedAsset,
+		PrevAssetID:      prevAssetID,
+		NextAssetID:      nextAssetID,
 		RelatedAssets:    relatedAssets,
 		ScanReport:       s.scanner.LastReport(),
 		Settings:         settings,
@@ -879,6 +957,10 @@ func (s *Server) handleAddTag(w http.ResponseWriter, r *http.Request) {
 	if assetID > 0 && name != "" {
 		_ = s.catalog.AddTagToAsset(r.Context(), assetID, name, facet)
 	}
+	if ret := strings.TrimSpace(r.FormValue("return_url")); ret != "" && strings.HasPrefix(ret, "/") {
+		http.Redirect(w, r, ret, http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10), http.StatusSeeOther)
 }
 
@@ -941,8 +1023,15 @@ func (s *Server) currentAdmin(r *http.Request) string {
 	return "admin (default)"
 }
 
-func parseCatalogFilter(r *http.Request) domain.CatalogFilter {
-	q := r.URL.Query()
+func hasExplicitFilterParams(q url.Values) bool {
+	return q.Has("root_id") || q.Has("category") || q.Has("subcategory") ||
+		q.Has("favorites") || q.Has("min_rating") || q.Has("trigger") ||
+		q.Has("engine") || q.Has("model") || q.Has("media_type") ||
+		q.Has("group_id") || q.Has("character_id") || q.Has("tag") ||
+		q.Has("q") || q.Has("sort") || q.Has("face_mode")
+}
+
+func parseCatalogFilterFromValues(q url.Values) domain.CatalogFilter {
 	page, _ := strconv.Atoi(q.Get("page"))
 	if page < 1 {
 		page = 1
@@ -977,4 +1066,27 @@ func parseCatalogFilter(r *http.Request) domain.CatalogFilter {
 		Page:          page,
 		PerPage:       perPage,
 	}
+}
+
+func parseCatalogFilter(r *http.Request) domain.CatalogFilter {
+	q := r.URL.Query()
+	if !hasExplicitFilterParams(q) {
+		if c, err := r.Cookie("dc_catalog_filter"); err == nil && strings.TrimSpace(c.Value) != "" {
+			if cookieVals, err := url.ParseQuery(c.Value); err == nil && len(cookieVals) > 0 {
+				f := parseCatalogFilterFromValues(cookieVals)
+				if q.Has("page") {
+					if p, _ := strconv.Atoi(q.Get("page")); p > 0 {
+						f.Page = p
+					}
+				}
+				if q.Has("per_page") {
+					if pp, _ := strconv.Atoi(q.Get("per_page")); pp > 0 {
+						f.PerPage = pp
+					}
+				}
+				return f
+			}
+		}
+	}
+	return parseCatalogFilterFromValues(q)
 }

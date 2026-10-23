@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
 )
@@ -395,33 +394,137 @@ func (r *Repository) GetExistingAssetFingerprints(ctx context.Context, rootID in
 	return out, nil
 }
 
-// GetAdjacentAssetIDs returns the previous (newer) and next (older) asset IDs relative to the specified asset ID.
-func (r *Repository) GetAdjacentAssetIDs(ctx context.Context, id int64) (int64, int64, error) {
-	db := r.conn()
+// buildCatalogFilterWhereAndOrder converts a domain.CatalogFilter into a WHERE clause, argument slice, and ORDER BY clause for the assets table.
+func buildCatalogFilterWhereAndOrder(filter domain.CatalogFilter) (whereClause string, args []interface{}, orderBy string) {
+	var where []string
 
-	var curMTime time.Time
-	var curID int64
-	err := db.QueryRowContext(ctx, `SELECT COALESCE(file_mtime, indexed_at), id FROM assets WHERE id = ?`, id).Scan(&curMTime, &curID)
-	if err != nil {
-		return 0, 0, err
+	if q := strings.TrimSpace(filter.Query); q != "" {
+		like := "%" + q + "%"
+		where = append(where, `(a.positive_prompt LIKE ? OR a.file_name LIKE ? OR a.model_name LIKE ? OR a.category LIKE ? OR a.subcategory LIKE ? OR EXISTS (
+			SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = a.id AND t.name LIKE ?
+		))`)
+		args = append(args, like, like, like, like, like, like)
+	}
+	if trig := strings.TrimSpace(filter.Trigger); trig != "" {
+		tlike := "%" + trig + "%"
+		where = append(where, `(a.positive_prompt LIKE ? OR a.loras_json LIKE ? OR EXISTS (
+			SELECT 1 FROM character_examples ce JOIN characters c ON c.id = ce.character_id WHERE ce.asset_id = a.id AND c.trigger_words LIKE ?
+		) OR EXISTS (
+			SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = a.id AND t.name LIKE ?
+		))`)
+		args = append(args, tlike, tlike, tlike, tlike)
+	}
+	if filter.RootID > 0 {
+		where = append(where, `a.root_id = ?`)
+		args = append(args, filter.RootID)
+	}
+	if filter.Category != "" {
+		where = append(where, `LOWER(a.category) = LOWER(?)`)
+		args = append(args, strings.TrimSpace(filter.Category))
+	}
+	if filter.Subcategory != "" {
+		where = append(where, `LOWER(a.subcategory) = LOWER(?)`)
+		args = append(args, strings.TrimSpace(filter.Subcategory))
+	}
+	if filter.MinRating > 0 {
+		where = append(where, `a.rating >= ?`)
+		args = append(args, filter.MinRating)
+	}
+	if filter.FavoritesOnly {
+		where = append(where, `a.favorite = 1`)
+	}
+	if filter.Engine != "" {
+		where = append(where, `a.engine = ?`)
+		args = append(args, filter.Engine)
+	}
+	if filter.ModelName != "" {
+		where = append(where, `a.model_name = ?`)
+		args = append(args, filter.ModelName)
+	}
+	if filter.MediaType != "" {
+		where = append(where, `a.media_type = ?`)
+		args = append(args, filter.MediaType)
+	}
+	if filter.GroupID > 0 {
+		where = append(where, `EXISTS (SELECT 1 FROM group_assets ga WHERE ga.asset_id = a.id AND ga.group_id = ?)`)
+		args = append(args, filter.GroupID)
+	}
+	if filter.CharacterID > 0 {
+		where = append(where, `EXISTS (SELECT 1 FROM character_examples ce WHERE ce.asset_id = a.id AND ce.character_id = ?)`)
+		args = append(args, filter.CharacterID)
+	}
+	for _, tagName := range filter.TagNames {
+		tagName = strings.TrimSpace(tagName)
+		if tagName == "" {
+			continue
+		}
+		where = append(where, `EXISTS (
+			SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id
+			WHERE at.asset_id = a.id AND LOWER(t.name) = LOWER(?)
+		)`)
+		args = append(args, tagName)
 	}
 
+	if len(where) > 0 {
+		whereClause = "WHERE " + strings.Join(where, " AND ")
+	}
+
+	orderBy = "COALESCE(a.file_mtime, a.indexed_at) DESC, a.id DESC"
+	switch filter.SortBy {
+	case "oldest":
+		orderBy = "COALESCE(a.file_mtime, a.indexed_at) ASC, a.id ASC"
+	case "rating", "popular":
+		orderBy = "a.rating DESC, a.favorite DESC, a.view_count DESC, a.id DESC"
+	case "favorites":
+		orderBy = "a.favorite DESC, a.rating DESC, a.view_count DESC, a.id DESC"
+	case "views":
+		orderBy = "a.view_count DESC, a.id DESC"
+	case "seed":
+		orderBy = "a.seed ASC, a.id DESC"
+	}
+
+	return whereClause, args, orderBy
+}
+
+// GetAdjacentAssetIDs returns the previous and next asset IDs relative to the specified asset ID,
+// respecting the specified filter criteria and sort order.
+func (r *Repository) GetAdjacentAssetIDs(ctx context.Context, id int64, filter domain.CatalogFilter) (int64, int64, error) {
+	db := r.conn()
+
+	whereClause, args, orderBy := buildCatalogFilterWhereAndOrder(filter)
+
+	// Window query: LAG() gives previous item in the ordered list, LEAD() gives next item.
+	query := fmt.Sprintf(`
+		WITH filtered AS (
+			SELECT a.id,
+			       LAG(a.id) OVER (ORDER BY %s) AS prev_id,
+			       LEAD(a.id) OVER (ORDER BY %s) AS next_id
+			FROM assets a
+			%s
+		)
+		SELECT COALESCE(prev_id, 0), COALESCE(next_id, 0)
+		FROM filtered
+		WHERE id = ?`, orderBy, orderBy, whereClause)
+
 	var prevID, nextID int64
+	queryArgs := append(append([]interface{}{}, args...), id)
+	err := db.QueryRowContext(ctx, query, queryArgs...).Scan(&prevID, &nextID)
+	if err == nil {
+		return prevID, nextID, nil
+	}
 
-	// Prev: newer in time or same time with higher ID
-	_ = db.QueryRowContext(ctx, `
-		SELECT id FROM assets
-		WHERE (COALESCE(file_mtime, indexed_at) > ?) OR (COALESCE(file_mtime, indexed_at) = ? AND id > ?)
-		ORDER BY COALESCE(file_mtime, indexed_at) ASC, id ASC
-		LIMIT 1`, curMTime, curMTime, curID).Scan(&prevID)
-
-	// Next: older in time or same time with lower ID
-	_ = db.QueryRowContext(ctx, `
-		SELECT id FROM assets
-		WHERE (COALESCE(file_mtime, indexed_at) < ?) OR (COALESCE(file_mtime, indexed_at) = ? AND id < ?)
-		ORDER BY COALESCE(file_mtime, indexed_at) DESC, id DESC
-		LIMIT 1`, curMTime, curMTime, curID).Scan(&nextID)
-
+	// Fallback to global adjacent if the asset is not within the filtered set
+	fallbackQuery := `
+		WITH all_assets AS (
+			SELECT a.id,
+			       LAG(a.id) OVER (ORDER BY COALESCE(a.file_mtime, a.indexed_at) DESC, a.id DESC) AS prev_id,
+			       LEAD(a.id) OVER (ORDER BY COALESCE(a.file_mtime, a.indexed_at) DESC, a.id DESC) AS next_id
+			FROM assets a
+		)
+		SELECT COALESCE(prev_id, 0), COALESCE(next_id, 0)
+		FROM all_assets
+		WHERE id = ?`
+	_ = db.QueryRowContext(ctx, fallbackQuery, id).Scan(&prevID, &nextID)
 	return prevID, nextID, nil
 }
 
@@ -905,80 +1008,7 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 		return page, nil
 	}
 
-	var where []string
-	var args []interface{}
-
-	if q := strings.TrimSpace(filter.Query); q != "" {
-		like := "%" + q + "%"
-		where = append(where, `(a.positive_prompt LIKE ? OR a.file_name LIKE ? OR a.model_name LIKE ? OR a.category LIKE ? OR a.subcategory LIKE ? OR EXISTS (
-			SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = a.id AND t.name LIKE ?
-		))`)
-		args = append(args, like, like, like, like, like, like)
-	}
-	if trig := strings.TrimSpace(filter.Trigger); trig != "" {
-		tlike := "%" + trig + "%"
-		where = append(where, `(a.positive_prompt LIKE ? OR a.loras_json LIKE ? OR EXISTS (
-			SELECT 1 FROM character_examples ce JOIN characters c ON c.id = ce.character_id WHERE ce.asset_id = a.id AND c.trigger_words LIKE ?
-		) OR EXISTS (
-			SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = a.id AND t.name LIKE ?
-		))`)
-		args = append(args, tlike, tlike, tlike, tlike)
-	}
-	if filter.RootID > 0 {
-		where = append(where, `a.root_id = ?`)
-		args = append(args, filter.RootID)
-	}
-	if filter.Category != "" {
-		where = append(where, `LOWER(a.category) = LOWER(?)`)
-		args = append(args, strings.TrimSpace(filter.Category))
-	}
-	if filter.Subcategory != "" {
-		where = append(where, `LOWER(a.subcategory) = LOWER(?)`)
-		args = append(args, strings.TrimSpace(filter.Subcategory))
-	}
-	if filter.MinRating > 0 {
-		where = append(where, `a.rating >= ?`)
-		args = append(args, filter.MinRating)
-	}
-	if filter.FavoritesOnly {
-		where = append(where, `a.favorite = 1`)
-	}
-	if filter.Engine != "" {
-		where = append(where, `a.engine = ?`)
-		args = append(args, filter.Engine)
-	}
-	if filter.ModelName != "" {
-		where = append(where, `a.model_name = ?`)
-		args = append(args, filter.ModelName)
-	}
-	if filter.MediaType != "" {
-		where = append(where, `a.media_type = ?`)
-		args = append(args, filter.MediaType)
-	}
-	if filter.GroupID > 0 {
-		where = append(where, `EXISTS (SELECT 1 FROM group_assets ga WHERE ga.asset_id = a.id AND ga.group_id = ?)`)
-		args = append(args, filter.GroupID)
-	}
-	if filter.CharacterID > 0 {
-		where = append(where, `EXISTS (SELECT 1 FROM character_examples ce WHERE ce.asset_id = a.id AND ce.character_id = ?)`)
-		args = append(args, filter.CharacterID)
-	}
-	for _, tagName := range filter.TagNames {
-		tagName = strings.TrimSpace(tagName)
-		if tagName == "" {
-			continue
-		}
-		where = append(where, `EXISTS (
-			SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id
-			WHERE at.asset_id = a.id AND LOWER(t.name) = LOWER(?)
-		)`)
-		args = append(args, tagName)
-	}
-
-	whereClause := ""
-	if len(where) > 0 {
-		whereClause = "WHERE " + strings.Join(where, " AND ")
-	}
+	whereClause, args, orderBy := buildCatalogFilterWhereAndOrder(filter)
 
 	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM assets a %s`, whereClause)
 	if err := db.QueryRowContext(ctx, countSQL, args...).Scan(&page.TotalCount); err != nil {
@@ -988,20 +1018,6 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 	page.TotalPages = (page.TotalCount + filter.PerPage - 1) / filter.PerPage
 	if page.TotalPages < 1 {
 		page.TotalPages = 1
-	}
-
-	orderBy := "COALESCE(a.file_mtime, a.indexed_at) DESC, a.id DESC"
-	switch filter.SortBy {
-	case "oldest":
-		orderBy = "COALESCE(a.file_mtime, a.indexed_at) ASC, a.id ASC"
-	case "rating", "popular":
-		orderBy = "a.rating DESC, a.favorite DESC, a.view_count DESC, a.id DESC"
-	case "favorites":
-		orderBy = "a.favorite DESC, a.rating DESC, a.view_count DESC, a.id DESC"
-	case "views":
-		orderBy = "a.view_count DESC, a.id DESC"
-	case "seed":
-		orderBy = "a.seed ASC, a.id DESC"
 	}
 
 	offset := (filter.Page - 1) * filter.PerPage

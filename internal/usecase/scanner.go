@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -32,6 +33,7 @@ type ScanReport struct {
 // ScanStatus summarizes the real-time progress of an in-progress or completed media scan.
 type ScanStatus struct {
 	IsScanning     bool       `json:"is_scanning"`
+	Phase          string     `json:"phase"` // "starting", "discovering", "indexing", "completed", "error"
 	ProgressPct    int        `json:"progress_pct"`
 	TotalFiles     int        `json:"total_files"`
 	ScannedFiles   int        `json:"scanned_files"`
@@ -40,8 +42,31 @@ type ScanStatus struct {
 	CurrentRoot    string     `json:"current_root"`
 	StartedAt      time.Time  `json:"started_at"`
 	CompletedAt    time.Time  `json:"completed_at"`
+	Speed          float64    `json:"speed"`       // files per second
+	EtaSeconds     int64      `json:"eta_seconds"` // remaining seconds
+	EtaFormatted   string     `json:"eta_formatted"`
 	LastReport     ScanReport `json:"last_report"`
 	LastError      string     `json:"last_error,omitempty"`
+}
+
+func formatETA(seconds int64) string {
+	if seconds <= 0 {
+		return "< 5s"
+	}
+	if seconds < 60 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+	m := seconds / 60
+	s := seconds % 60
+	if m < 60 {
+		if s == 0 {
+			return fmt.Sprintf("%dm", m)
+		}
+		return fmt.Sprintf("%dm %02ds", m, s)
+	}
+	h := m / 60
+	m = m % 60
+	return fmt.Sprintf("%dh %02dm", h, m)
 }
 
 // ScannerService walks the read-only media folder, extracts diffusion metadata, and indexes assets into SQLite.
@@ -86,6 +111,41 @@ func (s *ScannerService) LastReport() ScanReport {
 	return s.status.LastReport
 }
 
+func (s *ScannerService) recordProgress(fileName, rootLabel string, isUnchanged bool, indexStartTime time.Time) (scanned, total, pct int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.status.ScannedFiles++
+	if isUnchanged {
+		s.status.UnchangedFiles++
+	}
+	s.status.CurrentFile = fileName
+	s.status.CurrentRoot = rootLabel
+
+	if s.status.TotalFiles > 0 {
+		s.status.ProgressPct = (s.status.ScannedFiles * 100) / s.status.TotalFiles
+		if s.status.ProgressPct > 100 {
+			s.status.ProgressPct = 100
+		}
+	}
+
+	elapsed := time.Since(indexStartTime).Seconds()
+	if elapsed >= 0.2 && s.status.ScannedFiles > 0 {
+		speed := float64(s.status.ScannedFiles) / elapsed
+		s.status.Speed = speed
+		remaining := s.status.TotalFiles - s.status.ScannedFiles
+		if remaining > 0 && speed > 0 {
+			s.status.EtaSeconds = int64(float64(remaining) / speed)
+			s.status.EtaFormatted = formatETA(s.status.EtaSeconds)
+		} else {
+			s.status.EtaSeconds = 0
+			s.status.EtaFormatted = "< 5s"
+		}
+	}
+
+	return s.status.ScannedFiles, s.status.TotalFiles, s.status.ProgressPct
+}
+
 // StartScanAsync starts the directory scan in a background goroutine if one is not already running.
 func (s *ScannerService) StartScanAsync() bool {
 	s.mu.Lock()
@@ -94,9 +154,14 @@ func (s *ScannerService) StartScanAsync() bool {
 		return false
 	}
 	s.status.IsScanning = true
+	s.status.Phase = "starting"
 	s.status.ProgressPct = 0
 	s.status.ScannedFiles = 0
+	s.status.UnchangedFiles = 0
 	s.status.TotalFiles = 0
+	s.status.Speed = 0
+	s.status.EtaSeconds = -1
+	s.status.EtaFormatted = ""
 	s.status.CurrentFile = ""
 	s.status.CurrentRoot = ""
 	s.status.StartedAt = time.Now()
@@ -108,6 +173,11 @@ func (s *ScannerService) StartScanAsync() bool {
 		_, err := s.Scan(context.Background())
 		if err != nil {
 			log.Printf("[SCAN] Background folder scan error: %v", err)
+			s.mu.Lock()
+			s.status.IsScanning = false
+			s.status.Phase = "error"
+			s.status.LastError = err.Error()
+			s.mu.Unlock()
 		}
 	}()
 	return true
@@ -118,9 +188,17 @@ func (s *ScannerService) StartScanAsync() bool {
 func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	s.mu.Lock()
 	s.status.IsScanning = true
+	s.status.Phase = "discovering"
 	s.status.StartedAt = time.Now()
 	s.status.ProgressPct = 0
 	s.status.ScannedFiles = 0
+	s.status.UnchangedFiles = 0
+	s.status.TotalFiles = 0
+	s.status.Speed = 0
+	s.status.EtaSeconds = -1
+	s.status.EtaFormatted = ""
+	s.status.CurrentFile = ""
+	s.status.CurrentRoot = ""
 	s.status.LastError = ""
 	s.mu.Unlock()
 
@@ -151,6 +229,10 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 		if statErr != nil || !info.IsDir() {
 			continue
 		}
+		s.mu.Lock()
+		s.status.CurrentRoot = root.Label
+		s.mu.Unlock()
+
 		_ = filepath.WalkDir(root.Path, func(absPath string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				if d != nil && d.IsDir() {
@@ -166,13 +248,20 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			}
 			if _, ok := classifyMediaExtension(filepath.Ext(d.Name())); ok {
 				totalCandidateFiles++
+				if totalCandidateFiles%20 == 0 {
+					s.mu.Lock()
+					s.status.TotalFiles = totalCandidateFiles
+					s.mu.Unlock()
+				}
 			}
 			return nil
 		})
 	}
 
+	indexStartTime := time.Now()
 	s.mu.Lock()
 	s.status.TotalFiles = totalCandidateFiles
+	s.status.Phase = "indexing"
 	s.mu.Unlock()
 
 	log.Printf("[SCAN] Discovered %d candidate media file(s) across %d registered root(s)", totalCandidateFiles, len(roots))
@@ -261,18 +350,7 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			if existing, inDB := dbFingerprints[storedRelPath]; inDB {
 				if existing.FileSize == fileSize && (existing.FileMTime.Unix() == mtimeUnix || existing.FileMTime.Equal(fileMTime)) {
 					report.UnchangedFiles++
-					s.mu.Lock()
-					s.status.ScannedFiles++
-					s.status.UnchangedFiles++
-					s.status.CurrentFile = d.Name()
-					s.status.CurrentRoot = root.Label
-					if s.status.TotalFiles > 0 {
-						s.status.ProgressPct = (s.status.ScannedFiles * 100) / s.status.TotalFiles
-						if s.status.ProgressPct > 100 {
-							s.status.ProgressPct = 100
-						}
-					}
-					s.mu.Unlock()
+					s.recordProgress(d.Name(), root.Label, true, indexStartTime)
 					return nil
 				}
 			}
@@ -347,20 +425,7 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				report.VideosFound++
 			}
 
-			s.mu.Lock()
-			s.status.ScannedFiles++
-			s.status.CurrentFile = d.Name()
-			s.status.CurrentRoot = root.Label
-			if s.status.TotalFiles > 0 {
-				s.status.ProgressPct = (s.status.ScannedFiles * 100) / s.status.TotalFiles
-				if s.status.ProgressPct > 100 {
-					s.status.ProgressPct = 100
-				}
-			}
-			scannedCount := s.status.ScannedFiles
-			totalCount := s.status.TotalFiles
-			pct := s.status.ProgressPct
-			s.mu.Unlock()
+			scannedCount, totalCount, pct := s.recordProgress(d.Name(), root.Label, false, indexStartTime)
 
 			if usedPreprocessedCache {
 				log.Printf("[SCAN] [%d/%d] (%d%%) Synced from manifest: %s (%s)", scannedCount, totalCount, pct, d.Name(), root.Label)
@@ -450,8 +515,12 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	s.mu.Lock()
 	s.status.LastReport = report
 	s.status.IsScanning = false
+	s.status.Phase = "completed"
 	s.status.CompletedAt = report.CompletedAt
 	s.status.ProgressPct = 100
+	s.status.EtaSeconds = 0
+	s.status.EtaFormatted = "0s"
+	s.status.CurrentFile = ""
 	s.mu.Unlock()
 	return report, nil
 }

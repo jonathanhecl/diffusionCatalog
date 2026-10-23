@@ -6,19 +6,75 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DiffusionCatalog — AI Media, Prompt &amp; Character Database</title>
   <link rel="stylesheet" href="/static/styles.css">
+  <script>
+    (function() {
+      function disableAllAutofill() {
+        document.querySelectorAll('form').forEach(function(f) {
+          f.setAttribute('autocomplete', 'off');
+        });
+        document.querySelectorAll('input, textarea').forEach(function(el) {
+          if (el.type !== 'checkbox' && el.type !== 'radio' && el.type !== 'file' && el.type !== 'hidden') {
+            el.setAttribute('autocomplete', 'off');
+            el.setAttribute('autocorrect', 'off');
+            el.setAttribute('autocapitalize', 'off');
+            el.setAttribute('spellcheck', 'false');
+            if (el.hasAttribute('list')) {
+              el.removeAttribute('list');
+            }
+          }
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', disableAllAutofill);
+      } else {
+        disableAllAutofill();
+      }
+      var observer = new MutationObserver(function() {
+        disableAllAutofill();
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    })();
+  </script>
 </head>
 <body>
-  <!-- Global Scan Progress Banner (tracks async directory indexing in real-time with %) -->
-  <div id="scan-progress-banner" class="scan-progress-banner" style="display:none;">
+  <!-- Global Scan Progress Banner (tracks async directory indexing in real-time with %, items, speed & ETA) -->
+  <div id="scan-progress-banner" class="scan-progress-banner" style="{{if not .ScanStatus.IsScanning}}display:none;{{end}}">
     <div class="scan-progress-inner">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8;"></span>
-        <strong id="scan-pct-badge" style="color:#38bdf8;font-size:13px;font-weight:700;">0%</strong>
+      <div class="scan-progress-pct-badge">
+        <span class="scan-pulse-dot"></span>
+        <strong id="scan-pct-badge" class="scan-pct-number">{{.ScanStatus.ProgressPct}}%</strong>
       </div>
       <div class="scan-progress-track">
-        <div id="scan-progress-fill" class="scan-progress-fill"></div>
+        <div id="scan-progress-fill" class="scan-progress-fill" style="width: {{.ScanStatus.ProgressPct}}%;"></div>
       </div>
-      <div id="scan-status-text" class="scan-progress-text">Scanning media roots...</div>
+      <div class="scan-progress-stats">
+        <span id="scan-progress-files" class="scan-stat-pill">
+          {{if and .ScanStatus.IsScanning (gt .ScanStatus.TotalFiles 0)}}
+            {{.ScanStatus.ScannedFiles}} / {{.ScanStatus.TotalFiles}} archivos
+          {{else if .ScanStatus.IsScanning}}
+            Descubriendo archivos...
+          {{end}}
+        </span>
+        <span id="scan-progress-eta" class="scan-stat-pill scan-pill-eta" style="{{if or (not .ScanStatus.IsScanning) (le .ScanStatus.EtaSeconds 0)}}display:none;{{end}}">
+          ETA: {{.ScanStatus.EtaFormatted}}
+        </span>
+        <span id="scan-progress-speed" class="scan-stat-pill scan-pill-speed" style="{{if or (not .ScanStatus.IsScanning) (le .ScanStatus.Speed 0.0)}}display:none;{{end}}">
+          {{printf "%.0f" .ScanStatus.Speed}} arch/s
+        </span>
+      </div>
+      <div id="scan-status-text" class="scan-progress-text" title="{{.ScanStatus.CurrentFile}}">
+        {{if .ScanStatus.IsScanning}}
+          {{if eq .ScanStatus.Phase "discovering"}}
+            Explorando carpetas...
+          {{else if .ScanStatus.CurrentFile}}
+            {{.ScanStatus.CurrentFile}}
+          {{else}}
+            Escaneando carpetas de medios...
+          {{end}}
+        {{else}}
+          Escaneando carpetas de medios...
+        {{end}}
+      </div>
     </div>
   </div>
 
@@ -31,13 +87,13 @@
         <span class="brand-subtitle">Local Prompt, Checkpoint, Character &amp; Subject Index</span>
       </div>
       <div class="topbar-actions">
-        <form action="/admin/scan" method="POST" style="display:inline;">
+        <form action="/admin/scan" method="POST" autocomplete="off" style="display:inline;" onsubmit="var b=document.getElementById('scan-progress-banner');if(b){b.style.display='block';var t=document.getElementById('scan-status-text');if(t)t.innerText='Iniciando escaneo...';}">
           <button type="submit" class="btn-ghost" title="Non-destructive rescan across all registered media folders and .diffusion-catalog.json manifests">Rescan Folders ({{len .Page.MediaRoots}})</button>
         </form>
         <a href="/?tab=settings" class="btn-ghost" title="Active Global DB: {{.CurrentDBPath}}">DB &amp; Settings</a>
         {{if .AdminUser}}
           <span class="badge-chip">Admin: {{.AdminUser}}</span>
-          <form action="/admin/logout" method="POST" style="display:inline;">
+          <form action="/admin/logout" method="POST" autocomplete="off" style="display:inline;">
             <button type="submit" class="btn-ghost">Logout</button>
           </form>
         {{else}}
@@ -97,10 +153,10 @@
   <!-- Global Search Strip -->
   <section class="search-strip">
     <div class="container">
-      <form action="/" method="GET" class="search-strip-form">
+      <form action="/" method="GET" autocomplete="off" class="search-strip-form">
         {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
         <div class="search-main-group">
-          <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
+          <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
           <button type="submit" class="btn-primary">Search</button>
           {{if or .Filter.Query .Filter.Trigger .Filter.RootID .Filter.Category .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0)}}
             <a href="{{if .Filter.FaceMode}}/?face_mode=1{{else}}/{{end}}" class="btn-ghost" style="display:inline-flex;align-items:center;">Reset</a>
@@ -143,14 +199,14 @@
       <div style="max-width:420px;margin:40px auto;background:var(--bg-panel);border:1px solid var(--border-navy);padding:24px;border-radius:6px;">
         <h2 style="margin-bottom:12px;font-size:18px;">Administrator Login</h2>
         <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">Default credentials on initial setup: <code>admin</code> / <code>admin123</code></p>
-        <form action="/admin/login" method="POST" style="display:flex;flex-direction:column;gap:12px;">
+        <form action="/admin/login" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;">
           <div>
             <label style="display:block;margin-bottom:4px;font-size:12px;">Username</label>
-            <input type="text" name="username" value="admin" class="input-dark" required>
+            <input type="text" name="username" value="admin" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
           </div>
           <div>
             <label style="display:block;margin-bottom:4px;font-size:12px;">Password</label>
-            <input type="password" name="password" value="admin123" class="input-dark" required>
+            <input type="password" name="password" value="admin123" class="input-dark" autocomplete="off" required>
           </div>
           <button type="submit" class="btn-primary">Sign In</button>
         </form>
@@ -258,7 +314,7 @@
               <span class="kv-label" style="margin-bottom:0;">SCORE (0–10):</span>
               <div class="score-bar">
                 {{range scoreRange}}
-                  <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                  <form action="/admin/assets/rate" method="POST" autocomplete="off" style="display:inline;">
                     <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
                     <input type="hidden" name="rating" value="{{.}}">
                     <input type="hidden" name="favorite" value="{{if $.SelectedAsset.Favorite}}1{{else}}0{{end}}">
@@ -274,7 +330,7 @@
             </div>
 
             <div>
-              <form action="/admin/assets/rate" method="POST" style="display:inline;">
+              <form action="/admin/assets/rate" method="POST" autocomplete="off" style="display:inline;">
                 <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
                 <input type="hidden" name="rating" value="{{.SelectedAsset.Rating}}">
                 <input type="hidden" name="toggle_favorite" value="1">
@@ -328,17 +384,12 @@
 
           <div>
             <div class="facet-title"><span>FOLDER CLASSIFICATION (.diffusion-catalog.json)</span></div>
-            <form action="/admin/assets/category" method="POST" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+            <form action="/admin/assets/category" method="POST" autocomplete="off" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
               <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
-              <input type="text" name="category" list="default-categories-list" value="{{.SelectedAsset.Category}}" placeholder="Category (e.g. Characters &amp; Portraits)" class="input-dark" style="width:240px;">
-              <input type="text" name="subcategory" value="{{.SelectedAsset.Subcategory}}" placeholder="Subcategory (e.g. Sci-Fi / Netrunner)" class="input-dark" style="width:240px;">
+              <input type="text" name="category" value="{{.SelectedAsset.Category}}" placeholder="Category (e.g. Characters &amp; Portraits)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:240px;">
+              <input type="text" name="subcategory" value="{{.SelectedAsset.Subcategory}}" placeholder="Subcategory (e.g. Sci-Fi / Netrunner)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:240px;">
               <button type="submit" class="btn-primary">Save Category to Folder Manifest</button>
             </form>
-            <datalist id="default-categories-list">
-              {{range .Page.DefaultCategories}}
-                <option value="{{.Name}}">{{joinStrings .Subcategories}}</option>
-              {{end}}
-            </datalist>
           </div>
 
           <div>
@@ -350,10 +401,10 @@
                 <span style="color:var(--text-dim);">No tags assigned yet.</span>
               {{end}}
             </div>
-            <form action="/admin/assets/tag" method="POST" style="display:flex;gap:8px;max-width:520px;">
+            <form action="/admin/assets/tag" method="POST" autocomplete="off" style="display:flex;gap:8px;max-width:520px;">
               <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
-              <input type="text" name="name" placeholder="Tag name (e.g. rim-light)" class="input-dark" required>
-              <input type="text" name="facet" placeholder="Facet (style, lighting, custom)" value="general" class="input-dark" style="width:180px;">
+              <input type="text" name="name" placeholder="Tag name (e.g. rim-light)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+              <input type="text" name="facet" placeholder="Facet (style, lighting, custom)" value="general" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:180px;">
               <button type="submit" class="btn-primary">Add Tag</button>
             </form>
           </div>
@@ -361,7 +412,7 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
             <div>
               <div class="facet-title"><span>LINK TO CHARACTER FOLDER</span></div>
-              <form action="/admin/characters/attach" method="POST" style="display:flex;gap:8px;">
+              <form action="/admin/characters/attach" method="POST" autocomplete="off" style="display:flex;gap:8px;">
                 <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
                 <select name="character_id" class="input-dark" required>
                   <option value="">Select Character...</option>
@@ -374,7 +425,7 @@
             </div>
             <div>
               <div class="facet-title"><span>LINK TO AGNOSTIC GROUP</span></div>
-              <form action="/admin/groups/attach" method="POST" style="display:flex;gap:8px;">
+              <form action="/admin/groups/attach" method="POST" autocomplete="off" style="display:flex;gap:8px;">
                 <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
                 <select name="group_id" class="input-dark" required>
                   <option value="">Select Group...</option>
@@ -434,7 +485,7 @@
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
                 <div class="score-bar">
                   {{range scoreRange}}
-                    <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                    <form action="/admin/assets/rate" method="POST" autocomplete="off" style="display:inline;">
                       <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
                       <input type="hidden" name="rating" value="{{.}}">
                       <input type="hidden" name="favorite" value="{{if $.SelectedAsset.Favorite}}1{{else}}0{{end}}">
@@ -442,7 +493,7 @@
                     </form>
                   {{end}}
                 </div>
-                <form action="/admin/assets/rate" method="POST" style="display:inline;">
+                <form action="/admin/assets/rate" method="POST" autocomplete="off" style="display:inline;">
                   <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
                   <input type="hidden" name="rating" value="{{.SelectedAsset.Rating}}">
                   <input type="hidden" name="toggle_favorite" value="1">
@@ -746,7 +797,7 @@
                 </div>
               {{end}}
 
-              <form id="studio-workbench-form" action="/admin/ollama/image2prompt" method="POST" enctype="multipart/form-data" onsubmit="prepareStudioSubmission(event, this)" style="display:flex;flex-direction:column;gap:12px;">
+              <form id="studio-workbench-form" action="/admin/ollama/image2prompt" method="POST" autocomplete="off" enctype="multipart/form-data" onsubmit="prepareStudioSubmission(event, this)" style="display:flex;flex-direction:column;gap:12px;">
                 <input type="hidden" name="asset_id" value="{{if .SelectedAsset}}{{.SelectedAsset.ID}}{{else}}0{{end}}">
                 <input type="hidden" name="attached_image_data" id="attached_image_data" value="">
                 <input type="hidden" name="video_frame_data" id="video_frame_data" value="">
@@ -788,7 +839,7 @@
                     </label>
                     <span style="font-size:11px;color:var(--text-muted);">Editable</span>
                   </div>
-                  <textarea name="user_hint" id="studio-prompt-input" rows="4" class="input-dark" style="width:100%;resize:vertical;font-family:monospace;font-size:12.5px;line-height:1.4;" placeholder="e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk, volumetric god rays, anamorphic lens flare...">{{.AIInputConcept}}</textarea>
+                  <textarea name="user_hint" id="studio-prompt-input" rows="4" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;resize:vertical;font-family:monospace;font-size:12.5px;line-height:1.4;" placeholder="e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk, volumetric god rays, anamorphic lens flare...">{{.AIInputConcept}}</textarea>
                 </div>
 
                 <!-- Character Injection & Quick Overrides -->
@@ -887,7 +938,7 @@
           <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">
             Pick any Character from your catalog (preserving their trigger words, base prompt, and LoRAs) and place them into a new scene, movie aesthetic, or video camera shot for Target Model.
           </p>
-          <form action="/admin/ollama/character2prompt" method="POST" style="display:flex;flex-direction:column;gap:8px;">
+          <form action="/admin/ollama/character2prompt" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:8px;">
             <input type="hidden" name="return_tab" value="studio">
             {{if .SelectedAsset}}<input type="hidden" name="ref_asset_id" value="{{.SelectedAsset.ID}}">{{end}}
             <div style="display:grid;grid-template-columns:200px 220px 1fr 160px;gap:8px;align-items:center;">
@@ -918,7 +969,7 @@
               </select>
             </div>
             <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
-              <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, lighting, camera movement (e.g. 'Blade Runner 2049 rooftop rain, slow dolly-in')..." class="input-dark" required>
+              <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, lighting, camera movement (e.g. 'Blade Runner 2049 rooftop rain, slow dolly-in')..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
               <button type="submit" class="btn-primary">Generate Character Prompt</button>
             </div>
           </form>
@@ -987,15 +1038,15 @@
               <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
                 Register a new diffusion image or video generator (e.g. <code>wan21</code>, <code>kling-v2</code>, <code>hidream</code>, <code>flux-kontext</code>) and define the System Prompt / Context Instructions that Ollama or oMLX will use when crafting prompts for it.
               </p>
-              <form action="/admin/profiles/upsert" method="POST" style="display:flex;flex-direction:column;gap:12px;">
+              <form action="/admin/profiles/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;">
                 <div style="display:grid;grid-template-columns:180px 260px 180px 1fr;gap:10px;">
                   <div>
                     <label class="kv-label">Model Slug ID</label>
-                    <input type="text" name="slug" placeholder="e.g. wan21" class="input-dark" required>
+                    <input type="text" name="slug" placeholder="e.g. wan21" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                   </div>
                   <div>
                     <label class="kv-label">Display Name</label>
-                    <input type="text" name="name" placeholder="e.g. Wan 2.1 Video" class="input-dark" required>
+                    <input type="text" name="name" placeholder="e.g. Wan 2.1 Video" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                   </div>
                   <div>
                     <label class="kv-label">Target Modality</label>
@@ -1006,12 +1057,12 @@
                   </div>
                   <div>
                     <label class="kv-label">Short Description</label>
-                    <input type="text" name="description" placeholder="Architecture &amp; token style notes..." class="input-dark">
+                    <input type="text" name="description" placeholder="Architecture &amp; token style notes..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                 </div>
                 <div>
                   <label class="kv-label">Generation / Context System Prompt</label>
-                  <textarea name="system_prompt" rows="5" class="input-dark" style="font-family:monospace;font-size:12px;" placeholder="You are an expert prompt engineer for this model. Explain how prompts must be structured..." required></textarea>
+                  <textarea name="system_prompt" rows="5" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:12px;" placeholder="You are an expert prompt engineer for this model. Explain how prompts must be structured..." required></textarea>
                 </div>
                 <div>
                   <button type="submit" class="btn-primary">Create Generator Model</button>
@@ -1026,21 +1077,21 @@
                   <h2 style="font-size:19px;color:#fff;">{{.SelectedProfile.Name}} <span class="badge-chip" style="margin-left:6px;">{{.SelectedProfile.Slug}} ({{.SelectedProfile.TargetModality}})</span></h2>
                   <p style="color:var(--text-muted);font-size:12px;">Configure the Generation &amp; Context System Prompt used when generating prompts for <strong>{{.SelectedProfile.Name}}</strong>.</p>
                 </div>
-                <form action="/admin/profiles/delete" method="POST">
+                <form action="/admin/profiles/delete" method="POST" autocomplete="off">
                   <input type="hidden" name="id" value="{{.SelectedProfile.ID}}">
                   <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;">Delete Model Family</button>
                 </form>
               </div>
 
-              <form action="/admin/profiles/upsert" method="POST" style="display:flex;flex-direction:column;gap:12px;">
+              <form action="/admin/profiles/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;">
                 <div style="display:grid;grid-template-columns:160px 240px 160px 1fr;gap:10px;">
                   <div>
                     <label class="kv-label">Slug ID</label>
-                    <input type="text" name="slug" value="{{.SelectedProfile.Slug}}" class="input-dark" required>
+                    <input type="text" name="slug" value="{{.SelectedProfile.Slug}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                   </div>
                   <div>
                     <label class="kv-label">Display Name</label>
-                    <input type="text" name="name" value="{{.SelectedProfile.Name}}" class="input-dark" required>
+                    <input type="text" name="name" value="{{.SelectedProfile.Name}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                   </div>
                   <div>
                     <label class="kv-label">Modality</label>
@@ -1051,12 +1102,12 @@
                   </div>
                   <div>
                     <label class="kv-label">Short Description</label>
-                    <input type="text" name="description" value="{{.SelectedProfile.Description}}" class="input-dark">
+                    <input type="text" name="description" value="{{.SelectedProfile.Description}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                 </div>
                 <div>
                   <label class="kv-label">Generation / Context System Prompt (Sent to Ollama / oMLX)</label>
-                  <textarea name="system_prompt" rows="5" class="input-dark" style="font-family:monospace;font-size:12.5px;" required>{{.SelectedProfile.SystemPrompt}}</textarea>
+                  <textarea name="system_prompt" rows="5" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:12.5px;" required>{{.SelectedProfile.SystemPrompt}}</textarea>
                 </div>
                 <div>
                   <button type="submit" class="btn-primary">Save '{{.SelectedProfile.Name}}' System Prompt</button>
@@ -1075,41 +1126,41 @@
                 {{range .ModelLoRAs}}
                   {{if eq .ProfileSlug $.SelectedProfile.Slug}}
                     <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:14px;">
-                      <form action="/admin/loras/upsert" method="POST" style="display:flex;flex-direction:column;gap:8px;">
+                      <form action="/admin/loras/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:8px;">
                         <input type="hidden" name="profile_slug" value="{{.ProfileSlug}}">
                         <div style="display:grid;grid-template-columns:1fr 240px 110px;gap:10px;">
                           <div>
                             <label class="kv-label">LoRA Name</label>
-                            <input type="text" name="name" value="{{.Name}}" class="input-dark" required>
+                            <input type="text" name="name" value="{{.Name}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                           </div>
                           <div>
                             <label class="kv-label">Syntax / Weight Tag</label>
-                            <input type="text" name="syntax_tag" value="{{.SyntaxTag}}" class="input-dark" placeholder="<lora:name:0.8>">
+                            <input type="text" name="syntax_tag" value="{{.SyntaxTag}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="<lora:name:0.8>">
                           </div>
                           <div>
                             <label class="kv-label">Rec. Weight</label>
-                            <input type="text" name="recommended_weight" value="{{.RecommendedWeight}}" class="input-dark">
+                            <input type="text" name="recommended_weight" value="{{.RecommendedWeight}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                           </div>
                         </div>
                         <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
                           <div>
                             <label class="kv-label">Trigger Words (Leave blank if triggerless)</label>
-                            <input type="text" name="trigger_words" value="{{.TriggerWords}}" class="input-dark" placeholder="None (triggerless)">
+                            <input type="text" name="trigger_words" value="{{.TriggerWords}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="None (triggerless)">
                           </div>
                           <div>
                             <label class="kv-label">Purpose &amp; Behavior (What is this LoRA for?)</label>
-                            <input type="text" name="description" value="{{.Description}}" class="input-dark" required>
+                            <input type="text" name="description" value="{{.Description}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                           </div>
                         </div>
                         <div>
                           <label class="kv-label">Usage Examples (Few-shot example prompts for {{$.SelectedProfile.Name}})</label>
-                          <textarea name="usage_examples" rows="2" class="input-dark" style="font-family:monospace;font-size:11.5px;">{{.UsageExamples}}</textarea>
+                          <textarea name="usage_examples" rows="2" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:11.5px;">{{.UsageExamples}}</textarea>
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;">
                           <button type="submit" class="btn-primary" style="padding:5px 14px;font-size:12px;">Update LoRA</button>
                         </div>
                       </form>
-                      <form action="/admin/loras/delete" method="POST" style="margin-top:4px;text-align:right;">
+                      <form action="/admin/loras/delete" method="POST" autocomplete="off" style="margin-top:4px;text-align:right;">
                         <input type="hidden" name="id" value="{{.ID}}">
                         <input type="hidden" name="profile_slug" value="{{.ProfileSlug}}">
                         <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:3px 10px;font-size:11px;">Delete LoRA</button>
@@ -1122,18 +1173,18 @@
               <!-- Add New LoRA to Selected Model -->
               <div style="background:#071124;border:1px dashed var(--border-highlight);border-radius:6px;padding:16px;">
                 <h4 style="font-size:14px;margin-bottom:10px;color:#93c5fd;">+ Add New LoRA for {{.SelectedProfile.Name}} (<code>{{.SelectedProfile.Slug}}</code>)</h4>
-                <form action="/admin/loras/upsert" method="POST" style="display:flex;flex-direction:column;gap:10px;">
+                <form action="/admin/loras/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:10px;">
                   <input type="hidden" name="profile_slug" value="{{.SelectedProfile.Slug}}">
                   <div style="display:grid;grid-template-columns:1fr 240px 110px;gap:10px;">
-                    <input type="text" name="name" placeholder="LoRA Name (e.g. Anamorphic 70mm Flare)" class="input-dark" required>
-                    <input type="text" name="syntax_tag" placeholder="Syntax tag (e.g. <lora:my_lora:0.8>)" class="input-dark">
-                    <input type="text" name="recommended_weight" value="0.8" placeholder="Weight" class="input-dark">
+                    <input type="text" name="name" placeholder="LoRA Name (e.g. Anamorphic 70mm Flare)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    <input type="text" name="syntax_tag" placeholder="Syntax tag (e.g. <lora:my_lora:0.8>)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <input type="text" name="recommended_weight" value="0.8" placeholder="Weight" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                   <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
-                    <input type="text" name="trigger_words" placeholder="Trigger words (leave blank if triggerless)" class="input-dark">
-                    <input type="text" name="description" placeholder="Explain what this LoRA does and how it behaves on {{.SelectedProfile.Name}}..." class="input-dark" required>
+                    <input type="text" name="trigger_words" placeholder="Trigger words (leave blank if triggerless)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <input type="text" name="description" placeholder="Explain what this LoRA does and how it behaves on {{.SelectedProfile.Name}}..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                   </div>
-                  <textarea name="usage_examples" rows="3" class="input-dark" placeholder="Paste 1 or more example prompts showing how this LoRA is used in {{.SelectedProfile.Name}}..."></textarea>
+                  <textarea name="usage_examples" rows="3" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Paste 1 or more example prompts showing how this LoRA is used in {{.SelectedProfile.Name}}..."></textarea>
                   <div>
                     <button type="submit" class="btn-primary">Add LoRA to {{.SelectedProfile.Name}}</button>
                   </div>
@@ -1180,18 +1231,18 @@
             </div>
           </div>
 
-          <form action="/admin/settings/save" method="POST" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+          <form action="/admin/settings/save" method="POST" autocomplete="off" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Ollama Base URL (Local or Remote)</label>
-              <input type="text" name="ollama_base_url" value="{{.Settings.OllamaBaseURL}}" class="input-dark" placeholder="http://127.0.0.1:11434" required>
+              <input type="text" name="ollama_base_url" value="{{.Settings.OllamaBaseURL}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="http://127.0.0.1:11434" required>
             </div>
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">OpenAI-Compatible Base URL (Local or Remote)</label>
-              <input type="text" name="omlx_base_url" value="{{.Settings.OMLXBaseURL}}" class="input-dark" placeholder="http://127.0.0.1:8000">
+              <input type="text" name="omlx_base_url" value="{{.Settings.OMLXBaseURL}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="http://127.0.0.1:8000">
             </div>
             <div>
               <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">OpenAI Bearer API Key (Optional)</label>
-              <input type="text" name="omlx_api_key" value="{{.Settings.OMLXAPIKey}}" class="input-dark" placeholder="API Key (optional)">
+              <input type="text" name="omlx_api_key" value="{{.Settings.OMLXAPIKey}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="API Key (optional)">
             </div>
 
             <!-- Vision Task Route -->
@@ -1365,7 +1416,7 @@
                 <div style="display:flex;gap:8px;align-items:center;">
                   <a href="/?root_id={{.ID}}" class="btn-ghost" style="font-size:11.5px;padding:4px 10px;">Filter Catalog</a>
                   {{if gt .ID 1}}
-                    <form action="/admin/roots/delete" method="POST" style="display:inline;">
+                    <form action="/admin/roots/delete" method="POST" autocomplete="off" style="display:inline;">
                       <input type="hidden" name="id" value="{{.ID}}">
                       <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;font-size:11.5px;padding:4px 10px;">Remove Folder</button>
                     </form>
@@ -1398,7 +1449,7 @@
                     Subcategories: <code>{{if .Subcategories}}{{joinStrings .Subcategories}}{{else}}(none){{end}}</code>
                   </div>
                 </div>
-                <form action="/admin/categories/delete" method="POST">
+                <form action="/admin/categories/delete" method="POST" autocomplete="off">
                   <input type="hidden" name="id" value="{{.ID}}">
                   <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:2px 8px;font-size:11px;">Delete</button>
                 </form>
@@ -1406,10 +1457,10 @@
             {{end}}
           </div>
 
-          <form action="/admin/categories/upsert" method="POST" style="display:grid;grid-template-columns:220px 150px 1fr auto;gap:10px;align-items:center;">
-            <input type="text" name="name" placeholder="Category Name (e.g. Lighting &amp; Mood)" class="input-dark" required>
-            <input type="text" name="facet" value="category" placeholder="Facet (e.g. style, subject)" class="input-dark">
-            <input type="text" name="subcategories" placeholder="Comma-separated subcategories (e.g. Chiaroscuro, Rim Light, Neon Fog)" class="input-dark">
+          <form action="/admin/categories/upsert" method="POST" autocomplete="off" style="display:grid;grid-template-columns:220px 150px 1fr auto;gap:10px;align-items:center;">
+            <input type="text" name="name" placeholder="Category Name (e.g. Lighting &amp; Mood)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+            <input type="text" name="facet" value="category" placeholder="Facet (e.g. style, subject)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <input type="text" name="subcategories" placeholder="Comma-separated subcategories (e.g. Chiaroscuro, Rim Light, Neon Fog)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
             <button type="submit" class="btn-primary">Save Default Category</button>
           </form>
         </div>
@@ -1421,8 +1472,8 @@
             The SQLite database holds global configuration (AI server routing, generator models, system prompts, LoRA docs, and default categories), while each media folder keeps its own classifications in <code>.diffusion-catalog.json</code>. Switch between different <code>.db</code> files at runtime without restarting.
           </p>
 
-          <form action="/admin/db/switch" method="POST" style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;margin-bottom:16px;">
-            <input type="text" name="db_path" value="{{.CurrentDBPath}}" placeholder="Path to SQLite .db file (e.g. ./catalog.db or /Volumes/External/studio-config.db)" class="input-dark" required>
+          <form action="/admin/db/switch" method="POST" autocomplete="off" style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;margin-bottom:16px;">
+            <input type="text" name="db_path" value="{{.CurrentDBPath}}" placeholder="Path to SQLite .db file (e.g. ./catalog.db or /Volumes/External/studio-config.db)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
             <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;white-space:nowrap;">
               <input type="checkbox" name="rescan" value="1" checked> Rescan folders after switch
             </label>
@@ -1498,7 +1549,7 @@
             <!-- Generate New Prompt for Model X / Movie / Scene with this Character -->
             <div style="margin-top:auto;padding-top:10px;border-top:1px solid var(--border-navy);">
               <div class="kv-label" style="color:#93c5fd;margin-bottom:6px;">GENERATE PROMPT WITH THIS CHARACTER (OLLAMA / OMLX)</div>
-              <form action="/admin/ollama/character2prompt" method="POST" style="display:flex;flex-direction:column;gap:6px;">
+              <form action="/admin/ollama/character2prompt" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:6px;">
                 <input type="hidden" name="character_id" value="{{.ID}}">
                 <input type="hidden" name="return_tab" value="characters">
                 <select name="profile_slug" class="input-dark" style="font-size:12px;padding:6px 8px;" onchange="filterLoRAsByModel(this.form, this.value)">
@@ -1531,7 +1582,7 @@
                     {{end}}
                   </div>
                 {{end}}
-                <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, action, or camera movement..." class="input-dark" style="font-size:12px;padding:6px 8px;" required>
+                <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, action, or camera movement..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-size:12px;padding:6px 8px;" required>
                 <button type="submit" class="btn-primary" style="padding:6px 12px;font-size:12px;">Generate Prompt for Model</button>
               </form>
             </div>
@@ -1541,14 +1592,14 @@
 
       <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:18px;margin-bottom:40px;">
         <h3 style="margin-bottom:12px;font-size:15px;">Create New Character / Concept Folder</h3>
-        <form action="/admin/characters/create" method="POST" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <input type="text" name="name" placeholder="Character Name (e.g. Vesper-9)" class="input-dark" required>
-          <input type="text" name="archetype" placeholder="Archetype / Category (e.g. Sci-Fi Android)" class="input-dark">
-          <input type="text" name="trigger_words" placeholder="Trigger Words (e.g. vesper9, chrome plating)" class="input-dark">
-          <input type="text" name="recommended_checkpoint" placeholder="Recommended Checkpoint (e.g. flux1-dev)" class="input-dark">
-          <textarea name="base_positive_prompt" placeholder="Canonical Positive Prompt used to generate this character..." class="input-dark" rows="3" style="grid-column:span 2;" required></textarea>
-          <textarea name="base_negative_prompt" placeholder="Canonical Negative Prompt..." class="input-dark" rows="2" style="grid-column:span 2;"></textarea>
-          <input type="text" name="description" placeholder="Notes / Lore / Usage guidelines..." class="input-dark" style="grid-column:span 2;">
+        <form action="/admin/characters/create" method="POST" autocomplete="off" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <input type="text" name="name" placeholder="Character Name (e.g. Vesper-9)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+          <input type="text" name="archetype" placeholder="Archetype / Category (e.g. Sci-Fi Android)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <input type="text" name="trigger_words" placeholder="Trigger Words (e.g. vesper9, chrome plating)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <input type="text" name="recommended_checkpoint" placeholder="Recommended Checkpoint (e.g. flux1-dev)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <textarea name="base_positive_prompt" placeholder="Canonical Positive Prompt used to generate this character..." class="input-dark" rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="grid-column:span 2;" required></textarea>
+          <textarea name="base_negative_prompt" placeholder="Canonical Negative Prompt..." class="input-dark" rows="2" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="grid-column:span 2;"></textarea>
+          <input type="text" name="description" placeholder="Notes / Lore / Usage guidelines..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="grid-column:span 2;">
           <div><button type="submit" class="btn-primary">Create Character Folder</button></div>
         </form>
       </div>
@@ -1574,10 +1625,10 @@
 
       <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:18px;margin-bottom:40px;max-width:640px;">
         <h3 style="margin-bottom:12px;font-size:15px;">Create Agnostic Group</h3>
-        <form action="/admin/groups/create" method="POST" style="display:flex;flex-direction:column;gap:10px;">
-          <input type="text" name="name" placeholder="Group Name (e.g. Lighting Studies)" class="input-dark" required>
-          <input type="text" name="category" placeholder="Agnostic Category (e.g. Reference, Project, Moodboard)" class="input-dark">
-          <input type="text" name="description" placeholder="Description..." class="input-dark">
+        <form action="/admin/groups/create" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:10px;">
+          <input type="text" name="name" placeholder="Group Name (e.g. Lighting Studies)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+          <input type="text" name="category" placeholder="Agnostic Category (e.g. Reference, Project, Moodboard)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <input type="text" name="description" placeholder="Description..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           <div><button type="submit" class="btn-primary">Create Group</button></div>
         </form>
       </div>
@@ -1587,7 +1638,7 @@
       <div class="catalog-layout">
         <!-- Left Facet Sidebar -->
         <aside class="sidebar">
-          <form action="/" method="GET">
+          <form action="/" method="GET" autocomplete="off">
             {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
 
             <div class="facet-block">
@@ -1614,7 +1665,7 @@
                 {{end}}
               </select>
               {{if .Filter.Category}}
-                <input type="text" name="subcategory" value="{{.Filter.Subcategory}}" placeholder="Subcategory filter..." class="input-dark" style="font-size:11.5px;padding:5px 8px;">
+                <input type="text" name="subcategory" value="{{.Filter.Subcategory}}" placeholder="Subcategory filter..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-size:11.5px;padding:5px 8px;">
               {{end}}
             </div>
 
@@ -1643,12 +1694,7 @@
 
             <div class="facet-block">
               <div class="facet-title"><span>CAPTION TRIGGER FILTER</span></div>
-              <input type="text" name="trigger" list="caption-triggers-list" value="{{.Filter.Trigger}}" placeholder="Trigger word in caption (e.g. kaelen7, anamorphic70mm)..." class="input-dark" style="margin-bottom:6px;font-size:12px;">
-              <datalist id="caption-triggers-list">
-                {{range .Page.AvailableTriggers}}
-                  <option value="{{.}}"></option>
-                {{end}}
-              </datalist>
+              <input type="text" name="trigger" value="{{.Filter.Trigger}}" placeholder="Trigger word in caption (e.g. kaelen7, anamorphic70mm)..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="margin-bottom:6px;font-size:12px;">
               {{if .Page.AvailableTriggers}}
                 <div class="tag-cloud" style="max-height:110px;overflow-y:auto;">
                   {{range .Page.AvailableTriggers}}
@@ -1723,7 +1769,7 @@
 
             <div class="facet-block">
               <div class="facet-title"><span>KEYWORD</span></div>
-              <input type="text" name="q" value="{{.Filter.Query}}" placeholder="Enter keyword..." class="input-dark" style="margin-bottom:8px;">
+              <input type="text" name="q" value="{{.Filter.Query}}" placeholder="Enter keyword..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="margin-bottom:8px;">
               <button type="submit" class="btn-primary" style="width:100%;">Filter Catalog</button>
             </div>
 
@@ -2115,34 +2161,95 @@
         .then(function(data) {
           var banner = document.getElementById('scan-progress-banner');
           var fill = document.getElementById('scan-progress-fill');
-          var pctText = document.getElementById('scan-progress-pct');
-          var filesText = document.getElementById('scan-progress-files');
-          var currentFileText = document.getElementById('scan-progress-current');
+          var pctBadge = document.getElementById('scan-pct-badge');
+          var filesStat = document.getElementById('scan-progress-files');
+          var etaStat = document.getElementById('scan-progress-eta');
+          var speedStat = document.getElementById('scan-progress-speed');
+          var statusText = document.getElementById('scan-status-text');
 
           if (data && data.is_scanning) {
             if (banner) banner.style.display = 'block';
-            if (fill) fill.style.width = data.progress_pct + '%';
-            if (pctText) pctText.innerText = data.progress_pct + '%';
-            if (filesText) {
-              if (data.total_files > 0) {
-                filesText.innerText = '(' + data.scanned_files + ' / ' + data.total_files + ' files)';
+
+            var pct = typeof data.progress_pct === 'number' ? data.progress_pct : 0;
+            if (pctBadge) pctBadge.innerText = pct + '%';
+
+            if (fill) {
+              if (data.phase === 'discovering' || (!data.total_files && pct === 0)) {
+                fill.classList.add('indeterminate');
+                fill.style.width = '100%';
               } else {
-                filesText.innerText = '(' + data.scanned_files + ' files scanned)';
+                fill.classList.remove('indeterminate');
+                fill.style.width = pct + '%';
               }
             }
-            if (currentFileText && data.current_file) {
-              currentFileText.innerText = 'Scanning: ' + data.current_file;
+
+            if (filesStat) {
+              if (data.phase === 'discovering') {
+                filesStat.innerText = data.total_files > 0
+                  ? 'Descubriendo: ' + data.total_files + ' archivos...'
+                  : 'Descubriendo archivos...';
+              } else if (data.total_files > 0) {
+                filesStat.innerText = data.scanned_files + ' / ' + data.total_files + ' archivos';
+              } else {
+                filesStat.innerText = data.scanned_files + ' escaneados';
+              }
+            }
+
+            if (etaStat) {
+              if (data.phase === 'indexing' && data.eta_seconds > 0 && data.eta_formatted) {
+                etaStat.innerText = 'ETA: ' + data.eta_formatted;
+                etaStat.style.display = 'inline-block';
+              } else if (data.phase === 'indexing' && data.eta_seconds === 0 && data.scanned_files > 0) {
+                etaStat.innerText = 'ETA: < 5s';
+                etaStat.style.display = 'inline-block';
+              } else {
+                etaStat.style.display = 'none';
+              }
+            }
+
+            if (speedStat) {
+              if (data.speed && data.speed > 0) {
+                speedStat.innerText = Math.round(data.speed) + ' arch/s';
+                speedStat.style.display = 'inline-block';
+              } else {
+                speedStat.style.display = 'none';
+              }
+            }
+
+            if (statusText) {
+              if (data.phase === 'discovering') {
+                statusText.innerText = data.current_root ? 'Explorando: ' + data.current_root : 'Explorando carpetas...';
+                statusText.title = statusText.innerText;
+              } else if (data.current_file) {
+                var prefix = data.current_root ? '[' + data.current_root + '] ' : '';
+                statusText.innerText = prefix + data.current_file;
+                statusText.title = prefix + data.current_file;
+              } else {
+                statusText.innerText = 'Indexando medios...';
+                statusText.title = '';
+              }
             }
           } else {
             if (banner && banner.style.display !== 'none') {
-              if (fill) fill.style.width = '100%';
-              if (pctText) pctText.innerText = '100%';
-              if (currentFileText) currentFileText.innerText = 'Scan completed!';
+              if (fill) {
+                fill.classList.remove('indeterminate');
+                fill.style.width = '100%';
+              }
+              if (pctBadge) pctBadge.innerText = '100%';
+              if (filesStat && data && data.scanned_files) {
+                filesStat.innerText = data.scanned_files + ' / ' + (data.total_files || data.scanned_files) + ' completados';
+              }
+              if (etaStat) etaStat.style.display = 'none';
+              if (speedStat) speedStat.style.display = 'none';
+              if (statusText) statusText.innerText = '¡Escaneo completado!';
+              if (scanPollTimer) {
+                clearInterval(scanPollTimer);
+                scanPollTimer = null;
+              }
               setTimeout(function() {
                 banner.style.display = 'none';
-                // Reload catalog to reflect new assets and media folders
                 window.location.reload();
-              }, 900);
+              }, 1000);
             }
           }
         })
@@ -2153,7 +2260,8 @@
 
     // Start scan polling if active or periodically check
     {{if .ScanStatus.IsScanning}}
-      scanPollTimer = setInterval(pollScanStatus, 800);
+      pollScanStatus();
+      scanPollTimer = setInterval(pollScanStatus, 500);
     {{else}}
       // Check once on page load in case a scan just started
       setTimeout(function() {
@@ -2163,10 +2271,11 @@
             if (d && d.is_scanning) {
               var banner = document.getElementById('scan-progress-banner');
               if (banner) banner.style.display = 'block';
-              if (!scanPollTimer) scanPollTimer = setInterval(pollScanStatus, 800);
+              pollScanStatus();
+              if (!scanPollTimer) scanPollTimer = setInterval(pollScanStatus, 500);
             }
           }).catch(function() {});
-      }, 500);
+      }, 400);
     {{end}}
 
     function initZoomableStage(viewportId, mediaId, labelId) {

@@ -194,9 +194,10 @@ func (s *CatalogService) GetAsset(ctx context.Context, id int64) (*domain.MediaA
 	return s.repo.GetAssetByID(ctx, id)
 }
 
-// GetAdjacentAssetIDs returns the previous (newer) and next (older) asset IDs relative to the specified asset ID.
-func (s *CatalogService) GetAdjacentAssetIDs(ctx context.Context, id int64) (int64, int64, error) {
-	return s.repo.GetAdjacentAssetIDs(ctx, id)
+// GetAdjacentAssetIDs returns the previous and next asset IDs relative to the specified asset ID,
+// respecting the specified filter criteria and sort order.
+func (s *CatalogService) GetAdjacentAssetIDs(ctx context.Context, id int64, filter domain.CatalogFilter) (int64, int64, error) {
+	return s.repo.GetAdjacentAssetIDs(ctx, id, filter)
 }
 
 // RelatedAssetsBundle holds related assets sharing the same Category, Character, or Group as a selected asset.

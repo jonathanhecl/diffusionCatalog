@@ -1,6 +1,11 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"net/url"
+	"strconv"
+	"strings"
+)
 
 // CatalogFilter specifies search, facet, and pagination criteria for querying the catalog.
 type CatalogFilter struct {
@@ -21,6 +26,140 @@ type CatalogFilter struct {
 	SortBy        string // "newest", "rating", "favorites", "popular", "views", "seed"
 	Page          int
 	PerPage       int
+}
+
+// HasActiveFilters returns true if any filter criteria (folder, category, rating, tags, etc.) are active.
+func (f CatalogFilter) HasActiveFilters() bool {
+	return f.Query != "" ||
+		f.Trigger != "" ||
+		f.RootID > 0 ||
+		f.Category != "" ||
+		f.Subcategory != "" ||
+		f.MinRating > 0 ||
+		f.FavoritesOnly ||
+		f.Engine != "" ||
+		f.ModelName != "" ||
+		f.MediaType != "" ||
+		f.GroupID > 0 ||
+		f.CharacterID > 0 ||
+		len(f.TagNames) > 0 ||
+		f.FaceMode
+}
+
+// QueryValues converts the filter into url.Values for query string construction.
+func (f CatalogFilter) QueryValues() url.Values {
+	v := make(url.Values)
+	if f.Query != "" {
+		v.Set("q", f.Query)
+	}
+	if f.Trigger != "" {
+		v.Set("trigger", f.Trigger)
+	}
+	if f.RootID > 0 {
+		v.Set("root_id", strconv.FormatInt(f.RootID, 10))
+	}
+	if f.Category != "" {
+		v.Set("category", f.Category)
+	}
+	if f.Subcategory != "" {
+		v.Set("subcategory", f.Subcategory)
+	}
+	if f.MinRating > 0 {
+		v.Set("min_rating", strconv.Itoa(f.MinRating))
+	}
+	if f.FavoritesOnly {
+		v.Set("favorites", "1")
+	}
+	if f.Engine != "" {
+		v.Set("engine", f.Engine)
+	}
+	if f.ModelName != "" {
+		v.Set("model", f.ModelName)
+	}
+	if f.MediaType != "" {
+		v.Set("media_type", f.MediaType)
+	}
+	if f.GroupID > 0 {
+		v.Set("group_id", strconv.FormatInt(f.GroupID, 10))
+	}
+	if f.CharacterID > 0 {
+		v.Set("character_id", strconv.FormatInt(f.CharacterID, 10))
+	}
+	for _, tag := range f.TagNames {
+		t := strings.TrimSpace(tag)
+		if t != "" {
+			v.Add("tag", t)
+		}
+	}
+	if f.FaceMode {
+		v.Set("face_mode", "1")
+	}
+	if f.SortBy != "" {
+		v.Set("sort", f.SortBy)
+	}
+	if f.PerPage > 0 && f.PerPage != 50 {
+		v.Set("per_page", strconv.Itoa(f.PerPage))
+	}
+	if f.Page > 1 {
+		v.Set("page", strconv.Itoa(f.Page))
+	}
+	return v
+}
+
+// QueryValuesWithoutPage returns query values excluding pagination.
+func (f CatalogFilter) QueryValuesWithoutPage() url.Values {
+	v := f.QueryValues()
+	v.Del("page")
+	return v
+}
+
+// QueryString encodes the filter into a query string without page.
+func (f CatalogFilter) QueryString() string {
+	return f.QueryValuesWithoutPage().Encode()
+}
+
+// QueryWithSort returns a query string keeping all filters but switching sort.
+func (f CatalogFilter) QueryWithSort(sort string) string {
+	v := f.QueryValuesWithoutPage()
+	if sort == "" || sort == "newest" {
+		v.Del("sort")
+	} else {
+		v.Set("sort", sort)
+	}
+	return v.Encode()
+}
+
+// QueryWithPage returns a query string with the specified page number.
+func (f CatalogFilter) QueryWithPage(page int) string {
+	v := f.QueryValues()
+	if page <= 1 {
+		v.Del("page")
+	} else {
+		v.Set("page", strconv.Itoa(page))
+	}
+	return v.Encode()
+}
+
+// QueryWithTrigger returns a query string with the specified trigger word.
+func (f CatalogFilter) QueryWithTrigger(trigger string) string {
+	v := f.QueryValuesWithoutPage()
+	if trigger == "" {
+		v.Del("trigger")
+	} else {
+		v.Set("trigger", trigger)
+	}
+	return v.Encode()
+}
+
+// QueryWithTag returns a query string with the specified tag.
+func (f CatalogFilter) QueryWithTag(tag string) string {
+	v := f.QueryValuesWithoutPage()
+	if tag == "" {
+		v.Del("tag")
+	} else {
+		v.Set("tag", tag)
+	}
+	return v.Encode()
 }
 
 // CatalogPage contains a paginated slice of assets along with total counts and facet aggregations.
@@ -62,7 +201,7 @@ type CatalogRepository interface {
 	UpsertAsset(ctx context.Context, asset *MediaAsset) (int64, error)
 	GetAssetByID(ctx context.Context, id int64) (*MediaAsset, error)
 	GetExistingAssetFingerprints(ctx context.Context, rootID int64) (map[string]MediaAsset, error)
-	GetAdjacentAssetIDs(ctx context.Context, id int64) (prevID int64, nextID int64, err error)
+	GetAdjacentAssetIDs(ctx context.Context, id int64, filter CatalogFilter) (prevID int64, nextID int64, err error)
 	UpdateAssetPrompt(ctx context.Context, assetID int64, positivePrompt, engine string) error
 	UpdateAssetCategory(ctx context.Context, assetID int64, category, subcategory string) error
 	UpdateAssetRating(ctx context.Context, assetID int64, rating int, favorite bool) error
