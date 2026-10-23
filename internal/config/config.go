@@ -3,6 +3,7 @@ package config
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -176,7 +177,12 @@ func LoadWithArgs(args []string) Config {
 	flagNonInteractive := fs.Bool("non-interactive", cfg.NonInteractive, "Disable interactive dependency installation prompts")
 
 	explicitFlags := make(map[string]bool)
-	_ = fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			os.Exit(0)
+		}
+		os.Exit(2)
+	}
 	fs.Visit(func(f *flag.Flag) {
 		explicitFlags[f.Name] = true
 	})
