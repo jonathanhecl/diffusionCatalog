@@ -139,12 +139,12 @@ func TestCatalogFilterPersistenceAndMediaNavigation(t *testing.T) {
 	}
 	body := wDetail.Body.String()
 
-	// Verify "Anterior" and "Siguiente" buttons exist inside media
-	if !strings.Contains(body, "Anterior") {
-		t.Errorf("expected body to contain 'Anterior' button")
+	// Verify "Prev" and "Next" navigation buttons exist
+	if !strings.Contains(body, "Prev") {
+		t.Errorf("expected body to contain 'Prev' button")
 	}
-	if !strings.Contains(body, "Siguiente") {
-		t.Errorf("expected body to contain 'Siguiente' button")
+	if !strings.Contains(body, "Next") {
+		t.Errorf("expected body to contain 'Next' button")
 	}
 
 	// Next media in category Cyberpunk is id2

@@ -282,20 +282,10 @@
 
       <div class="detail-grid">
         <div>
-          <!-- Interactive Zoom & Pan Media Stage with Arrow Navigation -->
+          <!-- Interactive Zoom & Pan Media Stage -->
           <div class="media-stage-toolbar">
             <div style="display:flex;align-items:center;gap:6px;">
-              {{if .PrevAssetID}}
-                <a href="/?asset_id={{.PrevAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" style="padding:4px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;" title="Previous Media (Left Arrow)">&#10094; Anterior</a>
-              {{else}}
-                <span class="btn-ghost disabled" style="padding:4px 12px;font-size:12px;opacity:0.4;cursor:not-allowed;">&#10094; Anterior</span>
-              {{end}}
-              {{if .NextAssetID}}
-                <a href="/?asset_id={{.NextAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-ghost" style="padding:4px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;" title="Next Media (Right Arrow)">Siguiente &#10095;</a>
-              {{else}}
-                <span class="btn-ghost disabled" style="padding:4px 12px;font-size:12px;opacity:0.4;cursor:not-allowed;">Siguiente &#10095;</span>
-              {{end}}
-              <span style="font-size:11.5px;color:var(--text-muted);font-weight:600;margin-left:8px;">
+              <span style="font-size:11.5px;color:var(--text-muted);font-weight:600;">
                 {{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px | <span id="zoom-pct-label">100%</span>
               </span>
             </div>
@@ -309,12 +299,6 @@
             </div>
           </div>
           <div id="media-stage-viewport" class="media-stage-viewport">
-            {{if .PrevAssetID}}
-              <a href="/?asset_id={{.PrevAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="stage-nav-arrow stage-nav-prev" title="Previous Media (Left Arrow)">&#10094;</a>
-            {{end}}
-            {{if .NextAssetID}}
-              <a href="/?asset_id={{.NextAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="stage-nav-arrow stage-nav-next" title="Next Media (Right Arrow)">&#10095;</a>
-            {{end}}
             {{if eq .SelectedAsset.MediaType "video"}}
               <video id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
             {{else}}
