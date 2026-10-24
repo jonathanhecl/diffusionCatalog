@@ -106,26 +106,63 @@ a {
   display: flex;
   align-items: center;
   gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.navbar-inner::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-tab {
-  padding: 11px 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
   border-bottom: 3px solid transparent;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  border-radius: 4px 4px 0 0;
 }
 
 .nav-tab:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .nav-tab.active {
   color: #fff;
-  background: linear-gradient(180deg, rgba(22, 104, 220, 0.08), rgba(22, 104, 220, 0.22));
+  background: linear-gradient(180deg, rgba(22, 104, 220, 0.10), rgba(22, 104, 220, 0.24));
   border-bottom-color: #257bf0;
+}
+
+.tab-icon {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.tab-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.nav-tab.active .tab-badge {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+@media (max-width: 1200px) {
+  .brand-subtitle {
+    display: none;
+  }
 }
 
 /* Hero Banner */

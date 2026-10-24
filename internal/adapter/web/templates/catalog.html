@@ -85,11 +85,11 @@
         <a href="/" class="brand-icon">DC</a>
         <a href="/" class="brand-title">DIFFUSION CATALOG</a>
         <span class="brand-subtitle">Local Prompt, Checkpoint, Character &amp; Subject Index</span>
-      </div>
+      <div class="topbar-actions">
         <form action="/admin/scan" method="POST" autocomplete="off" style="display:inline;" onsubmit="var b=document.getElementById('scan-progress-banner');if(b){b.style.display='block';var t=document.getElementById('scan-status-text');if(t)t.innerText='Iniciando escaneo...';}">
-          <button type="submit" class="btn-ghost" title="Non-destructive rescan across all registered media folders">Rescan Folders ({{len .Page.MediaRoots}})</button>
+          <button type="submit" class="btn-ghost" title="Non-destructive rescan across all registered media folders">&#x21bb; Rescan ({{len .Page.MediaRoots}})</button>
         </form>
-        <a href="/?tab=settings" class="btn-ghost" title="Active Global DB: {{.CurrentDBPath}}">DB &amp; Settings</a>
+        <a href="/?tab=settings" class="btn-ghost" title="Active Global DB: {{.CurrentDBPath}}">&#x2699; Settings</a>
         {{if .AdminUser}}
           <span class="badge-chip">Admin: {{.AdminUser}}</span>
           <form action="/admin/logout" method="POST" autocomplete="off" style="display:inline;">
@@ -105,14 +105,30 @@
   <!-- Primary Navigation Tabs -->
   <nav class="navbar">
     <div class="container navbar-inner">
-      <a href="/{{if .FilterQuery}}?{{.FilterQuery}}{{end}}" class="nav-tab {{if eq .ActiveTab "catalog"}}active{{end}}">Catalog Grid</a>
-      <a href="/?tab=studio" class="nav-tab {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}active{{end}}" style="{{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}color:#c084fc;border-color:#7c3aed;{{end}}">&#10024; Prompt Studio &amp; Remix</a>
-      <a href="/?tab=director" class="nav-tab {{if eq .ActiveTab "director"}}active{{end}}" style="{{if eq .ActiveTab "director"}}color:#38bdf8;border-color:#0284c7;{{end}}">&#127916; 2D Scene Director</a>
-      <a href="/?tab=characters" class="nav-tab {{if eq .ActiveTab "characters"}}active{{end}}">Character Folders ({{len .Page.Characters}})</a>
-      <a href="/?tab=groups" class="nav-tab {{if eq .ActiveTab "groups"}}active{{end}}">Agnostic Groups ({{len .Page.Groups}})</a>
-      <a href="/?face_mode=1" class="nav-tab {{if eq .ActiveTab "faces"}}active{{end}}">Face &amp; Subject Explorer</a>
-      <a href="/?tab=generators" class="nav-tab {{if eq .ActiveTab "generators"}}active{{end}}">Generator Models &amp; LoRAs ({{len .PromptProfiles}})</a>
-      <a href="/?tab=settings" class="nav-tab {{if eq .ActiveTab "settings"}}active{{end}}">Settings</a>
+      <a href="/{{if .FilterQuery}}?{{.FilterQuery}}{{end}}" class="nav-tab {{if eq .ActiveTab "catalog"}}active{{end}}">
+        <span class="tab-icon">&#128444;</span> Catalog
+      </a>
+      <a href="/?tab=studio" class="nav-tab {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}active{{end}}" style="{{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}color:#c084fc;border-color:#7c3aed;{{end}}">
+        <span class="tab-icon">&#10024;</span> Prompt Studio
+      </a>
+      <a href="/?tab=director" class="nav-tab {{if eq .ActiveTab "director"}}active{{end}}" style="{{if eq .ActiveTab "director"}}color:#38bdf8;border-color:#0284c7;{{end}}">
+        <span class="tab-icon">&#127916;</span> Scene Director
+      </a>
+      <a href="/?tab=characters" class="nav-tab {{if eq .ActiveTab "characters"}}active{{end}}">
+        <span class="tab-icon">&#128100;</span> Characters{{if gt (len .Page.Characters) 0}} <span class="tab-badge">{{len .Page.Characters}}</span>{{end}}
+      </a>
+      <a href="/?tab=groups" class="nav-tab {{if eq .ActiveTab "groups"}}active{{end}}">
+        <span class="tab-icon">&#128193;</span> Groups{{if gt (len .Page.Groups) 0}} <span class="tab-badge">{{len .Page.Groups}}</span>{{end}}
+      </a>
+      <a href="/?face_mode=1" class="nav-tab {{if eq .ActiveTab "faces"}}active{{end}}">
+        <span class="tab-icon">&#128269;</span> Faces
+      </a>
+      <a href="/?tab=generators" class="nav-tab {{if eq .ActiveTab "generators"}}active{{end}}">
+        <span class="tab-icon">&#9889;</span> Generators{{if gt (len .PromptProfiles) 0}} <span class="tab-badge">{{len .PromptProfiles}}</span>{{end}}
+      </a>
+      <a href="/?tab=settings" class="nav-tab {{if eq .ActiveTab "settings"}}active{{end}}">
+        <span class="tab-icon">&#9881;</span> Settings
+      </a>
     </div>
   </nav>
 
