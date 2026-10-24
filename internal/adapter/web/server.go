@@ -34,6 +34,153 @@ type Server struct {
 	tmpl             *template.Template
 }
 
+// PaginationItem describes a single pagination button or ellipsis gap.
+type PaginationItem struct {
+	Page     int
+	Label    string
+	IsActive bool
+	IsGap    bool
+}
+
+func pageURL(filter domain.CatalogFilter, pageNum int) string {
+	q := url.Values{}
+	if pageNum > 0 {
+		q.Set("page", strconv.Itoa(pageNum))
+	}
+	if filter.PerPage > 0 && filter.PerPage != 50 {
+		q.Set("per_page", strconv.Itoa(filter.PerPage))
+	}
+	if qStr := strings.TrimSpace(filter.Query); qStr != "" {
+		q.Set("q", qStr)
+	}
+	if trig := strings.TrimSpace(filter.Trigger); trig != "" {
+		q.Set("trigger", trig)
+	}
+	if filter.RootID > 0 {
+		q.Set("root_id", strconv.FormatInt(filter.RootID, 10))
+	}
+	if cat := strings.TrimSpace(filter.Category); cat != "" {
+		q.Set("category", cat)
+	}
+	if subcat := strings.TrimSpace(filter.Subcategory); subcat != "" {
+		q.Set("subcategory", subcat)
+	}
+	if filter.MinRating > 0 {
+		q.Set("min_rating", strconv.Itoa(filter.MinRating))
+	}
+	if filter.FavoritesOnly {
+		q.Set("favorites", "1")
+	}
+	if eng := strings.TrimSpace(filter.Engine); eng != "" {
+		q.Set("engine", eng)
+	}
+	if mod := strings.TrimSpace(filter.ModelName); mod != "" {
+		q.Set("model", mod)
+	}
+	if mt := strings.TrimSpace(filter.MediaType); mt != "" {
+		q.Set("media_type", mt)
+	}
+	if filter.GroupID > 0 {
+		q.Set("group_id", strconv.FormatInt(filter.GroupID, 10))
+	}
+	if filter.CharacterID > 0 {
+		q.Set("character_id", strconv.FormatInt(filter.CharacterID, 10))
+	}
+	for _, tag := range filter.TagNames {
+		if t := strings.TrimSpace(tag); t != "" {
+			q.Add("tag", t)
+		}
+	}
+	if filter.FaceMode {
+		q.Set("face_mode", "1")
+	}
+	if filter.SortBy != "" && filter.SortBy != "newest" {
+		q.Set("sort", filter.SortBy)
+	}
+	encoded := q.Encode()
+	if encoded == "" {
+		return "/"
+	}
+	return "/?" + encoded
+}
+
+func sortURL(filter domain.CatalogFilter, sortBy string) string {
+	f := filter
+	f.SortBy = sortBy
+	f.Page = 1
+	return pageURL(f, 1)
+}
+
+func assetDetailURL(filter domain.CatalogFilter, assetID int64) string {
+	pageNum := filter.Page
+	if pageNum < 1 {
+		pageNum = 1
+	}
+	base := pageURL(filter, pageNum)
+	sep := "?"
+	if strings.Contains(base, "?") {
+		sep = "&"
+	}
+	return base + sep + "asset_id=" + strconv.FormatInt(assetID, 10)
+}
+
+func paginationList(current, total int) []PaginationItem {
+	if total <= 1 {
+		return nil
+	}
+	if current < 1 {
+		current = 1
+	}
+	if current > total {
+		current = total
+	}
+
+	pageSet := make(map[int]bool)
+	pageSet[1] = true
+	pageSet[total] = true
+	for i := current - 2; i <= current + 2; i++ {
+		if i >= 1 && i <= total {
+			pageSet[i] = true
+		}
+	}
+
+	if current <= 3 {
+		for i := 1; i <= 5 && i <= total; i++ {
+			pageSet[i] = true
+		}
+	}
+	if current >= total-2 {
+		for i := total - 4; i <= total; i++ {
+			if i >= 1 {
+				pageSet[i] = true
+			}
+		}
+	}
+
+	var pages []int
+	for p := 1; p <= total; p++ {
+		if pageSet[p] {
+			pages = append(pages, p)
+		}
+	}
+
+	var items []PaginationItem
+	for i, p := range pages {
+		if i > 0 && p > pages[i-1]+1 {
+			items = append(items, PaginationItem{
+				IsGap: true,
+				Label: "…",
+			})
+		}
+		items = append(items, PaginationItem{
+			Page:     p,
+			Label:    strconv.Itoa(p),
+			IsActive: p == current,
+		})
+	}
+	return items
+}
+
 // NewServer constructs the HTTP adapter with embedded HTML templates and CSS.
 func NewServer(
 	mediaDir, cacheDir, visionEngineName string,
@@ -113,6 +260,16 @@ func NewServer(
 		"filterWithTag": func(f domain.CatalogFilter, tag string) string {
 			return f.QueryWithTag(tag)
 		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"sub": func(a, b int) int {
+			return a - b
+		},
+		"pageURL":        pageURL,
+		"sortURL":        sortURL,
+		"assetDetailURL": assetDetailURL,
+		"paginationList": paginationList,
 	}
 
 	tmpl, err := template.New("catalog.html").Funcs(funcs).ParseFS(embeddedAssets, "templates/*.html")
@@ -154,12 +311,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/logout", s.handleLogout)
 	mux.HandleFunc("POST /admin/scan", s.handleScan)
 	mux.HandleFunc("POST /admin/assets/tag", s.handleAddTag)
+	mux.HandleFunc("POST /admin/assets/tag/remove", s.handleRemoveTag)
 	mux.HandleFunc("POST /admin/assets/category", s.handleSetAssetCategory)
 	mux.HandleFunc("POST /admin/assets/rate", s.handleRateAsset)
 	mux.HandleFunc("POST /admin/groups/create", s.handleCreateGroup)
 	mux.HandleFunc("POST /admin/groups/attach", s.handleAttachGroup)
+	mux.HandleFunc("POST /admin/groups/detach", s.handleDetachGroup)
 	mux.HandleFunc("POST /admin/characters/create", s.handleCreateCharacter)
 	mux.HandleFunc("POST /admin/characters/attach", s.handleAttachCharacter)
+	mux.HandleFunc("POST /admin/characters/detach", s.handleDetachCharacter)
 
 	// Settings, Multi-Root Media Folders, Default Categories, DB Switcher, Generator System Prompts & Per-Model LoRA Docs
 	mux.HandleFunc("POST /admin/settings/save", s.handleSaveSettings)
@@ -180,6 +340,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/ollama/image2prompt", s.handleImage2Prompt)
 	mux.HandleFunc("POST /admin/ollama/character2prompt", s.handleCharacter2Prompt)
 	mux.HandleFunc("POST /admin/ollama/text2prompt", s.handleText2Prompt)
+
+	// Scene Director / Prompt Studio Compositions & Poses
+	mux.HandleFunc("POST /admin/compositions/save", s.handleSaveComposition)
+	mux.HandleFunc("POST /admin/compositions/delete", s.handleDeleteComposition)
+	mux.HandleFunc("POST /admin/compositions/synthesize", s.handleSynthesizeScene)
+	mux.HandleFunc("GET /api/compositions", s.handleListCompositions)
+	mux.HandleFunc("GET /api/compositions/", s.handleGetComposition)
+	mux.HandleFunc("GET /api/poses", s.handleListPoses)
+	mux.HandleFunc("POST /admin/poses/save", s.handleSavePose)
+	mux.HandleFunc("POST /admin/poses/delete", s.handleDeletePose)
 
 	return s.loggingMiddleware(mux)
 }
@@ -235,8 +405,12 @@ type viewData struct {
 	AIResultError     string
 	AIInputConcept    string
 	AITargetProfile   string
-	AICharacterID     int64
-	FlashNotice       string
+	AIMode               string
+	AICharacterID        int64
+	FlashNotice          string
+	StudioCompositions   []domain.StudioComposition
+	StudioPoses          []domain.StudioPose
+	SelectedComposition  *domain.StudioComposition
 }
 
 func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
@@ -378,13 +552,44 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var aiStatus usecase.AIBackendStatus
-	if tab == "settings" || tab == "studio" || tab == "asset_detail" || tab == "characters" || tab == "remix" {
+	if tab == "settings" || tab == "studio" || tab == "director" || tab == "asset_detail" || tab == "characters" || tab == "remix" {
 		aiStatus = s.catalog.InspectAIBackends(ctx)
 	}
 
-	defaultTarget := "flux"
-	if len(profiles) > 0 {
-		defaultTarget = profiles[0].Slug
+	var studioCompositions []domain.StudioComposition
+	var studioPoses []domain.StudioPose
+	var selectedComposition *domain.StudioComposition
+	if tab == "director" || tab == "studio" {
+		studioCompositions, _ = s.catalog.ListStudioCompositions(ctx)
+		studioPoses, _ = s.catalog.ListStudioPoses(ctx)
+		if compIDStr := r.URL.Query().Get("composition_id"); compIDStr != "" {
+			if cid, err := strconv.ParseInt(compIDStr, 10, 64); err == nil && cid > 0 {
+				selectedComposition, _ = s.catalog.GetStudioComposition(ctx, cid)
+			}
+		}
+	}
+
+	defaultTarget := settings.DefaultTargetGenerator
+	if defaultTarget == "" {
+		if len(profiles) > 0 {
+			defaultTarget = profiles[0].Slug
+		} else {
+			defaultTarget = "flux"
+		}
+	}
+	if qTarget := r.URL.Query().Get("target_profile"); qTarget != "" {
+		defaultTarget = qTarget
+	} else if qProfile := r.URL.Query().Get("profile_slug"); qProfile != "" {
+		defaultTarget = qProfile
+	}
+
+	defaultMode := r.URL.Query().Get("mode")
+	if defaultMode == "" {
+		if selectedAsset != nil {
+			defaultMode = "vision"
+		} else {
+			defaultMode = "remix"
+		}
 	}
 
 	inputConcept := r.URL.Query().Get("concept")
@@ -416,7 +621,11 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		AIStatus:         aiStatus,
 		AIInputConcept:   inputConcept,
 		AITargetProfile:  defaultTarget,
-		FlashNotice:      r.URL.Query().Get("notice"),
+		AIMode:              defaultMode,
+		FlashNotice:         r.URL.Query().Get("notice"),
+		StudioCompositions:  studioCompositions,
+		StudioPoses:         studioPoses,
+		SelectedComposition: selectedComposition,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -529,7 +738,7 @@ func (s *Server) handleSetAssetCategory(w http.ResponseWriter, r *http.Request) 
 		http.Redirect(w, r, ret, http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Asset+classification+saved+to+.diffusion-catalog.json", http.StatusSeeOther)
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Asset+classification+saved", http.StatusSeeOther)
 }
 
 func (s *Server) handleRateAsset(w http.ResponseWriter, r *http.Request) {
@@ -566,11 +775,17 @@ func (s *Server) handleRateAsset(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, ret, http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Score+and+favorite+saved+to+.diffusion-catalog.json", http.StatusSeeOther)
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Score+and+favorite+saved", http.StatusSeeOther)
 }
 
 func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
+	current, _ := s.catalog.GetSettings(r.Context())
+	defTarget := r.FormValue("default_target_generator")
+	if defTarget == "" {
+		defTarget = current.DefaultTargetGenerator
+	}
+
 	cfg := domain.AppSettings{
 		OllamaBaseURL:          r.FormValue("ollama_base_url"),
 		OMLXBaseURL:            r.FormValue("omlx_base_url"),
@@ -584,7 +799,7 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		Text2PromptProvider:    domain.AIProviderType(r.FormValue("text2prompt_provider")),
 		Text2PromptModel:       r.FormValue("text2prompt_model"),
 		Text2PromptThink:       r.FormValue("text2prompt_think"),
-		DefaultTargetGenerator: r.FormValue("default_target_generator"),
+		DefaultTargetGenerator: defTarget,
 		AutoCaptionOnScan:      r.FormValue("auto_caption_on_scan") == "on" || r.FormValue("auto_caption_on_scan") == "true",
 	}
 	_ = s.catalog.SaveSettings(r.Context(), cfg)
@@ -730,6 +945,10 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if profileSlug != "" {
+		_ = s.catalog.SetDefaultTargetGenerator(ctx, profileSlug)
+	}
+
 	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, override, saveToAsset, frameImagePath)
 
 	filter := parseCatalogFilter(r)
@@ -776,6 +995,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		AIResultPrompt:   outPrompt,
 		AIInputConcept:   userHint,
 		AITargetProfile:  profileSlug,
+		AIMode:           mode,
 		AICharacterID:    characterID,
 	}
 	if runErr != nil {
@@ -798,6 +1018,10 @@ func (s *Server) handleCharacter2Prompt(w http.ResponseWriter, r *http.Request) 
 	returnTab := r.FormValue("return_tab")
 	if returnTab == "" {
 		returnTab = "characters"
+	}
+
+	if profileSlug != "" {
+		_ = s.catalog.SetDefaultTargetGenerator(ctx, profileSlug)
 	}
 
 	outPrompt, runErr := s.catalog.RunCharacterPrompt(ctx, characterID, profileSlug, sceneDirection, refAssetID, loraIDs, override)
@@ -846,6 +1070,10 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 	loraIDs := parseLoRAIDs(r.Form["lora_id"])
 	override := parseExecutionOverride(r)
 
+	if profileSlug != "" {
+		_ = s.catalog.SetDefaultTargetGenerator(ctx, profileSlug)
+	}
+
 	outPrompt, runErr := s.catalog.RunText2Prompt(ctx, concept, profileSlug, loraIDs, override)
 
 	filter := parseCatalogFilter(r)
@@ -889,6 +1117,7 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 		AIResultPrompt:   outPrompt,
 		AIInputConcept:   concept,
 		AITargetProfile:  profileSlug,
+		AIMode:           "remix",
 	}
 	if runErr != nil {
 		data.AIResultError = runErr.Error()
@@ -964,6 +1193,16 @@ func (s *Server) handleAddTag(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10), http.StatusSeeOther)
 }
 
+func (s *Server) handleRemoveTag(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	tagID, _ := strconv.ParseInt(r.FormValue("tag_id"), 10, 64)
+	if assetID > 0 && tagID > 0 {
+		_ = s.catalog.RemoveTagFromAsset(r.Context(), assetID, tagID)
+	}
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Tag+removed", http.StatusSeeOther)
+}
+
 func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	name := r.FormValue("name")
@@ -983,6 +1222,16 @@ func (s *Server) handleAttachGroup(w http.ResponseWriter, r *http.Request) {
 		_ = s.catalog.AssignAssetToGroup(r.Context(), groupID, assetID)
 	}
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10), http.StatusSeeOther)
+}
+
+func (s *Server) handleDetachGroup(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	groupID, _ := strconv.ParseInt(r.FormValue("group_id"), 10, 64)
+	if assetID > 0 && groupID > 0 {
+		_ = s.catalog.RemoveAssetFromGroup(r.Context(), groupID, assetID)
+	}
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Removed+from+group", http.StatusSeeOther)
 }
 
 func (s *Server) handleCreateCharacter(w http.ResponseWriter, r *http.Request) {
@@ -1010,6 +1259,16 @@ func (s *Server) handleAttachCharacter(w http.ResponseWriter, r *http.Request) {
 		_ = s.catalog.AssignAssetToCharacter(r.Context(), charID, assetID)
 	}
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10), http.StatusSeeOther)
+}
+
+func (s *Server) handleDetachCharacter(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	charID, _ := strconv.ParseInt(r.FormValue("character_id"), 10, 64)
+	if assetID > 0 && charID > 0 {
+		_ = s.catalog.RemoveAssetFromCharacter(r.Context(), charID, assetID)
+	}
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Removed+from+character", http.StatusSeeOther)
 }
 
 func (s *Server) currentAdmin(r *http.Request) string {
@@ -1089,4 +1348,228 @@ func parseCatalogFilter(r *http.Request) domain.CatalogFilter {
 		}
 	}
 	return parseCatalogFilterFromValues(q)
+}
+
+// Scene Director & Composition HTTP handlers
+
+func (s *Server) handleSaveComposition(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+
+	var comp domain.StudioComposition
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		if err := json.NewDecoder(r.Body).Decode(&comp); err != nil {
+			http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+	} else {
+		id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+		comp.ID = id
+		comp.Name = strings.TrimSpace(r.FormValue("name"))
+		comp.Description = strings.TrimSpace(r.FormValue("description"))
+		comp.SceneJSON = r.FormValue("scene_json")
+		comp.ThumbnailData = r.FormValue("thumbnail_data")
+		comp.PromptOutput = r.FormValue("prompt_output")
+	}
+
+	if comp.Name == "" {
+		comp.Name = "Untitled Scene"
+	}
+
+	id, err := s.catalog.SaveStudioComposition(ctx, &comp)
+	if err != nil {
+		if strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+			return
+		}
+		http.Redirect(w, r, "/?tab=director&notice=Error+saving+composition:+"+err.Error(), http.StatusSeeOther)
+		return
+	}
+
+	if strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "ok",
+			"id":     id,
+			"name":   comp.Name,
+		})
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/?tab=director&composition_id=%d&notice=Scene+composition+saved+successfully", id), http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteComposition(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if id <= 0 {
+		var req struct {
+			ID int64 `json:"id"`
+		}
+		if json.NewDecoder(r.Body).Decode(&req) == nil {
+			id = req.ID
+		}
+	}
+	if id > 0 {
+		_ = s.catalog.DeleteStudioComposition(ctx, id)
+	}
+
+	if strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		return
+	}
+	http.Redirect(w, r, "/?tab=director&notice=Scene+composition+deleted", http.StatusSeeOther)
+}
+
+func (s *Server) handleListCompositions(w http.ResponseWriter, r *http.Request) {
+	comps, err := s.catalog.ListStudioCompositions(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(comps)
+}
+
+func (s *Server) handleGetComposition(w http.ResponseWriter, r *http.Request) {
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/compositions/")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	comp, err := s.catalog.GetStudioComposition(r.Context(), id)
+	if err != nil || comp == nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(comp)
+}
+
+func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+
+	var sceneJSON, targetProfile, userHint string
+	var loraIDs []int64
+	var override domain.PromptExecutionOverride
+
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		var req struct {
+			SceneJSON     string   `json:"scene_json"`
+			TargetProfile string   `json:"target_profile"`
+			UserHint      string   `json:"user_hint"`
+			LoRAIDs       []int64  `json:"lora_ids"`
+			Provider      string   `json:"provider"`
+			Model         string   `json:"model"`
+			ThinkLevel    string   `json:"think_level"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			sceneJSON = req.SceneJSON
+			targetProfile = req.TargetProfile
+			userHint = req.UserHint
+			loraIDs = req.LoRAIDs
+			override = domain.PromptExecutionOverride{
+				Provider:   domain.AIProviderType(req.Provider),
+				Model:      req.Model,
+				ThinkLevel: req.ThinkLevel,
+			}
+		}
+	} else {
+		sceneJSON = r.FormValue("scene_json")
+		targetProfile = r.FormValue("target_profile")
+		userHint = r.FormValue("user_hint")
+		loraIDs = parseLoRAIDs(r.Form["lora_id"])
+		override = parseExecutionOverride(r)
+	}
+
+	if targetProfile != "" {
+		_ = s.catalog.SetDefaultTargetGenerator(ctx, targetProfile)
+	}
+
+	manifest, prompt, err := s.catalog.SynthesizeScenePrompt(ctx, sceneJSON, targetProfile, userHint, loraIDs, override)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":   "error",
+			"error":    err.Error(),
+			"manifest": manifest,
+		})
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "ok",
+		"manifest": manifest,
+		"prompt":   prompt,
+	})
+}
+
+func (s *Server) handleListPoses(w http.ResponseWriter, r *http.Request) {
+	poses, err := s.catalog.ListStudioPoses(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(poses)
+}
+
+func (s *Server) handleSavePose(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+
+	var pose domain.StudioPose
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		_ = json.NewDecoder(r.Body).Decode(&pose)
+	} else {
+		id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+		pose.ID = id
+		pose.Name = strings.TrimSpace(r.FormValue("name"))
+		pose.Category = strings.TrimSpace(r.FormValue("category"))
+		pose.PoseJSON = strings.TrimSpace(r.FormValue("pose_json"))
+		pose.Description = strings.TrimSpace(r.FormValue("description"))
+	}
+
+	if pose.Name == "" {
+		http.Error(w, "Pose name is required", http.StatusBadRequest)
+		return
+	}
+	if pose.Category == "" {
+		pose.Category = "Custom"
+	}
+
+	id, err := s.catalog.UpsertStudioPose(ctx, &pose)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "id": id, "name": pose.Name})
+}
+
+func (s *Server) handleDeletePose(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if id <= 0 {
+		var req struct {
+			ID int64 `json:"id"`
+		}
+		if json.NewDecoder(r.Body).Decode(&req) == nil {
+			id = req.ID
+		}
+	}
+	if id > 0 {
+		_ = s.catalog.DeleteStudioPose(ctx, id)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }

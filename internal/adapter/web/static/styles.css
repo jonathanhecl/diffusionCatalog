@@ -331,6 +331,41 @@ a {
   color: #fff;
 }
 
+.tag-pill-removable {
+  display: inline-flex;
+  align-items: center;
+  background: #060e1e;
+  border: 1px solid var(--border-navy);
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 11px;
+}
+
+.tag-pill-removable .tag-pill {
+  border: none;
+  background: transparent;
+  padding: 3px 6px 3px 8px;
+  border-radius: 0;
+}
+
+.tag-del-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 7px 2px 2px;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.tag-del-btn:hover {
+  color: #ef4444;
+}
+
 /* Results Header & Sort Tabs */
 .results-bar {
   display: flex;
@@ -590,12 +625,36 @@ a {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.page-btn:hover:not(.active):not(.gap) {
+  border-color: #3b82f6;
+  color: #fff;
 }
 
 .page-btn.active {
   background: var(--accent-blue);
   border-color: var(--accent-blue-hover);
   color: #fff;
+  cursor: default;
+}
+
+.page-btn.gap {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+  cursor: default;
+  padding: 6px 4px;
+}
+
+.page-btn.nav-btn {
+  font-weight: 700;
+  padding: 6px 14px;
 }
 
 /* Character & Group Cards */
@@ -624,6 +683,8 @@ a {
   font-size: 11px;
   color: #93c5fd;
   word-break: break-word;
+  white-space: pre-wrap;
+  line-height: 1.5;
 }
 
 /* Detail Inspector Panel */
@@ -907,6 +968,32 @@ a {
   .scan-progress-stats {
     gap: 4px;
   }
+}
+
+/* Floating Live Update Pill */
+.live-update-pill {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #0284c7;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), 0 0 12px rgba(2, 132, 199, 0.5);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.live-update-pill:hover {
+  background: #0369a1;
+  transform: translateY(-2px);
 }
 
 /* Media Navigation Arrows */

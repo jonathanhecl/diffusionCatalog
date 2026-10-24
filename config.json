@@ -8,5 +8,6 @@
   "admin_pass": "admin123",
   "vision_url": "",
   "auto_scan": true,
+  "auto_scan_interval": 10,
   "seed_demo": false
 }

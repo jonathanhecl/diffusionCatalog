@@ -199,6 +199,8 @@ type CatalogRepository interface {
 	ListDefaultCategories(ctx context.Context) ([]DefaultCategory, error)
 
 	UpsertAsset(ctx context.Context, asset *MediaAsset) (int64, error)
+	DeleteAsset(ctx context.Context, id int64) error
+	DeleteAssetsByIDs(ctx context.Context, ids []int64) error
 	GetAssetByID(ctx context.Context, id int64) (*MediaAsset, error)
 	GetExistingAssetFingerprints(ctx context.Context, rootID int64) (map[string]MediaAsset, error)
 	GetAdjacentAssetIDs(ctx context.Context, id int64, filter CatalogFilter) (prevID int64, nextID int64, err error)
@@ -210,15 +212,18 @@ type CatalogRepository interface {
 
 	UpsertTag(ctx context.Context, name, facet, color string) (*Tag, error)
 	AttachTagToAsset(ctx context.Context, assetID, tagID int64) error
+	DetachTagFromAsset(ctx context.Context, assetID, tagID int64) error
 	ListTags(ctx context.Context) ([]Tag, error)
 
 	CreateGroup(ctx context.Context, group *Group) (int64, error)
 	AttachAssetToGroup(ctx context.Context, groupID, assetID int64) error
+	DetachAssetFromGroup(ctx context.Context, groupID, assetID int64) error
 	ListGroups(ctx context.Context) ([]Group, error)
 
 	CreateCharacter(ctx context.Context, char *Character) (int64, error)
 	GetCharacterByID(ctx context.Context, id int64) (*Character, error)
 	AttachAssetToCharacter(ctx context.Context, characterID, assetID int64) error
+	DetachAssetFromCharacter(ctx context.Context, characterID, assetID int64) error
 	ListCharacters(ctx context.Context) ([]Character, error)
 
 	SaveDetectedFace(ctx context.Context, face *DetectedFace) (int64, error)
@@ -226,6 +231,7 @@ type CatalogRepository interface {
 
 	GetSettings(ctx context.Context) (AppSettings, error)
 	SaveSettings(ctx context.Context, settings AppSettings) error
+	SetDefaultTargetGenerator(ctx context.Context, slug string) error
 
 	UpsertPromptProfile(ctx context.Context, profile *PromptProfile) (int64, error)
 	DeletePromptProfile(ctx context.Context, id int64) error
@@ -239,6 +245,15 @@ type CatalogRepository interface {
 
 	SaveGeneratedPrompt(ctx context.Context, gp *GeneratedPrompt) (int64, error)
 	ListGeneratedPrompts(ctx context.Context, assetID, characterID int64, limit int) ([]GeneratedPrompt, error)
+
+	SaveStudioComposition(ctx context.Context, comp *StudioComposition) (int64, error)
+	GetStudioCompositionByID(ctx context.Context, id int64) (*StudioComposition, error)
+	ListStudioCompositions(ctx context.Context) ([]StudioComposition, error)
+	DeleteStudioComposition(ctx context.Context, id int64) error
+
+	UpsertStudioPose(ctx context.Context, pose *StudioPose) (int64, error)
+	ListStudioPoses(ctx context.Context) ([]StudioPose, error)
+	DeleteStudioPose(ctx context.Context, id int64) error
 }
 
 // MetadataExtractor defines the port for extracting diffusion prompts and technical parameters from media files.

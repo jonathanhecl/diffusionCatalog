@@ -353,6 +353,39 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 	return asset, nil
 }
 
+// DeleteAsset removes a single media asset by ID.
+func (r *Repository) DeleteAsset(ctx context.Context, id int64) error {
+	return r.DeleteAssetsByIDs(ctx, []int64{id})
+}
+
+// DeleteAssetsByIDs removes multiple media assets by ID in batches.
+// Triggers and foreign keys cascade deletions into assets_fts, asset_tags, group_assets, character_examples, and faces.
+func (r *Repository) DeleteAssetsByIDs(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	db := r.conn()
+
+	const batchSize = 500
+	for i := 0; i < len(ids); i += batchSize {
+		end := i + batchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		chunk := ids[i:end]
+
+		query := "DELETE FROM assets WHERE id IN (?" + strings.Repeat(",?", len(chunk)-1) + ")"
+		args := make([]any, len(chunk))
+		for j, id := range chunk {
+			args[j] = id
+		}
+		if _, err := db.ExecContext(ctx, query, args...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // GetExistingAssetFingerprints returns a lookup map keyed by rel_path containing basic metadata
 // (id, file_size, file_mtime, file_hash, rating, favorite, category, subcategory) to allow lightning-fast differential scanning.
 func (r *Repository) GetExistingAssetFingerprints(ctx context.Context, rootID int64) (map[string]domain.MediaAsset, error) {
@@ -684,6 +717,19 @@ func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) err
 	return nil
 }
 
+// SetDefaultTargetGenerator updates the active default target generator slug in app_settings.
+func (r *Repository) SetDefaultTargetGenerator(ctx context.Context, slug string) error {
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
+		return nil
+	}
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO app_settings (key, value) VALUES ('default_target_generator', ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value`, slug)
+	return err
+}
+
 // UpsertPromptProfile creates or updates a generator system prompt profile (flux, krea2, moss, minimaxh3, etc.).
 func (r *Repository) UpsertPromptProfile(ctx context.Context, p *domain.PromptProfile) (int64, error) {
 	db := r.conn()
@@ -964,6 +1010,139 @@ func (r *Repository) ListGeneratedPrompts(ctx context.Context, assetID, characte
 	return out, nil
 }
 
+// SaveStudioComposition creates or updates a scene composition in SQLite.
+func (r *Repository) SaveStudioComposition(ctx context.Context, comp *domain.StudioComposition) (int64, error) {
+	db := r.conn()
+	if comp.ID > 0 {
+		_, err := db.ExecContext(ctx, `
+			UPDATE studio_compositions
+			SET name = ?, description = ?, scene_json = ?, thumbnail_data = ?, prompt_output = ?, updated_at = CURRENT_TIMESTAMP
+			WHERE id = ?`,
+			comp.Name, comp.Description, comp.SceneJSON, comp.ThumbnailData, comp.PromptOutput, comp.ID,
+		)
+		return comp.ID, err
+	}
+
+	var id int64
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO studio_compositions (name, description, scene_json, thumbnail_data, prompt_output)
+		VALUES (?, ?, ?, ?, ?)
+		RETURNING id`,
+		comp.Name, comp.Description, comp.SceneJSON, comp.ThumbnailData, comp.PromptOutput,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	comp.ID = id
+	return id, nil
+}
+
+// GetStudioCompositionByID retrieves a single composition by ID.
+func (r *Repository) GetStudioCompositionByID(ctx context.Context, id int64) (*domain.StudioComposition, error) {
+	db := r.conn()
+	var comp domain.StudioComposition
+	err := db.QueryRowContext(ctx, `
+		SELECT id, name, description, scene_json, thumbnail_data, prompt_output, created_at, updated_at
+		FROM studio_compositions
+		WHERE id = ?`, id,
+	).Scan(&comp.ID, &comp.Name, &comp.Description, &comp.SceneJSON, &comp.ThumbnailData, &comp.PromptOutput, &comp.CreatedAt, &comp.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &comp, nil
+}
+
+// ListStudioCompositions retrieves all saved scene compositions ordered by newest.
+func (r *Repository) ListStudioCompositions(ctx context.Context) ([]domain.StudioComposition, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, name, description, scene_json, thumbnail_data, prompt_output, created_at, updated_at
+		FROM studio_compositions
+		ORDER BY updated_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.StudioComposition
+	for rows.Next() {
+		var comp domain.StudioComposition
+		if err := rows.Scan(&comp.ID, &comp.Name, &comp.Description, &comp.SceneJSON, &comp.ThumbnailData, &comp.PromptOutput, &comp.CreatedAt, &comp.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, comp)
+	}
+	return out, nil
+}
+
+// DeleteStudioComposition removes a composition by ID.
+func (r *Repository) DeleteStudioComposition(ctx context.Context, id int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM studio_compositions WHERE id = ?`, id)
+	return err
+}
+
+// UpsertStudioPose creates or updates a skeletal character pose preset.
+func (r *Repository) UpsertStudioPose(ctx context.Context, pose *domain.StudioPose) (int64, error) {
+	db := r.conn()
+	if pose.ID > 0 {
+		_, err := db.ExecContext(ctx, `
+			UPDATE studio_poses
+			SET name = ?, category = ?, pose_json = ?, description = ?
+			WHERE id = ?`,
+			pose.Name, pose.Category, pose.PoseJSON, pose.Description, pose.ID,
+		)
+		return pose.ID, err
+	}
+
+	var id int64
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO studio_poses (name, category, pose_json, description)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(name) DO UPDATE SET
+			category = excluded.category,
+			pose_json = excluded.pose_json,
+			description = excluded.description
+		RETURNING id`,
+		pose.Name, pose.Category, pose.PoseJSON, pose.Description,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	pose.ID = id
+	return id, nil
+}
+
+// ListStudioPoses returns all saved pose presets.
+func (r *Repository) ListStudioPoses(ctx context.Context) ([]domain.StudioPose, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, name, category, pose_json, description, created_at
+		FROM studio_poses
+		ORDER BY category ASC, name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.StudioPose
+	for rows.Next() {
+		var p domain.StudioPose
+		if err := rows.Scan(&p.ID, &p.Name, &p.Category, &p.PoseJSON, &p.Description, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// DeleteStudioPose removes a pose preset by ID.
+func (r *Repository) DeleteStudioPose(ctx context.Context, id int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM studio_poses WHERE id = ?`, id)
+	return err
+}
+
 // QueryCatalog executes a filtered, faceted, and paginated search across assets (or faces when FaceMode is active).
 func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilter) (*domain.CatalogPage, error) {
 	db := r.conn()
@@ -1005,6 +1184,13 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 		if page.TotalPages < 1 {
 			page.TotalPages = 1
 		}
+		if page.TotalCount > 0 && filter.Page > page.TotalPages {
+			filter.Page = page.TotalPages
+		}
+		if filter.Page < 1 {
+			filter.Page = 1
+		}
+		page.Page = filter.Page
 		return page, nil
 	}
 
@@ -1019,6 +1205,13 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 	if page.TotalPages < 1 {
 		page.TotalPages = 1
 	}
+	if page.TotalCount > 0 && filter.Page > page.TotalPages {
+		filter.Page = page.TotalPages
+	}
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	page.Page = filter.Page
 
 	offset := (filter.Page - 1) * filter.PerPage
 	selectSQL := fmt.Sprintf(`
@@ -1087,6 +1280,13 @@ func (r *Repository) AttachTagToAsset(ctx context.Context, assetID, tagID int64)
 	return err
 }
 
+// DetachTagFromAsset unlinks a tag from an asset.
+func (r *Repository) DetachTagFromAsset(ctx context.Context, assetID, tagID int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM asset_tags WHERE asset_id = ? AND tag_id = ?`, assetID, tagID)
+	return err
+}
+
 // ListTags returns all tags ordered by usage count and name.
 func (r *Repository) ListTags(ctx context.Context) ([]domain.Tag, error) {
 	db := r.conn()
@@ -1142,6 +1342,13 @@ func (r *Repository) CreateGroup(ctx context.Context, g *domain.Group) (int64, e
 func (r *Repository) AttachAssetToGroup(ctx context.Context, groupID, assetID int64) error {
 	db := r.conn()
 	_, err := db.ExecContext(ctx, `INSERT OR IGNORE INTO group_assets (group_id, asset_id) VALUES (?, ?)`, groupID, assetID)
+	return err
+}
+
+// DetachAssetFromGroup unlinks an asset from a group.
+func (r *Repository) DetachAssetFromGroup(ctx context.Context, groupID, assetID int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM group_assets WHERE group_id = ? AND asset_id = ?`, groupID, assetID)
 	return err
 }
 
@@ -1253,6 +1460,13 @@ func (r *Repository) AttachAssetToCharacter(ctx context.Context, characterID, as
 	return err
 }
 
+// DetachAssetFromCharacter unlinks an example asset from a character folder.
+func (r *Repository) DetachAssetFromCharacter(ctx context.Context, characterID, assetID int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM character_examples WHERE character_id = ? AND asset_id = ?`, characterID, assetID)
+	return err
+}
+
 // ListCharacters returns all character profiles with their example counts.
 func (r *Repository) ListCharacters(ctx context.Context) ([]domain.Character, error) {
 	db := r.conn()
@@ -1351,6 +1565,17 @@ func (r *Repository) ListDetectedFaces(ctx context.Context, filter domain.Catalo
 		%s`, whereClause)
 	if err := db.QueryRowContext(ctx, countSQL, args...).Scan(&total); err != nil {
 		return nil, 0, err
+	}
+
+	totalPages := (total + filter.PerPage - 1) / filter.PerPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if total > 0 && filter.Page > totalPages {
+		filter.Page = totalPages
+	}
+	if filter.Page < 1 {
+		filter.Page = 1
 	}
 
 	offset := (filter.Page - 1) * filter.PerPage

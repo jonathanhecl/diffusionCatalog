@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -23,32 +25,34 @@ const (
 
 // Config holds application-level configuration resolved from config files, flags, and environment variables.
 type Config struct {
-	Addr            string `json:"addr"`
-	MediaDir        string `json:"media_dir"`
-	CacheDir        string `json:"cache_dir"`
-	DBPath          string `json:"db_path"`
-	AdminUser       string `json:"admin_user"`
-	AdminPass       string `json:"admin_pass"`
-	VisionWorkerURL string `json:"vision_url"`
-	AutoScanOnBoot  bool   `json:"auto_scan"`
-	SeedDemoIfEmpty bool   `json:"seed_demo"`
-	ForceSetup      bool   `json:"-"`
-	NonInteractive  bool   `json:"-"`
-	ConfigFile      string `json:"config_file"`
+	Addr             string        `json:"addr"`
+	MediaDir         string        `json:"media_dir"`
+	CacheDir         string        `json:"cache_dir"`
+	DBPath           string        `json:"db_path"`
+	AdminUser        string        `json:"admin_user"`
+	AdminPass        string        `json:"admin_pass"`
+	VisionWorkerURL  string        `json:"vision_url"`
+	AutoScanOnBoot   bool          `json:"auto_scan"`
+	AutoScanInterval time.Duration `json:"auto_scan_interval"`
+	SeedDemoIfEmpty  bool          `json:"seed_demo"`
+	ForceSetup       bool          `json:"-"`
+	NonInteractive   bool          `json:"-"`
+	ConfigFile       string        `json:"config_file"`
 }
 
 // FileConfig models the JSON file structure for config.json.
 type FileConfig struct {
-	Port            any    `json:"port,omitempty"`
-	Addr            string `json:"addr,omitempty"`
-	MediaDir        string `json:"media_dir,omitempty"`
-	CacheDir        string `json:"cache_dir,omitempty"`
-	DBPath          string `json:"db_path,omitempty"`
-	AdminUser       string `json:"admin_user,omitempty"`
-	AdminPass       string `json:"admin_pass,omitempty"`
-	VisionWorkerURL string `json:"vision_url,omitempty"`
-	AutoScanOnBoot  *bool  `json:"auto_scan,omitempty"`
-	SeedDemoIfEmpty *bool  `json:"seed_demo,omitempty"`
+	Port             any    `json:"port,omitempty"`
+	Addr             string `json:"addr,omitempty"`
+	MediaDir         string `json:"media_dir,omitempty"`
+	CacheDir         string `json:"cache_dir,omitempty"`
+	DBPath           string `json:"db_path,omitempty"`
+	AdminUser        string `json:"admin_user,omitempty"`
+	AdminPass        string `json:"admin_pass,omitempty"`
+	VisionWorkerURL  string `json:"vision_url,omitempty"`
+	AutoScanOnBoot   *bool  `json:"auto_scan,omitempty"`
+	AutoScanInterval any    `json:"auto_scan_interval,omitempty"`
+	SeedDemoIfEmpty  *bool  `json:"seed_demo,omitempty"`
 }
 
 // Load parses configuration from config.json, environment variables, and os.Args.
@@ -85,6 +89,7 @@ func LoadWithArgs(args []string) Config {
 		AdminPass:       DefaultAdminPass,
 		VisionWorkerURL: "",
 		AutoScanOnBoot:  true,
+		AutoScanInterval: 10 * time.Second,
 		SeedDemoIfEmpty: false,
 		ForceSetup:      false,
 		NonInteractive:  false,
@@ -119,6 +124,11 @@ func LoadWithArgs(args []string) Config {
 			if fileCfg.AutoScanOnBoot != nil {
 				cfg.AutoScanOnBoot = *fileCfg.AutoScanOnBoot
 			}
+			if fileCfg.AutoScanInterval != nil {
+				if d, ok := parseDurationValue(fileCfg.AutoScanInterval); ok {
+					cfg.AutoScanInterval = d
+				}
+			}
 			if fileCfg.SeedDemoIfEmpty != nil {
 				cfg.SeedDemoIfEmpty = *fileCfg.SeedDemoIfEmpty
 			}
@@ -152,6 +162,11 @@ func LoadWithArgs(args []string) Config {
 	if v, ok := envBool("CATALOG_AUTO_SCAN"); ok {
 		cfg.AutoScanOnBoot = v
 	}
+	if v := os.Getenv("CATALOG_AUTO_SCAN_INTERVAL"); v != "" {
+		if d, ok := parseDurationValue(v); ok {
+			cfg.AutoScanInterval = d
+		}
+	}
 	if v, ok := envBool("CATALOG_SEED_DEMO"); ok {
 		cfg.SeedDemoIfEmpty = v
 	}
@@ -172,6 +187,7 @@ func LoadWithArgs(args []string) Config {
 	flagAdminPass := fs.String("admin-pass", cfg.AdminPass, "Default administrator password (used only when bootstrapping empty DB)")
 	flagVisionURL := fs.String("vision-url", cfg.VisionWorkerURL, "Optional HTTP endpoint for external face detection & embedding worker")
 	flagAutoScan := fs.Bool("auto-scan", cfg.AutoScanOnBoot, "Automatically scan media directory on startup")
+	flagAutoScanInterval := fs.String("auto-scan-interval", "", "Interval for automatic background media folder sync (e.g. 10s, 30s; 0s disables periodic scan)")
 	flagSeedDemo := fs.Bool("seed-demo", cfg.SeedDemoIfEmpty, "Generate sample diffusion images in media-dir if folder does not exist or is empty")
 	flagSetup := fs.Bool("setup", false, "Run interactive dependency check and self-installer on startup")
 	flagNonInteractive := fs.Bool("non-interactive", cfg.NonInteractive, "Disable interactive dependency installation prompts")
@@ -217,6 +233,14 @@ func LoadWithArgs(args []string) Config {
 	if explicitFlags["auto-scan"] {
 		cfg.AutoScanOnBoot = *flagAutoScan
 	}
+	if explicitFlags["auto-scan-interval"] {
+		if d, ok := parseDurationValue(*flagAutoScanInterval); ok {
+			cfg.AutoScanInterval = d
+		}
+	}
+	if !cfg.AutoScanOnBoot {
+		cfg.AutoScanInterval = 0
+	}
 	if explicitFlags["seed-demo"] {
 		cfg.SeedDemoIfEmpty = *flagSeedDemo
 	}
@@ -252,6 +276,7 @@ func EnsureDefaultConfigFile(path string) error {
   "admin_pass": "admin123",
   "vision_url": "",
   "auto_scan": true,
+  "auto_scan_interval": "10s",
   "seed_demo": false
 }
 `
@@ -334,4 +359,30 @@ func envBool(key string) (bool, bool) {
 		return false, true
 	}
 	return false, false
+}
+
+func parseDurationValue(v any) (time.Duration, bool) {
+	if v == nil {
+		return 0, false
+	}
+	switch val := v.(type) {
+	case string:
+		val = strings.TrimSpace(val)
+		if val == "" {
+			return 0, false
+		}
+		if d, err := time.ParseDuration(val); err == nil {
+			return d, true
+		}
+		if sec, err := strconv.Atoi(val); err == nil {
+			return time.Duration(sec) * time.Second, true
+		}
+	case float64:
+		return time.Duration(val) * time.Second, true
+	case int:
+		return time.Duration(val) * time.Second, true
+	case int64:
+		return time.Duration(val) * time.Second, true
+	}
+	return 0, false
 }

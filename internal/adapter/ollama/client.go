@@ -59,10 +59,11 @@ type showResponse struct {
 }
 
 type ollamaChatRequest struct {
-	Model    string              `json:"model"`
-	Messages []ollamaChatMessage `json:"messages"`
-	Stream   bool                `json:"stream"`
-	Think    interface{}         `json:"think,omitempty"`
+	Model    string                 `json:"model"`
+	Messages []ollamaChatMessage    `json:"messages"`
+	Stream   bool                   `json:"stream"`
+	Think    interface{}            `json:"think,omitempty"`
+	Options  map[string]interface{} `json:"options,omitempty"`
 }
 
 type ollamaChatMessage struct {
@@ -103,6 +104,7 @@ type openAIChatRequest struct {
 	Stream             bool                   `json:"stream"`
 	ReasoningEffort    string                 `json:"reasoning_effort,omitempty"`
 	ChatTemplateKwargs map[string]interface{} `json:"chat_template_kwargs,omitempty"`
+	MaxTokens          int                    `json:"max_tokens,omitempty"`
 }
 
 type openAITextMessage struct {
@@ -357,7 +359,7 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 		caps := buildCapabilitySlice(true, hasVis, hasThink, hasTools, m.Capabilities)
 
 		out = append(out, domain.OllamaModelInfo{
-			Provider:      domain.ProviderOMLX,
+			Provider:      domain.ProviderOpenAI,
 			Name:          m.ID,
 			ParameterSize: inferParameterSizeFromName(m.ID),
 			Family:        "MLX",
@@ -412,7 +414,7 @@ func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderTy
 		userContent += "\nAdditional context/hint: " + strings.TrimSpace(userHint)
 	}
 
-	if provider == domain.ProviderOMLX {
+	if provider == domain.ProviderOMLX || provider == domain.ProviderOpenAI {
 		return c.executeOMLXVisionChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, userContent, b64, thinkLevel)
 	}
 
@@ -439,7 +441,7 @@ func (c *Client) TextToPrompt(ctx context.Context, provider domain.AIProviderTyp
 		return "", fmt.Errorf("no text2prompt model configured in Settings")
 	}
 
-	if provider == domain.ProviderOMLX {
+	if provider == domain.ProviderOMLX || provider == domain.ProviderOpenAI {
 		return c.executeOMLXTextChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, inputConcept, thinkLevel)
 	}
 
@@ -484,6 +486,9 @@ func (c *Client) executeOllamaChat(ctx context.Context, baseURL, model string, m
 		Messages: messages,
 		Stream:   false,
 		Think:    mapOllamaThinkParam(model, thinkLevel),
+		Options: map[string]interface{}{
+			"num_predict": 2048,
+		},
 	}
 	out, statusCode, body, err := c.doOllamaChatAttempt(ctx, baseURL, reqPayload)
 	if err != nil {
@@ -503,7 +508,7 @@ func (c *Client) executeOllamaChat(ctx context.Context, baseURL, model string, m
 	if out.Error != "" {
 		return "", fmt.Errorf("ollama error: %s", out.Error)
 	}
-	return stripThinkTags(out.Message.Content), nil
+	return CleanAIPrompt(out.Message.Content), nil
 }
 
 func (c *Client) doOllamaChatAttempt(ctx context.Context, baseURL string, reqPayload ollamaChatRequest) (ollamaChatResponse, int, []byte, error) {
@@ -580,6 +585,7 @@ func (c *Client) doOMLXChat(ctx context.Context, baseURL, apiKey, model string, 
 		Stream:             false,
 		ReasoningEffort:    effort,
 		ChatTemplateKwargs: kwargs,
+		MaxTokens:          2048,
 	})
 	if err != nil {
 		return "", err
@@ -615,7 +621,213 @@ func (c *Client) doOMLXChat(ctx context.Context, baseURL, apiKey, model string, 
 	if len(out.Choices) == 0 {
 		return "", fmt.Errorf("omlx returned empty choices")
 	}
-	return stripThinkTags(out.Choices[0].Message.Content), nil
+	return CleanAIPrompt(out.Choices[0].Message.Content), nil
+}
+
+// CleanAIPrompt cleans up LLM output for diffusion synthesis:
+// - Removes <think>...</think> and unclosed <think> blocks
+// - Normalizes escaped characters (\r\n, \n, \r, \t, /r/n) into real line breaks
+// - Extracts prompt from markdown code fences (```markdown ... ``` or ~~~)
+// - Strips conversational preambles ("Here is the prompt for Flux:", "Prompt:", etc.)
+// - Strips conversational postambles ("Hope this helps!", "Let me know...", etc.)
+// - Trims leading/trailing quotes and backticks
+func CleanAIPrompt(raw string) string {
+	s := stripThinkTags(raw)
+	if s == "" {
+		return ""
+	}
+
+	// 1. Normalize literal string escape sequences if present (\r\n, \n, \r, \t, /r/n)
+	if strings.Contains(s, `\r\n`) {
+		s = strings.ReplaceAll(s, `\r\n`, "\n")
+	}
+	if strings.Contains(s, `\n`) {
+		s = strings.ReplaceAll(s, `\n`, "\n")
+	}
+	if strings.Contains(s, `\r`) {
+		s = strings.ReplaceAll(s, `\r`, "\n")
+	}
+	if strings.Contains(s, `\t`) {
+		s = strings.ReplaceAll(s, `\t`, " ")
+	}
+	s = strings.ReplaceAll(s, "/r/n", "\n")
+	s = strings.ReplaceAll(s, "/r", "\n")
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+
+	// 2. Extract content from markdown code blocks if the model wrapped the prompt in ```...```
+	if openIdx := strings.Index(s, "```"); openIdx != -1 {
+		rest := s[openIdx+3:]
+		newlineIdx := strings.Index(rest, "\n")
+		var blockContent string
+		if newlineIdx != -1 {
+			blockContent = rest[newlineIdx+1:]
+		} else {
+			blockContent = rest
+		}
+
+		if closeIdx := strings.Index(blockContent, "```"); closeIdx != -1 {
+			s = strings.TrimSpace(blockContent[:closeIdx])
+		} else {
+			s = strings.TrimSpace(blockContent)
+		}
+	} else if openTilde := strings.Index(s, "~~~"); openTilde != -1 {
+		rest := s[openTilde+3:]
+		newlineIdx := strings.Index(rest, "\n")
+		var blockContent string
+		if newlineIdx != -1 {
+			blockContent = rest[newlineIdx+1:]
+		} else {
+			blockContent = rest
+		}
+		if closeIdx := strings.Index(blockContent, "~~~"); closeIdx != -1 {
+			s = strings.TrimSpace(blockContent[:closeIdx])
+		} else {
+			s = strings.TrimSpace(blockContent)
+		}
+	}
+
+	// 3. Strip conversational preambles line-by-line
+	lines := strings.Split(s, "\n")
+	startLine := 0
+	for startLine < len(lines) {
+		trimmed := strings.TrimSpace(lines[startLine])
+		if trimmed == "" {
+			startLine++
+			continue
+		}
+		lower := strings.ToLower(trimmed)
+		if isConversationalPreamble(lower) {
+			startLine++
+			continue
+		}
+		if stripped := stripPromptLabel(trimmed); stripped != trimmed {
+			lines[startLine] = stripped
+			break
+		}
+		break
+	}
+	lines = lines[startLine:]
+
+	// 4. Strip conversational postambles
+	endLine := len(lines)
+	for endLine > 0 {
+		trimmed := strings.TrimSpace(lines[endLine-1])
+		if trimmed == "" {
+			endLine--
+			continue
+		}
+		lower := strings.ToLower(trimmed)
+		if isConversationalPostamble(lower) {
+			endLine--
+			continue
+		}
+		break
+	}
+	lines = lines[:endLine]
+
+	s = strings.Join(lines, "\n")
+	s = strings.TrimSpace(s)
+
+	// Strip enclosing backticks or quotes if wrapped
+	if strings.HasPrefix(s, "`") && strings.HasSuffix(s, "`") && len(s) > 1 {
+		s = strings.Trim(s, "`")
+	}
+	if strings.HasPrefix(s, `"`) && strings.HasSuffix(s, `"`) && len(s) > 1 {
+		s = strings.Trim(s, `"`)
+	}
+
+	return strings.TrimSpace(s)
+}
+
+func isConversationalPreamble(lower string) bool {
+	cleaned := strings.TrimLeft(lower, "*#-> \t")
+	prefixes := []string{
+		"here is the prompt",
+		"here is your prompt",
+		"here's the prompt",
+		"here's your prompt",
+		"here is a prompt",
+		"here's a prompt",
+		"here is the revised prompt",
+		"here's the revised prompt",
+		"here is the generated prompt",
+		"here's the generated prompt",
+		"here is the final prompt",
+		"here is a refined prompt",
+		"here's a refined prompt",
+		"sure, here is",
+		"sure! here is",
+		"sure, here's",
+		"certainly! here is",
+		"certainly! here's",
+		"certainly, here is",
+		"based on the image",
+		"based on the concept",
+		"prompt for flux",
+		"prompt for krea",
+		"prompt for sdxl",
+		"prompt for qwen",
+		"prompt for minimax",
+		"prompt for moss",
+	}
+	for _, p := range prefixes {
+		if strings.HasPrefix(cleaned, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func stripPromptLabel(line string) string {
+	cleaned := strings.TrimSpace(line)
+	lower := strings.ToLower(cleaned)
+	labelPrefixes := []string{
+		"**prompt:**",
+		"**prompt**:",
+		"prompt:",
+		"**positive prompt:**",
+		"**positive prompt**:",
+		"positive prompt:",
+		"**final prompt:**",
+		"final prompt:",
+		"**generation prompt:**",
+		"generation prompt:",
+		"**result:**",
+		"result:",
+		"output:",
+	}
+	for _, lp := range labelPrefixes {
+		if strings.HasPrefix(lower, lp) {
+			return strings.TrimSpace(cleaned[len(lp):])
+		}
+	}
+	return line
+}
+
+func isConversationalPostamble(lower string) bool {
+	cleaned := strings.TrimLeft(lower, "*#-> \t")
+	prefixes := []string{
+		"hope this helps",
+		"hope you like it",
+		"let me know if you need",
+		"let me know if you want",
+		"feel free to ask",
+		"enjoy generating",
+		"happy generating",
+		"notes:",
+		"**notes:**",
+		"parameters:",
+		"**parameters:**",
+		"settings:",
+		"**settings:**",
+	}
+	for _, p := range prefixes {
+		if strings.HasPrefix(cleaned, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // stripThinkTags removes any inline <think>...</think> or <thinking>...</thinking> blocks from the final prompt output.
@@ -624,6 +836,7 @@ func stripThinkTags(raw string) string {
 	for _, tag := range []struct{ open, close string }{
 		{"<think>", "</think>"},
 		{"<thinking>", "</thinking>"},
+		{"<thought>", "</thought>"},
 	} {
 		for {
 			start := strings.Index(strings.ToLower(s), tag.open)
@@ -632,6 +845,8 @@ func stripThinkTags(raw string) string {
 			}
 			end := strings.Index(strings.ToLower(s[start:]), tag.close)
 			if end == -1 {
+				// Unclosed thinking block (truncated): strip to the end
+				s = strings.TrimSpace(s[:start])
 				break
 			}
 			s = strings.TrimSpace(s[:start] + s[start+end+len(tag.close):])

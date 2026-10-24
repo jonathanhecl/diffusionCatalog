@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"path/filepath"
@@ -50,7 +51,7 @@ func (s *CatalogService) SwitchDatabase(ctx context.Context, newDBPath string) e
 	return nil
 }
 
-// ListMediaRoots returns all registered media root folders enriched with their .diffusion-catalog.json categories.
+// ListMediaRoots returns all registered media root folders enriched with their default categories.
 func (s *CatalogService) ListMediaRoots(ctx context.Context) ([]domain.MediaRoot, error) {
 	roots, err := s.repo.ListMediaRoots(ctx)
 	if err != nil {
@@ -58,31 +59,19 @@ func (s *CatalogService) ListMediaRoots(ctx context.Context) ([]domain.MediaRoot
 	}
 	defaults, _ := s.repo.ListDefaultCategories(ctx)
 	for i := range roots {
-		if roots[i].Accessible {
-			if m, err := EnsureFolderManifest(roots[i].Path, roots[i].Label, defaults); err == nil && m != nil {
-				roots[i].Categories = m.Categories
-			}
-		} else {
-			roots[i].Categories = defaults
-		}
+		roots[i].Categories = defaults
 	}
 	return roots, nil
 }
 
-// AddMediaRoot registers a new media root folder (local directory or external drive) and initializes its .diffusion-catalog.json manifest.
+// AddMediaRoot registers a new media root folder (local directory or external drive).
 func (s *CatalogService) AddMediaRoot(ctx context.Context, path, label string) (int64, error) {
 	root := &domain.MediaRoot{
 		Path:    strings.TrimSpace(path),
 		Label:   strings.TrimSpace(label),
 		Enabled: true,
 	}
-	id, err := s.repo.UpsertMediaRoot(ctx, root)
-	if err != nil {
-		return 0, err
-	}
-	defaults, _ := s.repo.ListDefaultCategories(ctx)
-	_, _ = EnsureFolderManifest(root.Path, root.Label, defaults)
-	return id, nil
+	return s.repo.UpsertMediaRoot(ctx, root)
 }
 
 // DeleteMediaRoot removes a media root folder from the catalog index without deleting any files on disk.
@@ -114,22 +103,6 @@ func (s *CatalogService) UpsertDefaultCategory(ctx context.Context, name, facet,
 	if err != nil {
 		return 0, err
 	}
-	// Sync new default category to accessible media roots' manifests
-	defaults, _ := s.repo.ListDefaultCategories(ctx)
-	roots, _ := s.repo.ListMediaRoots(ctx)
-	for _, r := range roots {
-		if r.Accessible {
-			if m, err := EnsureFolderManifest(r.Path, r.Label, defaults); err == nil && m != nil {
-				for _, sub := range subs {
-					ensureManifestCategory(m, cat.Name, sub)
-				}
-				if len(subs) == 0 {
-					ensureManifestCategory(m, cat.Name, "")
-				}
-				_ = SaveFolderManifest(r.Path, m)
-			}
-		}
-	}
 	return id, nil
 }
 
@@ -156,19 +129,6 @@ func (s *CatalogService) ResolveAssetAbsPath(ctx context.Context, asset *domain.
 	return filepath.Join(rootPath, filepath.FromSlash(cleanRel))
 }
 
-func (s *CatalogService) syncAssetManifestByID(ctx context.Context, assetID int64) {
-	asset, err := s.repo.GetAssetByID(ctx, assetID)
-	if err != nil || asset == nil {
-		return
-	}
-	rootPath := strings.TrimSpace(asset.RootPath)
-	if rootPath == "" {
-		rootPath = s.mediaDir
-	}
-	defaults, _ := s.repo.ListDefaultCategories(ctx)
-	_ = SyncAssetToFolderManifest(rootPath, asset, defaults)
-}
-
 // Query returns a paginated, facet-filtered catalog page.
 func (s *CatalogService) Query(ctx context.Context, filter domain.CatalogFilter) (*domain.CatalogPage, error) {
 	page, err := s.repo.QueryCatalog(ctx, filter)
@@ -177,13 +137,7 @@ func (s *CatalogService) Query(ctx context.Context, filter domain.CatalogFilter)
 	}
 	defaults, _ := s.repo.ListDefaultCategories(ctx)
 	for i := range page.MediaRoots {
-		if page.MediaRoots[i].Accessible {
-			if m, mErr := EnsureFolderManifest(page.MediaRoots[i].Path, page.MediaRoots[i].Label, defaults); mErr == nil && m != nil {
-				page.MediaRoots[i].Categories = m.Categories
-			}
-		} else {
-			page.MediaRoots[i].Categories = defaults
-		}
+		page.MediaRoots[i].Categories = defaults
 	}
 	return page, nil
 }
@@ -251,7 +205,7 @@ func (s *CatalogService) GetRelatedAssets(ctx context.Context, asset *domain.Med
 	return b
 }
 
-// SetAssetCategory updates an asset's category and subcategory in SQLite and in its folder's .diffusion-catalog.json.
+// SetAssetCategory updates an asset's category and subcategory in SQLite.
 func (s *CatalogService) SetAssetCategory(ctx context.Context, assetID int64, category, subcategory string) error {
 	if err := s.repo.UpdateAssetCategory(ctx, assetID, category, subcategory); err != nil {
 		return err
@@ -266,11 +220,10 @@ func (s *CatalogService) SetAssetCategory(ctx context.Context, assetID int64, ca
 			_ = s.repo.AttachTagToAsset(ctx, assetID, t.ID)
 		}
 	}
-	s.syncAssetManifestByID(ctx, assetID)
 	return nil
 }
 
-// RateAsset updates an asset's 0-10 score and favorite flag in SQLite and persists both into its folder's .diffusion-catalog.json.
+// RateAsset updates an asset's 0-10 score and favorite flag in SQLite.
 func (s *CatalogService) RateAsset(ctx context.Context, assetID int64, rating int, favorite bool) error {
 	if rating < 0 {
 		rating = 0
@@ -278,14 +231,10 @@ func (s *CatalogService) RateAsset(ctx context.Context, assetID int64, rating in
 	if rating > 10 {
 		rating = 10
 	}
-	if err := s.repo.UpdateAssetRating(ctx, assetID, rating, favorite); err != nil {
-		return err
-	}
-	s.syncAssetManifestByID(ctx, assetID)
-	return nil
+	return s.repo.UpdateAssetRating(ctx, assetID, rating, favorite)
 }
 
-// AddTagToAsset creates or updates an agnostic tag, attaches it to an asset, and updates .diffusion-catalog.json.
+// AddTagToAsset creates or updates an agnostic tag and attaches it to an asset in SQLite.
 func (s *CatalogService) AddTagToAsset(ctx context.Context, assetID int64, name, facet string) error {
 	name = strings.TrimSpace(strings.TrimPrefix(name, "#"))
 	if name == "" {
@@ -298,11 +247,12 @@ func (s *CatalogService) AddTagToAsset(ctx context.Context, assetID int64, name,
 	if err != nil {
 		return err
 	}
-	if err := s.repo.AttachTagToAsset(ctx, assetID, t.ID); err != nil {
-		return err
-	}
-	s.syncAssetManifestByID(ctx, assetID)
-	return nil
+	return s.repo.AttachTagToAsset(ctx, assetID, t.ID)
+}
+
+// RemoveTagFromAsset detaches an agnostic tag from an asset.
+func (s *CatalogService) RemoveTagFromAsset(ctx context.Context, assetID, tagID int64) error {
+	return s.repo.DetachTagFromAsset(ctx, assetID, tagID)
 }
 
 // CreateGroup creates a new agnostic group and optionally links an initial asset.
@@ -321,18 +271,18 @@ func (s *CatalogService) CreateGroup(ctx context.Context, name, category, descri
 	}
 	if initialAssetID > 0 {
 		_ = s.repo.AttachAssetToGroup(ctx, gid, initialAssetID)
-		s.syncAssetManifestByID(ctx, initialAssetID)
 	}
 	return gid, nil
 }
 
-// AssignAssetToGroup attaches an existing asset to a group and syncs the folder manifest.
+// AssignAssetToGroup attaches an existing asset to a group.
 func (s *CatalogService) AssignAssetToGroup(ctx context.Context, groupID, assetID int64) error {
-	if err := s.repo.AttachAssetToGroup(ctx, groupID, assetID); err != nil {
-		return err
-	}
-	s.syncAssetManifestByID(ctx, assetID)
-	return nil
+	return s.repo.AttachAssetToGroup(ctx, groupID, assetID)
+}
+
+// RemoveAssetFromGroup detaches an asset from a group.
+func (s *CatalogService) RemoveAssetFromGroup(ctx context.Context, groupID, assetID int64) error {
+	return s.repo.DetachAssetFromGroup(ctx, groupID, assetID)
 }
 
 // ListGroups returns all agnostic groups.
@@ -351,18 +301,18 @@ func (s *CatalogService) CreateCharacter(ctx context.Context, c *domain.Characte
 	}
 	if exampleAssetID > 0 {
 		_ = s.repo.AttachAssetToCharacter(ctx, cid, exampleAssetID)
-		s.syncAssetManifestByID(ctx, exampleAssetID)
 	}
 	return cid, nil
 }
 
-// AssignAssetToCharacter links an asset as a reference example for a character and syncs the folder manifest.
+// AssignAssetToCharacter links an asset as a reference example for a character.
 func (s *CatalogService) AssignAssetToCharacter(ctx context.Context, characterID, assetID int64) error {
-	if err := s.repo.AttachAssetToCharacter(ctx, characterID, assetID); err != nil {
-		return err
-	}
-	s.syncAssetManifestByID(ctx, assetID)
-	return nil
+	return s.repo.AttachAssetToCharacter(ctx, characterID, assetID)
+}
+
+// RemoveAssetFromCharacter detaches an example asset from a character folder.
+func (s *CatalogService) RemoveAssetFromCharacter(ctx context.Context, characterID, assetID int64) error {
+	return s.repo.DetachAssetFromCharacter(ctx, characterID, assetID)
 }
 
 // GetCharacter retrieves a character profile and its example gallery.
@@ -383,6 +333,11 @@ func (s *CatalogService) GetSettings(ctx context.Context) (domain.AppSettings, e
 // SaveSettings updates application and Ollama model routing settings.
 func (s *CatalogService) SaveSettings(ctx context.Context, cfg domain.AppSettings) error {
 	return s.repo.SaveSettings(ctx, cfg)
+}
+
+// SetDefaultTargetGenerator updates the active default target generator slug.
+func (s *CatalogService) SetDefaultTargetGenerator(ctx context.Context, slug string) error {
+	return s.repo.SetDefaultTargetGenerator(ctx, slug)
 }
 
 // ListPromptProfiles returns all generator system prompt profiles (flux, krea2, moss, minimaxh3, etc.).
@@ -579,16 +534,25 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 	var usedModel string
 	var usedThink string
 
-	// For videos with a captured frame or user-attached image, send it to ImageToPrompt
-	isFrameRef := frameImagePath != "" && (asset == nil || asset.MediaType == domain.MediaTypeVideo || mode == "vision")
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode == "" {
+		if asset != nil || frameImagePath != "" {
+			mode = "vision"
+		} else {
+			mode = "remix"
+		}
+	}
 
-	if !isFrameRef && mode == "remix" && combinedHint != "" {
+	if mode == "remix" {
 		// Remix via Text2Prompt model using the extracted prompt + character + direction
 		var baseURL string
 		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(
 			cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override,
 		)
 		promptInstruction := "Transform the following reference asset and scene direction into a final generation prompt for target engine '" + profileSlug + "'. Preserve any mandatory character trigger words if present:\n\n" + combinedHint
+		if strings.TrimSpace(combinedHint) == "" {
+			promptInstruction = "Generate a rich, detailed, high-quality generation prompt for target engine '" + profileSlug + "'."
+		}
 		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, promptInstruction, usedThink)
 		if err != nil {
 			return "", err
@@ -783,4 +747,267 @@ func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profi
 		})
 	}
 	return generated, nil
+}
+
+// Studio Composition and Pose persistence methods
+
+func (s *CatalogService) SaveStudioComposition(ctx context.Context, comp *domain.StudioComposition) (int64, error) {
+	return s.repo.SaveStudioComposition(ctx, comp)
+}
+
+func (s *CatalogService) GetStudioComposition(ctx context.Context, id int64) (*domain.StudioComposition, error) {
+	return s.repo.GetStudioCompositionByID(ctx, id)
+}
+
+func (s *CatalogService) ListStudioCompositions(ctx context.Context) ([]domain.StudioComposition, error) {
+	return s.repo.ListStudioCompositions(ctx)
+}
+
+func (s *CatalogService) DeleteStudioComposition(ctx context.Context, id int64) error {
+	return s.repo.DeleteStudioComposition(ctx, id)
+}
+
+func (s *CatalogService) UpsertStudioPose(ctx context.Context, pose *domain.StudioPose) (int64, error) {
+	return s.repo.UpsertStudioPose(ctx, pose)
+}
+
+func (s *CatalogService) ListStudioPoses(ctx context.Context) ([]domain.StudioPose, error) {
+	return s.repo.ListStudioPoses(ctx)
+}
+
+func (s *CatalogService) DeleteStudioPose(ctx context.Context, id int64) error {
+	return s.repo.DeleteStudioPose(ctx, id)
+}
+
+// Scene Director DTOs for spatial prompt compilation
+type SceneElementDTO struct {
+	ID          string                 `json:"id"`
+	Type        string                 `json:"type"` // "character", "silhouette", "prop", "light", "camera", "note"
+	Name        string                 `json:"name,omitempty"`
+	Label       string                 `json:"label,omitempty"`
+	PropType    string                 `json:"propType,omitempty"`
+	CharacterID int64                  `json:"characterId,omitempty"`
+	X           float64                `json:"x"`
+	Y           float64                `json:"y"`
+	Width       float64                `json:"width,omitempty"`
+	Height      float64                `json:"height,omitempty"`
+	Scale       float64                `json:"scale,omitempty"`
+	Rotation    float64                `json:"rotation,omitempty"`
+	FlipH       bool                   `json:"flipH,omitempty"`
+	Facing      string                 `json:"facing,omitempty"`
+	PoseName    string                 `json:"poseName,omitempty"`
+	Pose        map[string]interface{} `json:"pose,omitempty"`
+	LightType   string                 `json:"lightType,omitempty"`
+	Color       string                 `json:"color,omitempty"`
+	Angle       string                 `json:"angle,omitempty"`
+	FOV         string                 `json:"fov,omitempty"`
+	Text        string                 `json:"text,omitempty"`
+	Layer       int                    `json:"layer,omitempty"`
+}
+
+type SceneDirectorDTO struct {
+	AspectRatio  string            `json:"aspectRatio"`
+	CanvasWidth  float64           `json:"canvasWidth"`
+	CanvasHeight float64           `json:"canvasHeight"`
+	Perspective  string            `json:"perspective,omitempty"` // "front" or "side"
+	Elements     []SceneElementDTO `json:"elements"`
+	DirectorNote string            `json:"directorNote,omitempty"`
+}
+
+// CompileSceneDirectorManifest converts a structured 2D scene JSON into a spatial composition manifest.
+func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, sceneJSON string) (string, error) {
+	if strings.TrimSpace(sceneJSON) == "" || sceneJSON == "{}" {
+		return "Standard composition, eye-level framing, central subject focus.", nil
+	}
+
+	var scene SceneDirectorDTO
+	if err := json.Unmarshal([]byte(sceneJSON), &scene); err != nil {
+		return "Scene elements arranged in 2D space: " + sceneJSON, nil
+	}
+
+	width := scene.CanvasWidth
+	if width <= 0 {
+		width = 1000
+	}
+	height := scene.CanvasHeight
+	if height <= 0 {
+		height = 562
+	}
+
+	aspectRatio := scene.AspectRatio
+	if aspectRatio == "" {
+		aspectRatio = "16:9 widescreen"
+	}
+
+	cameraSummary := "Cinematic standard framing, eye-level angle."
+	var subjectLines []string
+	var propLines []string
+	var lightLines []string
+	var noteLines []string
+
+	if strings.TrimSpace(scene.DirectorNote) != "" {
+		noteLines = append(noteLines, scene.DirectorNote)
+	}
+
+	for _, el := range scene.Elements {
+		xNorm := el.X / width
+		hPos := "Center"
+		if xNorm < 0.35 {
+			hPos = "Left"
+		} else if xNorm > 0.65 {
+			hPos = "Right"
+		}
+
+		yNorm := el.Y / height
+		vPos := "Midground"
+		if yNorm > 0.65 || el.Scale > 1.25 {
+			vPos = "Foreground"
+		} else if yNorm < 0.35 || (el.Scale > 0 && el.Scale < 0.75) {
+			vPos = "Background"
+		}
+		loc := fmt.Sprintf("%s-%s", vPos, hPos)
+
+		switch el.Type {
+		case "camera":
+			ang := el.Angle
+			if ang == "" {
+				ang = "eye-level shot"
+			}
+			fov := el.FOV
+			if fov == "" {
+				fov = "standard cinematic field of view"
+			}
+			cameraSummary = fmt.Sprintf("%s angle, %s.", ang, fov)
+
+		case "character", "silhouette":
+			facingDesc := "facing camera forward"
+			switch el.Facing {
+			case "back":
+				facingDesc = "facing away / back to viewer"
+			case "left":
+				facingDesc = "profile facing left"
+			case "right":
+				facingDesc = "profile facing right"
+			case "three_quarter_left":
+				facingDesc = "three-quarters view looking left"
+			case "three_quarter_right":
+				facingDesc = "three-quarters view looking right"
+			}
+
+			mirrorDesc := ""
+			if el.FlipH {
+				mirrorDesc = " (mirrored pose)"
+			}
+
+			poseDesc := ""
+			if el.PoseName != "" {
+				poseDesc = fmt.Sprintf(", in %s posture", el.PoseName)
+			}
+
+			charName := el.Name
+			if charName == "" {
+				charName = el.Label
+			}
+			if charName == "" {
+				charName = "Person / Character"
+			}
+
+			if el.CharacterID > 0 {
+				if char, err := s.repo.GetCharacterByID(ctx, el.CharacterID); err == nil && char != nil {
+					charName = fmt.Sprintf("%s (Trigger: %s)", char.Name, char.TriggerWords)
+				}
+			}
+
+			scaleDesc := ""
+			if el.Scale > 1.3 {
+				scaleDesc = ", prominent close scale"
+			} else if el.Scale < 0.7 && el.Scale > 0 {
+				scaleDesc = ", smaller distant scale"
+			}
+
+			subjectLines = append(subjectLines, fmt.Sprintf("- [%s] positioned in %s: %s%s%s%s.",
+				charName, loc, facingDesc, poseDesc, mirrorDesc, scaleDesc))
+
+		case "prop":
+			propName := el.Label
+			if propName == "" {
+				propName = el.PropType
+			}
+			if propName == "" {
+				propName = "Prop object"
+			}
+			propLines = append(propLines, fmt.Sprintf("- [%s] located in %s.", propName, loc))
+
+		case "light":
+			lType := el.LightType
+			if lType == "" {
+				lType = "Directional light"
+			}
+			colorDesc := ""
+			if el.Color != "" {
+				colorDesc = fmt.Sprintf(" (tint %s)", el.Color)
+			}
+			lightLines = append(lightLines, fmt.Sprintf("- %s positioned at %s shining into the scene at %0.0f°%s.",
+				lType, loc, el.Rotation, colorDesc))
+
+		case "note":
+			if strings.TrimSpace(el.Text) != "" {
+				noteLines = append(noteLines, fmt.Sprintf("- Directive note at %s: \"%s\"", loc, el.Text))
+			}
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("[SPATIAL SCENE COMPOSITION MANIFEST]\n")
+	sb.WriteString(fmt.Sprintf("Aspect Ratio: %s\n", aspectRatio))
+	if scene.Perspective == "side" {
+		sb.WriteString("Perspective: Lateral Side-View / Profile Scene Staging\n")
+	}
+	sb.WriteString(fmt.Sprintf("Framing & Camera Perspective: %s\n", cameraSummary))
+
+	if len(subjectLines) > 0 {
+		sb.WriteString("Subjects & Characters:\n")
+		sb.WriteString(strings.Join(subjectLines, "\n") + "\n")
+	} else {
+		sb.WriteString("Subjects & Characters:\n- Standard subject composition.\n")
+	}
+
+	if len(propLines) > 0 {
+		sb.WriteString("Environment, Props & Staging Elements:\n")
+		sb.WriteString(strings.Join(propLines, "\n") + "\n")
+	}
+
+	if len(lightLines) > 0 {
+		sb.WriteString("Lighting & Illumination Vectors:\n")
+		sb.WriteString(strings.Join(lightLines, "\n") + "\n")
+	} else {
+		sb.WriteString("Lighting: Balanced studio/natural cinematic illumination.\n")
+	}
+
+	if len(noteLines) > 0 {
+		sb.WriteString("Director Scene Directives & Annotations:\n")
+		sb.WriteString(strings.Join(noteLines, "\n") + "\n")
+	}
+
+	return sb.String(), nil
+}
+
+// SynthesizeScenePrompt compiles the scene JSON into a spatial manifest and calls TextToPrompt.
+func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, targetProfileSlug, userHint string, loraIDs []int64, override domain.PromptExecutionOverride) (manifest string, prompt string, err error) {
+	compiledManifest, err := s.CompileSceneDirectorManifest(ctx, sceneJSON)
+	if err != nil {
+		return "", "", err
+	}
+
+	inputConcept := compiledManifest
+	if strings.TrimSpace(userHint) != "" {
+		inputConcept = fmt.Sprintf("%s\n\nStyle & Atmosphere Directives:\n%s", compiledManifest, strings.TrimSpace(userHint))
+	}
+
+	generatedPrompt, err := s.RunText2Prompt(ctx, inputConcept, targetProfileSlug, loraIDs, override)
+	if err != nil {
+		return compiledManifest, "", err
+	}
+
+	return compiledManifest, generatedPrompt, nil
 }

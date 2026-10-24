@@ -20,7 +20,6 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	db1Path := filepath.Join(tmpDir, "global_one.db")
-	db2Path := filepath.Join(tmpDir, "global_two.db")
 	root1Dir := filepath.Join(tmpDir, "disk_one_media")
 	root2Dir := filepath.Join(tmpDir, "disk_two_media")
 	cacheDir := filepath.Join(tmpDir, "cache")
@@ -39,14 +38,9 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 	scannerSvc := NewScannerService(root1Dir, cacheDir, repo, extractor, vision.NewNoopEngine())
 	catalogSvc := NewCatalogService(root1Dir, repo, nil)
 
-	// 1. Seed demo files in root1Dir and verify .txt sidecars and .diffusion-catalog.json are created
+	// 1. Seed demo files in root1Dir and verify .txt sidecars are created
 	if err := SeedDemoFolderIfEmpty(ctx, root1Dir, cacheDir, repo, scannerSvc); err != nil {
 		t.Fatalf("SeedDemoFolderIfEmpty failed: %v", err)
-	}
-
-	manifest1Path := filepath.Join(root1Dir, ManifestFileName)
-	if _, err := os.Stat(manifest1Path); err != nil {
-		t.Fatalf("expected %s to exist in root1Dir: %v", ManifestFileName, err)
 	}
 
 	txtSidecar := filepath.Join(root1Dir, "Cyberpunk_Chronicles", "01_kaelen_neon_visor.txt")
@@ -97,7 +91,7 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 		t.Errorf("expected prompt from .txt sidecar, got %q", assetR2.Metadata.PositivePrompt)
 	}
 
-	// 3. Classify the asset, tag it, and rate it (score 9/10 + favorite); verify it persists to root2Dir/.diffusion-catalog.json
+	// 3. Classify the asset, tag it, attach to group, and rate it (score 9/10 + favorite)
 	if err := catalogSvc.SetAssetCategory(ctx, assetR2.ID, "Mecha, Vehicles & Props", "Heavy Orbital Mecha"); err != nil {
 		t.Fatalf("SetAssetCategory failed: %v", err)
 	}
@@ -107,41 +101,41 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 	if err := catalogSvc.RateAsset(ctx, assetR2.ID, 9, true); err != nil {
 		t.Fatalf("RateAsset failed: %v", err)
 	}
-
-	manifest2Path := filepath.Join(root2Dir, ManifestFileName)
-	manifestData, err := os.ReadFile(manifest2Path)
+	gid, err := catalogSvc.CreateGroup(ctx, "Orbital Units", "Vehicles", "Orbital assault team", assetR2.ID)
 	if err != nil {
-		t.Fatalf("failed to read root2 manifest: %v", err)
-	}
-	if !strings.Contains(string(manifestData), `"rating": 9`) || !strings.Contains(string(manifestData), `"favorite": true`) {
-		t.Fatalf("expected manifest to contain rating 9 and favorite true, got: %s", string(manifestData))
+		t.Fatalf("CreateGroup failed: %v", err)
 	}
 
-	// 4. Switch to a brand new global SQLite database (db2Path), register root2Dir, scan, and verify classifications, ratings, and favorites are restored from .diffusion-catalog.json!
-	if err := catalogSvc.SwitchDatabase(ctx, db2Path); err != nil {
-		t.Fatalf("SwitchDatabase failed: %v", err)
+	// Verify asset has tag and group in SQLite
+	checkAsset, err := catalogSvc.GetAsset(ctx, assetR2.ID)
+	if err != nil || checkAsset == nil {
+		t.Fatalf("GetAsset failed: %v", err)
 	}
-	if catalogSvc.CurrentDBPath() != db2Path {
-		t.Errorf("expected CurrentDBPath %s, got %s", db2Path, catalogSvc.CurrentDBPath())
+	if len(checkAsset.Tags) == 0 {
+		t.Fatalf("expected asset to have tags attached")
+	}
+	if len(checkAsset.Groups) == 0 {
+		t.Fatalf("expected asset to belong to group")
 	}
 
-	_, _ = catalogSvc.AddMediaRoot(ctx, root2Dir, "External SSD #2 Restored")
-	if _, err := scannerSvc.Scan(ctx); err != nil {
-		t.Fatalf("Scan on db2 failed: %v", err)
+	// 4. Test detaching tag and group in-app
+	tagID := checkAsset.Tags[0].ID
+	if err := catalogSvc.RemoveTagFromAsset(ctx, assetR2.ID, tagID); err != nil {
+		t.Fatalf("RemoveTagFromAsset failed: %v", err)
 	}
-
-	restoredPage, err := catalogSvc.Query(ctx, domain.CatalogFilter{Category: "Mecha, Vehicles & Props", MinRating: 8, FavoritesOnly: true})
-	if err != nil {
-		t.Fatalf("Query on db2 failed: %v", err)
+	if err := catalogSvc.RemoveAssetFromGroup(ctx, gid, assetR2.ID); err != nil {
+		t.Fatalf("RemoveAssetFromGroup failed: %v", err)
 	}
-	if len(restoredPage.Assets) != 1 {
-		t.Fatalf("expected 1 asset restored with rating >= 8 and favorites_only in db2, got %d", len(restoredPage.Assets))
+	afterDetach, _ := catalogSvc.GetAsset(ctx, assetR2.ID)
+	for _, tItem := range afterDetach.Tags {
+		if tItem.ID == tagID {
+			t.Fatalf("tag %d was not removed from asset!", tagID)
+		}
 	}
-	if restoredPage.Assets[0].Subcategory != "Heavy Orbital Mecha" {
-		t.Errorf("expected subcategory 'Heavy Orbital Mecha' restored from manifest, got %q", restoredPage.Assets[0].Subcategory)
-	}
-	if restoredPage.Assets[0].Rating != 9 || !restoredPage.Assets[0].Favorite {
-		t.Errorf("expected rating 9 and favorite true restored from manifest, got rating=%d favorite=%v", restoredPage.Assets[0].Rating, restoredPage.Assets[0].Favorite)
+	for _, gItem := range afterDetach.Groups {
+		if gItem.ID == gid {
+			t.Fatalf("group %d was not removed from asset!", gid)
+		}
 	}
 
 	// Verify sorting by rating and favorites
@@ -177,5 +171,69 @@ func TestMultiRootManifestSidecarAndDBSwitch(t *testing.T) {
 	}
 	if rescanReport.ImagesFound > 0 {
 		t.Errorf("expected 0 new images indexed on unchanged rescan, got %d", rescanReport.ImagesFound)
+	}
+}
+
+func TestScannerAutoDeletesMissingMediaFromCatalogAndManifest(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	dbPath := filepath.Join(tmpDir, "catalog.db")
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, "cache")
+
+	_ = os.MkdirAll(mediaDir, 0755)
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db, dbPath)
+	extractor := metadata.NewExtractor()
+	scannerSvc := NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+	catalogSvc := NewCatalogService(mediaDir, repo, nil)
+
+	// 1. Seed initial assets
+	if err := SeedDemoFolderIfEmpty(ctx, mediaDir, cacheDir, repo, scannerSvc); err != nil {
+		t.Fatalf("SeedDemoFolderIfEmpty failed: %v", err)
+	}
+
+	pageBefore, err := catalogSvc.Query(ctx, domain.CatalogFilter{})
+	if err != nil || len(pageBefore.Assets) == 0 {
+		t.Fatalf("expected seeded assets before deletion, got %d (err=%v)", len(pageBefore.Assets), err)
+	}
+	initialCount := len(pageBefore.Assets)
+
+	// Pick an asset to delete from disk
+	targetAsset := pageBefore.Assets[0]
+	targetAbsPath := filepath.Join(mediaDir, filepath.FromSlash(targetAsset.RelPath))
+	if err := os.Remove(targetAbsPath); err != nil {
+		t.Fatalf("failed to delete test media file %s: %v", targetAbsPath, err)
+	}
+
+	// 2. Run scan — must detect missing file and delete it from catalog and manifest
+	report, err := scannerSvc.Scan(ctx)
+	if err != nil {
+		t.Fatalf("scan after file deletion failed: %v", err)
+	}
+
+	if report.DeletedFiles != 1 {
+		t.Fatalf("expected 1 deleted file in scan report, got %d", report.DeletedFiles)
+	}
+
+	// 3. Verify asset is gone from catalog query
+	pageAfter, err := catalogSvc.Query(ctx, domain.CatalogFilter{})
+	if err != nil {
+		t.Fatalf("catalog query failed: %v", err)
+	}
+	if len(pageAfter.Assets) != initialCount-1 {
+		t.Fatalf("expected %d assets after deletion, got %d", initialCount-1, len(pageAfter.Assets))
+	}
+	for _, a := range pageAfter.Assets {
+		if a.ID == targetAsset.ID {
+			t.Fatalf("deleted asset ID %d is still present in catalog!", targetAsset.ID)
+		}
 	}
 }
