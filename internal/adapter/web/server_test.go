@@ -3,7 +3,10 @@ package web
 import (
 	"context"
 	"net/http/httptest"
+	"net/url"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -271,5 +274,75 @@ func TestDirectorTabRendering(t *testing.T) {
 	}
 	if strings.Contains(body, `Search prompts, trigger words, checkpoints`) {
 		t.Errorf("director tab should not render the catalog search grid!")
+	}
+}
+
+func TestDeleteAssetEndpoint(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, "cache")
+	_ = os.MkdirAll(mediaDir, 0755)
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	extractor := metadata.NewExtractor()
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, nil)
+
+	srv, err := NewServer(mediaDir, cacheDir, "NoopVision", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("failed to construct web server: %v", err)
+	}
+
+	// Create test file on disk
+	filePath := filepath.Join(mediaDir, "test_render.png")
+	if err := os.WriteFile(filePath, []byte("fake image bytes"), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	assetID, err := repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RelPath:   "test_render.png",
+		FileName:  "test_render.png",
+		FileHash:  "11223344",
+		MediaType: domain.MediaTypeImage,
+		Width:     512,
+		Height:    512,
+	})
+	if err != nil || assetID <= 0 {
+		t.Fatalf("failed to upsert asset: %v", err)
+	}
+
+	// 1. Issue POST /admin/assets/delete
+	form := url.Values{}
+	form.Set("asset_id", strconv.FormatInt(assetID, 10))
+	form.Set("return_url", "/?notice=Media+deleted+successfully")
+
+	req := httptest.NewRequest("POST", "/admin/assets/delete", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != 303 {
+		t.Errorf("expected HTTP 303 SeeOther redirect, got %d", rec.Code)
+	}
+
+	// 2. Verify file is gone from disk
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		t.Errorf("expected file to be deleted from disk")
+	}
+
+	// 3. Verify record is gone from DB
+	retrieved, err := repo.GetAssetByID(ctx, assetID)
+	if err == nil && retrieved != nil {
+		t.Errorf("expected asset to be removed from DB")
 	}
 }

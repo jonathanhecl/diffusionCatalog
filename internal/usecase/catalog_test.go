@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -331,5 +332,73 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 	listAfter, _ := catalogSvc.ListStudioCompositions(ctx)
 	if len(listAfter) != 0 {
 		t.Errorf("expected 0 compositions after deletion, got %d", len(listAfter))
+	}
+}
+
+func TestDeleteAsset(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	_ = os.MkdirAll(mediaDir, 0755)
+	dbPath := filepath.Join(tmpDir, "test_delete.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	catalogSvc := NewCatalogService(mediaDir, repo, nil)
+
+	// Create test file on disk and companion .txt
+	filePath := filepath.Join(mediaDir, "cyberpunk_art.png")
+	txtPath := filepath.Join(mediaDir, "cyberpunk_art.txt")
+	if err := os.WriteFile(filePath, []byte("fake image data"), 0644); err != nil {
+		t.Fatalf("failed to write test image: %v", err)
+	}
+	if err := os.WriteFile(txtPath, []byte("cyberpunk prompt"), 0644); err != nil {
+		t.Fatalf("failed to write test txt: %v", err)
+	}
+
+	asset := &domain.MediaAsset{
+		RelPath:   "cyberpunk_art.png",
+		FileName:  "cyberpunk_art.png",
+		FileHash:  "aabbcc112233",
+		MediaType: domain.MediaTypeImage,
+		Width:     1024,
+		Height:    1024,
+		FileSize:  15,
+	}
+	assetID, err := repo.UpsertAsset(ctx, asset)
+	if err != nil || assetID <= 0 {
+		t.Fatalf("failed to insert asset: %v", err)
+	}
+
+	// Verify asset exists in DB and files exist on disk
+	retrieved, err := catalogSvc.GetAsset(ctx, assetID)
+	if err != nil || retrieved == nil {
+		t.Fatalf("failed to retrieve asset before delete")
+	}
+
+	// Delete asset via catalog service
+	if err := catalogSvc.DeleteAsset(ctx, assetID); err != nil {
+		t.Fatalf("DeleteAsset failed: %v", err)
+	}
+
+	// Verify file is gone from disk
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		t.Errorf("expected media file to be deleted from disk")
+	}
+
+	// Verify companion .txt is gone from disk
+	if _, err := os.Stat(txtPath); !os.IsNotExist(err) {
+		t.Errorf("expected companion .txt to be deleted from disk")
+	}
+
+	// Verify record is gone from DB
+	after, err := repo.GetAssetByID(ctx, assetID)
+	if err == nil && after != nil {
+		t.Errorf("expected asset to be deleted from database, but found: %+v", after)
 	}
 }

@@ -301,7 +301,7 @@
           </div>
           <div id="media-stage-viewport" class="media-stage-viewport">
             {{if eq .SelectedAsset.MediaType "video"}}
-              <video id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
+              <video id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline muted></video>
             {{else}}
               <img id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" draggable="false">
             {{end}}
@@ -547,7 +547,7 @@
               <a href="/?asset_id={{.NextAssetID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="stage-nav-arrow stage-nav-next" style="position:absolute;right:18px;top:50%;transform:translateY(-50%);z-index:20;font-size:26px;width:44px;height:44px;" title="Next Media (Right Arrow)">&#10095;</a>
             {{end}}
             {{if eq .SelectedAsset.MediaType "video"}}
-              <video id="lightbox-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline></video>
+              <video id="lightbox-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline muted></video>
             {{else}}
               <img id="lightbox-media-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" draggable="false">
             {{end}}
@@ -824,7 +824,7 @@
               <!-- Catalog Media Preview & Video Frame Capture -->
               <div class="remix-media-viewport">
                 {{if eq .SelectedAsset.MediaType "video"}}
-                  <video id="remix-video-el" src="/media/{{.SelectedAsset.RelPath}}" controls crossorigin="anonymous" playsinline style="max-width:100%;max-height:500px;display:block;"></video>
+                  <video id="remix-video-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop crossorigin="anonymous" playsinline muted style="max-width:100%;max-height:500px;display:block;"></video>
                   <canvas id="remix-frame-canvas" style="display:none;"></canvas>
                 {{else}}
                   <img id="remix-image-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" style="max-width:100%;max-height:500px;object-fit:contain;display:block;">
@@ -4611,6 +4611,12 @@
       filterModelSelect('text2prompt_provider', 'text2prompt_model_select');
       initZoomableStage('media-stage-viewport', 'stage-media-el', 'zoom-pct-label');
       initZoomableStage('lightbox-canvas', 'lightbox-media-el', null);
+
+      // Ensure all videos start muted by default
+      document.querySelectorAll('video').forEach(function(v) {
+        v.muted = true;
+        v.defaultMuted = true;
+      });
     });
 
     var stageZoomState = { scale: 1, x: 0, y: 0, dragging: false, startX: 0, startY: 0 };
