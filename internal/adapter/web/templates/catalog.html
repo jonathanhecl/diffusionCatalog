@@ -277,6 +277,7 @@
           <a href="/?tab=studio&asset_id={{.SelectedAsset.ID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;font-weight:600;">&#10024; Remix Prompt</a>
           <button type="button" class="btn-primary" onclick="openMediaLightbox()">&#x26F6; Fullscreen &amp; Metadata Inspector</button>
           <a href="/media/{{.SelectedAsset.RelPath}}" target="_blank" class="btn-ghost">Open Raw File</a>
+          <button type="button" id="btn-trigger-delete-media" class="btn-danger" onclick="openDeleteMediaModal()" title="Delete this media file and sidecars">&#128465; Delete</button>
         </div>
       </div>
 
@@ -728,6 +729,46 @@
           </div>
         </div>
       {{end}}
+
+      <!-- Confirmation Modal: Delete Media -->
+      <div id="deleteMediaModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:10000;backdrop-filter:blur(4px);align-items:center;justify-content:center;" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+        <div style="background:var(--bg-panel);border:1px solid #7f1d1d;border-radius:10px;width:90%;max-width:480px;box-shadow:0 16px 50px rgba(0,0,0,0.9);overflow:hidden;">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;background:#1e1014;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:18px;color:#ef4444;">&#128465;</span>
+              <strong id="deleteModalTitle" style="font-size:15px;color:#fca5a5;">Confirm Media Deletion</strong>
+            </div>
+            <button type="button" class="btn-ghost" onclick="closeDeleteMediaModal()" style="padding:3px 8px;font-size:14px;" aria-label="Close modal">&#x2715;</button>
+          </div>
+          <form id="deleteMediaForm" action="/admin/assets/delete" method="POST" style="margin:0;">
+            <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+            <input type="hidden" name="next_id" value="{{if .NextAssetID}}{{.NextAssetID}}{{else if .PrevAssetID}}{{.PrevAssetID}}{{else}}0{{end}}">
+            <input type="hidden" name="return_url" value="{{if .NextAssetID}}{{assetDetailURL .Filter .NextAssetID}}{{else if .PrevAssetID}}{{assetDetailURL .Filter .PrevAssetID}}{{else}}{{pageURL .Filter .Page.Page}}{{end}}">
+            <div style="padding:20px 22px;display:flex;flex-direction:column;gap:14px;">
+              <p style="margin:0;font-size:13.5px;color:#e2e8f0;line-height:1.5;">
+                Are you sure you want to permanently delete 
+                <strong style="color:#fff;word-break:break-all;">{{.SelectedAsset.FileName}}</strong>?
+              </p>
+              <div style="font-size:12px;color:#fca5a5;background:#450a0a;border:1px solid #991b1b;padding:10px 12px;border-radius:6px;line-height:1.4;">
+                &#9888; This will remove the file from disk (including any companion <code>.txt</code> sidecars) and delete it from the catalog database. This action cannot be undone.
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding-top:4px;font-size:11.5px;color:var(--text-muted);">
+                <span>Accessibility shortcuts:</span>
+                <div style="display:flex;gap:12px;">
+                  <span><kbd style="background:#0f172a;border:1px solid #334155;padding:2px 6px;border-radius:4px;color:#93c5fd;font-family:monospace;font-size:11px;">Enter</kbd> Confirm</span>
+                  <span><kbd style="background:#0f172a;border:1px solid #334155;padding:2px 6px;border-radius:4px;color:#93c5fd;font-family:monospace;font-size:11px;">Esc</kbd> Cancel</span>
+                </div>
+              </div>
+            </div>
+            <div style="padding:12px 18px;border-top:1px solid var(--border-navy);background:rgba(0,0,0,0.25);display:flex;justify-content:flex-end;gap:10px;">
+              <button type="button" class="btn-ghost" onclick="closeDeleteMediaModal()" style="padding:7px 16px;font-size:12.5px;">Cancel (Esc)</button>
+              <button type="submit" id="btnConfirmDeleteMedia" class="btn-danger" style="padding:7px 18px;font-size:12.5px;font-weight:600;background:#dc2626;border-color:#ef4444;color:#fff;">
+                &#128465; Delete (Enter)
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
 
     {{else if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}
       <!-- Unified Prompt Studio & Remix Page -->
@@ -4633,8 +4674,53 @@
       if (lb) lb.classList.remove('open');
     }
 
-    // Keyboard Arrow Left/Right Navigation between media & Escape for Lightbox
+    function openDeleteMediaModal() {
+      var modal = document.getElementById('deleteMediaModal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      var confirmBtn = document.getElementById('btnConfirmDeleteMedia');
+      if (confirmBtn) {
+        setTimeout(function() { confirmBtn.focus(); }, 50);
+      }
+    }
+
+    function closeDeleteMediaModal() {
+      var modal = document.getElementById('deleteMediaModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      var triggerBtn = document.getElementById('btn-trigger-delete-media');
+      if (triggerBtn) {
+        triggerBtn.focus();
+      }
+    }
+
+    // Close delete modal if clicked outside dialog box
+    document.addEventListener('click', function(e) {
+      var deleteModal = document.getElementById('deleteMediaModal');
+      if (deleteModal && e.target === deleteModal) {
+        closeDeleteMediaModal();
+      }
+    });
+
+    // Keyboard navigation & Accessibility: Enter confirms delete, Escape cancels
     document.addEventListener('keydown', function(e) {
+      var deleteModal = document.getElementById('deleteMediaModal');
+      if (deleteModal && deleteModal.style.display === 'flex') {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          closeDeleteMediaModal();
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          var form = document.getElementById('deleteMediaForm');
+          if (form) form.submit();
+          return;
+        }
+      }
+
       var target = e.target;
       var isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
       if (isInput) return;

@@ -281,6 +281,26 @@ a {
   pointer-events: none;
 }
 
+.btn-danger {
+  background: #450a0a;
+  color: #fca5a5;
+  border: 1px solid #991b1b;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.btn-danger:hover {
+  background: #7f1d1d;
+  border-color: #ef4444;
+  color: #fff;
+}
+
 /* Catalog Layout */
 .catalog-layout {
   display: grid;

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -146,6 +147,55 @@ func (s *CatalogService) Query(ctx context.Context, filter domain.CatalogFilter)
 func (s *CatalogService) GetAsset(ctx context.Context, id int64) (*domain.MediaAsset, error) {
 	_ = s.repo.IncrementAssetView(ctx, id)
 	return s.repo.GetAssetByID(ctx, id)
+}
+
+// DeleteAsset deletes a media file from disk (including sidecars), removes it from folder manifest,
+// and deletes the asset record from the repository.
+func (s *CatalogService) DeleteAsset(ctx context.Context, id int64) error {
+	asset, err := s.repo.GetAssetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if asset == nil {
+		return fmt.Errorf("asset %d not found", id)
+	}
+
+	rootPath := s.mediaDir
+	if asset.RootPath != "" {
+		rootPath = asset.RootPath
+	} else if asset.RootID > 0 {
+		if roots, err := s.repo.ListMediaRoots(ctx); err == nil {
+			for _, r := range roots {
+				if r.ID == asset.RootID && r.Path != "" {
+					rootPath = r.Path
+					break
+				}
+			}
+		}
+	}
+
+	cleanRel := normalizeManifestRelPath(rootPath, asset.RelPath)
+	fullPath := filepath.Join(rootPath, filepath.FromSlash(cleanRel))
+
+	// 1. Remove from disk if file exists
+	if _, err := os.Stat(fullPath); err == nil {
+		_ = os.Remove(fullPath)
+	}
+
+	// 2. Remove companion sidecars (.txt, .caption, .json)
+	base := strings.TrimSuffix(fullPath, filepath.Ext(fullPath))
+	for _, ext := range []string{".txt", ".caption", ".json"} {
+		sidecar := base + ext
+		if sidecar != fullPath {
+			_ = os.Remove(sidecar)
+		}
+	}
+
+	// 3. Remove from folder manifest if it was tracked
+	_ = RemoveAssetFromFolderManifest(rootPath, asset.RelPath)
+
+	// 4. Delete from database (cascades to tags, groups, characters, faces, fts)
+	return s.repo.DeleteAsset(ctx, id)
 }
 
 // GetAdjacentAssetIDs returns the previous and next asset IDs relative to the specified asset ID,

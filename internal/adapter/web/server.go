@@ -314,6 +314,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/assets/tag/remove", s.handleRemoveTag)
 	mux.HandleFunc("POST /admin/assets/category", s.handleSetAssetCategory)
 	mux.HandleFunc("POST /admin/assets/rate", s.handleRateAsset)
+	mux.HandleFunc("POST /admin/assets/delete", s.handleDeleteAsset)
 	mux.HandleFunc("POST /admin/groups/create", s.handleCreateGroup)
 	mux.HandleFunc("POST /admin/groups/attach", s.handleAttachGroup)
 	mux.HandleFunc("POST /admin/groups/detach", s.handleDetachGroup)
@@ -776,6 +777,50 @@ func (s *Server) handleRateAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Score+and+favorite+saved", http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteAsset(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	if assetID <= 0 {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	nextID, _ := strconv.ParseInt(r.FormValue("next_id"), 10, 64)
+	returnURL := strings.TrimSpace(r.FormValue("return_url"))
+
+	err := s.catalog.DeleteAsset(ctx, assetID)
+	if err != nil {
+		log.Printf("Failed to delete asset %d: %v", assetID, err)
+	}
+
+	// JSON / AJAX client request
+	if r.Header.Get("Accept") == "application/json" || r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
+		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":    true,
+			"deleted_id": assetID,
+			"next_id":    nextID,
+		})
+		return
+	}
+
+	if returnURL != "" && strings.HasPrefix(returnURL, "/") {
+		http.Redirect(w, r, returnURL, http.StatusSeeOther)
+		return
+	}
+	if nextID > 0 {
+		http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(nextID, 10)+"&notice=Media+deleted+successfully", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/?notice=Media+deleted+successfully", http.StatusSeeOther)
 }
 
 func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {

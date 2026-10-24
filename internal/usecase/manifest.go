@@ -221,3 +221,25 @@ func copyDefaultCategories(defaults []domain.DefaultCategory) []domain.DefaultCa
 	}
 	return out
 }
+
+// RemoveAssetFromFolderManifest removes an asset's entry from the folder manifest.
+func RemoveAssetFromFolderManifest(rootPath, relPath string) error {
+	if strings.TrimSpace(rootPath) == "" {
+		return nil
+	}
+	manifestPath := filepath.Join(rootPath, ManifestFileName)
+	data, err := os.ReadFile(manifestPath)
+	if err != nil || len(data) == 0 {
+		return nil
+	}
+	var m domain.FolderManifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil
+	}
+	key := normalizeManifestRelPath(rootPath, relPath)
+	if _, ok := m.Assets[key]; ok {
+		delete(m.Assets, key)
+		return SaveFolderManifest(rootPath, &m)
+	}
+	return nil
+}
