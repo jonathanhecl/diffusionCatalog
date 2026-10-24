@@ -346,3 +346,42 @@ func TestDeleteAssetEndpoint(t *testing.T) {
 		t.Errorf("expected asset to be removed from DB")
 	}
 }
+
+func TestCleanModelName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{
+			input:    "/mnt/resources/Default/urn:air:ltx2:diffusion_model:huggingface:Kijal%2FLTX2.3_comfy@main%2Fdiffusion_models%2Fltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
+			expected: "ltx-2.3-22b-dev_transformer_only_fp8_scaled.safetensors",
+		},
+		{
+			input:    "C:\\AI\\models\\Stable-diffusion\\sd_xl_base_1.0.safetensors",
+			expected: "sd_xl_base_1.0.safetensors",
+		},
+		{
+			input:    "https://huggingface.co/repo/model/resolve/main/flux1-dev.safetensors",
+			expected: "flux1-dev.safetensors",
+		},
+		{
+			input:    "urn:air:sdxl:checkpoint:civitai:101055@128078",
+			expected: "101055@128078",
+		},
+		{
+			input:    "v1-5-pruned-emaonly",
+			expected: "v1-5-pruned-emaonly",
+		},
+		{
+			input:    "",
+			expected: "Unknown",
+		},
+	}
+
+	for _, tc := range tests {
+		actual := cleanModelName(tc.input)
+		if actual != tc.expected {
+			t.Errorf("cleanModelName(%q) = %q, expected %q", tc.input, actual, tc.expected)
+		}
+	}
+}

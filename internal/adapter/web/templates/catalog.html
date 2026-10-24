@@ -403,15 +403,15 @@
           </div>
 
           <div class="kv-table">
-            <div class="kv-box">
+            <div class="kv-box" title="{{if .SelectedAsset.Metadata.ModelName}}{{.SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}}">
               <div class="kv-label">Checkpoint Model</div>
-              <div class="kv-val">{{if .SelectedAsset.Metadata.ModelName}}{{.SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}}</div>
+              <div class="kv-val">{{if .SelectedAsset.Metadata.ModelName}}{{cleanModelName .SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}}</div>
             </div>
-            <div class="kv-box">
+            <div class="kv-box" title="{{if .SelectedAsset.Metadata.Sampler}}{{.SelectedAsset.Metadata.Sampler}}{{else}}-{{end}} {{.SelectedAsset.Metadata.Scheduler}}">
               <div class="kv-label">Sampler &amp; Scheduler</div>
               <div class="kv-val">{{if .SelectedAsset.Metadata.Sampler}}{{.SelectedAsset.Metadata.Sampler}}{{else}}-{{end}} {{.SelectedAsset.Metadata.Scheduler}}</div>
             </div>
-            <div class="kv-box">
+            <div class="kv-box" title="{{.SelectedAsset.Metadata.Steps}} steps | CFG {{.SelectedAsset.Metadata.CFGScale}} | {{.SelectedAsset.Metadata.Seed}}">
               <div class="kv-label">Steps / CFG / Seed</div>
               <div class="kv-val">{{.SelectedAsset.Metadata.Steps}} steps | CFG {{.SelectedAsset.Metadata.CFGScale}} | {{.SelectedAsset.Metadata.Seed}}</div>
             </div>
@@ -589,11 +589,11 @@
               <div class="prompt-box" style="color:#fca5a5;">{{.SelectedAsset.Metadata.NegativePrompt}}</div>
             {{end}}
 
-            <div class="kv-box">
+            <div class="kv-box" title="{{if .SelectedAsset.Metadata.ModelName}}{{.SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}} {{if .SelectedAsset.Metadata.ModelHash}}({{.SelectedAsset.Metadata.ModelHash}}){{end}}">
               <div class="kv-label">Checkpoint &amp; Hash</div>
-              <div class="kv-val">{{if .SelectedAsset.Metadata.ModelName}}{{.SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}} {{if .SelectedAsset.Metadata.ModelHash}}({{.SelectedAsset.Metadata.ModelHash}}){{end}}</div>
+              <div class="kv-val">{{if .SelectedAsset.Metadata.ModelName}}{{cleanModelName .SelectedAsset.Metadata.ModelName}}{{else}}Unknown{{end}} {{if .SelectedAsset.Metadata.ModelHash}}({{.SelectedAsset.Metadata.ModelHash}}){{end}}</div>
             </div>
-            <div class="kv-box">
+            <div class="kv-box" title="Steps: {{.SelectedAsset.Metadata.Steps}} | CFG: {{.SelectedAsset.Metadata.CFGScale}} | Seed: {{.SelectedAsset.Metadata.Seed}} | {{.SelectedAsset.Metadata.Sampler}} {{.SelectedAsset.Metadata.Scheduler}}">
               <div class="kv-label">Generation Parameters</div>
               <div class="kv-val">Steps: {{.SelectedAsset.Metadata.Steps}} | CFG: {{.SelectedAsset.Metadata.CFGScale}} | Seed: {{.SelectedAsset.Metadata.Seed}} | {{.SelectedAsset.Metadata.Sampler}} {{.SelectedAsset.Metadata.Scheduler}}</div>
             </div>
@@ -646,7 +646,7 @@
                 <div class="asset-meta">
                   <div class="badge-row">
                     {{if .Subcategory}}<span class="badge-chip" style="color:#6ee7b7;">{{.Subcategory}}</span>{{end}}
-                    {{if .Metadata.ModelName}}<span class="badge-chip">{{.Metadata.ModelName}}</span>{{end}}
+                    {{if .Metadata.ModelName}}<span class="badge-chip" title="{{.Metadata.ModelName}}">{{cleanModelName .Metadata.ModelName}}</span>{{end}}
                   </div>
                   <div class="asset-caption">{{if .Metadata.PositivePrompt}}{{.Metadata.PositivePrompt}}{{else}}{{.FileName}}{{end}}</div>
                 </div>
@@ -4325,7 +4325,7 @@
               <select name="model" class="input-dark" onchange="this.form.submit()">
                 <option value="">All Models</option>
                 {{range .Page.Models}}
-                  <option value="{{.}}" {{if eq $.Filter.ModelName .}}selected{{end}}>{{.}}</option>
+                  <option value="{{.}}" {{if eq $.Filter.ModelName .}}selected{{end}}>{{cleanModelName .}}</option>
                 {{end}}
               </select>
             </div>
@@ -4451,7 +4451,7 @@
                         <span class="badge-chip" style="color:#6ee7b7;">{{.Category}}{{if .Subcategory}} / {{.Subcategory}}{{end}}</span>
                       {{end}}
                       {{if .Metadata.ModelName}}
-                        <span class="badge-chip">{{.Metadata.ModelName}}</span>
+                        <span class="badge-chip" title="{{.Metadata.ModelName}}">{{cleanModelName .Metadata.ModelName}}</span>
                       {{end}}
                       {{range $idx, $ch := .Characters}}
                         {{if eq $idx 0}}<span class="badge-chip character">{{$ch.Name}}</span>{{end}}

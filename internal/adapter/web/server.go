@@ -124,6 +124,34 @@ func assetDetailURL(filter domain.CatalogFilter, assetID int64) string {
 	return base + sep + "asset_id=" + strconv.FormatInt(assetID, 10)
 }
 
+func cleanModelName(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "Unknown"
+	}
+	s = strings.ReplaceAll(s, "%2F", "/")
+	s = strings.ReplaceAll(s, "%2f", "/")
+	s = strings.ReplaceAll(s, "\\", "/")
+	if strings.Contains(s, "/") {
+		parts := strings.Split(s, "/")
+		for i := len(parts) - 1; i >= 0; i-- {
+			p := strings.TrimSpace(parts[i])
+			if p != "" {
+				s = p
+				break
+			}
+		}
+	}
+	if strings.Contains(s, ":") {
+		parts := strings.Split(s, ":")
+		candidate := strings.TrimSpace(parts[len(parts)-1])
+		if candidate != "" {
+			s = candidate
+		}
+	}
+	return s
+}
+
 func paginationList(current, total int) []PaginationItem {
 	if total <= 1 {
 		return nil
@@ -270,6 +298,7 @@ func NewServer(
 		"sortURL":        sortURL,
 		"assetDetailURL": assetDetailURL,
 		"paginationList": paginationList,
+		"cleanModelName": cleanModelName,
 	}
 
 	tmpl, err := template.New("catalog.html").Funcs(funcs).ParseFS(embeddedAssets, "templates/*.html")

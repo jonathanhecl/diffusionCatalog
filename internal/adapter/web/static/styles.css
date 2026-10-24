@@ -378,6 +378,11 @@ a {
   padding: 3px 8px;
   border-radius: 12px;
   font-size: 11px;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
   transition: all 0.12s;
 }
 
@@ -886,9 +891,15 @@ a {
 
 .kv-table {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin: 12px 0;
+}
+
+@media (max-width: 900px) {
+  .kv-table {
+    grid-template-columns: 1fr;
+  }
 }
 
 .kv-box {
@@ -896,18 +907,35 @@ a {
   border: 1px solid var(--border-navy);
   padding: 8px 10px;
   border-radius: 4px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .kv-label {
   font-size: 10px;
   text-transform: uppercase;
   color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
 }
 
 .kv-val {
   font-size: 13px;
   font-weight: 700;
   color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+}
+
+.kv-val code {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 /* Global Scan Progress Banner */
