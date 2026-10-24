@@ -4805,6 +4805,72 @@
       }
     }
 
+    var lastGridRefreshTime = 0;
+    var lastScannedCount = 0;
+    var isRefreshingGrid = false;
+
+    function refreshCatalogGridLive(onDone) {
+      if (isRefreshingGrid) {
+        if (typeof onDone === 'function') onDone();
+        return;
+      }
+      var currentGrid = document.querySelector('.asset-grid');
+      if (!currentGrid) {
+        if (typeof onDone === 'function') onDone();
+        return;
+      }
+
+      isRefreshingGrid = true;
+      fetch(window.location.href)
+        .then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.text();
+        })
+        .then(function(html) {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(html, 'text/html');
+
+          // Update Search Results count in real-time
+          var newCount = doc.querySelector('.results-count');
+          var oldCount = document.querySelector('.results-count');
+          if (newCount && oldCount) {
+            oldCount.innerHTML = newCount.innerHTML;
+          }
+
+          // Update asset grid seamlessly
+          var newGrid = doc.querySelector('.asset-grid');
+          var oldGrid = document.querySelector('.asset-grid');
+          if (newGrid && oldGrid) {
+            oldGrid.innerHTML = newGrid.innerHTML;
+          }
+
+          // Update pagination seamlessly
+          var newPagination = doc.querySelector('.pagination');
+          var oldPagination = document.querySelector('.pagination');
+          if (newPagination && oldPagination) {
+            oldPagination.outerHTML = newPagination.outerHTML;
+          } else if (newPagination && !oldPagination && oldGrid && oldGrid.parentNode) {
+            oldGrid.insertAdjacentHTML('afterend', newPagination.outerHTML);
+          }
+
+          // Update media root folders count in sidebar select
+          var newRootSelect = doc.querySelector('select[name="root_id"]');
+          var oldRootSelect = document.querySelector('select[name="root_id"]');
+          if (newRootSelect && oldRootSelect) {
+            var currentVal = oldRootSelect.value;
+            oldRootSelect.innerHTML = newRootSelect.innerHTML;
+            oldRootSelect.value = currentVal;
+          }
+        })
+        .catch(function(err) {
+          console.warn('Live grid refresh warning:', err);
+        })
+        .finally(function() {
+          isRefreshingGrid = false;
+          if (typeof onDone === 'function') onDone();
+        });
+    }
+
     function pollScanStatus() {
       fetch('/api/scan/status')
         .then(function(res) { return res.json(); })
@@ -4880,6 +4946,14 @@
                 statusText.title = '';
               }
             }
+
+            // Live progressive load: if new files were indexed, refresh the grid periodically
+            var now = Date.now();
+            if (data.scanned_files !== lastScannedCount && (now - lastGridRefreshTime >= 1000)) {
+              lastScannedCount = data.scanned_files;
+              lastGridRefreshTime = now;
+              refreshCatalogGridLive();
+            }
           } else {
             if (banner && banner.style.display !== 'none') {
               if (fill) {
@@ -4897,10 +4971,13 @@
                 clearInterval(scanPollTimer);
                 scanPollTimer = null;
               }
-              setTimeout(function() {
-                banner.style.display = 'none';
-                window.location.reload();
-              }, 1000);
+
+              // Final progressive grid refresh and hide banner smoothly
+              refreshCatalogGridLive(function() {
+                setTimeout(function() {
+                  if (banner) banner.style.display = 'none';
+                }, 1000);
+              });
             }
           }
 
@@ -4912,6 +4989,7 @@
             } else if (rep.completed_at !== lastCompletedAt) {
               lastCompletedAt = rep.completed_at;
               if (rep.scanned_files > 0 || rep.deleted_files > 0) {
+                refreshCatalogGridLive();
                 var changes = [];
                 if (rep.scanned_files > 0) changes.push('+' + rep.scanned_files + ' new');
                 if (rep.deleted_files > 0) changes.push('-' + rep.deleted_files + ' removed');
