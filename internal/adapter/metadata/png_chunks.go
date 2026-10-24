@@ -16,10 +16,9 @@ import (
 )
 
 var pngSignature = []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
-
 var loraRegex = regexp.MustCompile(`<lora:([^:>]+):[^>]+>`)
 
-// ParsePNGFile inspects a PNG file's IHDR (dimensions) and text chunks (tEXt, iTXt, zTXt)
+// ParsePNGFile inspects a PNG file's IHDR and chunks (tEXt, zTXt, iTXt, eXIf)
 // to extract diffusion generation parameters without external dependencies.
 func ParsePNGFile(absPath string) (domain.GenerationParams, int, int, error) {
 	f, err := os.Open(absPath)
@@ -43,6 +42,7 @@ func ParsePNGReader(r io.Reader) (domain.GenerationParams, int, int, error) {
 
 	var width, height int
 	chunks := make(map[string]string)
+	var exifPayloads [][]byte
 
 	for {
 		var length uint32
@@ -59,7 +59,7 @@ func ParsePNGReader(r io.Reader) (domain.GenerationParams, int, int, error) {
 		}
 		chunkType := string(chunkTypeBytes)
 
-		if length > 32*1024*1024 {
+		if length > 64*1024*1024 {
 			// Guard against malformed huge chunks
 			break
 		}
@@ -84,18 +84,25 @@ func ParsePNGReader(r io.Reader) (domain.GenerationParams, int, int, error) {
 			if key != "" {
 				chunks[key] = val
 			}
+		case "zTXt":
+			key, val := parseZTXTChunk(data)
+			if key != "" {
+				chunks[key] = val
+			}
 		case "iTXt":
 			key, val := parseITXTChunk(data)
 			if key != "" {
 				chunks[key] = val
 			}
+		case "eXIf":
+			exifPayloads = append(exifPayloads, data)
 		case "IEND":
 			goto done
 		}
 	}
 
 done:
-	params := InterpretTextChunks(chunks)
+	params := InterpretPNGMetadata(chunks, exifPayloads)
 	return params, width, height, nil
 }
 
@@ -105,6 +112,28 @@ func parseTEXTChunk(data []byte) (string, string) {
 		return "", ""
 	}
 	return string(data[:sep]), string(data[sep+1:])
+}
+
+func parseZTXTChunk(data []byte) (string, string) {
+	sep := bytes.IndexByte(data, 0)
+	if sep < 0 || sep+2 >= len(data) {
+		return "", ""
+	}
+	key := string(data[:sep])
+	// data[sep+1] is compression method (0 = deflate)
+	compressedData := data[sep+2:]
+
+	zr, err := zlib.NewReader(bytes.NewReader(compressedData))
+	if err != nil {
+		return key, ""
+	}
+	defer zr.Close()
+
+	out, err := io.ReadAll(zr)
+	if err != nil {
+		return key, ""
+	}
+	return key, string(out)
 }
 
 func parseITXTChunk(data []byte) (string, string) {
@@ -146,20 +175,78 @@ func parseITXTChunk(data []byte) (string, string) {
 	return key, string(textData)
 }
 
-// InterpretTextChunks normalizes PNG text chunk key-value pairs into GenerationParams.
-func InterpretTextChunks(chunks map[string]string) domain.GenerationParams {
-	// 1. Automatic1111 / Forge / Fooocus "parameters" chunk
-	if raw, ok := chunks["parameters"]; ok && strings.TrimSpace(raw) != "" {
-		// Check if it's JSON (some Fooocus/Swarm exports)
-		if strings.HasPrefix(strings.TrimSpace(raw), "{") {
-			if p, ok := parseJSONMetadata(raw); ok {
-				return p
+// InterpretPNGMetadata extracts diffusion GenerationParams from text chunks and eXIf payloads
+// following the exact multi-stage waterfall hierarchy of modern diffusion pipelines.
+func InterpretPNGMetadata(chunks map[string]string, exifPayloads [][]byte) domain.GenerationParams {
+	// 1. "extraMetadata" JSON
+	if em, ok := chunks["extraMetadata"]; ok && strings.TrimSpace(em) != "" {
+		var obj interface{}
+		if err := json.Unmarshal([]byte(em), &obj); err == nil {
+			if p := SanitizePrompt(FindPromptKey(obj)); p != "" {
+				return domain.GenerationParams{
+					Engine:         domain.EngineUnknown,
+					PositivePrompt: p,
+					RawMetadata:    em,
+					LoRAs:          extractLoRAs(p),
+				}
 			}
 		}
-		return ParseA1111Parameters(raw)
 	}
 
-	// 2. SwarmUI "sui_image_params"
+	// 2. "parameters" chunk (A1111 / Forge / Fooocus)
+	if par, ok := chunks["parameters"]; ok && strings.TrimSpace(par) != "" {
+		st := strings.TrimSpace(par)
+		if strings.HasPrefix(st, "{") {
+			var obj interface{}
+			if err := json.Unmarshal([]byte(st), &obj); err == nil {
+				if p := SanitizePrompt(FindPromptKey(obj)); p != "" {
+					params, _ := parseJSONMetadata(st)
+					params.PositivePrompt = p
+					return params
+				}
+			}
+		}
+		params := ParseA1111Parameters(par)
+		prompt := SanitizePrompt(A1111ParsePrompt(par))
+		if prompt != "" {
+			params.PositivePrompt = prompt
+		}
+		if params.PositivePrompt != "" {
+			return params
+		}
+	}
+
+	// 3. EXIF payloads (from eXIf chunks)
+	if len(exifPayloads) > 0 {
+		exifTexts := extractEXIFStrings(exifPayloads)
+		for _, s := range exifTexts {
+			if params, found := ClassifyComment(s); found && params.PositivePrompt != "" {
+				return params
+			}
+		}
+	}
+
+	// 4. "prompt" chunk (ComfyUI graph)
+	if pr, ok := chunks["prompt"]; ok && strings.TrimSpace(pr) != "" {
+		st := strings.TrimSpace(pr)
+		if strings.HasPrefix(st, "{") {
+			params := ExtractComfyGraphParams(st, chunks["workflow"])
+			if params.PositivePrompt != "" {
+				return params
+			}
+		} else if len(st) > 20 {
+			if p := SanitizePrompt(st); p != "" {
+				return domain.GenerationParams{
+					Engine:         domain.EngineUnknown,
+					PositivePrompt: p,
+					RawMetadata:    st,
+					LoRAs:          extractLoRAs(p),
+				}
+			}
+		}
+	}
+
+	// 5. SwarmUI "sui_image_params"
 	if raw, ok := chunks["sui_image_params"]; ok && strings.TrimSpace(raw) != "" {
 		if p, ok := parseJSONMetadata(raw); ok {
 			p.Engine = domain.EngineSwarmUI
@@ -167,7 +254,7 @@ func InterpretTextChunks(chunks map[string]string) domain.GenerationParams {
 		}
 	}
 
-	// 3. InvokeAI "invokeai_metadata" or "sd-metadata"
+	// 6. InvokeAI "invokeai_metadata" or "sd-metadata"
 	for _, k := range []string{"invokeai_metadata", "sd-metadata"} {
 		if raw, ok := chunks[k]; ok && strings.TrimSpace(raw) != "" {
 			if p, ok := parseJSONMetadata(raw); ok {
@@ -177,29 +264,56 @@ func InterpretTextChunks(chunks map[string]string) domain.GenerationParams {
 		}
 	}
 
-	// 4. ComfyUI "prompt" or "workflow"
-	if rawPrompt, ok := chunks["prompt"]; ok && strings.TrimSpace(rawPrompt) != "" {
-		return ParseComfyUIPromptGraph(rawPrompt, chunks["workflow"])
+	// 7. "generation_data"
+	if gd, ok := chunks["generation_data"]; ok && strings.TrimSpace(gd) != "" {
+		var obj interface{}
+		if err := json.Unmarshal([]byte(gd), &obj); err == nil {
+			if p := SanitizePrompt(FindPromptKey(obj)); p != "" {
+				return domain.GenerationParams{
+					Engine:         domain.EngineUnknown,
+					PositivePrompt: p,
+					RawMetadata:    gd,
+					LoRAs:          extractLoRAs(p),
+				}
+			}
+		}
 	}
 
-	// 5. Fallback: Comment or Description chunk
-	for _, k := range []string{"Comment", "Description", "UserComment"} {
+	// 8. "workflow"
+	if wf, ok := chunks["workflow"]; ok && strings.TrimSpace(wf) != "" {
+		var obj interface{}
+		if err := json.Unmarshal([]byte(wf), &obj); err == nil {
+			if p := SanitizePrompt(FindPromptKey(obj)); p != "" {
+				return domain.GenerationParams{
+					Engine:         domain.EngineUnknown,
+					PositivePrompt: p,
+					RawMetadata:    wf,
+					LoRAs:          extractLoRAs(p),
+				}
+			}
+		}
+	}
+
+	// 9. Fallback comment chunks
+	for _, k := range []string{"Comment", "Description", "UserComment", "prompt"} {
 		if raw, ok := chunks[k]; ok && strings.TrimSpace(raw) != "" {
-			if strings.Contains(raw, "Steps:") {
-				return ParseA1111Parameters(raw)
-			}
-			if p, ok := parseJSONMetadata(raw); ok {
-				return p
-			}
-			return domain.GenerationParams{
-				Engine:         domain.EngineUnknown,
-				PositivePrompt: strings.TrimSpace(raw),
-				RawMetadata:    raw,
+			if params, found := ClassifyComment(raw); found && params.PositivePrompt != "" {
+				return params
 			}
 		}
 	}
 
 	return domain.GenerationParams{Engine: domain.EngineUnknown}
+}
+
+// ParsePNGReader backward compatibility wrapper for existing tests
+func InterpretTextChunks(chunks map[string]string) domain.GenerationParams {
+	return InterpretPNGMetadata(chunks, nil)
+}
+
+// ParseComfyUIPromptGraph backward compatibility wrapper
+func ParseComfyUIPromptGraph(rawPromptJSON, rawWorkflowJSON string) domain.GenerationParams {
+	return ExtractComfyGraphParams(rawPromptJSON, rawWorkflowJSON)
 }
 
 // ParseA1111Parameters parses Automatic1111 / Forge multi-line parameter text.
@@ -274,88 +388,12 @@ func ParseA1111Parameters(raw string) domain.GenerationParams {
 	return params
 }
 
-// ParseComfyUIPromptGraph extracts positive/negative CLIPTextEncode nodes, KSampler settings, and CheckpointLoader from a ComfyUI prompt JSON graph.
-func ParseComfyUIPromptGraph(rawPromptJSON, rawWorkflowJSON string) domain.GenerationParams {
-	params := domain.GenerationParams{
-		Engine:      domain.EngineComfyUI,
-		RawMetadata: rawPromptJSON,
-	}
-
-	var nodes map[string]struct {
-		ClassType string                 `json:"class_type"`
-		Inputs    map[string]interface{} `json:"inputs"`
-	}
-	if err := json.Unmarshal([]byte(rawPromptJSON), &nodes); err != nil {
-		return params
-	}
-
-	var prompts []string
-	for _, node := range nodes {
-		ct := strings.ToLower(node.ClassType)
-		switch {
-		case strings.Contains(ct, "checkpointloader"):
-			if ckpt, ok := node.Inputs["ckpt_name"].(string); ok {
-				params.ModelName = ckpt
-			}
-		case strings.Contains(ct, "unetloader"):
-			if unet, ok := node.Inputs["unet_name"].(string); ok && params.ModelName == "" {
-				params.ModelName = unet
-			}
-		case strings.Contains(ct, "loraloader"):
-			if lora, ok := node.Inputs["lora_name"].(string); ok {
-				params.LoRAs = append(params.LoRAs, lora)
-			}
-		case strings.Contains(ct, "ksampler"):
-			if steps, ok := toFloat(node.Inputs["steps"]); ok {
-				params.Steps = int(steps)
-			}
-			if cfg, ok := toFloat(node.Inputs["cfg"]); ok {
-				params.CFGScale = cfg
-			}
-			if seed, ok := toFloat(node.Inputs["seed"]); ok {
-				params.Seed = int64(seed)
-			} else if nseed, ok := toFloat(node.Inputs["noise_seed"]); ok {
-				params.Seed = int64(nseed)
-			}
-			if sampler, ok := node.Inputs["sampler_name"].(string); ok {
-				params.Sampler = sampler
-			}
-			if scheduler, ok := node.Inputs["scheduler"].(string); ok {
-				params.Scheduler = scheduler
-			}
-		case strings.Contains(ct, "cliptextencode"):
-			if text, ok := node.Inputs["text"].(string); ok && strings.TrimSpace(text) != "" {
-				prompts = append(prompts, strings.TrimSpace(text))
-			}
-		}
-	}
-
-	// Heuristic: longer prompt is usually positive, or prompt containing negative keywords is negative.
-	for _, p := range prompts {
-		lower := strings.ToLower(p)
-		if strings.Contains(lower, "worst quality") || strings.Contains(lower, "low quality") || strings.Contains(lower, "bad anatomy") || strings.Contains(lower, "ugly") {
-			if params.NegativePrompt == "" {
-				params.NegativePrompt = p
-				continue
-			}
-		}
-		if params.PositivePrompt == "" {
-			params.PositivePrompt = p
-		} else if params.NegativePrompt == "" {
-			params.NegativePrompt = p
-		}
-	}
-
-	return params
-}
-
 func parseJSONMetadata(raw string) (domain.GenerationParams, bool) {
 	var data map[string]interface{}
 	if err := json.Unmarshal([]byte(raw), &data); err != nil {
 		return domain.GenerationParams{}, false
 	}
 
-	// Check if nested under "sui_image_params"
 	if inner, ok := data["sui_image_params"].(map[string]interface{}); ok {
 		data = inner
 	}

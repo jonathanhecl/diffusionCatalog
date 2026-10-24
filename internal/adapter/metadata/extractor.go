@@ -15,7 +15,7 @@ import (
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
 )
 
-// Extractor implements domain.MetadataExtractor using pure Go parsers for PNG, JPEG/WebP, and sidecar files.
+// Extractor implements domain.MetadataExtractor using pure Go parsers for PNG, JPEG, WebP, and sidecar files.
 type Extractor struct{}
 
 // NewExtractor returns a new pure-Go metadata extractor.
@@ -31,20 +31,50 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 	var params domain.GenerationParams
 	var width, height int
 
-	// 1. Attempt to extract embedded metadata from PNG chunks / EXIF / raw parameters
-	if ext == ".png" {
+	switch ext {
+	case ".png":
 		p, w, h, err := ParsePNGFile(absPath)
 		if err == nil {
 			params = p
 			width = w
 			height = h
 		}
-	} else if mediaType == domain.MediaTypeImage {
+	case ".jpg", ".jpeg":
 		width, height = decodeStandardImageConfig(absPath)
-		params = scanRawFileForParameters(absPath)
-	} else if mediaType == domain.MediaTypeVideo {
-		width, height = 1024, 576
-		params = scanRawFileForParameters(absPath)
+		payloads, err := ExtractJPEGEXIFFromFile(absPath)
+		if err == nil && len(payloads) > 0 {
+			for _, s := range extractEXIFStrings(payloads) {
+				if parsed, found := ClassifyComment(s); found && parsed.PositivePrompt != "" {
+					params = parsed
+					break
+				}
+			}
+		}
+		if params.PositivePrompt == "" {
+			params = scanRawFileForParameters(absPath)
+		}
+	case ".webp":
+		width, height = decodeStandardImageConfig(absPath)
+		payloads, err := ExtractWebPEXIFFromFile(absPath)
+		if err == nil && len(payloads) > 0 {
+			for _, s := range extractEXIFStrings(payloads) {
+				if parsed, found := ClassifyComment(s); found && parsed.PositivePrompt != "" {
+					params = parsed
+					break
+				}
+			}
+		}
+		if params.PositivePrompt == "" {
+			params = scanRawFileForParameters(absPath)
+		}
+	default:
+		if mediaType == domain.MediaTypeImage {
+			width, height = decodeStandardImageConfig(absPath)
+			params = scanRawFileForParameters(absPath)
+		} else if mediaType == domain.MediaTypeVideo {
+			width, height = 1024, 576
+			params = scanRawFileForParameters(absPath)
+		}
 	}
 
 	if mediaType == domain.MediaTypeImage && (width == 0 || height == 0) {
