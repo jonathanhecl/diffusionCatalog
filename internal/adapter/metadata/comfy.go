@@ -227,6 +227,17 @@ func maxByLen(list []string) string {
 	return best
 }
 
+var (
+	nanRegex = regexp.MustCompile(`\bNaN\b`)
+	infRegex = regexp.MustCompile(`\b-?Infinity\b`)
+)
+
+func sanitizeComfyJSON(s string) string {
+	s = nanRegex.ReplaceAllString(s, "null")
+	s = infRegex.ReplaceAllString(s, "null")
+	return s
+}
+
 // ExtractComfyGraphParams parses both the prompt text and diffusion params from a ComfyUI JSON graph.
 func ExtractComfyGraphParams(rawPromptJSON, rawWorkflowJSON string) domain.GenerationParams {
 	params := domain.GenerationParams{
@@ -234,8 +245,9 @@ func ExtractComfyGraphParams(rawPromptJSON, rawWorkflowJSON string) domain.Gener
 		RawMetadata: rawPromptJSON,
 	}
 
+	sanitized := sanitizeComfyJSON(rawPromptJSON)
 	var graph map[string]interface{}
-	if err := json.Unmarshal([]byte(rawPromptJSON), &graph); err != nil {
+	if err := json.Unmarshal([]byte(sanitized), &graph); err != nil {
 		return params
 	}
 
@@ -268,6 +280,36 @@ func ExtractComfyGraphParams(rawPromptJSON, rawWorkflowJSON string) domain.Gener
 		case strings.Contains(ctLower, "loraloader"):
 			if lora, ok := inputs["lora_name"].(string); ok {
 				params.LoRAs = append(params.LoRAs, lora)
+			}
+			if stackData, ok := inputs["stack_data"].(string); ok {
+				var stack []map[string]interface{}
+				if err := json.Unmarshal([]byte(stackData), &stack); err == nil {
+					for _, item := range stack {
+						if on, ok := item["on"].(bool); ok && !on {
+							continue
+						}
+						if l, ok := item["lora"].(string); ok && l != "" && !strings.EqualFold(l, "none") {
+							params.LoRAs = append(params.LoRAs, l)
+						}
+					}
+				}
+			}
+		case strings.Contains(ctLower, "scheduler"):
+			if steps, ok := toFloat(inputs["steps"]); ok && params.Steps == 0 {
+				params.Steps = int(steps)
+			}
+			if scheduler, ok := inputs["scheduler"].(string); ok && params.Scheduler == "" {
+				params.Scheduler = scheduler
+			}
+		case strings.Contains(ctLower, "samplerselect") || strings.Contains(ctLower, "ksamplerselect"):
+			if sampler, ok := inputs["sampler_name"].(string); ok && params.Sampler == "" {
+				params.Sampler = sampler
+			}
+		case strings.Contains(ctLower, "seed"):
+			if seed, ok := toFloat(inputs["seed_value"]); ok && params.Seed == 0 {
+				params.Seed = int64(seed)
+			} else if seed, ok := toFloat(inputs["seed"]); ok && params.Seed == 0 {
+				params.Seed = int64(seed)
 			}
 		case strings.Contains(ctLower, "ksampler"):
 			if steps, ok := toFloat(inputs["steps"]); ok {

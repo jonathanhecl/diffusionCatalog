@@ -67,13 +67,47 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 		if params.PositivePrompt == "" {
 			params = scanRawFileForParameters(absPath)
 		}
+	case ".webm", ".mkv":
+		tags, w, h, err := ParseEBMLFile(absPath)
+		if err == nil {
+			if w > 0 && h > 0 {
+				width = w
+				height = h
+			}
+			if promptTag, ok := tags["PROMPT"]; ok {
+				params = ExtractComfyGraphParams(promptTag, tags["WORKFLOW"])
+			} else {
+				for _, k := range []string{"DESCRIPTION", "COMMENT", "TITLE", "Prompt", "prompt"} {
+					if val, ok := tags[k]; ok && strings.TrimSpace(val) != "" {
+						if parsed, found := ClassifyComment(val); found && parsed.PositivePrompt != "" {
+							params = parsed
+							break
+						}
+					}
+				}
+			}
+		}
+		if params.PositivePrompt == "" {
+			params = scanRawFileForParameters(absPath)
+		}
 	default:
 		if mediaType == domain.MediaTypeImage {
 			width, height = decodeStandardImageConfig(absPath)
 			params = scanRawFileForParameters(absPath)
 		} else if mediaType == domain.MediaTypeVideo {
-			width, height = 1024, 576
-			params = scanRawFileForParameters(absPath)
+			tags, w, h, err := ParseEBMLFile(absPath)
+			if err == nil {
+				width, height = w, h
+				if promptTag, ok := tags["PROMPT"]; ok {
+					params = ExtractComfyGraphParams(promptTag, tags["WORKFLOW"])
+				}
+			}
+			if width == 0 || height == 0 {
+				width, height = 1024, 576
+			}
+			if params.PositivePrompt == "" {
+				params = scanRawFileForParameters(absPath)
+			}
 		}
 	}
 
