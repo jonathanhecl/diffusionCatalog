@@ -249,7 +249,35 @@ func parseIlstBox(rs io.ReadSeeker, endPos int64, keyNames []string, tags map[st
 		if itemIndex >= 1 && int(itemIndex) <= len(keyNames) {
 			keyName = keyNames[itemIndex-1]
 		} else {
-			keyName = strings.Trim(itemType, "\x00©")
+			rawFourCC := itemHdr[4:8]
+			if rawFourCC[0] == 0xa9 {
+				sub := string(rawFourCC[1:4])
+				switch sub {
+				case "cmt":
+					keyName = "comment"
+				case "des":
+					keyName = "description"
+				case "nam":
+					keyName = "title"
+				case "too":
+					keyName = "tool"
+				case "art":
+					keyName = "artist"
+				case "wrt":
+					keyName = "writer"
+				case "day":
+					keyName = "date"
+				default:
+					keyName = sub
+				}
+			} else {
+				switch itemType {
+				case "desc":
+					keyName = "description"
+				default:
+					keyName = strings.Trim(itemType, "\x00 ")
+				}
+			}
 		}
 
 		// Find "data" sub-box inside item
@@ -273,7 +301,17 @@ func parseIlstBox(rs io.ReadSeeker, endPos int64, keyNames []string, tags map[st
 					if payloadLen > 0 && payloadLen <= 64*1024*1024 {
 						buf := make([]byte, payloadLen)
 						if _, err := io.ReadFull(rs, buf); err == nil {
-							tags[keyName] = string(buf)
+							val := string(buf)
+							tags[keyName] = val
+							switch keyName {
+							case "comment":
+								tags["cmt"] = val
+							case "description":
+								tags["des"] = val
+								tags["desc"] = val
+							case "title":
+								tags["nam"] = val
+							}
 						}
 					}
 				}

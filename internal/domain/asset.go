@@ -19,6 +19,7 @@ const (
 	EngineFooocus  EngineType = "fooocus"
 	EngineInvokeAI EngineType = "invokeai"
 	EngineSwarmUI  EngineType = "swarmui"
+	EngineWanGP    EngineType = "wangp"
 	EngineUnknown  EngineType = "unknown"
 )
 

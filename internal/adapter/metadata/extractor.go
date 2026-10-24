@@ -92,7 +92,7 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 				}
 			}
 			if params.PositivePrompt == "" {
-				for _, k := range []string{"description", "comment", "title", "civitaiResources"} {
+				for _, k := range []string{"description", "comment", "cmt", "title", "civitaiResources"} {
 					if val, ok := tags[k]; ok && strings.TrimSpace(val) != "" {
 						if parsed, found := ClassifyComment(val); found && parsed.PositivePrompt != "" {
 							params = parsed
@@ -145,6 +145,16 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 						params = comfyParams
 					} else {
 						params.Engine = domain.EngineComfyUI
+					}
+				}
+				if params.PositivePrompt == "" {
+					for _, k := range []string{"description", "comment", "cmt", "title", "civitaiResources"} {
+						if val, ok := mp4Tags[k]; ok && strings.TrimSpace(val) != "" {
+							if parsed, found := ClassifyComment(val); found && parsed.PositivePrompt != "" {
+								params = parsed
+								break
+							}
+						}
 					}
 				}
 			} else {
@@ -236,6 +246,40 @@ func scanRawFileForParameters(absPath string) domain.GenerationParams {
 		snippet := cleanPrintableASCII(sample[start:end])
 		return ParseA1111Parameters(snippet)
 	}
+
+	// Look for JSON prompt marker: "prompt":
+	pIdx := bytes.Index(sample, []byte(`"prompt":`))
+	if pIdx > 0 {
+		start := pIdx
+		for start > 0 && (start > pIdx-4096) {
+			if sample[start] == '{' {
+				break
+			}
+			start--
+		}
+		if sample[start] == '{' {
+			end := pIdx
+			depth := 0
+			for end < len(sample) && (end < pIdx+65536) {
+				if sample[end] == '{' {
+					depth++
+				} else if sample[end] == '}' {
+					depth--
+					if depth == 0 {
+						end++
+						break
+					}
+				}
+				end++
+			}
+			if depth == 0 && end > start {
+				if parsed, ok := ParseJSONMetadata(string(sample[start:end])); ok && parsed.PositivePrompt != "" {
+					return parsed
+				}
+			}
+		}
+	}
+
 	return domain.GenerationParams{Engine: domain.EngineUnknown}
 }
 

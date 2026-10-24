@@ -12,6 +12,50 @@ import (
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
 )
 
+func TestParseMP4_WanGP_Metadata(t *testing.T) {
+	samplePath := "/mnt/backup/DATASET/h3/DBGNTR9NS6NCKGDYJQP19TMHX0.mp4"
+	if _, err := os.Stat(samplePath); os.IsNotExist(err) {
+		t.Skip("sample file not available on this machine")
+	}
+	tags, width, height, err := ParseMP4File(samplePath)
+	if err != nil {
+		t.Fatalf("ParseMP4File failed: %v", err)
+	}
+	if width != 960 || height != 544 {
+		t.Errorf("expected 960x544, got %dx%d", width, height)
+	}
+	if _, ok := tags["comment"]; !ok {
+		t.Errorf("expected 'comment' tag in tags: %v", tags)
+	}
+
+	ext := NewExtractor()
+	params, w, h, err := ext.Extract(context.Background(), samplePath, domain.MediaTypeVideo)
+	if err != nil {
+		t.Fatalf("Extractor.Extract failed: %v", err)
+	}
+	if w != 960 || h != 544 {
+		t.Errorf("expected dims 960x544, got %dx%d", w, h)
+	}
+	if !strings.HasPrefix(params.PositivePrompt, "scene7_michelin_food_styling_proof:") {
+		t.Errorf("expected prompt to start with 'scene7_michelin_food_styling_proof:', got: %s", params.PositivePrompt[:min(len(params.PositivePrompt), 60)])
+	}
+	if params.Seed != 708991209 {
+		t.Errorf("expected seed 708991209, got %d", params.Seed)
+	}
+	if params.Steps != 20 {
+		t.Errorf("expected 20 steps, got %d", params.Steps)
+	}
+	if params.Engine != domain.EngineWanGP {
+		t.Errorf("expected engine %s, got %s", domain.EngineWanGP, params.Engine)
+	}
+	if params.ModelName != "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors" {
+		t.Errorf("expected model 'Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors', got %s", params.ModelName)
+	}
+	if len(params.LoRAs) == 0 || params.LoRAs[0] != "fp100c_v1" {
+		t.Errorf("expected LoRA fp100c_v1, got %v", params.LoRAs)
+	}
+}
+
 func TestParseMP4File_RealSample(t *testing.T) {
 	samplePath := "/mnt/backup/DATASET/h3/5KEHWT64MXCV0X3RARCT2KN9D0.mp4"
 	if _, err := os.Stat(samplePath); os.IsNotExist(err) {

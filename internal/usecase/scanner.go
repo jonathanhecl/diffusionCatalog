@@ -361,9 +361,11 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			existing, inDB := dbFingerprints[storedRelPath]
 			if inDB {
 				if existing.FileSize == fileSize && (existing.FileMTime.Unix() == mtimeUnix || existing.FileMTime.Equal(fileMTime)) {
-					report.UnchangedFiles++
-					s.recordProgress(d.Name(), root.Label, true, indexStartTime)
-					return nil
+					if existing.Metadata.PositivePrompt != "" {
+						report.UnchangedFiles++
+						s.recordProgress(d.Name(), root.Label, true, indexStartTime)
+						return nil
+					}
 				}
 			}
 

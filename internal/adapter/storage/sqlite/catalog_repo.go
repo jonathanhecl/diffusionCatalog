@@ -391,7 +391,7 @@ func (r *Repository) DeleteAssetsByIDs(ctx context.Context, ids []int64) error {
 func (r *Repository) GetExistingAssetFingerprints(ctx context.Context, rootID int64) (map[string]domain.MediaAsset, error) {
 	db := r.conn()
 	query := `
-		SELECT id, rel_path, file_size, file_hash, file_mtime, indexed_at, rating, favorite, category, subcategory
+		SELECT id, rel_path, file_size, file_hash, file_mtime, indexed_at, rating, favorite, category, subcategory, positive_prompt
 		FROM assets`
 	var rows *sql.Rows
 	var err error
@@ -409,13 +409,14 @@ func (r *Repository) GetExistingAssetFingerprints(ctx context.Context, rootID in
 	out := make(map[string]domain.MediaAsset)
 	for rows.Next() {
 		var a domain.MediaAsset
-		var relPath string
+		var relPath, posPrompt string
 		var mTime, idxTime sql.NullTime
 		var favInt int
-		if err := rows.Scan(&a.ID, &relPath, &a.FileSize, &a.FileHash, &mTime, &idxTime, &a.Rating, &favInt, &a.Category, &a.Subcategory); err != nil {
+		if err := rows.Scan(&a.ID, &relPath, &a.FileSize, &a.FileHash, &mTime, &idxTime, &a.Rating, &favInt, &a.Category, &a.Subcategory, &posPrompt); err != nil {
 			return nil, err
 		}
 		a.RelPath = relPath
+		a.Metadata.PositivePrompt = posPrompt
 		if mTime.Valid {
 			a.FileMTime = mTime.Time
 		} else if idxTime.Valid {
