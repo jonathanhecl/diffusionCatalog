@@ -67,6 +67,44 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 		if params.PositivePrompt == "" {
 			params = scanRawFileForParameters(absPath)
 		}
+	case ".mp4", ".mov", ".m4v":
+		tags, w, h, err := ParseMP4File(absPath)
+		if err == nil {
+			if w > 0 && h > 0 {
+				width = w
+				height = h
+			}
+			if paramsStr, ok := tags["parameters"]; ok && strings.TrimSpace(paramsStr) != "" {
+				params = ParseA1111Parameters(paramsStr)
+			}
+			if promptJSON, ok := tags["prompt"]; ok && strings.TrimSpace(promptJSON) != "" {
+				comfyParams := ExtractComfyGraphParams(promptJSON, tags["workflow"])
+				if params.PositivePrompt == "" {
+					params = comfyParams
+				} else {
+					params.Engine = domain.EngineComfyUI
+					if params.ModelName == "" {
+						params.ModelName = comfyParams.ModelName
+					}
+					if len(params.LoRAs) == 0 {
+						params.LoRAs = comfyParams.LoRAs
+					}
+				}
+			}
+			if params.PositivePrompt == "" {
+				for _, k := range []string{"description", "comment", "title", "civitaiResources"} {
+					if val, ok := tags[k]; ok && strings.TrimSpace(val) != "" {
+						if parsed, found := ClassifyComment(val); found && parsed.PositivePrompt != "" {
+							params = parsed
+							break
+						}
+					}
+				}
+			}
+		}
+		if params.PositivePrompt == "" {
+			params = scanRawFileForParameters(absPath)
+		}
 	case ".webm", ".mkv":
 		tags, w, h, err := ParseEBMLFile(absPath)
 		if err == nil {
@@ -95,11 +133,27 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 			width, height = decodeStandardImageConfig(absPath)
 			params = scanRawFileForParameters(absPath)
 		} else if mediaType == domain.MediaTypeVideo {
-			tags, w, h, err := ParseEBMLFile(absPath)
-			if err == nil {
-				width, height = w, h
-				if promptTag, ok := tags["PROMPT"]; ok {
-					params = ExtractComfyGraphParams(promptTag, tags["WORKFLOW"])
+			mp4Tags, mw, mh, err := ParseMP4File(absPath)
+			if err == nil && (len(mp4Tags) > 0 || (mw > 0 && mh > 0)) {
+				width, height = mw, mh
+				if paramsStr, ok := mp4Tags["parameters"]; ok && strings.TrimSpace(paramsStr) != "" {
+					params = ParseA1111Parameters(paramsStr)
+				}
+				if promptJSON, ok := mp4Tags["prompt"]; ok && strings.TrimSpace(promptJSON) != "" {
+					comfyParams := ExtractComfyGraphParams(promptJSON, mp4Tags["workflow"])
+					if params.PositivePrompt == "" {
+						params = comfyParams
+					} else {
+						params.Engine = domain.EngineComfyUI
+					}
+				}
+			} else {
+				tags, w, h, err := ParseEBMLFile(absPath)
+				if err == nil {
+					width, height = w, h
+					if promptTag, ok := tags["PROMPT"]; ok {
+						params = ExtractComfyGraphParams(promptTag, tags["WORKFLOW"])
+					}
 				}
 			}
 			if width == 0 || height == 0 {
@@ -162,13 +216,22 @@ func scanRawFileForParameters(absPath string) domain.GenerationParams {
 	// Look for "Steps:" marker typical of Automatic1111 / Forge EXIF UserComment
 	idx := bytes.Index(sample, []byte("Steps:"))
 	if idx > 0 {
-		start := idx - 2048
-		if start < 0 {
-			start = 0
+		start := idx
+		// Walk backwards while characters are printable text up to 64KB
+		for start > 0 && (start > idx-65536) {
+			b := sample[start-1]
+			if b == 0 || (b < 32 && b != '\n' && b != '\r' && b != '\t') {
+				break
+			}
+			start--
 		}
-		end := idx + 1024
-		if end > len(sample) {
-			end = len(sample)
+		end := idx
+		for end < len(sample) && (end < idx+4096) {
+			b := sample[end]
+			if b == 0 {
+				break
+			}
+			end++
 		}
 		snippet := cleanPrintableASCII(sample[start:end])
 		return ParseA1111Parameters(snippet)
@@ -213,13 +276,18 @@ func WritePromptSidecarTXT(absMediaPath string, params domain.GenerationParams) 
 	base := strings.TrimSuffix(absMediaPath, filepath.Ext(absMediaPath))
 	txtPath := base + ".txt"
 
-	// If (media).txt already exists, do not recreate or overwrite it
-	if _, err := os.Stat(txtPath); err == nil {
-		return nil
-	}
-
 	pos := strings.TrimSpace(params.PositivePrompt)
 	neg := strings.TrimSpace(params.NegativePrompt)
+
+	// If (media).txt already exists, only keep it if it has equal or greater prompt detail.
+	// If the newly extracted embedded prompt is longer, update .txt to heal truncated sidecars.
+	if _, err := os.Stat(txtPath); err == nil {
+		existingParams, _, hasExisting := readSidecarMetadata(absMediaPath)
+		if hasExisting && len(existingParams.PositivePrompt) >= len(pos) {
+			return nil
+		}
+	}
+
 	if pos == "" && neg == "" {
 		raw := strings.TrimSpace(params.RawMetadata)
 		if raw == "" {

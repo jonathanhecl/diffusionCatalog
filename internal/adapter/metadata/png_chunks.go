@@ -380,6 +380,8 @@ func ParseA1111Parameters(raw string) domain.GenerationParams {
 			case "version":
 				if strings.Contains(strings.ToLower(v), "fooocus") {
 					params.Engine = domain.EngineFooocus
+				} else if strings.Contains(strings.ToLower(v), "comfyui") {
+					params.Engine = domain.EngineComfyUI
 				}
 			}
 		}
