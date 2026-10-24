@@ -4889,12 +4889,24 @@
       if (!livePillEl) {
         livePillEl = document.createElement('div');
         livePillEl.className = 'live-update-pill';
-        livePillEl.innerHTML = '<span>⚡ ' + msg + '</span>';
-        livePillEl.onclick = function() { window.location.reload(); };
         document.body.appendChild(livePillEl);
-      } else {
-        livePillEl.innerHTML = '<span>⚡ ' + msg + '</span>';
       }
+      livePillEl.innerHTML = '<span>⚡ ' + msg + '</span>';
+      livePillEl.style.display = 'flex';
+      livePillEl.style.opacity = '1';
+      livePillEl.onclick = function() {
+        livePillEl.style.display = 'none';
+      };
+      if (livePillEl._dismissTimeout) clearTimeout(livePillEl._dismissTimeout);
+      livePillEl._dismissTimeout = setTimeout(function() {
+        if (livePillEl) {
+          livePillEl.style.transition = 'opacity 0.4s ease';
+          livePillEl.style.opacity = '0';
+          setTimeout(function() {
+            if (livePillEl) livePillEl.style.display = 'none';
+          }, 400);
+        }
+      }, 4000);
     }
 
     var lastGridRefreshTime = 0;
@@ -4925,14 +4937,14 @@
           // Update Search Results count in real-time
           var newCount = doc.querySelector('.results-count');
           var oldCount = document.querySelector('.results-count');
-          if (newCount && oldCount) {
+          if (newCount && oldCount && oldCount.innerHTML !== newCount.innerHTML) {
             oldCount.innerHTML = newCount.innerHTML;
           }
 
-          // Update asset grid seamlessly
+          // Update asset grid seamlessly ONLY if changed
           var newGrid = doc.querySelector('.asset-grid');
           var oldGrid = document.querySelector('.asset-grid');
-          if (newGrid && oldGrid) {
+          if (newGrid && oldGrid && oldGrid.innerHTML !== newGrid.innerHTML) {
             oldGrid.innerHTML = newGrid.innerHTML;
           }
 
@@ -5085,7 +5097,7 @@
                 var changes = [];
                 if (rep.scanned_files > 0) changes.push('+' + rep.scanned_files + ' new');
                 if (rep.deleted_files > 0) changes.push('-' + rep.deleted_files + ' removed');
-                var text = 'Media updated (' + changes.join(', ') + ') — Click to refresh';
+                var text = 'Media updated (' + changes.join(', ') + ')';
                 showLiveUpdatePill(text);
               }
             }
