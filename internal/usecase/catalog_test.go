@@ -402,3 +402,38 @@ func TestDeleteAsset(t *testing.T) {
 		t.Errorf("expected asset to be deleted from database, but found: %+v", after)
 	}
 }
+
+func TestResolveExecutionRoute(t *testing.T) {
+	catalogSvc := &CatalogService{}
+	cfg := domain.AppSettings{
+		OllamaBaseURL: "http://127.0.0.1:11434",
+		OMLXBaseURL:   "http://127.0.0.1:8000",
+	}
+
+	// 1. Standard Ollama model
+	p, m, url, th := catalogSvc.ResolveExecutionRoute(cfg, domain.ProviderOllama, "llama3:latest", "default", domain.PromptExecutionOverride{})
+	if p != domain.ProviderOllama || m != "llama3:latest" || url != "http://127.0.0.1:11434" || th != "default" {
+		t.Errorf("unexpected standard ollama resolution: %v, %v, %v, %v", p, m, url, th)
+	}
+
+	// 2. MLX model configured with ollama provider (should auto-detect OpenAI/oMLX provider)
+	p, m, url, th = catalogSvc.ResolveExecutionRoute(cfg, domain.ProviderOllama, "SuperQwen3.8-27b-abliterated-MLX-4bit", "default", domain.PromptExecutionOverride{})
+	if p != domain.ProviderOpenAI {
+		t.Errorf("expected auto-detected ProviderOpenAI for MLX model, got %v", p)
+	}
+	if url != "http://127.0.0.1:8000" {
+		t.Errorf("expected OMLXBaseURL http://127.0.0.1:8000, got %v", url)
+	}
+
+	// 3. Override provider & model & thinking
+	ov := domain.PromptExecutionOverride{
+		Provider:   domain.ProviderOpenAI,
+		Model:      "custom-mlx-model",
+		ThinkLevel: "medium",
+	}
+	p, m, url, th = catalogSvc.ResolveExecutionRoute(cfg, domain.ProviderOllama, "llama3:latest", "off", ov)
+	if p != domain.ProviderOpenAI || m != "custom-mlx-model" || url != "http://127.0.0.1:8000" || th != "medium" {
+		t.Errorf("unexpected override resolution: %v, %v, %v, %v", p, m, url, th)
+	}
+}
+

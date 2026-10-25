@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
@@ -165,6 +166,16 @@ func TestCleanAIPrompt(t *testing.T) {
 			raw: "`A futuristic vehicle racing through neon highway.`",
 			expected: "A futuristic vehicle racing through neon highway.",
 		},
+		{
+			name: "json object output extraction",
+			raw: `{"prompt": "A beautiful cybernetic geisha in Kyoto alley, neon reflections.", "negative_prompt": "blurry, low quality"}`,
+			expected: "A beautiful cybernetic geisha in Kyoto alley, neon reflections.",
+		},
+		{
+			name: "markdown fenced json object extraction",
+			raw: "```json\n{\n  \"positive_prompt\": \"Masterpiece portrait in oil paint style, dramatic chiaroscuro.\"\n}\n```",
+			expected: "Masterpiece portrait in oil paint style, dramatic chiaroscuro.",
+		},
 	}
 
 	for _, tt := range tests {
@@ -174,5 +185,34 @@ func TestCleanAIPrompt(t *testing.T) {
 				t.Errorf("\nexpected: %q\ngot:      %q", tt.expected, got)
 			}
 		})
+	}
+}
+
+func TestOllamaAndOMLXErrorParsing(t *testing.T) {
+	ctx := context.Background()
+	client := NewClient()
+
+	// 1. Ollama 404 JSON error
+	ollamaSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"model 'SuperQwen3.8-27b-abliterated-MLX-4bit' not found, try pulling it first"}`))
+	}))
+	defer ollamaSrv.Close()
+
+	_, err := client.TextToPrompt(ctx, domain.ProviderOllama, ollamaSrv.URL, "", "SuperQwen3.8-27b-abliterated-MLX-4bit", "sys", "concept", "")
+	if err == nil || !strings.Contains(err.Error(), "model 'SuperQwen3.8-27b-abliterated-MLX-4bit' not found") {
+		t.Errorf("expected clean unmarshaled error message, got %v", err)
+	}
+
+	// 2. oMLX 500 JSON error
+	omlxSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":{"message":"Engine out of memory while loading weights"}}`))
+	}))
+	defer omlxSrv.Close()
+
+	_, err = client.TextToPrompt(ctx, domain.ProviderOpenAI, omlxSrv.URL, "omlx", "some-model", "sys", "concept", "")
+	if err == nil || !strings.Contains(err.Error(), "Engine out of memory") {
+		t.Errorf("expected clean unmarshaled oMLX error message, got %v", err)
 	}
 }

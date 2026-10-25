@@ -503,6 +503,12 @@ func (c *Client) executeOllamaChat(ctx context.Context, baseURL, model string, m
 		}
 	}
 	if statusCode != http.StatusOK {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		if jsonErr := json.Unmarshal(body, &errResp); jsonErr == nil && errResp.Error != "" {
+			return "", fmt.Errorf("ollama error (status %d): %s", statusCode, errResp.Error)
+		}
 		return "", fmt.Errorf("ollama /api/chat returned status %d: %s", statusCode, string(body))
 	}
 	if out.Error != "" {
@@ -608,6 +614,20 @@ func (c *Client) doOMLXChat(ctx context.Context, baseURL, apiKey, model string, 
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Error struct {
+				Message string `json:"message"`
+			} `json:"error"`
+			Message string `json:"message"`
+		}
+		if jsonErr := json.Unmarshal(body, &errResp); jsonErr == nil {
+			if errResp.Error.Message != "" {
+				return "", fmt.Errorf("omlx error (status %d): %s", resp.StatusCode, errResp.Error.Message)
+			}
+			if errResp.Message != "" {
+				return "", fmt.Errorf("omlx error (status %d): %s", resp.StatusCode, errResp.Message)
+			}
+		}
 		return "", fmt.Errorf("omlx /v1/chat/completions returned status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -737,7 +757,22 @@ func CleanAIPrompt(raw string) string {
 		s = strings.Trim(s, `"`)
 	}
 
-	return strings.TrimSpace(s)
+	trimmedCandidate := strings.TrimSpace(s)
+	// If the model produced a JSON object (e.g. {"prompt": "..."}), extract the prompt value
+	if strings.HasPrefix(trimmedCandidate, "{") && strings.HasSuffix(trimmedCandidate, "}") {
+		var obj map[string]interface{}
+		if err := json.Unmarshal([]byte(trimmedCandidate), &obj); err == nil && len(obj) > 0 {
+			for _, k := range []string{"prompt", "positive_prompt", "positive", "diffusion_prompt", "output", "image_prompt", "scene_prompt", "result", "caption"} {
+				if v, ok := obj[k]; ok {
+					if strVal, ok := v.(string); ok && strings.TrimSpace(strVal) != "" {
+						return strings.TrimSpace(strVal)
+					}
+				}
+			}
+		}
+	}
+
+	return trimmedCandidate
 }
 
 func isConversationalPreamble(lower string) bool {

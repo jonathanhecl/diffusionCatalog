@@ -489,8 +489,12 @@ func (s *CatalogService) ListGeneratedPrompts(ctx context.Context, assetID, char
 	return s.repo.ListGeneratedPrompts(ctx, assetID, characterID, limit)
 }
 
-// resolveExecutionRoute resolves the provider, model, baseURL, and thinking level for a prompt generation task,
+// ResolveExecutionRoute resolves the provider, model, baseURL, and thinking level for a prompt generation task,
 // applying any per-request quick overrides on top of the persistent Settings defaults.
+func (s *CatalogService) ResolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProviderType, defaultModel, defaultThink string, override domain.PromptExecutionOverride) (domain.AIProviderType, string, string, string) {
+	return resolveExecutionRoute(cfg, defaultProvider, defaultModel, defaultThink, override)
+}
+
 func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProviderType, defaultModel, defaultThink string, override domain.PromptExecutionOverride) (domain.AIProviderType, string, string, string) {
 	prov := defaultProvider
 	model := defaultModel
@@ -502,6 +506,13 @@ func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProv
 	} else if override.Model != "" {
 		model = override.Model
 	}
+
+	// Auto-detect provider if model name indicates MLX/OpenAI but provider was left as ollama
+	modelUpper := strings.ToUpper(model)
+	if prov == domain.ProviderOllama && (strings.Contains(modelUpper, "-MLX") || strings.Contains(modelUpper, "MLX-") || strings.HasPrefix(modelUpper, "MLX/") || strings.Contains(modelUpper, ".MLX")) {
+		prov = domain.ProviderOpenAI
+	}
+
 	if prov == "" {
 		prov = domain.ProviderOllama
 	}
