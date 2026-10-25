@@ -1529,22 +1529,24 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	ctx := r.Context()
 
-	var sceneJSON, targetProfile, userHint string
+	var sceneJSON, canvasImageData, targetProfile, userHint string
 	var loraIDs []int64
 	var override domain.PromptExecutionOverride
 
 	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 		var req struct {
-			SceneJSON     string   `json:"scene_json"`
-			TargetProfile string   `json:"target_profile"`
-			UserHint      string   `json:"user_hint"`
-			LoRAIDs       []int64  `json:"lora_ids"`
-			Provider      string   `json:"provider"`
-			Model         string   `json:"model"`
-			ThinkLevel    string   `json:"think_level"`
+			SceneJSON       string   `json:"scene_json"`
+			CanvasImageData string   `json:"canvas_image_data"`
+			TargetProfile   string   `json:"target_profile"`
+			UserHint        string   `json:"user_hint"`
+			LoRAIDs         []int64  `json:"lora_ids"`
+			Provider        string   `json:"provider"`
+			Model           string   `json:"model"`
+			ThinkLevel      string   `json:"think_level"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
 			sceneJSON = req.SceneJSON
+			canvasImageData = req.CanvasImageData
 			targetProfile = req.TargetProfile
 			userHint = req.UserHint
 			loraIDs = req.LoRAIDs
@@ -1556,17 +1558,38 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		sceneJSON = r.FormValue("scene_json")
+		canvasImageData = r.FormValue("canvas_image_data")
 		targetProfile = r.FormValue("target_profile")
 		userHint = r.FormValue("user_hint")
 		loraIDs = parseLoRAIDs(r.Form["lora_id"])
 		override = parseExecutionOverride(r)
 	}
 
+	var canvasImagePath string
+	if canvasImageData != "" {
+		idx := strings.Index(canvasImageData, ";base64,")
+		b64Content := canvasImageData
+		if idx != -1 {
+			b64Content = canvasImageData[idx+8:]
+		}
+		if rawDecoded, err := base64.StdEncoding.DecodeString(b64Content); err == nil && len(rawDecoded) > 0 {
+			uploadsDir := filepath.Join(s.cacheDir, "uploads")
+			_ = os.MkdirAll(uploadsDir, 0755)
+			canvasImagePath = filepath.Join(uploadsDir, fmt.Sprintf("scene_canvas_%d.png", time.Now().UnixNano()))
+			if err := os.WriteFile(canvasImagePath, rawDecoded, 0644); err != nil {
+				log.Printf("[SCENE] Failed to write canvas capture: %v", err)
+				canvasImagePath = ""
+			} else {
+				log.Printf("[SCENE] Canvas capture saved: %s (%d bytes)", canvasImagePath, len(rawDecoded))
+			}
+		}
+	}
+
 	if targetProfile != "" {
 		_ = s.catalog.SetDefaultTargetGenerator(ctx, targetProfile)
 	}
 
-	manifest, prompt, err := s.catalog.SynthesizeScenePrompt(ctx, sceneJSON, targetProfile, userHint, loraIDs, override)
+	manifest, prompt, err := s.catalog.SynthesizeScenePrompt(ctx, sceneJSON, targetProfile, userHint, loraIDs, override, canvasImagePath)
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -1582,12 +1605,13 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 	usedProv, usedMod, _, usedThk := s.catalog.ResolveExecutionRoute(cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override)
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":   "ok",
-		"manifest": manifest,
-		"prompt":   prompt,
-		"provider": usedProv,
-		"model":    usedMod,
-		"think":    usedThk,
+		"status":      "ok",
+		"manifest":    manifest,
+		"prompt":      prompt,
+		"provider":    usedProv,
+		"model":       usedMod,
+		"think":       usedThk,
+		"used_vision": canvasImagePath != "",
 	})
 }
 

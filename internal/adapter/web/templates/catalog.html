@@ -1557,7 +1557,7 @@
                 <select id="directorModelRoute" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 7px;color:#fff;font-size:11px;" onchange="updateDirectorActiveIndicator()">
                   <option value="">Default: [{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}}</option>
                   {{range .AIStatus.AllModels}}
-                    <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}</option>
+                    <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
                   {{end}}
                 </select>
                 <select id="directorThink" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 7px;color:#fff;font-size:11px;" onchange="updateDirectorActiveIndicator()">
@@ -3631,7 +3631,7 @@
 
     btn.disabled = true;
     spinner.style.display = 'inline-block';
-    btnText.textContent = "Compiling Spatial Manifest & Synthesizing...";
+    btnText.textContent = "Capturing Canvas & Synthesizing...";
 
     if (charId > 0) {
       const opt = charSelect.selectedOptions[0];
@@ -3648,6 +3648,16 @@
       canvasWidth: state.width,
       canvasHeight: state.height,
       elements: state.elements
+    });
+
+    // Capture visual snapshot of the canvas staging layout so vision LLMs can see the elements
+    const canvasImageData = await new Promise((resolve) => {
+      try {
+        exportCanvasToDataURL((dataUrl) => resolve(dataUrl || ''));
+      } catch (e) {
+        console.warn("Could not capture canvas snapshot:", e);
+        resolve('');
+      }
     });
 
     const routeVal = document.getElementById('directorModelRoute') ? document.getElementById('directorModelRoute').value : '';
@@ -3670,6 +3680,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scene_json: sceneJSON,
+          canvas_image_data: canvasImageData,
           target_profile: targetProfile,
           user_hint: userHint,
           provider: reqProv,
@@ -3682,7 +3693,9 @@
         output.value = data.prompt;
         const remixBtn = document.getElementById('btnSendToRemix');
         remixBtn.href = `/?tab=studio&concept=${encodeURIComponent(data.prompt)}&target_profile=${encodeURIComponent(targetProfile)}`;
-        if (data.model) {
+        if (data.used_vision) {
+          showToast(`Prompt synthesized via [${data.provider || 'AI'}] ${data.model} with Visual Canvas 👁️`, 'success');
+        } else if (data.model) {
           showToast(`Prompt synthesized via [${data.provider || 'AI'}] ${data.model}`, 'success');
         } else {
           showToast('Prompt synthesized successfully!', 'success');

@@ -1053,8 +1053,9 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 	return sb.String(), nil
 }
 
-// SynthesizeScenePrompt compiles the scene JSON into a spatial manifest and calls TextToPrompt.
-func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, targetProfileSlug, userHint string, loraIDs []int64, override domain.PromptExecutionOverride) (manifest string, prompt string, err error) {
+// SynthesizeScenePrompt compiles the scene JSON into a spatial manifest and calls ImageToPrompt if a canvas screenshot is provided,
+// falling back to TextToPrompt.
+func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, targetProfileSlug, userHint string, loraIDs []int64, override domain.PromptExecutionOverride, canvasImagePath string) (manifest string, prompt string, err error) {
 	compiledManifest, err := s.CompileSceneDirectorManifest(ctx, sceneJSON)
 	if err != nil {
 		return "", "", err
@@ -1065,7 +1066,58 @@ func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, t
 		inputConcept = fmt.Sprintf("%s\n\nStyle & Atmosphere Directives:\n%s", compiledManifest, strings.TrimSpace(userHint))
 	}
 
-	generatedPrompt, err := s.RunText2Prompt(ctx, inputConcept, targetProfileSlug, loraIDs, override)
+	cfg, err := s.repo.GetSettings(ctx)
+	if err != nil {
+		return compiledManifest, "", err
+	}
+	if targetProfileSlug == "" {
+		targetProfileSlug = cfg.DefaultTargetGenerator
+	}
+
+	var sysPrompt string
+	if prof, err := s.repo.GetPromptProfileBySlug(ctx, targetProfileSlug); err == nil && prof != nil {
+		sysPrompt = prof.SystemPrompt
+	}
+
+	fullUserPrompt := inputConcept
+	if loraDoc := s.buildLoRAContextBlock(ctx, targetProfileSlug, loraIDs); loraDoc != "" {
+		fullUserPrompt = fmt.Sprintf("%s\n\n%s\nIncorporate the selected LoRA trigger words, stylistic guidance, and syntax tag into the final prompt.", inputConcept, loraDoc)
+	}
+
+	// If a canvas screenshot is provided, attempt multimodal vision synthesis so the LLM visually sees the layout
+	if strings.TrimSpace(canvasImagePath) != "" && s.ollama != nil {
+		defProv := cfg.Image2PromptProvider
+		defMod := cfg.Image2PromptModel
+		defThink := cfg.Image2PromptThink
+		if defMod == "" {
+			defProv = cfg.VisionProvider
+			defMod = cfg.VisionModel
+			defThink = cfg.VisionThink
+		}
+		if defMod == "" {
+			defProv = cfg.Text2PromptProvider
+			defMod = cfg.Text2PromptModel
+			defThink = cfg.Text2PromptThink
+		}
+
+		provider, model, baseURL, think := resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
+		visualHint := fmt.Sprintf("This image is a visual canvas capture of a 2D scene staging layout with positioned subjects, poses, lighting, camera framing and environment elements.\n\nSpatial Layout Manifest:\n%s\n\nAnalyze the visual staging in the canvas image together with the spatial manifest to generate an evocative, highly-detailed diffusion prompt matching the exact positions, depth, poses, lighting, and elements depicted in the visual composition.", fullUserPrompt)
+
+		generated, vErr := s.ollama.ImageToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, model, sysPrompt, canvasImagePath, visualHint, think)
+		if vErr == nil && strings.TrimSpace(generated) != "" {
+			_, _ = s.repo.SaveGeneratedPrompt(ctx, &domain.GeneratedPrompt{
+				TargetProfileSlug: targetProfileSlug,
+				SceneDirection:    strings.TrimSpace(inputConcept),
+				OutputPrompt:      generated,
+				Provider:          provider,
+				ModelName:         fmt.Sprintf("%s (canvas vision, think:%s)", model, think),
+			})
+			return compiledManifest, generated, nil
+		}
+		log.Printf("[SCENE] Vision prompt synthesis with canvas screenshot failed (%v), falling back to TextToPrompt", vErr)
+	}
+
+	generatedPrompt, err := s.RunText2Prompt(ctx, fullUserPrompt, targetProfileSlug, nil, override)
 	if err != nil {
 		return compiledManifest, "", err
 	}

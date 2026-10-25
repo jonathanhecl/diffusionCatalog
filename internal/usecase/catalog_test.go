@@ -288,8 +288,8 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 		t.Errorf("expected director note in manifest:\n%s", manifest)
 	}
 
-	// 4. Test SynthesizeScenePrompt
-	compiledManifest, generatedPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{})
+	// 4. Test SynthesizeScenePrompt (without canvas capture -> TextToPrompt)
+	compiledManifest, generatedPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, "")
 	if err != nil {
 		t.Fatalf("SynthesizeScenePrompt failed: %v", err)
 	}
@@ -298,6 +298,22 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 	}
 	if mockOllama.lastCall != "TextToPrompt" {
 		t.Errorf("expected SynthesizeScenePrompt to invoke TextToPrompt, got %q", mockOllama.lastCall)
+	}
+
+	// 4b. Test SynthesizeScenePrompt with visual canvas capture -> ImageToPrompt
+	dummyCanvasPath := filepath.Join(tmpDir, "dummy_canvas.png")
+	if err := os.WriteFile(dummyCanvasPath, []byte("fake png content"), 0644); err != nil {
+		t.Fatalf("failed to write dummy canvas: %v", err)
+	}
+	_, visionPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, dummyCanvasPath)
+	if err != nil {
+		t.Fatalf("SynthesizeScenePrompt with canvas image failed: %v", err)
+	}
+	if visionPrompt == "" {
+		t.Errorf("expected non-empty prompt with canvas vision")
+	}
+	if mockOllama.lastCall != "ImageToPrompt" {
+		t.Errorf("expected SynthesizeScenePrompt with canvasImagePath to invoke ImageToPrompt, got %q", mockOllama.lastCall)
 	}
 
 	// 5. Test StudioComposition CRUD
