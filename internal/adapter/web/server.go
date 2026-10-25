@@ -1578,10 +1578,16 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cfg, _ := s.catalog.GetSettings(ctx)
+	usedProv, usedMod, _, usedThk := s.catalog.ResolveExecutionRoute(cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override)
+
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":   "ok",
 		"manifest": manifest,
 		"prompt":   prompt,
+		"provider": usedProv,
+		"model":    usedMod,
+		"think":    usedThk,
 	})
 }
 

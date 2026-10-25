@@ -34,6 +34,67 @@
       });
       observer.observe(document.documentElement, { childList: true, subtree: true });
     })();
+
+    // Non-intrusive Toast Notifications (no alert popups, no clicks required)
+    window.showToast = function(message, type, duration) {
+      type = type || 'info';
+      duration = duration || 2400;
+      var container = document.getElementById('toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+      }
+      var toast = document.createElement('div');
+      toast.className = 'toast-message toast-' + type;
+      var icon = type === 'success' ? '&#10003;' : (type === 'error' ? '&#9888;' : '&#8505;');
+      toast.innerHTML = '<span style="font-weight:700;font-size:14px;">' + icon + '</span><span>' + message + '</span>';
+      container.appendChild(toast);
+
+      setTimeout(function() {
+        toast.classList.add('toast-fading');
+        setTimeout(function() {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 320);
+      }, duration);
+    };
+
+    // Global copy to clipboard with toast feedback and optional button animation
+    window.copyToClipboard = function(text, btnElement, successMsg) {
+      if (!text) return;
+      successMsg = successMsg || 'Copied to clipboard!';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          window.showToast(successMsg, 'success');
+          if (btnElement) {
+            var orig = btnElement.innerHTML;
+            btnElement.innerHTML = '&#10003; Copied!';
+            setTimeout(function() { btnElement.innerHTML = orig; }, 1800);
+          }
+        }).catch(function(err) {
+          window.showToast('Failed to copy: ' + err.message, 'error');
+        });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          window.showToast(successMsg, 'success');
+          if (btnElement) {
+            var orig = btnElement.innerHTML;
+            btnElement.innerHTML = '&#10003; Copied!';
+            setTimeout(function() { btnElement.innerHTML = orig; }, 1800);
+          }
+        } catch (e) {
+          window.showToast('Failed to copy: ' + e, 'error');
+        }
+        document.body.removeChild(ta);
+      }
+    };
   </script>
 </head>
 <body>
@@ -379,7 +440,7 @@
           <div>
             <div class="facet-title">
               <span>POSITIVE PROMPT</span>
-              <button type="button" class="btn-ghost" onclick="navigator.clipboard.writeText(document.getElementById('pos-prompt').innerText)">Copy Prompt</button>
+              <button type="button" class="btn-ghost" onclick="copyToClipboard(document.getElementById('pos-prompt').innerText, this, 'Positive prompt copied!')">Copy Prompt</button>
             </div>
             <div id="pos-prompt" class="prompt-box">{{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}(No embedded positive prompt detected){{end}}</div>
           </div>
@@ -580,7 +641,7 @@
 
             <div class="facet-title">
               <span>POSITIVE PROMPT</span>
-              <button type="button" class="btn-ghost" style="padding:2px 8px;" onclick="navigator.clipboard.writeText(document.getElementById('pos-prompt').innerText)">Copy</button>
+              <button type="button" class="btn-ghost" style="padding:2px 8px;" onclick="copyToClipboard(document.getElementById('pos-prompt').innerText, this, 'Positive prompt copied!')">Copy</button>
             </div>
             <div class="prompt-box" style="font-size:12px;">{{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}(No positive prompt){{end}}</div>
 
@@ -1484,6 +1545,29 @@
                   <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}})</option>
                 {{end}}
               </select>
+            </div>
+
+            <!-- LLM Synthesis Model Route & Thinking Mode -->
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                <label style="font-size:11px;font-weight:600;color:var(--text-main);">LLM Model &amp; Route:</label>
+                <span id="directorLLMCurrentHint" style="font-size:10px;color:#38bdf8;font-family:monospace;">[{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 88px;gap:6px;">
+                <select id="directorModelRoute" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 7px;color:#fff;font-size:11px;" onchange="updateDirectorActiveIndicator()">
+                  <option value="">Default: [{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}}</option>
+                  {{range .AIStatus.AllModels}}
+                    <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}</option>
+                  {{end}}
+                </select>
+                <select id="directorThink" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 7px;color:#fff;font-size:11px;" onchange="updateDirectorActiveIndicator()">
+                  <option value="">Think: Def</option>
+                  <option value="off">Think: Off</option>
+                  <option value="low">Think: Low</option>
+                  <option value="medium">Think: Med</option>
+                  <option value="high">Think: High</option>
+                </select>
+              </div>
             </div>
 
             <!-- Optional Linked Character Sheet -->
@@ -3243,7 +3327,7 @@
     const name = document.getElementById('poseSaveName').value.trim();
     const category = document.getElementById('poseSaveCategory').value;
     if (!name) {
-      alert("Please enter a name for the pose preset.");
+      showToast("Please enter a name for the pose preset.", "error");
       return;
     }
 
@@ -3270,12 +3354,12 @@
         select.value = name;
         selEl.poseName = name;
         poseSaveModal.style.display = 'none';
-        alert("Pose preset '" + name + "' saved successfully!");
+        showToast("Pose preset '" + name + "' saved successfully!", "success");
       } else {
-        alert("Error saving pose: " + (data.error || "unknown"));
+        showToast("Error saving pose: " + (data.error || "unknown"), "error");
       }
     } catch(err) {
-      alert("Network error saving pose: " + err.message);
+      showToast("Network error saving pose: " + err.message, "error");
     }
   });
 
@@ -3432,9 +3516,15 @@
         await navigator.clipboard.write([
           new ClipboardItem({ 'image/png': blob })
         ]);
-        alert("Composition PNG image copied to clipboard!");
+        showToast("Composition PNG image copied to clipboard!", "success");
+        const btn = document.getElementById('btnCopyImg');
+        if (btn) {
+          const orig = btn.innerHTML;
+          btn.innerHTML = "&#10003; Copied!";
+          setTimeout(() => { btn.innerHTML = orig; }, 1800);
+        }
       } catch (err) {
-        alert("Failed to copy image to clipboard: " + err.message);
+        showToast("Failed to copy image to clipboard: " + err.message, "error");
       }
     });
   });
@@ -3472,12 +3562,12 @@
         if (data.status === 'ok') {
           state.compositionId = data.id;
           document.getElementById('sceneIdBadge').textContent = '#' + data.id;
-          alert("Scene composition '" + name + "' saved to SQLite!");
+          showToast("Scene composition '" + name + "' saved to SQLite!", "success");
         } else {
-          alert("Error saving scene: " + (data.error || "unknown error"));
+          showToast("Error saving scene: " + (data.error || "unknown error"), "error");
         }
       } catch(err) {
-        alert("Network error: " + err.message);
+        showToast("Network error: " + err.message, "error");
       } finally {
         btn.disabled = false;
         btn.textContent = "💾 Save Scene";
@@ -3560,6 +3650,20 @@
       elements: state.elements
     });
 
+    const routeVal = document.getElementById('directorModelRoute') ? document.getElementById('directorModelRoute').value : '';
+    const thinkVal = document.getElementById('directorThink') ? document.getElementById('directorThink').value : '';
+    let reqProv = '';
+    let reqMod = '';
+    if (routeVal) {
+      const parts = routeVal.split('|');
+      if (parts.length === 2) {
+        reqProv = parts[0];
+        reqMod = parts[1];
+      } else {
+        reqMod = routeVal;
+      }
+    }
+
     try {
       const resp = await fetch('/admin/compositions/synthesize', {
         method: 'POST',
@@ -3567,7 +3671,10 @@
         body: JSON.stringify({
           scene_json: sceneJSON,
           target_profile: targetProfile,
-          user_hint: userHint
+          user_hint: userHint,
+          provider: reqProv,
+          model: reqMod,
+          think_level: thinkVal
         })
       });
       const data = await resp.json();
@@ -3575,11 +3682,18 @@
         output.value = data.prompt;
         const remixBtn = document.getElementById('btnSendToRemix');
         remixBtn.href = `/?tab=studio&concept=${encodeURIComponent(data.prompt)}&target_profile=${encodeURIComponent(targetProfile)}`;
+        if (data.model) {
+          showToast(`Prompt synthesized via [${data.provider || 'AI'}] ${data.model}`, 'success');
+        } else {
+          showToast('Prompt synthesized successfully!', 'success');
+        }
       } else {
         output.value = "Error synthesizing prompt: " + (data.error || "unknown error");
+        showToast("Error synthesizing prompt: " + (data.error || "unknown error"), "error");
       }
     } catch(err) {
       output.value = "Network error communicating with AI backend: " + err.message;
+      showToast("Network error: " + err.message, "error");
     } finally {
       btn.disabled = false;
       spinner.style.display = 'none';
@@ -3587,17 +3701,34 @@
     }
   });
 
-  // Copy Prompt to Clipboard
-  document.getElementById('btnCopyPrompt').addEventListener('click', () => {
+  // Dynamic indicator for the active LLM in 2D Scene Director
+  window.updateDirectorActiveIndicator = function() {
+    const routeEl = document.getElementById('directorModelRoute');
+    const thinkEl = document.getElementById('directorThink');
+    const hintEl = document.getElementById('directorLLMCurrentHint');
+    if (!hintEl) return;
+    if (routeEl && routeEl.value) {
+      const parts = routeEl.value.split('|');
+      let label = `[${parts[0]}] ${parts[1] || ''}`;
+      if (thinkEl && thinkEl.value) {
+        label += ` (${thinkEl.value})`;
+      }
+      hintEl.textContent = label;
+    } else {
+      hintEl.textContent = '[{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}}';
+    }
+  };
+
+  // Copy Prompt to Clipboard (Non-intrusive, no alerts)
+  document.getElementById('btnCopyPrompt').addEventListener('click', (e) => {
     const text = document.getElementById('directorPromptOutput').value;
     if (text) {
-      navigator.clipboard.writeText(text).then(() => {
-        alert("Prompt copied to clipboard!");
-      });
+      copyToClipboard(text, e.currentTarget, "Prompt copied to clipboard!");
     }
   });
 
   // Initial render
+  updateDirectorActiveIndicator();
   renderScene();
 })();
 </script>
@@ -3852,7 +3983,7 @@
                     <option value="ollama" {{if eq .Settings.VisionProvider "ollama"}}selected{{end}}>Ollama</option>
                     <option value="openai" {{if or (eq .Settings.VisionProvider "openai") (eq .Settings.VisionProvider "omlx")}}selected{{end}}>OpenAI Comp.</option>
                   </select>
-                  <select name="vision_model" id="vision_model_select" class="input-dark">
+                  <select name="vision_model" id="vision_model_select" class="input-dark" onchange="syncProviderFromModel(this, 'vision_provider')">
                     <option value="{{.Settings.VisionModel}}" selected>{{.Settings.VisionModel}} (current)</option>
                     {{range .AIStatus.AllModels}}
                       <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.VisionModel .Name}}selected{{end}}>
@@ -3883,7 +4014,7 @@
                     <option value="ollama" {{if eq .Settings.Image2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
                     <option value="openai" {{if or (eq .Settings.Image2PromptProvider "openai") (eq .Settings.Image2PromptProvider "omlx")}}selected{{end}}>OpenAI Comp.</option>
                   </select>
-                  <select name="image2prompt_model" id="image2prompt_model_select" class="input-dark">
+                  <select name="image2prompt_model" id="image2prompt_model_select" class="input-dark" onchange="syncProviderFromModel(this, 'image2prompt_provider')">
                     <option value="{{.Settings.Image2PromptModel}}" selected>{{.Settings.Image2PromptModel}} (current)</option>
                     {{range .AIStatus.AllModels}}
                       <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.Image2PromptModel .Name}}selected{{end}}>
@@ -3914,7 +4045,7 @@
                     <option value="ollama" {{if eq .Settings.Text2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
                     <option value="openai" {{if or (eq .Settings.Text2PromptProvider "openai") (eq .Settings.Text2PromptProvider "omlx")}}selected{{end}}>OpenAI Comp.</option>
                   </select>
-                  <select name="text2prompt_model" id="text2prompt_model_select" class="input-dark">
+                  <select name="text2prompt_model" id="text2prompt_model_select" class="input-dark" onchange="syncProviderFromModel(this, 'text2prompt_provider')">
                     <option value="{{.Settings.Text2PromptModel}}" selected>{{.Settings.Text2PromptModel}} (current)</option>
                     {{range .AIStatus.AllModels}}
                       <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.Text2PromptModel .Name}}selected{{end}}>
@@ -4109,7 +4240,7 @@
         <div style="background:#061a2e;border:1px solid #10b981;border-radius:6px;padding:14px;margin-bottom:18px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <span style="color:#6ee7b7;font-weight:700;font-size:13px;">Synthesized Character Prompt for Target Model '{{.AITargetProfile}}'</span>
-            <button type="button" class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="navigator.clipboard.writeText(document.getElementById('char-ai-out').innerText)">Copy Prompt</button>
+            <button type="button" class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="copyToClipboard(document.getElementById('char-ai-out').innerText, this, 'Character prompt copied!')">Copy Prompt</button>
           </div>
           <div id="char-ai-out" class="prompt-box" style="color:#a7f3d0;font-size:12.5px;">{{.AIResultPrompt}}</div>
         </div>
@@ -4558,18 +4689,26 @@
       }
     }
 
+    function syncProviderFromModel(modelSelect, providerSelectId) {
+      if (!modelSelect || !modelSelect.selectedOptions || !modelSelect.selectedOptions[0]) return;
+      var opt = modelSelect.selectedOptions[0];
+      var p = (opt.getAttribute('data-provider') || '').toLowerCase();
+      if (!p) return;
+      var provSelect = document.getElementById(providerSelectId);
+      if (provSelect) {
+        if (p === 'openai' || p === 'omlx') {
+          provSelect.value = 'openai';
+        } else if (p === 'ollama') {
+          provSelect.value = 'ollama';
+        }
+      }
+    }
+
     function copyStudioPrompt() {
       var el = document.getElementById('studio-result-out');
       if (!el) return;
       var text = el.innerText || el.textContent;
-      navigator.clipboard.writeText(text.trim()).then(function() {
-        var btn = document.getElementById('btn-copy-prompt');
-        if (btn) {
-          var orig = btn.innerText;
-          btn.innerText = 'Copied!';
-          setTimeout(function() { btn.innerText = orig; }, 1500);
-        }
-      });
+      copyToClipboard(text.trim(), document.getElementById('btn-copy-prompt'), 'Prompt copied to clipboard!');
     }
 
     document.addEventListener('DOMContentLoaded', function() {
