@@ -219,8 +219,13 @@
           <h1 class="hero-title">Application <span class="highlight">Settings &amp; AI Server Routing</span></h1>
           <p class="hero-sub">Configure local or remote Ollama and OpenAI-compatible endpoints and select which LLM/Vision models handle Vision, Image2Prompt, and Text2Prompt.</p>
         {{else}}
-          <h1 class="hero-title">AI Diffusion <span class="highlight">Prompt &amp; Asset</span> Database</h1>
-          <p class="hero-sub">Every generation prompt, checkpoint model, LoRA, seed, and character sheet — indexed locally from your media folder.</p>
+          {{if .ActiveGroup}}
+            <h1 class="hero-title">&#128193; Collection: <span class="highlight">{{.ActiveGroup.Name}}</span></h1>
+            <p class="hero-sub">{{if .ActiveGroup.Description}}{{.ActiveGroup.Description}}{{else}}Browsing media indexed under collection "{{.ActiveGroup.Name}}".{{end}}</p>
+          {{else}}
+            <h1 class="hero-title">AI Diffusion <span class="highlight">Prompt &amp; Asset</span> Database</h1>
+            <p class="hero-sub">Every generation prompt, checkpoint model, LoRA, seed, and character sheet — indexed locally from your media folder.</p>
+          {{end}}
         {{end}}
       </div>
       <div class="hero-callout">
@@ -4594,6 +4599,21 @@
               {{end}}
             </div>
 
+            <div class="facet-block {{if .Filter.GroupID}}facet-block-active{{end}}">
+              <div class="facet-title">
+                <span>COLLECTION</span>
+                {{if .Filter.GroupID}}
+                  <a href="{{clearFilterURL $.Filter "group_id"}}" style="font-size:10.5px;color:#f87171;" title="Clear collection filter">&#x2715; Clear</a>
+                {{end}}
+              </div>
+              <select name="group_id" class="input-dark {{if .Filter.GroupID}}input-highlight-cyan{{end}}" onchange="this.form.submit()">
+                <option value="0">All Collections</option>
+                {{range .Page.Groups}}
+                  <option value="{{.ID}}" {{if eq $.Filter.GroupID .ID}}selected{{end}}>{{.Name}} ({{.AssetCount}})</option>
+                {{end}}
+              </select>
+            </div>
+
             <div class="facet-block">
               <div class="facet-title"><span>FAVORITES &amp; SCORE</span></div>
               <div style="display:flex;flex-direction:column;gap:8px;">
@@ -4665,16 +4685,6 @@
               </select>
             </div>
 
-            <div class="facet-block">
-              <div class="facet-title"><span>COLLECTION</span></div>
-              <select name="group_id" class="input-dark" onchange="this.form.submit()">
-                <option value="0">All Collections</option>
-                {{range .Page.Groups}}
-                  <option value="{{.ID}}" {{if eq $.Filter.GroupID .ID}}selected{{end}}>{{.Name}} ({{.AssetCount}})</option>
-                {{end}}
-              </select>
-            </div>
-
             {{range $facet, $tags := .Page.FacetTags}}
               <div class="facet-block">
                 <div class="facet-title"><span style="text-transform:uppercase;">FACET: {{$facet}}</span></div>
@@ -4711,9 +4721,123 @@
 
         <!-- Right Dense Grid Section -->
         <section>
+          {{if .ActiveGroup}}
+            <!-- Prominent Active Collection Context Banner -->
+            <div class="active-collection-banner">
+              <div class="active-coll-left">
+                <div class="active-coll-icon">&#128193;</div>
+                <div class="active-coll-text">
+                  <div class="active-coll-breadcrumbs">
+                    <a href="/?tab=collections">Collections</a> &rsaquo; <span>{{.ActiveGroup.Name}}</span>
+                  </div>
+                  <h2 class="active-coll-title">{{.ActiveGroup.Name}}</h2>
+                  {{if .ActiveGroup.Description}}
+                    <p class="active-coll-desc">{{.ActiveGroup.Description}}</p>
+                  {{end}}
+                </div>
+              </div>
+              <div class="active-coll-actions">
+                <a href="/?tab=collections" class="btn-ghost active-coll-btn">
+                  &larr; All Collections
+                </a>
+                <a href="{{clearFilterURL $.Filter "group_id"}}" class="btn-ghost active-coll-exit" title="Clear collection filter">
+                  &#x2715; Exit Collection
+                </a>
+              </div>
+            </div>
+          {{end}}
+
+          <!-- Active Filters Bar -->
+          {{if .Filter.HasActiveFilters}}
+            <div class="active-filters-bar">
+              <span class="active-filters-label">Active Filters:</span>
+              {{if and .Filter.GroupID .ActiveGroup}}
+                <span class="active-filter-chip coll-chip">
+                  <span class="chip-label">&#128193; Collection:</span>
+                  <strong>{{.ActiveGroup.Name}}</strong>
+                  <a href="{{clearFilterURL $.Filter "group_id"}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              {{if .Filter.Category}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Category:</span>
+                  <strong>{{.Filter.Category}}</strong>
+                  <a href="{{clearFilterURL $.Filter "category"}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              {{if .Filter.Subcategory}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Subcategory:</span>
+                  <strong>{{.Filter.Subcategory}}</strong>
+                  <a href="{{clearFilterURL $.Filter "subcategory"}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              {{if .Filter.Query}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Search:</span>
+                  <strong>"{{.Filter.Query}}"</strong>
+                  <a href="{{clearFilterURL $.Filter "q"}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              {{if .Filter.Trigger}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Trigger:</span>
+                  <strong>{{.Filter.Trigger}}</strong>
+                  <a href="{{clearFilterURL $.Filter "trigger"}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              {{if .Filter.MinRating}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Rating:</span>
+                  <strong>★ {{.Filter.MinRating}}+</strong>
+                  <a href="{{clearFilterURL $.Filter "min_rating"}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              {{if .Filter.FavoritesOnly}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">♥ Favorites Only</span>
+                  <a href="{{clearFilterURL $.Filter "favorites"}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              {{if .Filter.Engine}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Engine:</span>
+                  <strong>{{.Filter.Engine}}</strong>
+                  <a href="{{clearFilterURL $.Filter "engine"}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              {{if .Filter.ModelName}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Model:</span>
+                  <strong>{{.Filter.ModelName}}</strong>
+                  <a href="{{clearFilterURL $.Filter "model"}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              {{if .Filter.MediaType}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Type:</span>
+                  <strong>{{.Filter.MediaType}}</strong>
+                  <a href="{{clearFilterURL $.Filter "media_type"}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              {{range .Filter.TagNames}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Tag:</span>
+                  <strong>#{{.}}</strong>
+                  <a href="{{filterWithoutTagURL $.Filter .}}" class="chip-remove" title="Remove filter">&times;</a>
+                </span>
+              {{end}}
+              <a href="/?reset=1" class="btn-clear-all-filters" title="Reset all filters">Clear All</a>
+            </div>
+          {{end}}
+
           <div class="results-bar">
             <div class="results-count">
-              Search Results <strong>{{.Page.TotalCount}}</strong> items
+              {{if .ActiveGroup}}
+                Collection <strong>{{.ActiveGroup.Name}}</strong> &bull; <strong>{{.Page.TotalCount}}</strong> items
+              {{else}}
+                Search Results <strong>{{.Page.TotalCount}}</strong> items
+              {{end}}
               {{if .Filter.FaceMode}}<span class="badge-chip character" style="margin-left:8px;">Face Explorer Mode</span>{{end}}
             </div>
             <div class="sort-tabs">

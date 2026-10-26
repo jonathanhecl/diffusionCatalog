@@ -305,3 +305,38 @@ func TestUpdateAndDeleteCollectionEndpoints(t *testing.T) {
 		}
 	}
 }
+
+func TestActiveCollectionBannerAndFilterIndicator(t *testing.T) {
+	server, repo, id1, _ := setupTestServer(t)
+	ctx := context.Background()
+	handler := server.Handler()
+
+	gid, err := repo.CreateGroup(ctx, &domain.Group{Name: "Astral Archivists", Description: "Ancient astronomical archives"})
+	if err != nil {
+		t.Fatalf("CreateGroup error: %v", err)
+	}
+	_ = repo.AttachAssetToGroup(ctx, gid, id1)
+
+	// Browse with ?group_id=...
+	req := httptest.NewRequest("GET", "/?group_id="+strconv.FormatInt(gid, 10), nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "active-collection-banner") {
+		t.Errorf("expected active-collection-banner to be rendered")
+	}
+	if !strings.Contains(body, "active-filters-bar") {
+		t.Errorf("expected active-filters-bar to be rendered")
+	}
+	if !strings.Contains(body, "Astral Archivists") {
+		t.Errorf("expected collection name 'Astral Archivists' in body")
+	}
+	if !strings.Contains(body, "Exit Collection") {
+		t.Errorf("expected 'Exit Collection' button in collection banner")
+	}
+}

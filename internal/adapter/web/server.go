@@ -287,6 +287,20 @@ func NewServer(
 		"filterWithTag": func(f domain.CatalogFilter, tag string) string {
 			return f.QueryWithTag(tag)
 		},
+		"clearFilterURL": func(f domain.CatalogFilter, field string) string {
+			q := f.QueryWithoutField(field)
+			if q == "" {
+				return "/"
+			}
+			return "/?" + q
+		},
+		"filterWithoutTagURL": func(f domain.CatalogFilter, tag string) string {
+			q := f.QueryWithoutTag(tag)
+			if q == "" {
+				return "/"
+			}
+			return "/?" + q
+		},
 		"add": func(a, b int) int {
 			return a + b
 		},
@@ -442,6 +456,7 @@ type viewData struct {
 	StudioCompositions   []domain.StudioComposition
 	StudioPoses          []domain.StudioPose
 	SelectedComposition  *domain.StudioComposition
+	ActiveGroup          *domain.Group
 }
 
 func (s *Server) handleServeMedia(w http.ResponseWriter, r *http.Request) {
@@ -631,6 +646,16 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		inputConcept = selectedAsset.Metadata.PositivePrompt
 	}
 
+	var activeGroup *domain.Group
+	if filter.GroupID > 0 && page != nil {
+		for i := range page.Groups {
+			if page.Groups[i].ID == filter.GroupID {
+				activeGroup = &page.Groups[i]
+				break
+			}
+		}
+	}
+
 	data := viewData{
 		ActiveTab:        tab,
 		MediaDir:         s.mediaDir,
@@ -660,6 +685,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		StudioCompositions:  studioCompositions,
 		StudioPoses:         studioPoses,
 		SelectedComposition: selectedComposition,
+		ActiveGroup:         activeGroup,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

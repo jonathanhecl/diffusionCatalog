@@ -140,6 +140,25 @@ func (f CatalogFilter) QueryWithPage(page int) string {
 	return v.Encode()
 }
 
+// QueryWithoutField returns a query string excluding the specified field.
+func (f CatalogFilter) QueryWithoutField(field string) string {
+	v := f.QueryValuesWithoutPage()
+	v.Del(field)
+	return v.Encode()
+}
+
+// QueryWithoutTag returns a query string excluding a specific tag.
+func (f CatalogFilter) QueryWithoutTag(tagToRemove string) string {
+	v := f.QueryValuesWithoutPage()
+	v.Del("tag")
+	for _, t := range f.TagNames {
+		if t != tagToRemove {
+			v.Add("tag", t)
+		}
+	}
+	return v.Encode()
+}
+
 // QueryWithTrigger returns a query string with the specified trigger word.
 func (f CatalogFilter) QueryWithTrigger(trigger string) string {
 	v := f.QueryValuesWithoutPage()
