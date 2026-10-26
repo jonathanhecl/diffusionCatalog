@@ -426,6 +426,7 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 
 type viewData struct {
 	ActiveTab         string
+	SettingsSection   string
 	MediaDir          string
 	CurrentDBPath     string
 	VisionEngineName  string
@@ -517,6 +518,24 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	if tab == "groups" {
 		tab = "collections"
+	}
+	if tab == "generators" {
+		q := r.URL.Query()
+		q.Set("tab", "settings")
+		if !q.Has("section") {
+			q.Set("section", "generators")
+		}
+		http.Redirect(w, r, "/?"+q.Encode(), http.StatusFound)
+		return
+	}
+
+	settingsSection := r.URL.Query().Get("section")
+	if settingsSection == "" {
+		if r.URL.Query().Get("gen") != "" {
+			settingsSection = "generators"
+		} else {
+			settingsSection = "providers"
+		}
 	}
 
 	// If opening the catalog grid directly with no query parameters, and a saved filter cookie exists,
@@ -662,6 +681,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 
 	data := viewData{
 		ActiveTab:        tab,
+		SettingsSection:  settingsSection,
 		MediaDir:         s.mediaDir,
 		CurrentDBPath:    s.catalog.CurrentDBPath(),
 		VisionEngineName: s.visionEngineName,
@@ -730,17 +750,17 @@ func (s *Server) handleSwitchDB(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	newPath := strings.TrimSpace(r.FormValue("db_path"))
 	if newPath == "" {
-		http.Redirect(w, r, "/?tab=settings&notice=Database+path+cannot+be+empty", http.StatusSeeOther)
+		http.Redirect(w, r, "/?tab=settings&section=db&notice=Database+path+cannot+be+empty", http.StatusSeeOther)
 		return
 	}
 	if err := s.catalog.SwitchDatabase(r.Context(), newPath); err != nil {
-		http.Redirect(w, r, "/?tab=settings&notice=Failed+to+switch+DB:+"+err.Error(), http.StatusSeeOther)
+		http.Redirect(w, r, "/?tab=settings&section=db&notice=Failed+to+switch+DB:+"+err.Error(), http.StatusSeeOther)
 		return
 	}
 	if r.FormValue("rescan") == "1" || r.FormValue("rescan") == "on" {
 		s.scanner.StartScanAsync()
 	}
-	http.Redirect(w, r, "/?tab=settings&notice=Switched+active+global+database+to+"+newPath, http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=settings&section=db&notice=Switched+active+global+database+to+"+newPath, http.StatusSeeOther)
 }
 
 func (s *Server) handleAddMediaRoot(w http.ResponseWriter, r *http.Request) {
@@ -757,7 +777,7 @@ func (s *Server) handleAddMediaRoot(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "added_and_scanning"})
 		return
 	}
-	http.Redirect(w, r, "/?tab=settings&notice=Media+folder+registered+and+scan+started", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=settings&section=folders&notice=Media+folder+registered+and+scan+started", http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteMediaRoot(w http.ResponseWriter, r *http.Request) {
@@ -766,7 +786,7 @@ func (s *Server) handleDeleteMediaRoot(w http.ResponseWriter, r *http.Request) {
 	if id > 0 {
 		_ = s.catalog.DeleteMediaRoot(r.Context(), id)
 	}
-	http.Redirect(w, r, "/?tab=settings&notice=Media+folder+removed+from+index", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=settings&section=folders&notice=Media+folder+removed+from+index", http.StatusSeeOther)
 }
 
 func (s *Server) handleUpsertDefaultCategory(w http.ResponseWriter, r *http.Request) {
@@ -778,7 +798,7 @@ func (s *Server) handleUpsertDefaultCategory(w http.ResponseWriter, r *http.Requ
 	if name != "" {
 		_, _ = s.catalog.UpsertDefaultCategory(r.Context(), name, facet, color, subs)
 	}
-	http.Redirect(w, r, "/?tab=settings&notice=Default+category+updated+and+synced+to+folder+manifests", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=settings&section=categories&notice=Default+category+updated+and+synced+to+folder+manifests", http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteDefaultCategory(w http.ResponseWriter, r *http.Request) {
@@ -787,7 +807,7 @@ func (s *Server) handleDeleteDefaultCategory(w http.ResponseWriter, r *http.Requ
 	if id > 0 {
 		_ = s.catalog.DeleteDefaultCategory(r.Context(), id)
 	}
-	http.Redirect(w, r, "/?tab=settings&notice=Default+category+deleted", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=settings&section=categories&notice=Default+category+deleted", http.StatusSeeOther)
 }
 
 func (s *Server) handleSetAssetCategory(w http.ResponseWriter, r *http.Request) {
@@ -976,7 +996,7 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		Text2PromptThink:     openaiDefThink,
 	}
 	_ = s.catalog.SaveSettings(r.Context(), cfg)
-	http.Redirect(w, r, "/?tab=settings&notice=Settings+saved+successfully", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=settings&section=providers&notice=Settings+saved+successfully", http.StatusSeeOther)
 }
 
 func (s *Server) handleUpsertProfile(w http.ResponseWriter, r *http.Request) {
@@ -991,7 +1011,7 @@ func (s *Server) handleUpsertProfile(w http.ResponseWriter, r *http.Request) {
 	if p.Name != "" && p.SystemPrompt != "" {
 		_, _ = s.catalog.UpsertPromptProfile(r.Context(), p)
 	}
-	http.Redirect(w, r, "/?tab=generators&gen="+p.Slug+"&notice=Generator+model+profile+saved", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=settings&section=generators&gen="+p.Slug+"&notice=Generator+model+profile+saved", http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteProfile(w http.ResponseWriter, r *http.Request) {
@@ -1000,7 +1020,7 @@ func (s *Server) handleDeleteProfile(w http.ResponseWriter, r *http.Request) {
 	if id > 0 {
 		_ = s.catalog.DeletePromptProfile(r.Context(), id)
 	}
-	http.Redirect(w, r, "/?tab=generators&notice=Generator+model+deleted", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=settings&section=generators&notice=Generator+model+deleted", http.StatusSeeOther)
 }
 
 func (s *Server) handleUpsertLoRA(w http.ResponseWriter, r *http.Request) {
@@ -1017,7 +1037,7 @@ func (s *Server) handleUpsertLoRA(w http.ResponseWriter, r *http.Request) {
 	if l.ProfileSlug != "" && l.Name != "" {
 		_, _ = s.catalog.UpsertModelLoRA(r.Context(), l)
 	}
-	http.Redirect(w, r, "/?tab=generators&gen="+l.ProfileSlug+"&notice=LoRA+documentation+saved", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=settings&section=generators&gen="+l.ProfileSlug+"&notice=LoRA+documentation+saved", http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteLoRA(w http.ResponseWriter, r *http.Request) {
@@ -1027,7 +1047,7 @@ func (s *Server) handleDeleteLoRA(w http.ResponseWriter, r *http.Request) {
 	if id > 0 {
 		_ = s.catalog.DeleteModelLoRA(r.Context(), id)
 	}
-	http.Redirect(w, r, "/?tab=generators&gen="+genSlug+"&notice=LoRA+deleted", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=settings&section=generators&gen="+genSlug+"&notice=LoRA+deleted", http.StatusSeeOther)
 }
 
 func parseLoRAIDs(vals []string) []int64 {

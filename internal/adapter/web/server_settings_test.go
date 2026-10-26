@@ -120,3 +120,89 @@ func TestSimplifiedLLMSettingsWorkflow(t *testing.T) {
 		t.Errorf("expected 'Vision Required 👁️' note in model selectors")
 	}
 }
+
+func TestSettingsVerticalNavbarAndSystemPrompts(t *testing.T) {
+	server, repo, _, _ := setupTestServer(t)
+	handler := server.Handler()
+	ctx := context.Background()
+
+	// 1. /?tab=generators redirects directly to /?tab=settings&section=generators
+	reqGen := httptest.NewRequest("GET", "/?tab=generators&gen=flux", nil)
+	wGen := httptest.NewRecorder()
+	handler.ServeHTTP(wGen, reqGen)
+	if wGen.Code != http.StatusFound {
+		t.Fatalf("expected redirect 302 from /?tab=generators, got %d", wGen.Code)
+	}
+	loc := wGen.Header().Get("Location")
+	if !strings.Contains(loc, "tab=settings") || !strings.Contains(loc, "section=generators") {
+		t.Errorf("expected location to redirect to tab=settings&section=generators, got %q", loc)
+	}
+
+	// 2. /?tab=settings renders vertical navigation sidebar
+	reqSettings := httptest.NewRequest("GET", "/?tab=settings", nil)
+	wSettings := httptest.NewRecorder()
+	handler.ServeHTTP(wSettings, reqSettings)
+	if wSettings.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for /?tab=settings, got %d", wSettings.Code)
+	}
+	settingsBody := wSettings.Body.String()
+	if !strings.Contains(settingsBody, "AI &amp; ROUTING") {
+		t.Errorf("expected 'AI & ROUTING' in settings vertical navbar")
+	}
+	if !strings.Contains(settingsBody, "SYSTEM PROMPTS") {
+		t.Errorf("expected 'SYSTEM PROMPTS' in settings vertical navbar")
+	}
+	if !strings.Contains(settingsBody, "STORAGE &amp; DATA") {
+		t.Errorf("expected 'STORAGE & DATA' in settings vertical navbar")
+	}
+	if !strings.Contains(settingsBody, "+ Add New System Prompt") {
+		t.Errorf("expected '+ Add New System Prompt' in settings vertical navbar")
+	}
+
+	// 3. Upsert a new system prompt profile
+	formProfile := url.Values{
+		"slug":            {"wan21"},
+		"name":            {"Wan 2.1 Video"},
+		"target_modality": {"video"},
+		"description":     {"Wan video diffusion model family"},
+		"system_prompt":   {"You are an expert prompt engineer for Wan 2.1 video generation."},
+	}
+	reqUpsert := httptest.NewRequest("POST", "/admin/profiles/upsert", strings.NewReader(formProfile.Encode()))
+	reqUpsert.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	wUpsert := httptest.NewRecorder()
+	handler.ServeHTTP(wUpsert, reqUpsert)
+	if wUpsert.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect after profile upsert, got %d", wUpsert.Code)
+	}
+	upsertLoc := wUpsert.Header().Get("Location")
+	if !strings.Contains(upsertLoc, "tab=settings") || !strings.Contains(upsertLoc, "section=generators") || !strings.Contains(upsertLoc, "gen=wan21") {
+		t.Errorf("expected upsert redirect to settings generators section, got %q", upsertLoc)
+	}
+
+	// 4. Verify persisted in DB
+	prof, err := repo.GetPromptProfileBySlug(ctx, "wan21")
+	if err != nil || prof == nil {
+		t.Fatalf("expected profile wan21 to exist in repo, err: %v", err)
+	}
+	if prof.SystemPrompt != "You are an expert prompt engineer for Wan 2.1 video generation." {
+		t.Errorf("unexpected system prompt: %q", prof.SystemPrompt)
+	}
+
+	// 5. GET /?tab=settings&section=generators&gen=wan21 renders system prompt and file loader button
+	reqGenView := httptest.NewRequest("GET", "/?tab=settings&section=generators&gen=wan21", nil)
+	wGenView := httptest.NewRecorder()
+	handler.ServeHTTP(wGenView, reqGenView)
+	if wGenView.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for generators view in settings, got %d", wGenView.Code)
+	}
+	genViewBody := wGenView.Body.String()
+	if !strings.Contains(genViewBody, "Wan 2.1 Video") {
+		t.Errorf("expected 'Wan 2.1 Video' in view body")
+	}
+	if !strings.Contains(genViewBody, "Load from .txt / .md") {
+		t.Errorf("expected 'Load from .txt / .md' button in system prompt editor")
+	}
+	if !strings.Contains(genViewBody, "You are an expert prompt engineer for Wan 2.1 video generation.") {
+		t.Errorf("expected system prompt content in textarea")
+	}
+}

@@ -184,10 +184,7 @@
       <a href="/?face_mode=1" class="nav-tab {{if eq .ActiveTab "faces"}}active{{end}}">
         <span class="tab-icon">&#128269;</span> Faces
       </a>
-      <a href="/?tab=generators" class="nav-tab {{if eq .ActiveTab "generators"}}active{{end}}">
-        <span class="tab-icon">&#9889;</span> Generators{{if gt (len .PromptProfiles) 0}} <span class="tab-badge">{{len .PromptProfiles}}</span>{{end}}
-      </a>
-      <a href="/?tab=settings" class="nav-tab {{if eq .ActiveTab "settings"}}active{{end}}">
+      <a href="/?tab=settings" class="nav-tab {{if or (eq .ActiveTab "settings") (eq .ActiveTab "generators")}}active{{end}}">
         <span class="tab-icon">&#9881;</span> Settings
       </a>
     </div>
@@ -212,12 +209,9 @@
         {{else if or (eq .ActiveTab "collections") (eq .ActiveTab "groups")}}
           <h1 class="hero-title">&#128193; <span class="highlight">Collections</span></h1>
           <p class="hero-sub">Organize and browse your media in curated visual collections.</p>
-    {{else if eq .ActiveTab "generators"}}
-          <h1 class="hero-title">Target <span class="highlight">Generator Models, System Prompts &amp; LoRAs</span></h1>
-          <p class="hero-sub">Manage diffusion/video model families (Flux, Krea 2, Qwen-Image, MOSS, MiniMax H3), their generation context prompts, and their dedicated LoRAs.</p>
-        {{else if eq .ActiveTab "settings"}}
-          <h1 class="hero-title">Application <span class="highlight">Settings &amp; AI Server Routing</span></h1>
-          <p class="hero-sub">Configure local or remote Ollama and OpenAI-compatible endpoints and select which LLM/Vision models handle Vision, Image2Prompt, and Text2Prompt.</p>
+        {{else if or (eq .ActiveTab "settings") (eq .ActiveTab "generators")}}
+          <h1 class="hero-title">Application <span class="highlight">Settings &amp; System Prompts</span></h1>
+          <p class="hero-sub">Configure AI server providers, target generator system prompts &amp; LoRAs, media folders, and SQLite databases.</p>
         {{else}}
           {{if .ActiveGroup}}
             <h1 class="hero-title">&#128193; Collection: <span class="highlight">{{.ActiveGroup.Name}}</span></h1>
@@ -3775,553 +3769,613 @@
 </script>
 
 
-    {{else if eq .ActiveTab "generators"}}
-      <!-- Dedicated Section: Generator Models, Generation/Context System Prompts & Model-Specific LoRAs -->
-      <div class="catalog-layout" style="grid-template-columns: 270px 1fr; margin-top: 10px;">
-        <!-- Left Sidebar: Target Generator Model Families -->
-        <aside class="sidebar">
-          <div class="facet-title" style="margin-bottom:10px;">
-            <span>TARGET GENERATOR MODELS</span>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
-            {{range .PromptProfiles}}
-              <a href="/?tab=generators&amp;gen={{.Slug}}" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:5px;border:1px solid {{if eq $.SelectedGenSlug .Slug}}#257bf0{{else}}var(--border-navy){{end}};background:{{if eq $.SelectedGenSlug .Slug}}rgba(22,104,220,0.22){{else}}#060d1b{{end}};">
-                <div>
-                  <div style="font-weight:700;color:#fff;font-size:13px;">{{.Name}}</div>
-                  <div style="font-size:11px;color:var(--text-muted);">Slug: <code>{{.Slug}}</code></div>
-                </div>
-                <span class="badge-chip {{if eq .TargetModality "video"}}character{{end}}">{{.TargetModality}}</span>
+
+
+    {{else if or (eq .ActiveTab "settings") (eq .ActiveTab "generators")}}
+      <!-- Unified Settings Workspace with Vertical Navbar -->
+      <div class="catalog-layout" style="grid-template-columns: 260px 1fr; margin-top: 14px; gap: 20px;">
+        
+        <!-- Left Vertical Navigation Bar -->
+        <aside class="sidebar" style="display:flex;flex-direction:column;gap:18px;">
+          <!-- 1. AI Routing -->
+          <div>
+            <div class="facet-title" style="margin-bottom:8px;">
+              <span>AI &amp; ROUTING</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <a href="/?tab=settings&amp;section=providers" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:5px;font-size:13px;font-weight:600;text-decoration:none;border:1px solid {{if or (eq .SettingsSection "providers") (not .SettingsSection)}}#257bf0{{else}}var(--border-navy){{end}};background:{{if or (eq .SettingsSection "providers") (not .SettingsSection)}}rgba(22,104,220,0.22){{else}}#060d1b{{end}};color:{{if or (eq .SettingsSection "providers") (not .SettingsSection)}}#93c5fd{{else}}#e2e8f0{{end}};">
+                <span>🌐</span>
+                <span>AI Providers &amp; Defaults</span>
               </a>
-            {{end}}
+            </div>
           </div>
-          <a href="/?tab=generators&amp;gen=__new__" class="btn-primary" style="display:block;text-align:center;width:100%;">
-            + Add New Generator Model
-          </a>
+
+          <!-- 2. Target Generator Models & System Prompts (The vertical navbar requested by user!) -->
+          <div>
+            <div class="facet-title" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+              <span>SYSTEM PROMPTS</span>
+              <span class="badge-chip" style="font-size:10px;">{{len .PromptProfiles}}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px;">
+              {{range .PromptProfiles}}
+                <a href="/?tab=settings&amp;section=generators&amp;gen={{.Slug}}" style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:5px;text-decoration:none;border:1px solid {{if and (eq $.SettingsSection "generators") (eq $.SelectedGenSlug .Slug)}}#257bf0{{else}}var(--border-navy){{end}};background:{{if and (eq $.SettingsSection "generators") (eq $.SelectedGenSlug .Slug)}}rgba(22,104,220,0.22){{else}}#060d1b{{end}};">
+                  <div>
+                    <div style="font-weight:600;color:#fff;font-size:12.5px;">{{.Name}}</div>
+                    <div style="font-size:10.5px;color:var(--text-muted);">Slug: <code>{{.Slug}}</code></div>
+                  </div>
+                  <span class="badge-chip {{if eq .TargetModality "video"}}character{{end}}" style="font-size:10px;padding:1px 6px;">{{.TargetModality}}</span>
+                </a>
+              {{end}}
+            </div>
+            <a href="/?tab=settings&amp;section=generators&amp;gen=__new__" class="btn-primary" style="display:block;text-align:center;width:100%;font-size:12px;padding:6px 10px;text-decoration:none;{{if and (eq .SettingsSection "generators") (eq .SelectedGenSlug "__new__")}}box-shadow:0 0 0 2px #38bdf8;{{end}}">
+              + Add New System Prompt
+            </a>
+          </div>
+
+          <!-- 3. Storage & System Data -->
+          <div>
+            <div class="facet-title" style="margin-bottom:8px;">
+              <span>STORAGE &amp; DATA</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <a href="/?tab=settings&amp;section=folders" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:5px;font-size:12.5px;text-decoration:none;border:1px solid {{if eq .SettingsSection "folders"}}#257bf0{{else}}var(--border-navy){{end}};background:{{if eq .SettingsSection "folders"}}rgba(22,104,220,0.22){{else}}#060d1b{{end}};color:{{if eq .SettingsSection "folders"}}#93c5fd{{else}}#e2e8f0{{end}};">
+                <span>📁</span>
+                <span>Media Folders</span>
+              </a>
+              <a href="/?tab=settings&amp;section=categories" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:5px;font-size:12.5px;text-decoration:none;border:1px solid {{if eq .SettingsSection "categories"}}#257bf0{{else}}var(--border-navy){{end}};background:{{if eq .SettingsSection "categories"}}rgba(22,104,220,0.22){{else}}#060d1b{{end}};color:{{if eq .SettingsSection "categories"}}#93c5fd{{else}}#e2e8f0{{end}};">
+                <span>🏷️</span>
+                <span>Default Categories</span>
+              </a>
+              <a href="/?tab=settings&amp;section=db" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:5px;font-size:12.5px;text-decoration:none;border:1px solid {{if eq .SettingsSection "db"}}#257bf0{{else}}var(--border-navy){{end}};background:{{if eq .SettingsSection "db"}}rgba(22,104,220,0.22){{else}}#060d1b{{end}};color:{{if eq .SettingsSection "db"}}#93c5fd{{else}}#e2e8f0{{end}};">
+                <span>💾</span>
+                <span>SQLite Database</span>
+              </a>
+            </div>
+          </div>
         </aside>
 
-        <!-- Right Workspace: Selected Model's System Prompt + Its LoRAs -->
+        <!-- Right Workspace for Selected Section -->
         <section style="display:flex;flex-direction:column;gap:20px;">
-          {{if or (eq .SelectedGenSlug "__new__") (not .SelectedProfile)}}
-            <div style="background:var(--bg-panel);border:1px solid var(--border-highlight);border-radius:6px;padding:20px;">
-              <h2 style="font-size:18px;margin-bottom:6px;">Create New Target Generator Model Family</h2>
-              <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
-                Register a new diffusion image or video generator (e.g. <code>wan21</code>, <code>kling-v2</code>, <code>hidream</code>, <code>flux-kontext</code>) and define the System Prompt / Context Instructions that Ollama or oMLX will use when crafting prompts for it.
-              </p>
-              <form action="/admin/profiles/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;">
-                <div style="display:grid;grid-template-columns:180px 260px 180px 1fr;gap:10px;">
-                  <div>
-                    <label class="kv-label">Model Slug ID</label>
-                    <input type="text" name="slug" placeholder="e.g. wan21" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+          {{if eq .SettingsSection "generators"}}
+            {{if or (eq .SelectedGenSlug "__new__") (not .SelectedProfile)}}
+              <div style="background:var(--bg-panel);border:1px solid var(--border-highlight);border-radius:6px;padding:20px;">
+                <h2 style="font-size:18px;margin-bottom:6px;">Create New Target Generator Model Family</h2>
+                <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
+                  Register a new diffusion image or video generator (e.g. <code>wan21</code>, <code>kling-v2</code>, <code>hidream</code>, <code>flux-kontext</code>) and define the System Prompt / Context Instructions that Ollama or oMLX will use when crafting prompts for it.
+                </p>
+                <form action="/admin/profiles/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;">
+                  <div style="display:grid;grid-template-columns:180px 260px 180px 1fr;gap:10px;">
+                    <div>
+                      <label class="kv-label">Model Slug ID</label>
+                      <input type="text" name="slug" placeholder="e.g. wan21" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Display Name</label>
+                      <input type="text" name="name" placeholder="e.g. Wan 2.1 Video" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Target Modality</label>
+                      <select name="target_modality" class="input-dark">
+                        <option value="image">Image Generator</option>
+                        <option value="video">Video Generator</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="kv-label">Short Description</label>
+                      <input type="text" name="description" placeholder="Architecture &amp; token style notes..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    </div>
                   </div>
                   <div>
-                    <label class="kv-label">Display Name</label>
-                    <input type="text" name="name" placeholder="e.g. Wan 2.1 Video" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                      <label class="kv-label" style="margin-bottom:0;">Generation / Context System Prompt</label>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <input type="file" class="sysprompt-file-picker" accept=".txt,.md,text/plain,text/markdown" style="display:none;" onchange="loadSystemPromptFile(this)">
+                        <button type="button" class="btn-ghost" style="font-size:11.5px;padding:3px 9px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" onclick="this.previousElementSibling.click()" title="Load system prompt text from a local .txt or .md file">
+                          &#128194; Load from .txt / .md
+                        </button>
+                      </div>
+                    </div>
+                    <textarea name="system_prompt" rows="8" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:12.5px;line-height:1.45;" placeholder="You are an expert prompt engineer for this model. Explain how prompts must be structured..." required></textarea>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                      Tip: You can also drag and drop a <code>.txt</code> or <code>.md</code> file directly onto this textarea.
+                    </div>
                   </div>
                   <div>
-                    <label class="kv-label">Target Modality</label>
-                    <select name="target_modality" class="input-dark">
-                      <option value="image">Image Generator</option>
-                      <option value="video">Video Generator</option>
-                    </select>
+                    <button type="submit" class="btn-primary">Create Generator Model</button>
+                  </div>
+                </form>
+              </div>
+            {{else}}
+              <!-- Selected Model Configuration & System Prompt -->
+              <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <div>
+                    <h2 style="font-size:19px;color:#fff;">{{.SelectedProfile.Name}} <span class="badge-chip" style="margin-left:6px;">{{.SelectedProfile.Slug}} ({{.SelectedProfile.TargetModality}})</span></h2>
+                    <p style="color:var(--text-muted);font-size:12px;">Configure the Generation &amp; Context System Prompt used when generating prompts for <strong>{{.SelectedProfile.Name}}</strong>.</p>
+                  </div>
+                  <form action="/admin/profiles/delete" method="POST" autocomplete="off">
+                    <input type="hidden" name="id" value="{{.SelectedProfile.ID}}">
+                    <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;">Delete Model Family</button>
+                  </form>
+                </div>
+
+                <form action="/admin/profiles/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;">
+                  <div style="display:grid;grid-template-columns:160px 240px 160px 1fr;gap:10px;">
+                    <div>
+                      <label class="kv-label">Slug ID</label>
+                      <input type="text" name="slug" value="{{.SelectedProfile.Slug}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Display Name</label>
+                      <input type="text" name="name" value="{{.SelectedProfile.Name}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Modality</label>
+                      <select name="target_modality" class="input-dark">
+                        <option value="image" {{if eq .SelectedProfile.TargetModality "image"}}selected{{end}}>Image Generator</option>
+                        <option value="video" {{if eq .SelectedProfile.TargetModality "video"}}selected{{end}}>Video Generator</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="kv-label">Short Description</label>
+                      <input type="text" name="description" value="{{.SelectedProfile.Description}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    </div>
                   </div>
                   <div>
-                    <label class="kv-label">Short Description</label>
-                    <input type="text" name="description" placeholder="Architecture &amp; token style notes..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                      <label class="kv-label" style="margin-bottom:0;">Generation / Context System Prompt (Sent to Ollama / oMLX)</label>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <input type="file" class="sysprompt-file-picker" accept=".txt,.md,text/plain,text/markdown" style="display:none;" onchange="loadSystemPromptFile(this)">
+                        <button type="button" class="btn-ghost" style="font-size:11.5px;padding:3px 9px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" onclick="this.previousElementSibling.click()" title="Load system prompt text from a local .txt or .md file">
+                          &#128194; Load from .txt / .md
+                        </button>
+                      </div>
+                    </div>
+                    <textarea name="system_prompt" rows="8" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:12.5px;line-height:1.45;" required>{{.SelectedProfile.SystemPrompt}}</textarea>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                      Tip: You can also drag and drop a <code>.txt</code> or <code>.md</code> file directly onto this textarea.
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label class="kv-label">Generation / Context System Prompt</label>
-                  <textarea name="system_prompt" rows="5" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:12px;" placeholder="You are an expert prompt engineer for this model. Explain how prompts must be structured..." required></textarea>
-                </div>
-                <div>
-                  <button type="submit" class="btn-primary">Create Generator Model</button>
-                </div>
-              </form>
-            </div>
-          {{else}}
-            <!-- 1. Selected Model Configuration & System Prompt -->
-            <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <div>
-                  <h2 style="font-size:19px;color:#fff;">{{.SelectedProfile.Name}} <span class="badge-chip" style="margin-left:6px;">{{.SelectedProfile.Slug}} ({{.SelectedProfile.TargetModality}})</span></h2>
-                  <p style="color:var(--text-muted);font-size:12px;">Configure the Generation &amp; Context System Prompt used when generating prompts for <strong>{{.SelectedProfile.Name}}</strong>.</p>
-                </div>
-                <form action="/admin/profiles/delete" method="POST" autocomplete="off">
-                  <input type="hidden" name="id" value="{{.SelectedProfile.ID}}">
-                  <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;">Delete Model Family</button>
+                  <div>
+                    <button type="submit" class="btn-primary">Save '{{.SelectedProfile.Name}}' System Prompt</button>
+                  </div>
                 </form>
               </div>
 
-              <form action="/admin/profiles/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;">
-                <div style="display:grid;grid-template-columns:160px 240px 160px 1fr;gap:10px;">
-                  <div>
-                    <label class="kv-label">Slug ID</label>
-                    <input type="text" name="slug" value="{{.SelectedProfile.Slug}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-                  </div>
-                  <div>
-                    <label class="kv-label">Display Name</label>
-                    <input type="text" name="name" value="{{.SelectedProfile.Name}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-                  </div>
-                  <div>
-                    <label class="kv-label">Modality</label>
-                    <select name="target_modality" class="input-dark">
-                      <option value="image" {{if eq .SelectedProfile.TargetModality "image"}}selected{{end}}>Image Generator</option>
-                      <option value="video" {{if eq .SelectedProfile.TargetModality "video"}}selected{{end}}>Video Generator</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="kv-label">Short Description</label>
-                    <input type="text" name="description" value="{{.SelectedProfile.Description}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                  </div>
-                </div>
-                <div>
-                  <label class="kv-label">Generation / Context System Prompt (Sent to Ollama / oMLX)</label>
-                  <textarea name="system_prompt" rows="5" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:12.5px;" required>{{.SelectedProfile.SystemPrompt}}</textarea>
-                </div>
-                <div>
-                  <button type="submit" class="btn-primary">Save '{{.SelectedProfile.Name}}' System Prompt</button>
-                </div>
-              </form>
-            </div>
+              <!-- LoRAs Belonging to This Generator Model -->
+              <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+                <h3 style="font-size:17px;margin-bottom:4px;">LoRAs for {{.SelectedProfile.Name}} (<code>{{.SelectedProfile.Slug}}</code>)</h3>
+                <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
+                  Document LoRAs specific to <strong>{{.SelectedProfile.Name}}</strong>: what each LoRA does, whether it requires trigger words or is triggerless, its syntax tag, and concrete usage examples.
+                </p>
 
-            <!-- 2. LoRAs Belonging to This Generator Model -->
+                <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+                  {{range .ModelLoRAs}}
+                    {{if eq .ProfileSlug $.SelectedProfile.Slug}}
+                      <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:14px;">
+                        <form action="/admin/loras/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:8px;">
+                          <input type="hidden" name="profile_slug" value="{{.ProfileSlug}}">
+                          <div style="display:grid;grid-template-columns:1fr 240px 110px;gap:10px;">
+                            <div>
+                              <label class="kv-label">LoRA Name</label>
+                              <input type="text" name="name" value="{{.Name}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                            </div>
+                            <div>
+                              <label class="kv-label">Syntax / Weight Tag</label>
+                              <input type="text" name="syntax_tag" value="{{.SyntaxTag}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="&lt;lora:name:0.8&gt;">
+                            </div>
+                            <div>
+                              <label class="kv-label">Rec. Weight</label>
+                              <input type="text" name="recommended_weight" value="{{.RecommendedWeight}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                            </div>
+                          </div>
+                          <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+                            <div>
+                              <label class="kv-label">Trigger Words (Leave blank if triggerless)</label>
+                              <input type="text" name="trigger_words" value="{{.TriggerWords}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="None (triggerless)">
+                            </div>
+                            <div>
+                              <label class="kv-label">Purpose &amp; Behavior (What is this LoRA for?)</label>
+                              <input type="text" name="description" value="{{.Description}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                            </div>
+                          </div>
+                          <div>
+                            <label class="kv-label">Usage Examples (Few-shot example prompts for {{$.SelectedProfile.Name}})</label>
+                            <textarea name="usage_examples" rows="2" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:11.5px;">{{.UsageExamples}}</textarea>
+                          </div>
+                          <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <button type="submit" class="btn-primary" style="padding:5px 14px;font-size:12px;">Update LoRA</button>
+                          </div>
+                        </form>
+                        <form action="/admin/loras/delete" method="POST" autocomplete="off" style="margin-top:4px;text-align:right;">
+                          <input type="hidden" name="id" value="{{.ID}}">
+                          <input type="hidden" name="profile_slug" value="{{.ProfileSlug}}">
+                          <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:3px 10px;font-size:11px;">Delete LoRA</button>
+                        </form>
+                      </div>
+                    {{end}}
+                  {{end}}
+                </div>
+
+                <!-- Add New LoRA to Selected Model -->
+                <div style="background:#071124;border:1px dashed var(--border-highlight);border-radius:6px;padding:16px;">
+                  <h4 style="font-size:14px;margin-bottom:10px;color:#93c5fd;">+ Add New LoRA for {{.SelectedProfile.Name}} (<code>{{.SelectedProfile.Slug}}</code>)</h4>
+                  <form action="/admin/loras/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:10px;">
+                    <input type="hidden" name="profile_slug" value="{{.SelectedProfile.Slug}}">
+                    <div style="display:grid;grid-template-columns:1fr 240px 110px;gap:10px;">
+                      <input type="text" name="name" placeholder="LoRA Name (e.g. Anamorphic 70mm Flare)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                      <input type="text" name="syntax_tag" placeholder="Syntax tag (e.g. &lt;lora:my_lora:0.8&gt;)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                      <input type="text" name="recommended_weight" value="0.8" placeholder="Weight" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+                      <input type="text" name="trigger_words" placeholder="Trigger words (leave blank if triggerless)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                      <input type="text" name="description" placeholder="Explain what this LoRA does and how it behaves on {{.SelectedProfile.Name}}..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    </div>
+                    <textarea name="usage_examples" rows="3" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Paste 1 or more example prompts showing how this LoRA is used in {{.SelectedProfile.Name}}..."></textarea>
+                    <div>
+                      <button type="submit" class="btn-primary">Add LoRA to {{.SelectedProfile.Name}}</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            {{end}}
+          {{else if eq .SettingsSection "folders"}}
+            <!-- Media Folders Across Disks & Volumes -->
             <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-              <h3 style="font-size:17px;margin-bottom:4px;">LoRAs for {{.SelectedProfile.Name}} (<code>{{.SelectedProfile.Slug}}</code>)</h3>
+              <h2 style="font-size:18px;margin-bottom:4px;">Media Folders Across Disks &amp; Volumes (<code>.txt</code> Sidecar Prompts)</h2>
               <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
-                Document LoRAs specific to <strong>{{.SelectedProfile.Name}}</strong>: what each LoRA does, whether it requires trigger words or is triggerless, its syntax tag, and concrete usage examples.
+                Register multiple folders across local drives or external volumes. Each accessible folder is scanned and indexed directly into the database, loading companion <code>&lt;filename&gt;.txt</code> prompt sidecars automatically.
               </p>
 
-              <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
-                {{range .ModelLoRAs}}
-                  {{if eq .ProfileSlug $.SelectedProfile.Slug}}
-                    <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:14px;">
-                      <form action="/admin/loras/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:8px;">
-                        <input type="hidden" name="profile_slug" value="{{.ProfileSlug}}">
-                        <div style="display:grid;grid-template-columns:1fr 240px 110px;gap:10px;">
-                          <div>
-                            <label class="kv-label">LoRA Name</label>
-                            <input type="text" name="name" value="{{.Name}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-                          </div>
-                          <div>
-                            <label class="kv-label">Syntax / Weight Tag</label>
-                            <input type="text" name="syntax_tag" value="{{.SyntaxTag}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="<lora:name:0.8>">
-                          </div>
-                          <div>
-                            <label class="kv-label">Rec. Weight</label>
-                            <input type="text" name="recommended_weight" value="{{.RecommendedWeight}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                          </div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+                {{range .Page.MediaRoots}}
+                  <div style="display:flex;justify-content:space-between;align-items:center;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:10px 14px;gap:10px;flex-wrap:wrap;">
+                    <div>
+                      <div style="font-weight:700;color:#fff;font-size:13px;">
+                        {{.Label}}
+                        {{if .Accessible}}
+                          <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;margin-left:6px;">Accessible ({{.AssetCount}} assets)</span>
+                        {{else}}
+                          <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;margin-left:6px;">Offline / Unmounted</span>
+                        {{end}}
+                      </div>
+                      <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
+                        Path: <code>{{.Path}}</code>
+                      </div>
+                      {{if .Categories}}
+                        <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:5px;">
+                          {{range .Categories}}
+                            <span class="badge-chip" style="font-size:10.5px;">{{.Name}}{{if .Subcategories}}: {{joinStrings .Subcategories}}{{end}}</span>
+                          {{end}}
                         </div>
-                        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
-                          <div>
-                            <label class="kv-label">Trigger Words (Leave blank if triggerless)</label>
-                            <input type="text" name="trigger_words" value="{{.TriggerWords}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="None (triggerless)">
-                          </div>
-                          <div>
-                            <label class="kv-label">Purpose &amp; Behavior (What is this LoRA for?)</label>
-                            <input type="text" name="description" value="{{.Description}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-                          </div>
-                        </div>
-                        <div>
-                          <label class="kv-label">Usage Examples (Few-shot example prompts for {{$.SelectedProfile.Name}})</label>
-                          <textarea name="usage_examples" rows="2" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:11.5px;">{{.UsageExamples}}</textarea>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;">
-                          <button type="submit" class="btn-primary" style="padding:5px 14px;font-size:12px;">Update LoRA</button>
-                        </div>
-                      </form>
-                      <form action="/admin/loras/delete" method="POST" autocomplete="off" style="margin-top:4px;text-align:right;">
-                        <input type="hidden" name="id" value="{{.ID}}">
-                        <input type="hidden" name="profile_slug" value="{{.ProfileSlug}}">
-                        <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:3px 10px;font-size:11px;">Delete LoRA</button>
-                      </form>
+                      {{end}}
                     </div>
-                  {{end}}
+                    <div style="display:flex;gap:8px;align-items:center;">
+                      <a href="/?root_id={{.ID}}" class="btn-ghost" style="font-size:11.5px;padding:4px 10px;">Filter Catalog</a>
+                      {{if gt .ID 1}}
+                        <form action="/admin/roots/delete" method="POST" autocomplete="off" style="display:inline;">
+                          <input type="hidden" name="id" value="{{.ID}}">
+                          <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;font-size:11.5px;padding:4px 10px;">Remove Folder</button>
+                        </form>
+                      {{end}}
+                    </div>
+                  </div>
                 {{end}}
               </div>
 
-              <!-- Add New LoRA to Selected Model -->
-              <div style="background:#071124;border:1px dashed var(--border-highlight);border-radius:6px;padding:16px;">
-                <h4 style="font-size:14px;margin-bottom:10px;color:#93c5fd;">+ Add New LoRA for {{.SelectedProfile.Name}} (<code>{{.SelectedProfile.Slug}}</code>)</h4>
-                <form action="/admin/loras/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:10px;">
-                  <input type="hidden" name="profile_slug" value="{{.SelectedProfile.Slug}}">
-                  <div style="display:grid;grid-template-columns:1fr 240px 110px;gap:10px;">
-                    <input type="text" name="name" placeholder="LoRA Name (e.g. Anamorphic 70mm Flare)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-                    <input type="text" name="syntax_tag" placeholder="Syntax tag (e.g. <lora:my_lora:0.8>)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                    <input type="text" name="recommended_weight" value="0.8" placeholder="Weight" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+              <form action="/admin/roots/add" method="POST" autocomplete="off" style="display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:center;">
+                <input type="text" name="label" placeholder="Folder / Disk Label (e.g. External SSD Flux)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <input type="text" name="path" placeholder="Absolute or relative folder path (e.g. /Volumes/AI_Drive/outputs or ./media_extra)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                <button type="submit" class="btn-primary">+ Add Media Folder</button>
+              </form>
+            </div>
+          {{else if eq .SettingsSection "categories"}}
+            <!-- Global Default Agnostic Categories & Subcategories -->
+            <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+              <h2 style="font-size:18px;margin-bottom:4px;">Global Default Agnostic Categories &amp; Subcategories</h2>
+              <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
+                Stored in the global database and used for tag autocompletion and category filters.
+              </p>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                {{range .Page.DefaultCategories}}
+                  <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:10px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                    <div>
+                      <div style="font-weight:700;color:#fff;font-size:13px;">{{.Name}} <span class="badge-chip" style="margin-left:4px;">{{.Facet}}</span></div>
+                      <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
+                        Subcategories: <code>{{if .Subcategories}}{{joinStrings .Subcategories}}{{else}}(none){{end}}</code>
+                      </div>
+                    </div>
+                    <form action="/admin/categories/delete" method="POST" autocomplete="off">
+                      <input type="hidden" name="id" value="{{.ID}}">
+                      <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:2px 8px;font-size:11px;">Delete</button>
+                    </form>
                   </div>
-                  <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
-                    <input type="text" name="trigger_words" placeholder="Trigger words (leave blank if triggerless)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                    <input type="text" name="description" placeholder="Explain what this LoRA does and how it behaves on {{.SelectedProfile.Name}}..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-                  </div>
-                  <textarea name="usage_examples" rows="3" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Paste 1 or more example prompts showing how this LoRA is used in {{.SelectedProfile.Name}}..."></textarea>
-                  <div>
-                    <button type="submit" class="btn-primary">Add LoRA to {{.SelectedProfile.Name}}</button>
-                  </div>
-                </form>
+                {{end}}
               </div>
+
+              <form action="/admin/categories/upsert" method="POST" autocomplete="off" style="display:grid;grid-template-columns:220px 150px 1fr auto;gap:10px;align-items:center;">
+                <input type="text" name="name" placeholder="Category Name (e.g. Lighting &amp; Mood)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                <input type="text" name="facet" value="category" placeholder="Facet (e.g. style, subject)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <input type="text" name="subcategories" placeholder="Comma-separated subcategories (e.g. Chiaroscuro, Rim Light, Neon Fog)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <button type="submit" class="btn-primary">Save Default Category</button>
+              </form>
+            </div>
+          {{else if eq .SettingsSection "db"}}
+            <!-- Interchangeable Global Database Switcher & Runtime Status -->
+            <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+              <h2 style="font-size:18px;margin-bottom:4px;">Interchangeable Global Configuration Database (SQLite Switcher)</h2>
+              <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
+                The SQLite database holds all application state (assets, groups, tags, ratings, categories, AI server routing, generator models, system prompts, and LoRA docs). Switch between different <code>.db</code> files at runtime without restarting.
+              </p>
+
+              <form action="/admin/db/switch" method="POST" autocomplete="off" style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;margin-bottom:16px;">
+                <input type="text" name="db_path" value="{{.CurrentDBPath}}" placeholder="Path to SQLite .db file (e.g. ./catalog.db or /Volumes/External/studio-config.db)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;white-space:nowrap;">
+                  <input type="checkbox" name="rescan" value="1" checked> Rescan folders after switch
+                </label>
+                <button type="submit" class="btn-primary">Switch Global Database</button>
+              </form>
+
+              <div class="kv-table">
+                <div class="kv-box">
+                  <div class="kv-label">Active Global SQLite DB</div>
+                  <div class="kv-val"><code>{{.CurrentDBPath}}</code></div>
+                </div>
+                <div class="kv-box">
+                  <div class="kv-label">Active Face Vision Adapter</div>
+                  <div class="kv-val"><code>{{.VisionEngineName}}</code></div>
+                </div>
+                <div class="kv-box">
+                  <div class="kv-label">Last Scan Summary</div>
+                  <div class="kv-val">{{.ScanReport.ScannedRoots}} roots ({{.ScanReport.SkippedRoots}} skipped) | {{.ScanReport.ScannedFiles}} files ({{.ScanReport.ImagesFound}} images, {{.ScanReport.VideosFound}} videos)</div>
+                </div>
+              </div>
+            </div>
+          {{else}}
+            <!-- Default / Providers: Remote / Local Ollama & OpenAI-Compatible Server Routing -->
+            <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+                <div>
+                  <h2 style="font-size:18px;">Remote / Local Ollama &amp; OpenAI-Compatible Server Routing</h2>
+                  <p style="color:var(--text-muted);font-size:12px;">
+                    Connect to local or remote servers (e.g. <code>http://127.0.0.1:11434</code> for Ollama and <code>http://127.0.0.1:8000</code> for OpenAI-compatible LLM/vision server) and select which model handles each task from the dropdowns.
+                  </p>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  {{if .AIStatus.OllamaOnline}}
+                    <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
+                      Ollama Online (v{{.AIStatus.OllamaVersion}}) — {{len .AIStatus.OllamaModels}} models
+                    </span>
+                  {{else}}
+                    <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
+                      Ollama Unreachable ({{.Settings.OllamaBaseURL}})
+                    </span>
+                  {{end}}
+
+                  {{if .AIStatus.OMLXOnline}}
+                    <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
+                      OpenAI Server Online — {{len .AIStatus.OMLXModels}} models
+                    </span>
+                  {{else}}
+                    <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
+                      OpenAI Server Unreachable ({{.Settings.OMLXBaseURL}})
+                    </span>
+                  {{end}}
+                </div>
+              </div>
+
+              <form action="/admin/settings/save" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:18px;">
+                <input type="hidden" name="default_target_generator" value="{{.Settings.DefaultTargetGenerator}}">
+
+                <!-- 2-Column Grid for Ollama and OpenAI Providers -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+                  
+                  <!-- 1. Ollama Provider -->
+                  <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:#fff;">
+                        <input type="checkbox" name="ollama_enabled" value="1" {{if .Settings.OllamaEnabled}}checked{{end}}>
+                        <span>1. Ollama Provider</span>
+                      </label>
+                      {{if .AIStatus.OllamaOnline}}
+                        <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
+                          Online (v{{.AIStatus.OllamaVersion}}) &bull; {{len .AIStatus.OllamaModels}} models
+                        </span>
+                      {{else}}
+                        <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
+                          Unreachable
+                        </span>
+                      {{end}}
+                    </div>
+
+                    <div>
+                      <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Ollama Endpoint URL</label>
+                      <input type="text" name="ollama_base_url" value="{{.Settings.OllamaBaseURL}}" class="input-dark" placeholder="http://127.0.0.1:11434" required>
+                    </div>
+
+                    <div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                        <label style="font-size:11.5px;color:var(--text-muted);">
+                          Default Model <strong style="color:#38bdf8;">(Vision Required 👁️)</strong>
+                        </label>
+                        <button type="submit" class="btn-ghost" style="font-size:10.5px;padding:2px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Save endpoint and load models">&#x21bb; Load Models</button>
+                      </div>
+                      <select name="ollama_default_model" class="input-dark" required>
+                        {{if .Settings.OllamaDefaultModel}}
+                          <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (current default)</option>
+                        {{else}}
+                          <option value="">Select Default Vision Model...</option>
+                        {{end}}
+                        <optgroup label="Detected Vision Models">
+                          {{range .AIStatus.OllamaModels}}
+                            {{if .HasVision}}
+                              <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
+                                {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️] {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                              </option>
+                            {{end}}
+                          {{end}}
+                        </optgroup>
+                        <optgroup label="All Discovered Models">
+                          {{range .AIStatus.OllamaModels}}
+                            {{if not .HasVision}}
+                              <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
+                                {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                              </option>
+                            {{end}}
+                          {{end}}
+                        </optgroup>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Default Reasoning / Thinking Level</label>
+                      <select name="ollama_default_think" class="input-dark">
+                        <option value="off" {{if eq .Settings.OllamaDefaultThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
+                        <option value="low" {{if eq .Settings.OllamaDefaultThink "low"}}selected{{end}}>Low</option>
+                        <option value="medium" {{if eq .Settings.OllamaDefaultThink "medium"}}selected{{end}}>Medium</option>
+                        <option value="high" {{if eq .Settings.OllamaDefaultThink "high"}}selected{{end}}>High</option>
+                        <option value="default" {{if eq .Settings.OllamaDefaultThink "default"}}selected{{end}}>Model Default</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- 2. OpenAI-Compatible Provider -->
+                  <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:#fff;">
+                        <input type="checkbox" name="openai_enabled" value="1" {{if .Settings.OpenAIEnabled}}checked{{end}}>
+                        <span>2. OpenAI Compatible (oMLX, vLLM, OpenAI)</span>
+                      </label>
+                      {{if .AIStatus.OMLXOnline}}
+                        <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
+                          Online &bull; {{len .AIStatus.OMLXModels}} models
+                        </span>
+                      {{else}}
+                        <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
+                          Unreachable
+                        </span>
+                      {{end}}
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px;">
+                      <div>
+                        <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Endpoint URL</label>
+                        <input type="text" name="openai_base_url" value="{{if .Settings.OpenAIBaseURL}}{{.Settings.OpenAIBaseURL}}{{else}}{{.Settings.OMLXBaseURL}}{{end}}" class="input-dark" placeholder="http://127.0.0.1:8000">
+                      </div>
+                      <div>
+                        <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">API Key (Optional)</label>
+                        <input type="text" name="openai_api_key" value="{{if .Settings.OpenAIAPIKey}}{{.Settings.OpenAIAPIKey}}{{else}}{{.Settings.OMLXAPIKey}}{{end}}" class="input-dark" placeholder="Bearer token...">
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                        <label style="font-size:11.5px;color:var(--text-muted);">
+                          Default Model <strong style="color:#38bdf8;">(Vision Required 👁️)</strong>
+                        </label>
+                        <button type="submit" class="btn-ghost" style="font-size:10.5px;padding:2px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Save endpoint and load models">&#x21bb; Load Models</button>
+                      </div>
+                      <select name="openai_default_model" class="input-dark" required>
+                        {{if .Settings.OpenAIDefaultModel}}
+                          <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (current default)</option>
+                        {{else}}
+                          <option value="">Select Default Vision Model...</option>
+                        {{end}}
+                        <optgroup label="Detected Vision Models">
+                          {{range .AIStatus.OMLXModels}}
+                            {{if .HasVision}}
+                              <option value="{{.Name}}" {{if eq $.Settings.OpenAIDefaultModel .Name}}selected{{end}}>
+                                {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️] {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                              </option>
+                            {{end}}
+                          {{end}}
+                        </optgroup>
+                        <optgroup label="All Discovered Models">
+                          {{range .AIStatus.OMLXModels}}
+                            {{if not .HasVision}}
+                              <option value="{{.Name}}" {{if eq $.Settings.OpenAIDefaultModel .Name}}selected{{end}}>
+                                {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                              </option>
+                            {{end}}
+                          {{end}}
+                        </optgroup>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Default Reasoning / Thinking Level</label>
+                      <select name="openai_default_think" class="input-dark">
+                        <option value="off" {{if eq .Settings.OpenAIDefaultThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
+                        <option value="low" {{if eq .Settings.OpenAIDefaultThink "low"}}selected{{end}}>Low</option>
+                        <option value="medium" {{if eq .Settings.OpenAIDefaultThink "medium"}}selected{{end}}>Medium</option>
+                        <option value="high" {{if eq .Settings.OpenAIDefaultThink "high"}}selected{{end}}>High</option>
+                        <option value="default" {{if eq .Settings.OpenAIDefaultThink "default"}}selected{{end}}>Model Default</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Role-based defaults (Remix & Studio 2D) -->
+                <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:16px;">
+                  <h3 style="font-size:13px;font-weight:700;color:#93c5fd;margin-bottom:10px;">Role &amp; Feature Defaults (Orientation)</h3>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <div>
+                      <label style="display:block;font-size:12px;color:var(--text-main);margin-bottom:4px;font-weight:600;">
+                        3. Remix Default Provider
+                      </label>
+                      <select name="remix_default_provider" class="input-dark">
+                        <option value="ollama" {{if eq .Settings.RemixDefaultProvider "ollama"}}selected{{end}}>
+                          Ollama Default ({{if .Settings.OllamaDefaultModel}}{{.Settings.OllamaDefaultModel}}{{else}}Ollama Vision{{end}})
+                        </option>
+                        <option value="openai" {{if eq .Settings.RemixDefaultProvider "openai"}}selected{{end}}>
+                          OpenAI Compatible Default ({{if .Settings.OpenAIDefaultModel}}{{.Settings.OpenAIDefaultModel}}{{else}}OpenAI Vision{{end}})
+                        </option>
+                      </select>
+                      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                        Pre-selected in Prompt Studio &amp; Image Remix. Can be switched on-the-fly per prompt.
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="display:block;font-size:12px;color:var(--text-main);margin-bottom:4px;font-weight:600;">
+                        4. Studio 2D / General Default Provider
+                      </label>
+                      <select name="studio_default_provider" class="input-dark">
+                        <option value="openai" {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}selected{{end}}>
+                          OpenAI Compatible Default ({{if .Settings.OpenAIDefaultModel}}{{.Settings.OpenAIDefaultModel}}{{else}}OpenAI Vision{{end}})
+                        </option>
+                        <option value="ollama" {{if eq .Settings.StudioDefaultProvider "ollama"}}selected{{end}}>
+                          Ollama Default ({{if .Settings.OllamaDefaultModel}}{{.Settings.OllamaDefaultModel}}{{else}}Ollama Vision{{end}})
+                        </option>
+                      </select>
+                      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                        Pre-selected in 2D Scene Director and Character prompt creation. Can be switched on-the-fly.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="margin-top:14px;display:flex;align-items:center;">
+                    <label class="checkbox-item" style="font-size:12px;color:var(--text-muted);">
+                      <span>
+                        <input type="checkbox" name="auto_caption_on_scan" {{if .Settings.AutoCaptionOnScan}}checked{{end}}>
+                        Auto-run Image2Prompt during folder scan for assets missing embedded prompts
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;">
+                  <button type="submit" class="btn-primary">Save Server &amp; App Settings</button>
+                  <div style="display:flex;gap:8px;">
+                    <a href="/?tab=settings&amp;section=generators" class="btn-ghost">Configure Generator Models &amp; LoRAs &rarr;</a>
+                    <a href="/?tab=settings&amp;section=providers" class="btn-ghost">Probe &amp; Refresh Models from Servers</a>
+                  </div>
+                </div>
+              </form>
             </div>
           {{end}}
         </section>
-      </div>
-
-    {{else if eq .ActiveTab "settings"}}
-      <!-- Settings Menu: Focused ONLY on Remote/Local Ollama & oMLX Server Routing + Storage Status -->
-      <div style="display:flex;flex-direction:column;gap:22px;margin:20px 0 44px;">
-
-        <!-- 1. Ollama & oMLX Connection & Model Routing -->
-        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-            <div>
-              <h2 style="font-size:18px;">1. Remote / Local Ollama &amp; OpenAI-Compatible Server Routing</h2>
-              <p style="color:var(--text-muted);font-size:12px;">
-                Connect to local or remote servers (e.g. <code>http://127.0.0.1:11434</code> for Ollama and <code>http://127.0.0.1:8000</code> for OpenAI-compatible LLM/vision server) and select which model handles each task from the dropdowns.
-              </p>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              {{if .AIStatus.OllamaOnline}}
-                <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
-                  Ollama Online (v{{.AIStatus.OllamaVersion}}) — {{len .AIStatus.OllamaModels}} models
-                </span>
-              {{else}}
-                <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
-                  Ollama Unreachable ({{.Settings.OllamaBaseURL}})
-                </span>
-              {{end}}
-
-              {{if .AIStatus.OMLXOnline}}
-                <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
-                  OpenAI Server Online — {{len .AIStatus.OMLXModels}} models
-                </span>
-              {{else}}
-                <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
-                  OpenAI Server Unreachable ({{.Settings.OMLXBaseURL}})
-                </span>
-              {{end}}
-            </div>
-          </div>
-
-          <form action="/admin/settings/save" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:18px;">
-            <input type="hidden" name="default_target_generator" value="{{.Settings.DefaultTargetGenerator}}">
-
-            <!-- 2-Column Grid for Ollama and OpenAI Providers -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
-              
-              <!-- 1. Ollama Provider -->
-              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:#fff;">
-                    <input type="checkbox" name="ollama_enabled" value="1" {{if .Settings.OllamaEnabled}}checked{{end}}>
-                    <span>1. Ollama Provider</span>
-                  </label>
-                  {{if .AIStatus.OllamaOnline}}
-                    <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
-                      Online (v{{.AIStatus.OllamaVersion}}) &bull; {{len .AIStatus.OllamaModels}} models
-                    </span>
-                  {{else}}
-                    <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
-                      Unreachable
-                    </span>
-                  {{end}}
-                </div>
-
-                <div>
-                  <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Ollama Endpoint URL</label>
-                  <input type="text" name="ollama_base_url" value="{{.Settings.OllamaBaseURL}}" class="input-dark" placeholder="http://127.0.0.1:11434" required>
-                </div>
-
-                <div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                    <label style="font-size:11.5px;color:var(--text-muted);">
-                      Default Model <strong style="color:#38bdf8;">(Vision Required 👁️)</strong>
-                    </label>
-                    <button type="submit" class="btn-ghost" style="font-size:10.5px;padding:2px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Save endpoint and load models">&#x21bb; Load Models</button>
-                  </div>
-                  <select name="ollama_default_model" class="input-dark" required>
-                    {{if .Settings.OllamaDefaultModel}}
-                      <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (current default)</option>
-                    {{else}}
-                      <option value="">Select Default Vision Model...</option>
-                    {{end}}
-                    <optgroup label="Detected Vision Models">
-                      {{range .AIStatus.OllamaModels}}
-                        {{if .HasVision}}
-                          <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
-                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️] {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
-                          </option>
-                        {{end}}
-                      {{end}}
-                    </optgroup>
-                    <optgroup label="All Discovered Models">
-                      {{range .AIStatus.OllamaModels}}
-                        {{if not .HasVision}}
-                          <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
-                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
-                          </option>
-                        {{end}}
-                      {{end}}
-                    </optgroup>
-                  </select>
-                </div>
-
-                <div>
-                  <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Default Reasoning / Thinking Level</label>
-                  <select name="ollama_default_think" class="input-dark">
-                    <option value="off" {{if eq .Settings.OllamaDefaultThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
-                    <option value="low" {{if eq .Settings.OllamaDefaultThink "low"}}selected{{end}}>Low</option>
-                    <option value="medium" {{if eq .Settings.OllamaDefaultThink "medium"}}selected{{end}}>Medium</option>
-                    <option value="high" {{if eq .Settings.OllamaDefaultThink "high"}}selected{{end}}>High</option>
-                    <option value="default" {{if eq .Settings.OllamaDefaultThink "default"}}selected{{end}}>Model Default</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- 2. OpenAI-Compatible Provider -->
-              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:#fff;">
-                    <input type="checkbox" name="openai_enabled" value="1" {{if .Settings.OpenAIEnabled}}checked{{end}}>
-                    <span>2. OpenAI Compatible (oMLX, vLLM, OpenAI)</span>
-                  </label>
-                  {{if .AIStatus.OMLXOnline}}
-                    <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
-                      Online &bull; {{len .AIStatus.OMLXModels}} models
-                    </span>
-                  {{else}}
-                    <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
-                      Unreachable
-                    </span>
-                  {{end}}
-                </div>
-
-                <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px;">
-                  <div>
-                    <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Endpoint URL</label>
-                    <input type="text" name="openai_base_url" value="{{if .Settings.OpenAIBaseURL}}{{.Settings.OpenAIBaseURL}}{{else}}{{.Settings.OMLXBaseURL}}{{end}}" class="input-dark" placeholder="http://127.0.0.1:8000">
-                  </div>
-                  <div>
-                    <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">API Key (Optional)</label>
-                    <input type="text" name="openai_api_key" value="{{if .Settings.OpenAIAPIKey}}{{.Settings.OpenAIAPIKey}}{{else}}{{.Settings.OMLXAPIKey}}{{end}}" class="input-dark" placeholder="Bearer token...">
-                  </div>
-                </div>
-
-                <div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                    <label style="font-size:11.5px;color:var(--text-muted);">
-                      Default Model <strong style="color:#38bdf8;">(Vision Required 👁️)</strong>
-                    </label>
-                    <button type="submit" class="btn-ghost" style="font-size:10.5px;padding:2px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Save endpoint and load models">&#x21bb; Load Models</button>
-                  </div>
-                  <select name="openai_default_model" class="input-dark" required>
-                    {{if .Settings.OpenAIDefaultModel}}
-                      <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (current default)</option>
-                    {{else}}
-                      <option value="">Select Default Vision Model...</option>
-                    {{end}}
-                    <optgroup label="Detected Vision Models">
-                      {{range .AIStatus.OMLXModels}}
-                        {{if .HasVision}}
-                          <option value="{{.Name}}" {{if eq $.Settings.OpenAIDefaultModel .Name}}selected{{end}}>
-                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️] {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
-                          </option>
-                        {{end}}
-                      {{end}}
-                    </optgroup>
-                    <optgroup label="All Discovered Models">
-                      {{range .AIStatus.OMLXModels}}
-                        {{if not .HasVision}}
-                          <option value="{{.Name}}" {{if eq $.Settings.OpenAIDefaultModel .Name}}selected{{end}}>
-                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
-                          </option>
-                        {{end}}
-                      {{end}}
-                    </optgroup>
-                  </select>
-                </div>
-
-                <div>
-                  <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Default Reasoning / Thinking Level</label>
-                  <select name="openai_default_think" class="input-dark">
-                    <option value="off" {{if eq .Settings.OpenAIDefaultThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
-                    <option value="low" {{if eq .Settings.OpenAIDefaultThink "low"}}selected{{end}}>Low</option>
-                    <option value="medium" {{if eq .Settings.OpenAIDefaultThink "medium"}}selected{{end}}>Medium</option>
-                    <option value="high" {{if eq .Settings.OpenAIDefaultThink "high"}}selected{{end}}>High</option>
-                    <option value="default" {{if eq .Settings.OpenAIDefaultThink "default"}}selected{{end}}>Model Default</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <!-- Role-based defaults (Remix & Studio 2D) -->
-            <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:16px;">
-              <h3 style="font-size:13px;font-weight:700;color:#93c5fd;margin-bottom:10px;">Role &amp; Feature Defaults (Orientation)</h3>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                <div>
-                  <label style="display:block;font-size:12px;color:var(--text-main);margin-bottom:4px;font-weight:600;">
-                    3. Remix Default Provider
-                  </label>
-                  <select name="remix_default_provider" class="input-dark">
-                    <option value="ollama" {{if eq .Settings.RemixDefaultProvider "ollama"}}selected{{end}}>
-                      Ollama Default ({{if .Settings.OllamaDefaultModel}}{{.Settings.OllamaDefaultModel}}{{else}}Ollama Vision{{end}})
-                    </option>
-                    <option value="openai" {{if eq .Settings.RemixDefaultProvider "openai"}}selected{{end}}>
-                      OpenAI Compatible Default ({{if .Settings.OpenAIDefaultModel}}{{.Settings.OpenAIDefaultModel}}{{else}}OpenAI Vision{{end}})
-                    </option>
-                  </select>
-                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-                    Pre-selected in Prompt Studio &amp; Image Remix. Can be switched on-the-fly per prompt.
-                  </div>
-                </div>
-
-                <div>
-                  <label style="display:block;font-size:12px;color:var(--text-main);margin-bottom:4px;font-weight:600;">
-                    4. Studio 2D / General Default Provider
-                  </label>
-                  <select name="studio_default_provider" class="input-dark">
-                    <option value="openai" {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}selected{{end}}>
-                      OpenAI Compatible Default ({{if .Settings.OpenAIDefaultModel}}{{.Settings.OpenAIDefaultModel}}{{else}}OpenAI Vision{{end}})
-                    </option>
-                    <option value="ollama" {{if eq .Settings.StudioDefaultProvider "ollama"}}selected{{end}}>
-                      Ollama Default ({{if .Settings.OllamaDefaultModel}}{{.Settings.OllamaDefaultModel}}{{else}}Ollama Vision{{end}})
-                    </option>
-                  </select>
-                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-                    Pre-selected in 2D Scene Director and Character prompt creation. Can be switched on-the-fly.
-                  </div>
-                </div>
-              </div>
-
-              <div style="margin-top:14px;display:flex;align-items:center;">
-                <label class="checkbox-item" style="font-size:12px;color:var(--text-muted);">
-                  <span>
-                    <input type="checkbox" name="auto_caption_on_scan" {{if .Settings.AutoCaptionOnScan}}checked{{end}}>
-                    Auto-run Image2Prompt during folder scan for assets missing embedded prompts
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;">
-              <button type="submit" class="btn-primary">Save Server &amp; App Settings</button>
-              <div style="display:flex;gap:8px;">
-                <a href="/?tab=generators" class="btn-ghost">Configure Generator Models &amp; LoRAs &rarr;</a>
-                <a href="/?tab=settings" class="btn-ghost">Probe &amp; Refresh Models from Servers</a>
-              </div>
-            </div>
-          </form>
-        </div>
-
-        <!-- 2. Multi-Root Media Folders & Disks -->
-        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-          <h2 style="font-size:18px;margin-bottom:4px;">2. Media Folders Across Disks &amp; Volumes (<code>.txt</code> Sidecar Prompts)</h2>
-          <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
-            Register multiple folders across local drives or external volumes. Each accessible folder is scanned and indexed directly into the database, loading companion <code>&lt;filename&gt;.txt</code> prompt sidecars automatically.
-          </p>
-
-          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
-            {{range .Page.MediaRoots}}
-              <div style="display:flex;justify-content:space-between;align-items:center;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:10px 14px;gap:10px;flex-wrap:wrap;">
-                <div>
-                  <div style="font-weight:700;color:#fff;font-size:13px;">
-                    {{.Label}}
-                    {{if .Accessible}}
-                      <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;margin-left:6px;">Accessible ({{.AssetCount}} assets)</span>
-                    {{else}}
-                      <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;margin-left:6px;">Offline / Unmounted</span>
-                    {{end}}
-                  </div>
-                  <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
-                    Path: <code>{{.Path}}</code>
-                  </div>
-                  {{if .Categories}}
-                    <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:5px;">
-                      {{range .Categories}}
-                        <span class="badge-chip" style="font-size:10.5px;">{{.Name}}{{if .Subcategories}}: {{joinStrings .Subcategories}}{{end}}</span>
-                      {{end}}
-                    </div>
-                  {{end}}
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;">
-                  <a href="/?root_id={{.ID}}" class="btn-ghost" style="font-size:11.5px;padding:4px 10px;">Filter Catalog</a>
-                  {{if gt .ID 1}}
-                    <form action="/admin/roots/delete" method="POST" autocomplete="off" style="display:inline;">
-                      <input type="hidden" name="id" value="{{.ID}}">
-                      <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;font-size:11.5px;padding:4px 10px;">Remove Folder</button>
-                    </form>
-                  {{end}}
-                </div>
-              </div>
-            {{end}}
-          </div>
-
-          <form action="/admin/roots/add" method="POST" autocomplete="off" style="display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:center;">
-            <input type="text" name="label" placeholder="Folder / Disk Label (e.g. External SSD Flux)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-            <input type="text" name="path" placeholder="Absolute or relative folder path (e.g. /Volumes/AI_Drive/outputs or ./media_extra)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-            <button type="submit" class="btn-primary">+ Add Media Folder</button>
-          </form>
-        </div>
-
-        <!-- 3. Default Agnostic Categories & Subcategories -->
-        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-          <h2 style="font-size:18px;margin-bottom:4px;">3. Global Default Agnostic Categories &amp; Subcategories</h2>
-          <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
-            Stored in the global database and used for tag autocompletion and category filters.
-          </p>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-            {{range .Page.DefaultCategories}}
-              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:10px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-                <div>
-                  <div style="font-weight:700;color:#fff;font-size:13px;">{{.Name}} <span class="badge-chip" style="margin-left:4px;">{{.Facet}}</span></div>
-                  <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
-                    Subcategories: <code>{{if .Subcategories}}{{joinStrings .Subcategories}}{{else}}(none){{end}}</code>
-                  </div>
-                </div>
-                <form action="/admin/categories/delete" method="POST" autocomplete="off">
-                  <input type="hidden" name="id" value="{{.ID}}">
-                  <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;padding:2px 8px;font-size:11px;">Delete</button>
-                </form>
-              </div>
-            {{end}}
-          </div>
-
-          <form action="/admin/categories/upsert" method="POST" autocomplete="off" style="display:grid;grid-template-columns:220px 150px 1fr auto;gap:10px;align-items:center;">
-            <input type="text" name="name" placeholder="Category Name (e.g. Lighting &amp; Mood)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-            <input type="text" name="facet" value="category" placeholder="Facet (e.g. style, subject)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-            <input type="text" name="subcategories" placeholder="Comma-separated subcategories (e.g. Chiaroscuro, Rim Light, Neon Fog)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-            <button type="submit" class="btn-primary">Save Default Category</button>
-          </form>
-        </div>
-
-        <!-- 4. Interchangeable Global Database Switcher & Runtime Status -->
-        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
-          <h2 style="font-size:18px;margin-bottom:4px;">4. Interchangeable Global Configuration Database (SQLite Switcher)</h2>
-          <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
-            The SQLite database holds all application state (assets, groups, tags, ratings, categories, AI server routing, generator models, system prompts, and LoRA docs). Switch between different <code>.db</code> files at runtime without restarting.
-          </p>
-
-          <form action="/admin/db/switch" method="POST" autocomplete="off" style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;margin-bottom:16px;">
-            <input type="text" name="db_path" value="{{.CurrentDBPath}}" placeholder="Path to SQLite .db file (e.g. ./catalog.db or /Volumes/External/studio-config.db)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-            <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;white-space:nowrap;">
-              <input type="checkbox" name="rescan" value="1" checked> Rescan folders after switch
-            </label>
-            <button type="submit" class="btn-primary">Switch Global Database</button>
-          </form>
-
-          <div class="kv-table">
-            <div class="kv-box">
-              <div class="kv-label">Active Global SQLite DB</div>
-              <div class="kv-val"><code>{{.CurrentDBPath}}</code></div>
-            </div>
-            <div class="kv-box">
-              <div class="kv-label">Active Face Vision Adapter</div>
-              <div class="kv-val"><code>{{.VisionEngineName}}</code></div>
-            </div>
-            <div class="kv-box">
-              <div class="kv-label">Last Scan Summary</div>
-              <div class="kv-val">{{.ScanReport.ScannedRoots}} roots ({{.ScanReport.SkippedRoots}} skipped) | {{.ScanReport.ScannedFiles}} files ({{.ScanReport.ImagesFound}} images, {{.ScanReport.VideosFound}} videos)</div>
-            </div>
-          </div>
-        </div>
       </div>
 
     {{else if eq .ActiveTab "characters"}}
@@ -5788,6 +5842,87 @@
         }
         applyZoomTransform(el, st, labelId);
       });
+    }
+
+    // Load System Prompt from local .txt / .md file
+    window.loadSystemPromptFile = function(input) {
+      if (!input.files || input.files.length === 0) return;
+      var file = input.files[0];
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var content = e.target.result;
+        var form = input.closest('form');
+        var textarea = form ? form.querySelector('textarea[name="system_prompt"]') : document.querySelector('textarea[name="system_prompt"]');
+        if (textarea) {
+          textarea.value = content;
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.focus();
+        }
+        if (form) {
+          var nameInput = form.querySelector('input[name="name"]');
+          if (nameInput && !nameInput.value.trim()) {
+            var raw = file.name.replace(/\.[^/.]+$/, "");
+            nameInput.value = raw.charAt(0).toUpperCase() + raw.slice(1).replace(/[-_]/g, " ");
+          }
+          var slugInput = form.querySelector('input[name="slug"]');
+          if (slugInput && !slugInput.value.trim()) {
+            slugInput.value = file.name.replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+          }
+        }
+        if (window.showToast) {
+          window.showToast('Loaded system prompt from ' + file.name + ' (' + content.length + ' chars)', 'success');
+        }
+      };
+      reader.readAsText(file);
+      input.value = '';
+    };
+
+    // Drag-and-drop listener for system prompt textareas
+    function initSystemPromptDropzones() {
+      document.querySelectorAll('textarea[name="system_prompt"]').forEach(function(ta) {
+        ta.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          ta.style.borderColor = '#38bdf8';
+          ta.style.boxShadow = '0 0 10px rgba(56,189,248,0.25)';
+        });
+        ta.addEventListener('dragleave', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          ta.style.borderColor = '';
+          ta.style.boxShadow = '';
+        });
+        ta.addEventListener('drop', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          ta.style.borderColor = '';
+          ta.style.boxShadow = '';
+          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            var file = e.dataTransfer.files[0];
+            if (file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+              var reader = new FileReader();
+              reader.onload = function(ev) {
+                ta.value = ev.target.result;
+                ta.dispatchEvent(new Event('input', { bubbles: true }));
+                ta.focus();
+                if (window.showToast) {
+                  window.showToast('Loaded system prompt from ' + file.name + ' (' + ev.target.result.length + ' chars)', 'success');
+                }
+              };
+              reader.readAsText(file);
+            } else {
+              if (window.showToast) {
+                window.showToast("Please drop a .txt or .md file", "error");
+              }
+            }
+          }
+        });
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initSystemPromptDropzones);
+    } else {
+      initSystemPromptDropzones();
     }
   </script>
 </body>
