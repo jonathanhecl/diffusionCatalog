@@ -3694,9 +3694,9 @@
       }
     });
 
-    const reqProv = document.getElementById('directorProvider') ? document.getElementById('directorProvider').value : '';
-    const reqMod = document.getElementById('directorModel') ? document.getElementById('directorModel').value : '';
-    const thinkVal = document.getElementById('directorThink') ? document.getElementById('directorThink').value : '';
+    const reqProv = document.getElementById('directorProvider') ? (document.getElementById('directorProvider').value || '').replace(/^["'\s]+|["'\s]+$/g, '') : '';
+    const reqMod = document.getElementById('directorModel') ? (document.getElementById('directorModel').value || '').replace(/^["'\s]+|["'\s]+$/g, '') : '';
+    const thinkVal = document.getElementById('directorThink') ? (document.getElementById('directorThink').value || '').replace(/^["'\s]+|["'\s]+$/g, '') : '';
 
     try {
       const resp = await fetch('/admin/compositions/synthesize', {
@@ -3745,8 +3745,8 @@
     const thinkEl = document.getElementById('directorThink');
     const hintEl = document.getElementById('directorLLMCurrentHint');
     if (!hintEl) return;
-    const p = provEl ? provEl.value : '';
-    const m = modEl ? modEl.value : '';
+    const p = provEl ? (provEl.value || '').replace(/^["'\s]+|["'\s]+$/g, '') : '';
+    const m = modEl ? (modEl.value || '').replace(/^["'\s]+|["'\s]+$/g, '') : '';
     let label = `[${p}] ${m}`;
     if (thinkEl && thinkEl.value && thinkEl.value !== 'default') {
       label += ` (${thinkEl.value})`;
@@ -5084,21 +5084,21 @@
     window.aiProviderConfig = {
       ollama: {
         enabled: {{if .Settings.OllamaEnabled}}true{{else}}false{{end}},
-        defaultModel: {{printf "%q" .Settings.OllamaDefaultModel}},
-        defaultThink: {{printf "%q" .Settings.OllamaDefaultThink}},
+        defaultModel: {{.Settings.OllamaDefaultModel}},
+        defaultThink: {{.Settings.OllamaDefaultThink}},
         models: [
           {{range .AIStatus.OllamaModels}}
-            { name: {{printf "%q" .Name}}, vision: {{.HasVision}}, size: {{printf "%q" .ParameterSize}} },
+            { name: {{.Name}}, vision: {{.HasVision}}, size: {{.ParameterSize}} },
           {{end}}
         ]
       },
       openai: {
         enabled: {{if .Settings.OpenAIEnabled}}true{{else}}false{{end}},
-        defaultModel: {{printf "%q" .Settings.OpenAIDefaultModel}},
-        defaultThink: {{printf "%q" .Settings.OpenAIDefaultThink}},
+        defaultModel: {{.Settings.OpenAIDefaultModel}},
+        defaultThink: {{.Settings.OpenAIDefaultThink}},
         models: [
           {{range .AIStatus.OMLXModels}}
-            { name: {{printf "%q" .Name}}, vision: {{.HasVision}}, size: {{printf "%q" .ParameterSize}} },
+            { name: {{.Name}}, vision: {{.HasVision}}, size: {{.ParameterSize}} },
           {{end}}
         ]
       }
@@ -5110,45 +5110,53 @@
       var thinkEl = document.getElementById(prefix + 'ThinkSelect') || document.getElementById(prefix + 'Think');
       if (!provEl || !modEl) return;
 
-      var prov = (provEl.value || 'ollama').toLowerCase();
+      var cleanStr = function(s) {
+        return (s || '').replace(/^["'\s]+|["'\s]+$/g, '');
+      };
+
+      var prov = cleanStr(provEl.value || 'ollama').toLowerCase();
       if (prov === 'omlx') prov = 'openai';
       var conf = window.aiProviderConfig[prov] || window.aiProviderConfig['ollama'];
       if (!conf) return;
 
-      var prevVal = modEl.value;
+      var prevVal = cleanStr(modEl.value);
+      var defModel = cleanStr(conf.defaultModel);
+      var defThink = cleanStr(conf.defaultThink);
       modEl.innerHTML = '';
 
       if (conf.models && conf.models.length > 0) {
         var foundPrev = false;
         var foundDef = false;
         conf.models.forEach(function(m) {
+          var mName = cleanStr(m.name);
+          if (!mName) return;
           var opt = document.createElement('option');
-          opt.value = m.name;
-          var label = m.name;
-          if (m.size) label += ' (' + m.size + ')';
+          opt.value = mName;
+          var label = mName;
+          if (m.size) label += ' (' + cleanStr(m.size) + ')';
           if (m.vision) label += ' [vision 👁️]';
           opt.textContent = label;
-          if (m.name === prevVal) {
+          if (mName === prevVal) {
             opt.selected = true;
             foundPrev = true;
-          } else if (!foundPrev && m.name === conf.defaultModel) {
+          } else if (!foundPrev && mName === defModel) {
             opt.selected = true;
             foundDef = true;
           }
           modEl.appendChild(opt);
         });
 
-        if (!foundPrev && !foundDef && conf.defaultModel) {
+        if (!foundPrev && !foundDef && defModel) {
           var opt = document.createElement('option');
-          opt.value = conf.defaultModel;
-          opt.textContent = conf.defaultModel + ' (default)';
+          opt.value = defModel;
+          opt.textContent = defModel + ' (default)';
           opt.selected = true;
           modEl.insertBefore(opt, modEl.firstChild);
         }
-      } else if (conf.defaultModel) {
+      } else if (defModel) {
         var opt = document.createElement('option');
-        opt.value = conf.defaultModel;
-        opt.textContent = conf.defaultModel + ' (default)';
+        opt.value = defModel;
+        opt.textContent = defModel + ' (default)';
         opt.selected = true;
         modEl.appendChild(opt);
       } else {
@@ -5158,8 +5166,8 @@
         modEl.appendChild(opt);
       }
 
-      if (thinkEl && (thinkEl.value === 'default' || thinkEl.value === '') && conf.defaultThink) {
-        thinkEl.value = conf.defaultThink;
+      if (thinkEl && (thinkEl.value === 'default' || thinkEl.value === '') && defThink) {
+        thinkEl.value = defThink;
       }
       if (prefix === 'director' && typeof updateDirectorActiveIndicator === 'function') {
         updateDirectorActiveIndicator();

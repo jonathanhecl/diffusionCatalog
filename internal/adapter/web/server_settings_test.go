@@ -206,3 +206,58 @@ func TestSettingsVerticalNavbarAndSystemPrompts(t *testing.T) {
 		t.Errorf("expected system prompt content in textarea")
 	}
 }
+
+func TestModelNameQuoteSanitization(t *testing.T) {
+	server, repo, _, _ := setupTestServer(t)
+	handler := server.Handler()
+	ctx := context.Background()
+
+	// 1. Save settings with quotes around default model names
+	form := url.Values{
+		"ollama_enabled":           {"1"},
+		"ollama_base_url":          {"http://127.0.0.1:11434"},
+		"ollama_default_model":     {`"huggingface.co/grumd0/Nemotron-3.5-Bolt-E4B-Heretic-GGUF:Q4_K_M"`},
+		"ollama_default_think":     {"off"},
+		"openai_enabled":           {"1"},
+		"openai_base_url":          {"http://127.0.0.1:8000"},
+		"openai_default_model":     {`"bonsai-2-27b"`},
+		"openai_default_think":     {"low"},
+		"remix_default_provider":   {"ollama"},
+		"studio_default_provider":  {"openai"},
+		"default_target_generator": {"flux"},
+	}
+
+	reqSave := httptest.NewRequest("POST", "/admin/settings/save", strings.NewReader(form.Encode()))
+	reqSave.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	wSave := httptest.NewRecorder()
+	handler.ServeHTTP(wSave, reqSave)
+
+	if wSave.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect 303 after save, got %d", wSave.Code)
+	}
+
+	saved, err := repo.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings error: %v", err)
+	}
+	if saved.OllamaDefaultModel != "huggingface.co/grumd0/Nemotron-3.5-Bolt-E4B-Heretic-GGUF:Q4_K_M" {
+		t.Errorf("expected sanitized model without quotes, got: %q", saved.OllamaDefaultModel)
+	}
+	if saved.OpenAIDefaultModel != "bonsai-2-27b" {
+		t.Errorf("expected sanitized model without quotes, got: %q", saved.OpenAIDefaultModel)
+	}
+
+	// 2. Verify rendered JS in catalog.html doesn't contain double escaped quotes
+	reqView := httptest.NewRequest("GET", "/?tab=director", nil)
+	wView := httptest.NewRecorder()
+	handler.ServeHTTP(wView, reqView)
+
+	if wView.Code != http.StatusOK {
+		t.Fatalf("expected status 200 on director view, got %d", wView.Code)
+	}
+	body := wView.Body.String()
+	// Must NOT contain escaped quotes in string literals like: defaultModel: "\"bonsai-2-27b\""
+	if strings.Contains(body, `defaultModel: "\"`) || strings.Contains(body, `name: "\"`) {
+		t.Errorf("catalog.html contains double-quoted/escaped model names in JS config")
+	}
+}

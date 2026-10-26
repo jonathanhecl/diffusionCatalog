@@ -644,6 +644,7 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 	for rows.Next() {
 		var k, v string
 		if err := rows.Scan(&k, &v); err == nil {
+			v = strings.Trim(strings.TrimSpace(v), "\"'")
 			switch k {
 			case "ollama_enabled":
 				s.OllamaEnabled = (v == "true" || v == "1")

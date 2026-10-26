@@ -938,15 +938,17 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		ollamaDefModel = current.OllamaDefaultModel
 	}
 	ollamaDefThink := strings.TrimSpace(r.FormValue("ollama_default_think"))
+	ollamaDefModel = strings.Trim(strings.TrimSpace(ollamaDefModel), "\"' \t\r\n")
+	ollamaDefThink = strings.Trim(strings.TrimSpace(ollamaDefThink), "\"' \t\r\n")
 	if ollamaDefThink == "" {
 		ollamaDefThink = "off"
 	}
 
-	openaiDefModel := strings.TrimSpace(r.FormValue("openai_default_model"))
+	openaiDefModel := strings.Trim(strings.TrimSpace(r.FormValue("openai_default_model")), "\"' \t\r\n")
 	if openaiDefModel == "" {
 		openaiDefModel = current.OpenAIDefaultModel
 	}
-	openaiDefThink := strings.TrimSpace(r.FormValue("openai_default_think"))
+	openaiDefThink := strings.Trim(strings.TrimSpace(r.FormValue("openai_default_think")), "\"' \t\r\n")
 	if openaiDefThink == "" {
 		openaiDefThink = "low"
 	}
@@ -1062,19 +1064,19 @@ func parseLoRAIDs(vals []string) []int64 {
 
 func parseExecutionOverride(r *http.Request) domain.PromptExecutionOverride {
 	var ov domain.PromptExecutionOverride
-	route := strings.TrimSpace(r.FormValue("override_route"))
+	route := strings.Trim(strings.TrimSpace(r.FormValue("override_route")), "\"' \t\r\n")
 	if route != "" {
 		if parts := strings.SplitN(route, "|", 2); len(parts) == 2 {
-			ov.Provider = domain.AIProviderType(parts[0])
-			ov.Model = parts[1]
+			ov.Provider = domain.AIProviderType(strings.Trim(strings.TrimSpace(parts[0]), "\"' \t\r\n"))
+			ov.Model = strings.Trim(strings.TrimSpace(parts[1]), "\"' \t\r\n")
 		} else {
-			ov.Model = route
+			ov.Model = strings.Trim(strings.TrimSpace(route), "\"' \t\r\n")
 		}
 	} else {
-		ov.Provider = domain.AIProviderType(strings.TrimSpace(r.FormValue("override_provider")))
-		ov.Model = strings.TrimSpace(r.FormValue("override_model"))
+		ov.Provider = domain.AIProviderType(strings.Trim(strings.TrimSpace(r.FormValue("override_provider")), "\"' \t\r\n"))
+		ov.Model = strings.Trim(strings.TrimSpace(r.FormValue("override_model")), "\"' \t\r\n")
 	}
-	ov.ThinkLevel = strings.TrimSpace(r.FormValue("override_think"))
+	ov.ThinkLevel = strings.Trim(strings.TrimSpace(r.FormValue("override_think")), "\"' \t\r\n")
 	return ov
 }
 
@@ -1725,9 +1727,9 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 			userHint = req.UserHint
 			loraIDs = req.LoRAIDs
 			override = domain.PromptExecutionOverride{
-				Provider:   domain.AIProviderType(req.Provider),
-				Model:      req.Model,
-				ThinkLevel: req.ThinkLevel,
+				Provider:   domain.AIProviderType(strings.Trim(strings.TrimSpace(req.Provider), "\"' \t\r\n")),
+				Model:      strings.Trim(strings.TrimSpace(req.Model), "\"' \t\r\n"),
+				ThinkLevel: strings.Trim(strings.TrimSpace(req.ThinkLevel), "\"' \t\r\n"),
 			}
 		}
 	} else {

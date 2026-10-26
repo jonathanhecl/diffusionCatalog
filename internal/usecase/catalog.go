@@ -530,6 +530,10 @@ func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProv
 		model = override.Model
 	}
 
+	prov = domain.AIProviderType(strings.Trim(strings.TrimSpace(string(prov)), "\"' \t\r\n"))
+	model = strings.Trim(strings.TrimSpace(model), "\"' \t\r\n")
+	think = strings.Trim(strings.TrimSpace(think), "\"' \t\r\n")
+
 	// Auto-detect provider if model name indicates MLX/OpenAI but provider was left as ollama
 	modelUpper := strings.ToUpper(model)
 	if prov == domain.ProviderOllama && (strings.Contains(modelUpper, "-MLX") || strings.Contains(modelUpper, "MLX-") || strings.HasPrefix(modelUpper, "MLX/") || strings.Contains(modelUpper, ".MLX")) {
