@@ -4102,32 +4102,6 @@
               </div>
             </div>
           </form>
-
-          {{if .AIStatus.AllModels}}
-            <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-navy);">
-              <div class="kv-label" style="margin-bottom:8px;">Discovered Models &amp; Capabilities Across Ollama (/api/tags + /api/show) &amp; oMLX (/v1/models)</div>
-              <div class="tag-cloud">
-                {{range .AIStatus.AllModels}}
-                  <span class="badge-chip" style="padding:4px 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px;">
-                    <span style="color:#60a5fa;">[{{.Provider}}]</span> <strong>{{.Name}}</strong>
-                    {{if .ParameterSize}}<span style="color:#94a3b8;">({{.ParameterSize}})</span>{{end}}
-                    {{range .Capabilities}}
-                      {{if eq . "vision"}}
-                        <span style="color:#34d399;">[vision]</span>
-                      {{else if eq . "thinking"}}
-                        <span style="color:#c084fc;">[thinking]</span>
-                      {{else if eq . "tools"}}
-                        <span style="color:#38bdf8;">[tools]</span>
-                      {{else}}
-                        <span style="color:#94a3b8;">[{{.}}]</span>
-                      {{end}}
-                    {{end}}
-                    {{if .ContextLength}}<span style="color:#fcd34d;">[ctx:{{.ContextLength}}]</span>{{end}}
-                  </span>
-                {{end}}
-              </div>
-            </div>
-          {{end}}
         </div>
 
         <!-- 2. Multi-Root Media Folders & Disks -->
