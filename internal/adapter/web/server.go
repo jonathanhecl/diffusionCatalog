@@ -2,6 +2,7 @@ package web
 
 import (
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -9,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -1112,20 +1112,15 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if frameImagePath == "" && r.MultipartForm != nil {
-		if file, header, err := r.FormFile("attached_file"); err == nil && file != nil {
+		if file, _, err := r.FormFile("attached_file"); err == nil && file != nil {
 			defer file.Close()
-			uploadsDir := filepath.Join(s.cacheDir, "uploads")
-			_ = os.MkdirAll(uploadsDir, 0755)
-			ext := filepath.Ext(header.Filename)
-			if ext == "" {
-				ext = ".jpg"
-			}
-			destPath := filepath.Join(uploadsDir, fmt.Sprintf("upload_%d_%d%s", assetID, time.Now().UnixNano(), ext))
-			if outF, err := os.Create(destPath); err == nil {
-				_, _ = io.Copy(outF, file)
-				_ = outF.Close()
-				frameImagePath = destPath
-				log.Printf("[STUDIO] Uploaded file saved: %s", frameImagePath)
+			if buf, err := io.ReadAll(file); err == nil && len(buf) > 0 {
+				mimeType := http.DetectContentType(buf)
+				if !strings.HasPrefix(mimeType, "image/") {
+					mimeType = "image/jpeg"
+				}
+				frameImagePath = fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(buf))
+				log.Printf("[STUDIO] Uploaded file encoded in-memory (%d bytes, %s)", len(buf), mimeType)
 			}
 		}
 	}

@@ -261,3 +261,26 @@ func TestModelNameQuoteSanitization(t *testing.T) {
 		t.Errorf("catalog.html contains double-quoted/escaped model names in JS config")
 	}
 }
+
+func TestStudioAttachedImageClientSessionStorage(t *testing.T) {
+	server, _, _, _ := setupTestServer(t)
+	handler := server.Handler()
+
+	reqView := httptest.NewRequest("GET", "/?tab=studio", nil)
+	wView := httptest.NewRecorder()
+	handler.ServeHTTP(wView, reqView)
+
+	if wView.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on studio view, got %d", wView.Code)
+	}
+	body := wView.Body.String()
+	if !strings.Contains(body, "sessionStorage.setItem('dc_studio_attached_image'") {
+		t.Errorf("expected sessionStorage caching for attached image in studio")
+	}
+	if !strings.Contains(body, "restoreStudioAttachedImage") {
+		t.Errorf("expected restoreStudioAttachedImage function in studio")
+	}
+	if !strings.Contains(body, "removeStudioAttachedImage") {
+		t.Errorf("expected removeStudioAttachedImage function in studio")
+	}
+}

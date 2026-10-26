@@ -5178,6 +5178,7 @@
       if (document.getElementById('remixProviderSelect')) switchProviderSelect('remix');
       if (document.getElementById('charProviderSelect')) switchProviderSelect('char');
       if (document.getElementById('directorProvider')) switchProviderSelect('director');
+      if (document.getElementById('studio-attached-preview-wrap')) restoreStudioAttachedImage();
     });
 
     function filterLoRAsByModel(formEl, selectedSlug) {
@@ -5500,37 +5501,73 @@
       }
     }
 
+    function displayStudioAttachedImage(dataUrl, infoText) {
+      var hiddenInput = document.getElementById('attached_image_data');
+      var previewWrap = document.getElementById('studio-attached-preview-wrap');
+      var previewImg = document.getElementById('studio-attached-img');
+      var infoSpan = document.getElementById('studio-attached-info');
+      var dropzone = document.getElementById('studio-dropzone');
+      var modeSelect = document.getElementById('studio-mode-select');
+
+      if (hiddenInput) hiddenInput.value = dataUrl;
+      if (previewImg) previewImg.src = dataUrl;
+      if (infoSpan) infoSpan.innerText = infoText;
+      if (previewWrap) previewWrap.style.display = 'block';
+      if (dropzone) dropzone.style.display = 'none';
+
+      if (modeSelect) {
+        for (var i = 0; i < modeSelect.options.length; i++) {
+          if (modeSelect.options[i].value === 'vision') {
+            modeSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
     function loadStudioImageFile(file) {
       if (!file || !file.type.startsWith('image/')) return;
       var reader = new FileReader();
       reader.onload = function(evt) {
         var dataUrl = evt.target.result;
-        var hiddenInput = document.getElementById('attached_image_data');
-        var previewWrap = document.getElementById('studio-attached-preview-wrap');
-        var previewImg = document.getElementById('studio-attached-img');
-        var infoSpan = document.getElementById('studio-attached-info');
-        var dropzone = document.getElementById('studio-dropzone');
-        var modeSelect = document.getElementById('studio-mode-select');
-
-        if (hiddenInput) hiddenInput.value = dataUrl;
-        if (previewImg) previewImg.src = dataUrl;
-        if (infoSpan) infoSpan.innerText = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
-        if (previewWrap) previewWrap.style.display = 'block';
-        if (dropzone) dropzone.style.display = 'none';
-
-        if (modeSelect) {
-          for (var i = 0; i < modeSelect.options.length; i++) {
-            if (modeSelect.options[i].value === 'vision') {
-              modeSelect.selectedIndex = i;
-              break;
-            }
-          }
+        var infoText = (file.name || 'image.png') + ' (' + Math.round(file.size / 1024) + ' KB)';
+        try {
+          sessionStorage.setItem('dc_studio_attached_image', JSON.stringify({
+            dataUrl: dataUrl,
+            info: infoText
+          }));
+        } catch (e) {
+          console.warn('Could not cache attached image in sessionStorage:', e);
         }
+        displayStudioAttachedImage(dataUrl, infoText);
       };
       reader.readAsDataURL(file);
     }
 
+    function restoreStudioAttachedImage() {
+      // Don't overwrite if an existing catalog asset ID is being inspected
+      var assetIdInput = document.querySelector('input[name="asset_id"]');
+      if (assetIdInput && assetIdInput.value && assetIdInput.value !== '0') {
+        return;
+      }
+      try {
+        var raw = sessionStorage.getItem('dc_studio_attached_image');
+        if (raw) {
+          var item = JSON.parse(raw);
+          if (item && item.dataUrl) {
+            displayStudioAttachedImage(item.dataUrl, item.info || 'Attached Image');
+          }
+        }
+      } catch (e) {
+        console.warn('Error restoring attached image from sessionStorage:', e);
+      }
+    }
+
     function removeStudioAttachedImage() {
+      try {
+        sessionStorage.removeItem('dc_studio_attached_image');
+      } catch (e) {}
+
       var hiddenInput = document.getElementById('attached_image_data');
       var previewWrap = document.getElementById('studio-attached-preview-wrap');
       var previewImg = document.getElementById('studio-attached-img');
