@@ -11,22 +11,102 @@ const (
 	ProviderOMLX   AIProviderType = "omlx" // legacy alias for ProviderOpenAI
 )
 
-// AppSettings stores configurable application options and dual Ollama / oMLX model routing preferences.
+// AppSettings stores configurable application options and dual Ollama / OpenAI model routing preferences.
 type AppSettings struct {
-	OllamaBaseURL          string         `json:"ollama_base_url"`
-	OMLXBaseURL            string         `json:"omlx_base_url"`
-	OMLXAPIKey             string         `json:"omlx_api_key"`
-	VisionProvider         AIProviderType `json:"vision_provider"`
-	VisionModel            string         `json:"vision_model"`
-	VisionThink            string         `json:"vision_think"` // "default", "off", "low", "medium", "high"
-	Image2PromptProvider   AIProviderType `json:"image2prompt_provider"`
-	Image2PromptModel      string         `json:"image2prompt_model"`
-	Image2PromptThink      string         `json:"image2prompt_think"` // "default", "off", "low", "medium", "high"
-	Text2PromptProvider    AIProviderType `json:"text2prompt_provider"`
-	Text2PromptModel       string         `json:"text2prompt_model"`
-	Text2PromptThink       string         `json:"text2prompt_think"` // "default", "off", "low", "medium", "high"
-	DefaultTargetGenerator string         `json:"default_target_generator"`
-	AutoCaptionOnScan      bool           `json:"auto_caption_on_scan"`
+	// 1. Ollama Provider
+	OllamaEnabled      bool   `json:"ollama_enabled"`
+	OllamaBaseURL      string `json:"ollama_base_url"`
+	OllamaDefaultModel string `json:"ollama_default_model"`
+	OllamaDefaultThink string `json:"ollama_default_think"` // "default", "off", "low", "medium", "high"
+
+	// 2. OpenAI-Compatible Provider (oMLX, vLLM, OpenAI)
+	OpenAIEnabled      bool   `json:"openai_enabled"`
+	OpenAIBaseURL      string `json:"openai_base_url"`
+	OpenAIAPIKey       string `json:"openai_api_key"`
+	OpenAIDefaultModel string `json:"openai_default_model"`
+	OpenAIDefaultThink string `json:"openai_default_think"` // "default", "off", "low", "medium", "high"
+
+	// 3 & 4. Context Defaults
+	RemixDefaultProvider  AIProviderType `json:"remix_default_provider"`  // "ollama" or "openai"
+	StudioDefaultProvider AIProviderType `json:"studio_default_provider"` // "ollama" or "openai"
+
+	// General
+	DefaultTargetGenerator string `json:"default_target_generator"`
+	AutoCaptionOnScan      bool   `json:"auto_caption_on_scan"`
+
+	// Legacy / Compatibility fields (kept in sync for backwards compatibility)
+	OMLXBaseURL          string         `json:"omlx_base_url,omitempty"`
+	OMLXAPIKey           string         `json:"omlx_api_key,omitempty"`
+	VisionProvider       AIProviderType `json:"vision_provider,omitempty"`
+	VisionModel          string         `json:"vision_model,omitempty"`
+	VisionThink          string         `json:"vision_think,omitempty"`
+	Image2PromptProvider AIProviderType `json:"image2prompt_provider,omitempty"`
+	Image2PromptModel    string         `json:"image2prompt_model,omitempty"`
+	Image2PromptThink    string         `json:"image2prompt_think,omitempty"`
+	Text2PromptProvider  AIProviderType `json:"text2prompt_provider,omitempty"`
+	Text2PromptModel     string         `json:"text2prompt_model,omitempty"`
+	Text2PromptThink     string         `json:"text2prompt_think,omitempty"`
+}
+
+// GetProviderDefaults returns the default model and thinking level for a given provider.
+func (s AppSettings) GetProviderDefaults(provider AIProviderType) (string, string) {
+	if provider == ProviderOpenAI || provider == ProviderOMLX {
+		model := s.OpenAIDefaultModel
+		if model == "" {
+			model = s.Text2PromptModel
+		}
+		think := s.OpenAIDefaultThink
+		if think == "" {
+			think = s.Text2PromptThink
+		}
+		if think == "" {
+			think = "low"
+		}
+		return model, think
+	}
+	model := s.OllamaDefaultModel
+	if model == "" {
+		model = s.VisionModel
+	}
+	if model == "" {
+		model = s.Image2PromptModel
+	}
+	think := s.OllamaDefaultThink
+	if think == "" {
+		think = s.VisionThink
+	}
+	if think == "" {
+		think = "off"
+	}
+	return model, think
+}
+
+// GetRemixDefaults returns the default provider, model, and thinking level for Remix tasks.
+func (s AppSettings) GetRemixDefaults() (AIProviderType, string, string) {
+	prov := s.RemixDefaultProvider
+	if prov == "" {
+		if s.Image2PromptProvider != "" {
+			prov = s.Image2PromptProvider
+		} else {
+			prov = ProviderOllama
+		}
+	}
+	mod, think := s.GetProviderDefaults(prov)
+	return prov, mod, think
+}
+
+// GetStudioDefaults returns the default provider, model, and thinking level for Studio 2D / General tasks.
+func (s AppSettings) GetStudioDefaults() (AIProviderType, string, string) {
+	prov := s.StudioDefaultProvider
+	if prov == "" {
+		if s.Text2PromptProvider != "" {
+			prov = s.Text2PromptProvider
+		} else {
+			prov = ProviderOpenAI
+		}
+	}
+	mod, think := s.GetProviderDefaults(prov)
+	return prov, mod, think
 }
 
 // PromptProfile defines a target diffusion or video generator (e.g., flux, krea2, moss, minimaxh3)

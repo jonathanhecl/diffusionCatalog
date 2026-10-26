@@ -605,23 +605,35 @@ func (r *Repository) UpdateAssetRating(ctx context.Context, assetID int64, ratin
 	return err
 }
 
-// GetSettings retrieves the application, Ollama, and oMLX configuration from SQLite.
+// GetSettings retrieves the application, Ollama, and OpenAI configuration from SQLite.
 func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error) {
 	db := r.conn()
 	s := domain.AppSettings{
+		OllamaEnabled:          true,
 		OllamaBaseURL:          "http://127.0.0.1:11434",
-		OMLXBaseURL:            "http://127.0.0.1:8000",
-		OMLXAPIKey:             "",
-		VisionProvider:         domain.ProviderOllama,
-		VisionModel:            "llama3.2-vision:latest",
-		VisionThink:            "off",
-		Image2PromptProvider:   domain.ProviderOllama,
-		Image2PromptModel:      "llama3.2-vision:latest",
-		Image2PromptThink:      "off",
-		Text2PromptProvider:    domain.ProviderOpenAI,
-		Text2PromptModel:       "SuperQwen3.8-27b-abliterated-MLX-4bit",
-		Text2PromptThink:       "low",
+		OllamaDefaultModel:     "llama3.2-vision:latest",
+		OllamaDefaultThink:     "off",
+		OpenAIEnabled:          true,
+		OpenAIBaseURL:          "http://127.0.0.1:8000",
+		OpenAIAPIKey:           "",
+		OpenAIDefaultModel:     "SuperQwen3.8-27b-abliterated-MLX-4bit",
+		OpenAIDefaultThink:     "low",
+		RemixDefaultProvider:   domain.ProviderOllama,
+		StudioDefaultProvider:  domain.ProviderOpenAI,
 		DefaultTargetGenerator: "flux",
+
+		// Compatibility sync
+		OMLXBaseURL:          "http://127.0.0.1:8000",
+		OMLXAPIKey:           "",
+		VisionProvider:       domain.ProviderOllama,
+		VisionModel:          "llama3.2-vision:latest",
+		VisionThink:          "off",
+		Image2PromptProvider: domain.ProviderOllama,
+		Image2PromptModel:    "llama3.2-vision:latest",
+		Image2PromptThink:    "off",
+		Text2PromptProvider:  domain.ProviderOpenAI,
+		Text2PromptModel:     "SuperQwen3.8-27b-abliterated-MLX-4bit",
+		Text2PromptThink:     "low",
 	}
 	rows, err := db.QueryContext(ctx, `SELECT key, value FROM app_settings`)
 	if err != nil {
@@ -633,30 +645,76 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 		var k, v string
 		if err := rows.Scan(&k, &v); err == nil {
 			switch k {
+			case "ollama_enabled":
+				s.OllamaEnabled = (v == "true" || v == "1")
 			case "ollama_base_url":
 				s.OllamaBaseURL = v
+			case "ollama_default_model":
+				s.OllamaDefaultModel = v
+			case "ollama_default_think":
+				s.OllamaDefaultThink = v
+			case "openai_enabled":
+				s.OpenAIEnabled = (v == "true" || v == "1")
+			case "openai_base_url":
+				s.OpenAIBaseURL = v
+				s.OMLXBaseURL = v
+			case "openai_api_key":
+				s.OpenAIAPIKey = v
+				s.OMLXAPIKey = v
+			case "openai_default_model":
+				s.OpenAIDefaultModel = v
+			case "openai_default_think":
+				s.OpenAIDefaultThink = v
+			case "remix_default_provider":
+				s.RemixDefaultProvider = domain.AIProviderType(v)
+			case "studio_default_provider":
+				s.StudioDefaultProvider = domain.AIProviderType(v)
 			case "omlx_base_url":
+				if s.OpenAIBaseURL == "" {
+					s.OpenAIBaseURL = v
+				}
 				s.OMLXBaseURL = v
 			case "omlx_api_key":
+				if s.OpenAIAPIKey == "" {
+					s.OpenAIAPIKey = v
+				}
 				s.OMLXAPIKey = v
 			case "vision_provider":
 				s.VisionProvider = domain.AIProviderType(v)
 			case "vision_model":
 				s.VisionModel = v
+				if s.OllamaDefaultModel == "" {
+					s.OllamaDefaultModel = v
+				}
 			case "vision_think":
 				s.VisionThink = v
+				if s.OllamaDefaultThink == "" {
+					s.OllamaDefaultThink = v
+				}
 			case "image2prompt_provider":
 				s.Image2PromptProvider = domain.AIProviderType(v)
+				if s.RemixDefaultProvider == "" {
+					s.RemixDefaultProvider = domain.AIProviderType(v)
+				}
 			case "image2prompt_model":
 				s.Image2PromptModel = v
 			case "image2prompt_think":
 				s.Image2PromptThink = v
 			case "text2prompt_provider":
 				s.Text2PromptProvider = domain.AIProviderType(v)
+				if s.StudioDefaultProvider == "" {
+					s.StudioDefaultProvider = domain.AIProviderType(v)
+				}
 			case "text2prompt_model":
 				s.Text2PromptModel = v
+				if s.OpenAIDefaultModel == "" {
+					s.OpenAIDefaultModel = v
+				}
 			case "text2prompt_think":
 				s.Text2PromptThink = v
+				if s.OpenAIDefaultThink == "" {
+					s.OpenAIDefaultThink = v
+				}
 			case "default_target_generator":
 				s.DefaultTargetGenerator = v
 			case "auto_caption_on_scan":
@@ -667,46 +725,70 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 	return s, nil
 }
 
-// SaveSettings persists application, Ollama, and oMLX settings into SQLite.
+// SaveSettings persists application, Ollama, and OpenAI settings into SQLite.
 func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) error {
 	db := r.conn()
 	autoCap := "false"
 	if s.AutoCaptionOnScan {
 		autoCap = "true"
 	}
-	if s.VisionProvider == "" {
-		s.VisionProvider = domain.ProviderOllama
+	ollamaEnabled := "false"
+	if s.OllamaEnabled {
+		ollamaEnabled = "true"
 	}
-	if s.VisionThink == "" {
-		s.VisionThink = "off"
+	openaiEnabled := "false"
+	if s.OpenAIEnabled {
+		openaiEnabled = "true"
 	}
-	if s.Image2PromptProvider == "" {
-		s.Image2PromptProvider = domain.ProviderOllama
+	if s.OllamaDefaultThink == "" {
+		s.OllamaDefaultThink = "off"
 	}
-	if s.Image2PromptThink == "" {
-		s.Image2PromptThink = "off"
+	if s.OpenAIDefaultThink == "" {
+		s.OpenAIDefaultThink = "low"
 	}
-	if s.Text2PromptProvider == "" {
-		s.Text2PromptProvider = domain.ProviderOllama
+	if s.RemixDefaultProvider == "" {
+		s.RemixDefaultProvider = domain.ProviderOllama
 	}
-	if s.Text2PromptThink == "" {
-		s.Text2PromptThink = "low"
+	if s.StudioDefaultProvider == "" {
+		s.StudioDefaultProvider = domain.ProviderOpenAI
 	}
+
+	openaiBase := s.OpenAIBaseURL
+	if openaiBase == "" {
+		openaiBase = s.OMLXBaseURL
+	}
+	openaiKey := s.OpenAIAPIKey
+	if openaiKey == "" {
+		openaiKey = s.OMLXAPIKey
+	}
+
 	pairs := map[string]string{
+		"ollama_enabled":           ollamaEnabled,
 		"ollama_base_url":          strings.TrimSpace(s.OllamaBaseURL),
-		"omlx_base_url":            strings.TrimSpace(s.OMLXBaseURL),
-		"omlx_api_key":             strings.TrimSpace(s.OMLXAPIKey),
-		"vision_provider":          string(s.VisionProvider),
-		"vision_model":             strings.TrimSpace(s.VisionModel),
-		"vision_think":             strings.TrimSpace(s.VisionThink),
-		"image2prompt_provider":    string(s.Image2PromptProvider),
-		"image2prompt_model":       strings.TrimSpace(s.Image2PromptModel),
-		"image2prompt_think":       strings.TrimSpace(s.Image2PromptThink),
-		"text2prompt_provider":     string(s.Text2PromptProvider),
-		"text2prompt_model":        strings.TrimSpace(s.Text2PromptModel),
-		"text2prompt_think":        strings.TrimSpace(s.Text2PromptThink),
+		"ollama_default_model":     strings.TrimSpace(s.OllamaDefaultModel),
+		"ollama_default_think":     strings.TrimSpace(s.OllamaDefaultThink),
+		"openai_enabled":           openaiEnabled,
+		"openai_base_url":          strings.TrimSpace(openaiBase),
+		"openai_api_key":           strings.TrimSpace(openaiKey),
+		"openai_default_model":     strings.TrimSpace(s.OpenAIDefaultModel),
+		"openai_default_think":     strings.TrimSpace(s.OpenAIDefaultThink),
+		"remix_default_provider":   string(s.RemixDefaultProvider),
+		"studio_default_provider":  string(s.StudioDefaultProvider),
 		"default_target_generator": strings.TrimSpace(s.DefaultTargetGenerator),
 		"auto_caption_on_scan":     autoCap,
+
+		// Compatibility sync
+		"omlx_base_url":         strings.TrimSpace(openaiBase),
+		"omlx_api_key":          strings.TrimSpace(openaiKey),
+		"vision_provider":       string(s.RemixDefaultProvider),
+		"vision_model":          strings.TrimSpace(s.OllamaDefaultModel),
+		"vision_think":          strings.TrimSpace(s.OllamaDefaultThink),
+		"image2prompt_provider": string(s.RemixDefaultProvider),
+		"image2prompt_model":    strings.TrimSpace(s.OllamaDefaultModel),
+		"image2prompt_think":    strings.TrimSpace(s.OllamaDefaultThink),
+		"text2prompt_provider":  string(s.StudioDefaultProvider),
+		"text2prompt_model":     strings.TrimSpace(s.OpenAIDefaultModel),
+		"text2prompt_think":     strings.TrimSpace(s.OpenAIDefaultThink),
 	}
 	for k, v := range pairs {
 		if _, err := db.ExecContext(ctx, `

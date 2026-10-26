@@ -472,7 +472,7 @@ func (s *CatalogService) InspectAIBackends(ctx context.Context) AIBackendStatus 
 	}
 	cfg, _ := s.repo.GetSettings(ctx)
 
-	if strings.TrimSpace(cfg.OllamaBaseURL) != "" {
+	if cfg.OllamaEnabled && strings.TrimSpace(cfg.OllamaBaseURL) != "" {
 		ver, online := s.ollama.CheckStatus(ctx, cfg.OllamaBaseURL)
 		st.OllamaOnline = online
 		st.OllamaVersion = ver
@@ -482,8 +482,16 @@ func (s *CatalogService) InspectAIBackends(ctx context.Context) AIBackendStatus 
 		}
 	}
 
-	if strings.TrimSpace(cfg.OMLXBaseURL) != "" {
-		models, err := s.ollama.ListOMLXModels(ctx, cfg.OMLXBaseURL, cfg.OMLXAPIKey)
+	openaiURL := cfg.OpenAIBaseURL
+	if openaiURL == "" {
+		openaiURL = cfg.OMLXBaseURL
+	}
+	apiKey := cfg.OpenAIAPIKey
+	if apiKey == "" {
+		apiKey = cfg.OMLXAPIKey
+	}
+	if cfg.OpenAIEnabled && strings.TrimSpace(openaiURL) != "" {
+		models, err := s.ollama.ListOMLXModels(ctx, openaiURL, apiKey)
 		if err == nil {
 			st.OMLXOnline = true
 			st.OMLXModels = models
@@ -510,10 +518,15 @@ func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProv
 	model := defaultModel
 	think := defaultThink
 
-	if override.Provider != "" && override.Model != "" {
+	if override.Provider != "" {
 		prov = override.Provider
-		model = override.Model
-	} else if override.Model != "" {
+		if pMod, pThink := cfg.GetProviderDefaults(prov); pMod != "" {
+			model = pMod
+			think = pThink
+		}
+	}
+
+	if override.Model != "" {
 		model = override.Model
 	}
 
@@ -527,7 +540,7 @@ func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProv
 		prov = domain.ProviderOllama
 	}
 
-	if override.ThinkLevel != "" && override.ThinkLevel != "settings" {
+	if override.ThinkLevel != "" && override.ThinkLevel != "settings" && override.ThinkLevel != "default" {
 		think = override.ThinkLevel
 	}
 	if think == "" {
@@ -536,7 +549,10 @@ func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProv
 
 	baseURL := cfg.OllamaBaseURL
 	if prov == domain.ProviderOpenAI || prov == domain.ProviderOMLX {
-		baseURL = cfg.OMLXBaseURL
+		baseURL = cfg.OpenAIBaseURL
+		if baseURL == "" {
+			baseURL = cfg.OMLXBaseURL
+		}
 	}
 	return prov, model, baseURL, think
 }
@@ -614,30 +630,29 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		}
 	}
 
+	apiKey := cfg.OpenAIAPIKey
+	if apiKey == "" {
+		apiKey = cfg.OMLXAPIKey
+	}
+
 	if mode == "remix" {
 		// Remix via Text2Prompt model using the extracted prompt + character + direction
+		defProv, defMod, defThink := cfg.GetRemixDefaults()
 		var baseURL string
 		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(
-			cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override,
+			cfg, defProv, defMod, defThink, override,
 		)
 		promptInstruction := "Transform the following reference asset and scene direction into a final generation prompt for target engine '" + profileSlug + "'. Preserve any mandatory character trigger words if present:\n\n" + combinedHint
 		if strings.TrimSpace(combinedHint) == "" {
 			promptInstruction = "Generate a rich, detailed, high-quality generation prompt for target engine '" + profileSlug + "'."
 		}
-		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, promptInstruction, usedThink)
+		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, promptInstruction, usedThink)
 		if err != nil {
 			return "", err
 		}
 	} else {
 		// Vision analysis via Image2Prompt model
-		defProv := cfg.Image2PromptProvider
-		defMod := cfg.Image2PromptModel
-		defThink := cfg.Image2PromptThink
-		if defMod == "" {
-			defProv = cfg.VisionProvider
-			defMod = cfg.VisionModel
-			defThink = cfg.VisionThink
-		}
+		defProv, defMod, defThink := cfg.GetRemixDefaults()
 		var baseURL string
 		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
 
@@ -651,7 +666,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 			return "", fmt.Errorf("no media asset or image provided for vision analysis")
 		}
 
-		generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, absPath, combinedHint, usedThink)
+		generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, absPath, combinedHint, usedThink)
 		if err != nil {
 			return "", err
 		}
@@ -727,22 +742,20 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 	var usedThink string
 	var assetPtr *int64
 
+	apiKey := cfg.OpenAIAPIKey
+	if apiKey == "" {
+		apiKey = cfg.OMLXAPIKey
+	}
+
 	if refAssetID > 0 {
 		if refAsset, err := s.repo.GetAssetByID(ctx, refAssetID); err == nil && refAsset != nil {
 			aid := refAsset.ID
 			assetPtr = &aid
-			defProv := cfg.Image2PromptProvider
-			defMod := cfg.Image2PromptModel
-			defThink := cfg.Image2PromptThink
-			if defMod == "" {
-				defProv = cfg.VisionProvider
-				defMod = cfg.VisionModel
-				defThink = cfg.VisionThink
-			}
+			defProv, defMod, defThink := cfg.GetRemixDefaults()
 			var baseURL string
 			usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
 			absPath := s.ResolveAssetAbsPath(ctx, refAsset)
-			generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, absPath, charSpec, usedThink)
+			generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, absPath, charSpec, usedThink)
 			if err != nil {
 				return "", err
 			}
@@ -750,11 +763,12 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 	}
 
 	if generated == "" {
+		defProv, defMod, defThink := cfg.GetStudioDefaults()
 		var baseURL string
 		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(
-			cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override,
+			cfg, defProv, defMod, defThink, override,
 		)
-		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, cfg.OMLXAPIKey, usedModel, sysPrompt, charSpec, usedThink)
+		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, charSpec, usedThink)
 		if err != nil {
 			return "", err
 		}
@@ -800,11 +814,17 @@ func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profi
 		fullUserPrompt = fmt.Sprintf("Concept / Scene Request:\n%s\n\n%s\nIncorporate the selected LoRA trigger words, stylistic guidance, and syntax tag into the final prompt.", inputConcept, loraDoc)
 	}
 
+	apiKey := cfg.OpenAIAPIKey
+	if apiKey == "" {
+		apiKey = cfg.OMLXAPIKey
+	}
+
+	defProv, defMod, defThink := cfg.GetStudioDefaults()
 	provider, model, baseURL, think := resolveExecutionRoute(
-		cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override,
+		cfg, defProv, defMod, defThink, override,
 	)
 
-	generated, err := s.ollama.TextToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, model, sysPrompt, fullUserPrompt, think)
+	generated, err := s.ollama.TextToPrompt(ctx, provider, baseURL, apiKey, model, sysPrompt, fullUserPrompt, think)
 	if err != nil {
 		return "", err
 	}
@@ -1096,24 +1116,16 @@ func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, t
 
 	// If a canvas screenshot is provided, attempt multimodal vision synthesis so the LLM visually sees the layout
 	if strings.TrimSpace(canvasImage) != "" && s.ollama != nil {
-		defProv := cfg.Image2PromptProvider
-		defMod := cfg.Image2PromptModel
-		defThink := cfg.Image2PromptThink
-		if defMod == "" {
-			defProv = cfg.VisionProvider
-			defMod = cfg.VisionModel
-			defThink = cfg.VisionThink
-		}
-		if defMod == "" {
-			defProv = cfg.Text2PromptProvider
-			defMod = cfg.Text2PromptModel
-			defThink = cfg.Text2PromptThink
-		}
-
+		defProv, defMod, defThink := cfg.GetStudioDefaults()
 		provider, model, baseURL, think := resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
 		visualHint := fmt.Sprintf("This image is a visual canvas capture of a 2D scene staging layout with positioned subjects, poses, lighting, camera framing and environment elements.\n\nSpatial Layout Manifest:\n%s\n\nAnalyze the visual staging in the canvas image together with the spatial manifest to generate an evocative, highly-detailed diffusion prompt matching the exact positions, depth, poses, lighting, and elements depicted in the visual composition.", fullUserPrompt)
 
-		generated, vErr := s.ollama.ImageToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, model, sysPrompt, canvasImage, visualHint, think)
+		apiKey := cfg.OpenAIAPIKey
+		if apiKey == "" {
+			apiKey = cfg.OMLXAPIKey
+		}
+
+		generated, vErr := s.ollama.ImageToPrompt(ctx, provider, baseURL, apiKey, model, sysPrompt, canvasImage, visualHint, think)
 		if vErr == nil && strings.TrimSpace(generated) != "" {
 			_, _ = s.repo.SaveGeneratedPrompt(ctx, &domain.GeneratedPrompt{
 				TargetProfileSlug: targetProfileSlug,

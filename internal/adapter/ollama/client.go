@@ -937,12 +937,15 @@ func normalizeEndpoint(raw, fallback, defaultPort string) string {
 
 func inferVisionFromName(modelID string) bool {
 	lower := strings.ToLower(modelID)
-	// Modern multimodal & MLX VLM architectures (Qwen3.5/3.8/SuperQwen, Qwen-VL, Gemma-3/4, Pixtral, LLaVA, MiniCPM-V, InternVL, Molmo, GLM-4V)
+	// Modern multimodal & MLX VLM architectures (Bonsai, Qwen3.5/3.8/SuperQwen, Qwen-VL, Gemma-3/4, Pixtral, LLaVA, MiniCPM-V, InternVL, Molmo, GLM-4V)
 	for _, kw := range []string{
 		"vl", "vision", "vlm", "pixtral", "llava", "minicpm-v", "minicpm",
-		"gemma-3", "gemma3", "gemma-4", "gemma4",
+		"bonsai", "bonsai2", "bonsai-2",
+		"gemma-3", "gemma3", "gemma-4", "gemma4", "paligemma",
 		"qwen2.5-vl", "qwen3-vl", "qwen3.5", "qwen3.8", "superqwen",
 		"internvl", "molmo", "glm-4v", "qvq", "mllama", "mistral-small3.1", "mistral-small3.2",
+		"florence", "omni", "deepseek-vl", "idefics", "smolvlm", "phi-3.5-vision", "phi-3-vision",
+		"janus", "chameleon", "aria", "cogvlm",
 	} {
 		if strings.Contains(lower, kw) {
 			return true

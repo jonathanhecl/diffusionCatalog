@@ -948,11 +948,11 @@
 
             <!-- Target Backend Status Indicator -->
             <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:10px 12px;font-size:11.5px;color:var(--text-muted);">
-              <div>Text Route: <strong>[{{.Settings.Text2PromptProvider}}]</strong> <code>{{.Settings.Text2PromptModel}}</code></div>
-              <div>Vision Route: <strong>[{{.Settings.Image2PromptProvider}}]</strong> <code>{{.Settings.Image2PromptModel}}</code></div>
+              <div>Remix Default: <strong>[{{.Settings.RemixDefaultProvider}}]</strong> <code>{{if eq .Settings.RemixDefaultProvider "openai"}}{{.Settings.OpenAIDefaultModel}}{{else}}{{.Settings.OllamaDefaultModel}}{{end}}</code></div>
+              <div>Studio 2D Default: <strong>[{{.Settings.StudioDefaultProvider}}]</strong> <code>{{if eq .Settings.StudioDefaultProvider "openai"}}{{.Settings.OpenAIDefaultModel}}{{else}}{{.Settings.OllamaDefaultModel}}{{end}}</code></div>
               <div style="margin-top:4px;">
                 Ollama: {{if .AIStatus.OllamaOnline}}<span style="color:#34d399;">Online</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}} |
-                oMLX: {{if .AIStatus.OMLXOnline}}<span style="color:#34d399;">Online ({{len .AIStatus.OMLXModels}} models)</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}}
+                OpenAI: {{if .AIStatus.OMLXOnline}}<span style="color:#34d399;">Online ({{len .AIStatus.OMLXModels}} models)</span>{{else}}<span style="color:#f87171;">Offline</span>{{end}}
               </div>
             </div>
           </div>
@@ -1027,9 +1027,9 @@
                 </div>
 
                 <!-- Character Injection & Quick Overrides -->
-                <div style="display:grid;grid-template-columns:1fr 1fr 120px;gap:10px;">
+                <div style="display:grid;grid-template-columns:1fr 130px 1.5fr 110px;gap:8px;align-items:flex-end;">
                   <div>
-                    <label class="kv-label">Inject Character Identity (Optional)</label>
+                    <label class="kv-label">Inject Character (Optional)</label>
                     <select name="character_id" class="input-dark">
                       <option value="0">None (Preserve Original Subject)</option>
                       {{range .Page.Characters}}
@@ -1038,18 +1038,32 @@
                     </select>
                   </div>
                   <div>
-                    <label class="kv-label">Quick LLM / Vision Override (Optional)</label>
-                    <select name="override_route" class="input-dark">
-                      <option value="">Settings Default</option>
-                      {{range .AIStatus.AllModels}}
-                        <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
+                    <label class="kv-label">AI Provider</label>
+                    <select name="override_provider" id="remixProviderSelect" class="input-dark" onchange="switchProviderSelect('remix')">
+                      <option value="ollama" {{if eq .Settings.RemixDefaultProvider "ollama"}}selected{{end}}>Ollama</option>
+                      <option value="openai" {{if or (eq .Settings.RemixDefaultProvider "openai") (eq .Settings.RemixDefaultProvider "omlx")}}selected{{end}}>OpenAI Comp.</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="kv-label">Model</label>
+                    <select name="override_model" id="remixModelSelect" class="input-dark">
+                      {{if eq .Settings.RemixDefaultProvider "openai"}}
+                        <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (default)</option>
+                        {{range .AIStatus.OMLXModels}}
+                          <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                        {{end}}
+                      {{else}}
+                        <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (default)</option>
+                        {{range .AIStatus.OllamaModels}}
+                          <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                        {{end}}
                       {{end}}
                     </select>
                   </div>
                   <div>
                     <label class="kv-label">Thinking Mode</label>
-                    <select name="override_think" class="input-dark">
-                      <option value="">Default</option>
+                    <select name="override_think" id="remixThinkSelect" class="input-dark">
+                      <option value="default">Default</option>
                       <option value="off">Off</option>
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -1125,7 +1139,7 @@
           <form action="/admin/ollama/character2prompt" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:8px;">
             <input type="hidden" name="return_tab" value="studio">
             {{if .SelectedAsset}}<input type="hidden" name="ref_asset_id" value="{{.SelectedAsset.ID}}">{{end}}
-            <div style="display:grid;grid-template-columns:200px 220px 1fr 160px;gap:8px;align-items:center;">
+            <div style="display:grid;grid-template-columns:180px 200px 120px 1fr 110px;gap:8px;align-items:center;">
               <select name="character_id" class="input-dark" required>
                 <option value="">Select Character...</option>
                 {{range .Page.Characters}}
@@ -1137,19 +1151,29 @@
                   <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
                 {{end}}
               </select>
-              <select name="override_route" class="input-dark">
-                <option value="">Model: Settings Default ([{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}})</option>
-                {{range .AIStatus.AllModels}}
-                  <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
+              <select name="override_provider" id="charProviderSelect" class="input-dark" onchange="switchProviderSelect('char')">
+                <option value="ollama" {{if eq .Settings.StudioDefaultProvider "ollama"}}selected{{end}}>Ollama</option>
+                <option value="openai" {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}selected{{end}}>OpenAI</option>
+              </select>
+              <select name="override_model" id="charModelSelect" class="input-dark">
+                {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}
+                  <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (default)</option>
+                  {{range .AIStatus.OMLXModels}}
+                    <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                  {{end}}
+                {{else}}
+                  <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (default)</option>
+                  {{range .AIStatus.OllamaModels}}
+                    <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                  {{end}}
                 {{end}}
               </select>
-              <select name="override_think" class="input-dark">
-                <option value="">Think: Settings ({{.Settings.Text2PromptThink}})</option>
+              <select name="override_think" id="charThinkSelect" class="input-dark">
+                <option value="default">Think: Default</option>
                 <option value="off">Think: Off</option>
                 <option value="low">Think: Low</option>
-                <option value="medium">Think: Medium</option>
-                <option value="high">High</option>
-                <option value="default">Default</option>
+                <option value="medium">Think: Med</option>
+                <option value="high">Think: High</option>
               </select>
             </div>
             <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
@@ -1555,22 +1579,33 @@
             <!-- LLM Synthesis Model Route & Thinking Mode -->
             <div>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                <label style="font-size:11px;font-weight:600;color:var(--text-main);">LLM Model &amp; Route:</label>
-                <span id="directorLLMCurrentHint" style="font-size:10px;color:#38bdf8;font-family:monospace;">[{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}}</span>
+                <label style="font-size:11px;font-weight:600;color:var(--text-main);">AI Provider &amp; Model:</label>
+                <span id="directorLLMCurrentHint" style="font-size:10px;color:#38bdf8;font-family:monospace;"></span>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 88px;gap:6px;">
-                <select id="directorModelRoute" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 7px;color:#fff;font-size:11px;" onchange="updateDirectorActiveIndicator()">
-                  <option value="">Default: [{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}}</option>
-                  {{range .AIStatus.AllModels}}
-                    <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+              <div style="display:grid;grid-template-columns:85px 1fr 75px;gap:5px;">
+                <select id="directorProvider" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 6px;color:#fff;font-size:11px;" onchange="switchProviderSelect('director')">
+                  <option value="ollama" {{if eq .Settings.StudioDefaultProvider "ollama"}}selected{{end}}>Ollama</option>
+                  <option value="openai" {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}selected{{end}}>OpenAI</option>
+                </select>
+                <select id="directorModel" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 6px;color:#fff;font-size:11px;" onchange="updateDirectorActiveIndicator()">
+                  {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}
+                    <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (default)</option>
+                    {{range .AIStatus.OMLXModels}}
+                      <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                    {{end}}
+                  {{else}}
+                    <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (default)</option>
+                    {{range .AIStatus.OllamaModels}}
+                      <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                    {{end}}
                   {{end}}
                 </select>
-                <select id="directorThink" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 7px;color:#fff;font-size:11px;" onchange="updateDirectorActiveIndicator()">
-                  <option value="">Think: Def</option>
-                  <option value="off">Think: Off</option>
-                  <option value="low">Think: Low</option>
-                  <option value="medium">Think: Med</option>
-                  <option value="high">Think: High</option>
+                <select id="directorThink" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 6px;color:#fff;font-size:11px;" onchange="updateDirectorActiveIndicator()">
+                  <option value="default">Def</option>
+                  <option value="off">Off</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Med</option>
+                  <option value="high">High</option>
                 </select>
               </div>
             </div>
@@ -3665,19 +3700,9 @@
       }
     });
 
-    const routeVal = document.getElementById('directorModelRoute') ? document.getElementById('directorModelRoute').value : '';
+    const reqProv = document.getElementById('directorProvider') ? document.getElementById('directorProvider').value : '';
+    const reqMod = document.getElementById('directorModel') ? document.getElementById('directorModel').value : '';
     const thinkVal = document.getElementById('directorThink') ? document.getElementById('directorThink').value : '';
-    let reqProv = '';
-    let reqMod = '';
-    if (routeVal) {
-      const parts = routeVal.split('|');
-      if (parts.length === 2) {
-        reqProv = parts[0];
-        reqMod = parts[1];
-      } else {
-        reqMod = routeVal;
-      }
-    }
 
     try {
       const resp = await fetch('/admin/compositions/synthesize', {
@@ -3721,20 +3746,18 @@
 
   // Dynamic indicator for the active LLM in 2D Scene Director
   window.updateDirectorActiveIndicator = function() {
-    const routeEl = document.getElementById('directorModelRoute');
+    const provEl = document.getElementById('directorProvider');
+    const modEl = document.getElementById('directorModel');
     const thinkEl = document.getElementById('directorThink');
     const hintEl = document.getElementById('directorLLMCurrentHint');
     if (!hintEl) return;
-    if (routeEl && routeEl.value) {
-      const parts = routeEl.value.split('|');
-      let label = `[${parts[0]}] ${parts[1] || ''}`;
-      if (thinkEl && thinkEl.value) {
-        label += ` (${thinkEl.value})`;
-      }
-      hintEl.textContent = label;
-    } else {
-      hintEl.textContent = '[{{.Settings.Text2PromptProvider}}] {{.Settings.Text2PromptModel}}';
+    const p = provEl ? provEl.value : '';
+    const m = modEl ? modEl.value : '';
+    let label = `[${p}] ${m}`;
+    if (thinkEl && thinkEl.value && thinkEl.value !== 'default') {
+      label += ` (${thinkEl.value})`;
     }
+    hintEl.textContent = label;
   };
 
   // Copy Prompt to Clipboard (Non-intrusive, no alerts)
@@ -3977,124 +4000,207 @@
             </div>
           </div>
 
-          <form action="/admin/settings/save" method="POST" autocomplete="off" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+          <form action="/admin/settings/save" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:18px;">
             <input type="hidden" name="default_target_generator" value="{{.Settings.DefaultTargetGenerator}}">
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Ollama Base URL (Local or Remote)</label>
-              <input type="text" name="ollama_base_url" value="{{.Settings.OllamaBaseURL}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="http://127.0.0.1:11434" required>
-            </div>
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">OpenAI-Compatible Base URL (Local or Remote)</label>
-              <input type="text" name="omlx_base_url" value="{{.Settings.OMLXBaseURL}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="http://127.0.0.1:8000">
-            </div>
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">OpenAI Bearer API Key (Optional)</label>
-              <input type="text" name="omlx_api_key" value="{{.Settings.OMLXAPIKey}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="API Key (optional)">
-            </div>
 
-            <!-- Vision Task Route -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Vision Analysis Backend, Model &amp; Thinking</label>
-              <div style="display:flex;flex-direction:column;gap:6px;">
-                <div style="display:flex;gap:6px;">
-                  <select name="vision_provider" id="vision_provider" class="input-dark" style="width:115px;" onchange="filterModelSelect('vision_provider', 'vision_model_select')">
-                    <option value="ollama" {{if eq .Settings.VisionProvider "ollama"}}selected{{end}}>Ollama</option>
-                    <option value="openai" {{if or (eq .Settings.VisionProvider "openai") (eq .Settings.VisionProvider "omlx")}}selected{{end}}>OpenAI Comp.</option>
-                  </select>
-                  <select name="vision_model" id="vision_model_select" class="input-dark" onchange="syncProviderFromModel(this, 'vision_provider')">
-                    <option value="{{.Settings.VisionModel}}" selected>{{.Settings.VisionModel}} (current)</option>
-                    {{range .AIStatus.AllModels}}
-                      <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.VisionModel .Name}}selected{{end}}>
-                        {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{range .Capabilities}}[{{.}}] {{end}}{{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
-                      </option>
+            <!-- 2-Column Grid for Ollama and OpenAI Providers -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+              
+              <!-- 1. Ollama Provider -->
+              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:#fff;">
+                    <input type="checkbox" name="ollama_enabled" value="1" {{if .Settings.OllamaEnabled}}checked{{end}}>
+                    <span>1. Ollama Provider</span>
+                  </label>
+                  {{if .AIStatus.OllamaOnline}}
+                    <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
+                      Online (v{{.AIStatus.OllamaVersion}}) &bull; {{len .AIStatus.OllamaModels}} models
+                    </span>
+                  {{else}}
+                    <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
+                      Unreachable
+                    </span>
+                  {{end}}
+                </div>
+
+                <div>
+                  <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Ollama Endpoint URL</label>
+                  <input type="text" name="ollama_base_url" value="{{.Settings.OllamaBaseURL}}" class="input-dark" placeholder="http://127.0.0.1:11434" required>
+                </div>
+
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <label style="font-size:11.5px;color:var(--text-muted);">
+                      Default Model <strong style="color:#38bdf8;">(Vision Required 👁️)</strong>
+                    </label>
+                    <button type="submit" class="btn-ghost" style="font-size:10.5px;padding:2px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Save endpoint and load models">&#x21bb; Load Models</button>
+                  </div>
+                  <select name="ollama_default_model" class="input-dark" required>
+                    {{if .Settings.OllamaDefaultModel}}
+                      <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (current default)</option>
+                    {{else}}
+                      <option value="">Select Default Vision Model...</option>
                     {{end}}
+                    <optgroup label="Detected Vision Models">
+                      {{range .AIStatus.OllamaModels}}
+                        {{if .HasVision}}
+                          <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
+                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️] {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                          </option>
+                        {{end}}
+                      {{end}}
+                    </optgroup>
+                    <optgroup label="All Discovered Models">
+                      {{range .AIStatus.OllamaModels}}
+                        {{if not .HasVision}}
+                          <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
+                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                          </option>
+                        {{end}}
+                      {{end}}
+                    </optgroup>
                   </select>
                 </div>
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Thinking:</span>
-                  <select name="vision_think" class="input-dark" style="font-size:12px;padding:5px 8px;">
-                    <option value="off" {{if eq .Settings.VisionThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
-                    <option value="low" {{if eq .Settings.VisionThink "low"}}selected{{end}}>Low</option>
-                    <option value="medium" {{if eq .Settings.VisionThink "medium"}}selected{{end}}>Medium</option>
-                    <option value="high" {{if eq .Settings.VisionThink "high"}}selected{{end}}>High</option>
-                    <option value="default" {{if eq .Settings.VisionThink "default"}}selected{{end}}>Model Default</option>
+
+                <div>
+                  <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Default Reasoning / Thinking Level</label>
+                  <select name="ollama_default_think" class="input-dark">
+                    <option value="off" {{if eq .Settings.OllamaDefaultThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
+                    <option value="low" {{if eq .Settings.OllamaDefaultThink "low"}}selected{{end}}>Low</option>
+                    <option value="medium" {{if eq .Settings.OllamaDefaultThink "medium"}}selected{{end}}>Medium</option>
+                    <option value="high" {{if eq .Settings.OllamaDefaultThink "high"}}selected{{end}}>High</option>
+                    <option value="default" {{if eq .Settings.OllamaDefaultThink "default"}}selected{{end}}>Model Default</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- 2. OpenAI-Compatible Provider -->
+              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:#fff;">
+                    <input type="checkbox" name="openai_enabled" value="1" {{if .Settings.OpenAIEnabled}}checked{{end}}>
+                    <span>2. OpenAI Compatible (oMLX, vLLM, OpenAI)</span>
+                  </label>
+                  {{if .AIStatus.OMLXOnline}}
+                    <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
+                      Online &bull; {{len .AIStatus.OMLXModels}} models
+                    </span>
+                  {{else}}
+                    <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
+                      Unreachable
+                    </span>
+                  {{end}}
+                </div>
+
+                <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px;">
+                  <div>
+                    <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Endpoint URL</label>
+                    <input type="text" name="openai_base_url" value="{{if .Settings.OpenAIBaseURL}}{{.Settings.OpenAIBaseURL}}{{else}}{{.Settings.OMLXBaseURL}}{{end}}" class="input-dark" placeholder="http://127.0.0.1:8000">
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">API Key (Optional)</label>
+                    <input type="text" name="openai_api_key" value="{{if .Settings.OpenAIAPIKey}}{{.Settings.OpenAIAPIKey}}{{else}}{{.Settings.OMLXAPIKey}}{{end}}" class="input-dark" placeholder="Bearer token...">
+                  </div>
+                </div>
+
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <label style="font-size:11.5px;color:var(--text-muted);">
+                      Default Model <strong style="color:#38bdf8;">(Vision Required 👁️)</strong>
+                    </label>
+                    <button type="submit" class="btn-ghost" style="font-size:10.5px;padding:2px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Save endpoint and load models">&#x21bb; Load Models</button>
+                  </div>
+                  <select name="openai_default_model" class="input-dark" required>
+                    {{if .Settings.OpenAIDefaultModel}}
+                      <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (current default)</option>
+                    {{else}}
+                      <option value="">Select Default Vision Model...</option>
+                    {{end}}
+                    <optgroup label="Detected Vision Models">
+                      {{range .AIStatus.OMLXModels}}
+                        {{if .HasVision}}
+                          <option value="{{.Name}}" {{if eq $.Settings.OpenAIDefaultModel .Name}}selected{{end}}>
+                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️] {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                          </option>
+                        {{end}}
+                      {{end}}
+                    </optgroup>
+                    <optgroup label="All Discovered Models">
+                      {{range .AIStatus.OMLXModels}}
+                        {{if not .HasVision}}
+                          <option value="{{.Name}}" {{if eq $.Settings.OpenAIDefaultModel .Name}}selected{{end}}>
+                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
+                          </option>
+                        {{end}}
+                      {{end}}
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div>
+                  <label style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">Default Reasoning / Thinking Level</label>
+                  <select name="openai_default_think" class="input-dark">
+                    <option value="off" {{if eq .Settings.OpenAIDefaultThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
+                    <option value="low" {{if eq .Settings.OpenAIDefaultThink "low"}}selected{{end}}>Low</option>
+                    <option value="medium" {{if eq .Settings.OpenAIDefaultThink "medium"}}selected{{end}}>Medium</option>
+                    <option value="high" {{if eq .Settings.OpenAIDefaultThink "high"}}selected{{end}}>High</option>
+                    <option value="default" {{if eq .Settings.OpenAIDefaultThink "default"}}selected{{end}}>Model Default</option>
                   </select>
                 </div>
               </div>
             </div>
 
-            <!-- Image2Prompt Task Route -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Image2Prompt Backend, Model &amp; Thinking</label>
-              <div style="display:flex;flex-direction:column;gap:6px;">
-                <div style="display:flex;gap:6px;">
-                  <select name="image2prompt_provider" id="image2prompt_provider" class="input-dark" style="width:115px;" onchange="filterModelSelect('image2prompt_provider', 'image2prompt_model_select')">
-                    <option value="ollama" {{if eq .Settings.Image2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
-                    <option value="openai" {{if or (eq .Settings.Image2PromptProvider "openai") (eq .Settings.Image2PromptProvider "omlx")}}selected{{end}}>OpenAI Comp.</option>
+            <!-- Role-based defaults (Remix & Studio 2D) -->
+            <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:16px;">
+              <h3 style="font-size:13px;font-weight:700;color:#93c5fd;margin-bottom:10px;">Role &amp; Feature Defaults (Orientation)</h3>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div>
+                  <label style="display:block;font-size:12px;color:var(--text-main);margin-bottom:4px;font-weight:600;">
+                    3. Remix Default Provider
+                  </label>
+                  <select name="remix_default_provider" class="input-dark">
+                    <option value="ollama" {{if eq .Settings.RemixDefaultProvider "ollama"}}selected{{end}}>
+                      Ollama Default ({{if .Settings.OllamaDefaultModel}}{{.Settings.OllamaDefaultModel}}{{else}}Ollama Vision{{end}})
+                    </option>
+                    <option value="openai" {{if eq .Settings.RemixDefaultProvider "openai"}}selected{{end}}>
+                      OpenAI Compatible Default ({{if .Settings.OpenAIDefaultModel}}{{.Settings.OpenAIDefaultModel}}{{else}}OpenAI Vision{{end}})
+                    </option>
                   </select>
-                  <select name="image2prompt_model" id="image2prompt_model_select" class="input-dark" onchange="syncProviderFromModel(this, 'image2prompt_provider')">
-                    <option value="{{.Settings.Image2PromptModel}}" selected>{{.Settings.Image2PromptModel}} (current)</option>
-                    {{range .AIStatus.AllModels}}
-                      <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.Image2PromptModel .Name}}selected{{end}}>
-                        {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{range .Capabilities}}[{{.}}] {{end}}{{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
-                      </option>
-                    {{end}}
-                  </select>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                    Pre-selected in Prompt Studio &amp; Image Remix. Can be switched on-the-fly per prompt.
+                  </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Thinking:</span>
-                  <select name="image2prompt_think" class="input-dark" style="font-size:12px;padding:5px 8px;">
-                    <option value="off" {{if eq .Settings.Image2PromptThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
-                    <option value="low" {{if eq .Settings.Image2PromptThink "low"}}selected{{end}}>Low</option>
-                    <option value="medium" {{if eq .Settings.Image2PromptThink "medium"}}selected{{end}}>Medium</option>
-                    <option value="high" {{if eq .Settings.Image2PromptThink "high"}}selected{{end}}>High</option>
-                    <option value="default" {{if eq .Settings.Image2PromptThink "default"}}selected{{end}}>Model Default</option>
+
+                <div>
+                  <label style="display:block;font-size:12px;color:var(--text-main);margin-bottom:4px;font-weight:600;">
+                    4. Studio 2D / General Default Provider
+                  </label>
+                  <select name="studio_default_provider" class="input-dark">
+                    <option value="openai" {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}selected{{end}}>
+                      OpenAI Compatible Default ({{if .Settings.OpenAIDefaultModel}}{{.Settings.OpenAIDefaultModel}}{{else}}OpenAI Vision{{end}})
+                    </option>
+                    <option value="ollama" {{if eq .Settings.StudioDefaultProvider "ollama"}}selected{{end}}>
+                      Ollama Default ({{if .Settings.OllamaDefaultModel}}{{.Settings.OllamaDefaultModel}}{{else}}Ollama Vision{{end}})
+                    </option>
                   </select>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                    Pre-selected in 2D Scene Director and Character prompt creation. Can be switched on-the-fly.
+                  </div>
                 </div>
+              </div>
+
+              <div style="margin-top:14px;display:flex;align-items:center;">
+                <label class="checkbox-item" style="font-size:12px;color:var(--text-muted);">
+                  <span>
+                    <input type="checkbox" name="auto_caption_on_scan" {{if .Settings.AutoCaptionOnScan}}checked{{end}}>
+                    Auto-run Image2Prompt during folder scan for assets missing embedded prompts
+                  </span>
+                </label>
               </div>
             </div>
 
-            <!-- Text2Prompt Task Route -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">Text2Prompt Backend, Model &amp; Thinking</label>
-              <div style="display:flex;flex-direction:column;gap:6px;">
-                <div style="display:flex;gap:6px;">
-                  <select name="text2prompt_provider" id="text2prompt_provider" class="input-dark" style="width:115px;" onchange="filterModelSelect('text2prompt_provider', 'text2prompt_model_select')">
-                    <option value="ollama" {{if eq .Settings.Text2PromptProvider "ollama"}}selected{{end}}>Ollama</option>
-                    <option value="openai" {{if or (eq .Settings.Text2PromptProvider "openai") (eq .Settings.Text2PromptProvider "omlx")}}selected{{end}}>OpenAI Comp.</option>
-                  </select>
-                  <select name="text2prompt_model" id="text2prompt_model_select" class="input-dark" onchange="syncProviderFromModel(this, 'text2prompt_provider')">
-                    <option value="{{.Settings.Text2PromptModel}}" selected>{{.Settings.Text2PromptModel}} (current)</option>
-                    {{range .AIStatus.AllModels}}
-                      <option value="{{.Name}}" data-provider="{{.Provider}}" {{if eq $.Settings.Text2PromptModel .Name}}selected{{end}}>
-                        {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{range .Capabilities}}[{{.}}] {{end}}{{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
-                      </option>
-                    {{end}}
-                  </select>
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Thinking:</span>
-                  <select name="text2prompt_think" class="input-dark" style="font-size:12px;padding:5px 8px;">
-                    <option value="off" {{if eq .Settings.Text2PromptThink "off"}}selected{{end}}>Off (Fastest / No Reasoning)</option>
-                    <option value="low" {{if eq .Settings.Text2PromptThink "low"}}selected{{end}}>Low</option>
-                    <option value="medium" {{if eq .Settings.Text2PromptThink "medium"}}selected{{end}}>Medium</option>
-                    <option value="high" {{if eq .Settings.Text2PromptThink "high"}}selected{{end}}>High</option>
-                    <option value="default" {{if eq .Settings.Text2PromptThink "default"}}selected{{end}}>Model Default</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div style="grid-column:span 3;display:flex;align-items:center;padding-top:4px;">
-              <label class="checkbox-item" style="font-size:12.5px;color:var(--text-main);">
-                <span>
-                  <input type="checkbox" name="auto_caption_on_scan" {{if .Settings.AutoCaptionOnScan}}checked{{end}}>
-                  Auto-run Image2Prompt during folder scan for assets missing embedded prompts
-                </span>
-              </label>
-            </div>
-
-            <div style="grid-column:span 3;display:flex;justify-content:space-between;align-items:center;padding-top:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;">
               <button type="submit" class="btn-primary">Save Server &amp; App Settings</button>
               <div style="display:flex;gap:8px;">
                 <a href="/?tab=generators" class="btn-ghost">Configure Generator Models &amp; LoRAs &rarr;</a>
@@ -4921,6 +5027,97 @@
     {{end}}
   </main>
   <script>
+    window.aiProviderConfig = {
+      ollama: {
+        enabled: {{if .Settings.OllamaEnabled}}true{{else}}false{{end}},
+        defaultModel: {{printf "%q" .Settings.OllamaDefaultModel}},
+        defaultThink: {{printf "%q" .Settings.OllamaDefaultThink}},
+        models: [
+          {{range .AIStatus.OllamaModels}}
+            { name: {{printf "%q" .Name}}, vision: {{.HasVision}}, size: {{printf "%q" .ParameterSize}} },
+          {{end}}
+        ]
+      },
+      openai: {
+        enabled: {{if .Settings.OpenAIEnabled}}true{{else}}false{{end}},
+        defaultModel: {{printf "%q" .Settings.OpenAIDefaultModel}},
+        defaultThink: {{printf "%q" .Settings.OpenAIDefaultThink}},
+        models: [
+          {{range .AIStatus.OMLXModels}}
+            { name: {{printf "%q" .Name}}, vision: {{.HasVision}}, size: {{printf "%q" .ParameterSize}} },
+          {{end}}
+        ]
+      }
+    };
+
+    window.switchProviderSelect = function(prefix) {
+      var provEl = document.getElementById(prefix + 'ProviderSelect') || document.getElementById(prefix + 'Provider');
+      var modEl = document.getElementById(prefix + 'ModelSelect') || document.getElementById(prefix + 'Model');
+      var thinkEl = document.getElementById(prefix + 'ThinkSelect') || document.getElementById(prefix + 'Think');
+      if (!provEl || !modEl) return;
+
+      var prov = (provEl.value || 'ollama').toLowerCase();
+      if (prov === 'omlx') prov = 'openai';
+      var conf = window.aiProviderConfig[prov] || window.aiProviderConfig['ollama'];
+      if (!conf) return;
+
+      var prevVal = modEl.value;
+      modEl.innerHTML = '';
+
+      if (conf.models && conf.models.length > 0) {
+        var foundPrev = false;
+        var foundDef = false;
+        conf.models.forEach(function(m) {
+          var opt = document.createElement('option');
+          opt.value = m.name;
+          var label = m.name;
+          if (m.size) label += ' (' + m.size + ')';
+          if (m.vision) label += ' [vision 👁️]';
+          opt.textContent = label;
+          if (m.name === prevVal) {
+            opt.selected = true;
+            foundPrev = true;
+          } else if (!foundPrev && m.name === conf.defaultModel) {
+            opt.selected = true;
+            foundDef = true;
+          }
+          modEl.appendChild(opt);
+        });
+
+        if (!foundPrev && !foundDef && conf.defaultModel) {
+          var opt = document.createElement('option');
+          opt.value = conf.defaultModel;
+          opt.textContent = conf.defaultModel + ' (default)';
+          opt.selected = true;
+          modEl.insertBefore(opt, modEl.firstChild);
+        }
+      } else if (conf.defaultModel) {
+        var opt = document.createElement('option');
+        opt.value = conf.defaultModel;
+        opt.textContent = conf.defaultModel + ' (default)';
+        opt.selected = true;
+        modEl.appendChild(opt);
+      } else {
+        var opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No models available';
+        modEl.appendChild(opt);
+      }
+
+      if (thinkEl && (thinkEl.value === 'default' || thinkEl.value === '') && conf.defaultThink) {
+        thinkEl.value = conf.defaultThink;
+      }
+      if (prefix === 'director' && typeof updateDirectorActiveIndicator === 'function') {
+        updateDirectorActiveIndicator();
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      if (document.getElementById('remixProviderSelect')) switchProviderSelect('remix');
+      if (document.getElementById('charProviderSelect')) switchProviderSelect('char');
+      if (document.getElementById('directorProvider')) switchProviderSelect('director');
+    });
+
     function filterLoRAsByModel(formEl, selectedSlug) {
       if (!formEl) return;
       var items = formEl.querySelectorAll('.lora-chip-item');

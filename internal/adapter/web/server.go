@@ -894,21 +894,86 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		defTarget = current.DefaultTargetGenerator
 	}
 
+	ollamaEnabled := r.FormValue("ollama_enabled") == "on" || r.FormValue("ollama_enabled") == "true" || r.FormValue("ollama_enabled") == "1"
+	openaiEnabled := r.FormValue("openai_enabled") == "on" || r.FormValue("openai_enabled") == "true" || r.FormValue("openai_enabled") == "1"
+
+	ollamaBaseURL := strings.TrimSpace(r.FormValue("ollama_base_url"))
+	if ollamaBaseURL == "" {
+		ollamaBaseURL = current.OllamaBaseURL
+	}
+	openaiBaseURL := strings.TrimSpace(r.FormValue("openai_base_url"))
+	if openaiBaseURL == "" {
+		openaiBaseURL = strings.TrimSpace(r.FormValue("omlx_base_url"))
+	}
+	if openaiBaseURL == "" {
+		openaiBaseURL = current.OpenAIBaseURL
+	}
+	openaiAPIKey := strings.TrimSpace(r.FormValue("openai_api_key"))
+	if openaiAPIKey == "" {
+		openaiAPIKey = strings.TrimSpace(r.FormValue("omlx_api_key"))
+	}
+
+	ollamaDefModel := strings.TrimSpace(r.FormValue("ollama_default_model"))
+	if ollamaDefModel == "" {
+		ollamaDefModel = current.OllamaDefaultModel
+	}
+	ollamaDefThink := strings.TrimSpace(r.FormValue("ollama_default_think"))
+	if ollamaDefThink == "" {
+		ollamaDefThink = "off"
+	}
+
+	openaiDefModel := strings.TrimSpace(r.FormValue("openai_default_model"))
+	if openaiDefModel == "" {
+		openaiDefModel = current.OpenAIDefaultModel
+	}
+	openaiDefThink := strings.TrimSpace(r.FormValue("openai_default_think"))
+	if openaiDefThink == "" {
+		openaiDefThink = "low"
+	}
+
+	remixDefProv := domain.AIProviderType(r.FormValue("remix_default_provider"))
+	if remixDefProv == "" {
+		remixDefProv = current.RemixDefaultProvider
+	}
+	if remixDefProv == "" {
+		remixDefProv = domain.ProviderOllama
+	}
+
+	studioDefProv := domain.AIProviderType(r.FormValue("studio_default_provider"))
+	if studioDefProv == "" {
+		studioDefProv = current.StudioDefaultProvider
+	}
+	if studioDefProv == "" {
+		studioDefProv = domain.ProviderOpenAI
+	}
+
 	cfg := domain.AppSettings{
-		OllamaBaseURL:          r.FormValue("ollama_base_url"),
-		OMLXBaseURL:            r.FormValue("omlx_base_url"),
-		OMLXAPIKey:             r.FormValue("omlx_api_key"),
-		VisionProvider:         domain.AIProviderType(r.FormValue("vision_provider")),
-		VisionModel:            r.FormValue("vision_model"),
-		VisionThink:            r.FormValue("vision_think"),
-		Image2PromptProvider:   domain.AIProviderType(r.FormValue("image2prompt_provider")),
-		Image2PromptModel:      r.FormValue("image2prompt_model"),
-		Image2PromptThink:      r.FormValue("image2prompt_think"),
-		Text2PromptProvider:    domain.AIProviderType(r.FormValue("text2prompt_provider")),
-		Text2PromptModel:       r.FormValue("text2prompt_model"),
-		Text2PromptThink:       r.FormValue("text2prompt_think"),
+		OllamaEnabled:          ollamaEnabled,
+		OllamaBaseURL:          ollamaBaseURL,
+		OllamaDefaultModel:     ollamaDefModel,
+		OllamaDefaultThink:     ollamaDefThink,
+		OpenAIEnabled:          openaiEnabled,
+		OpenAIBaseURL:          openaiBaseURL,
+		OpenAIAPIKey:           openaiAPIKey,
+		OpenAIDefaultModel:     openaiDefModel,
+		OpenAIDefaultThink:     openaiDefThink,
+		RemixDefaultProvider:   remixDefProv,
+		StudioDefaultProvider:  studioDefProv,
 		DefaultTargetGenerator: defTarget,
 		AutoCaptionOnScan:      r.FormValue("auto_caption_on_scan") == "on" || r.FormValue("auto_caption_on_scan") == "true",
+
+		// Compatibility sync
+		OMLXBaseURL:          openaiBaseURL,
+		OMLXAPIKey:           openaiAPIKey,
+		VisionProvider:       remixDefProv,
+		VisionModel:          ollamaDefModel,
+		VisionThink:          ollamaDefThink,
+		Image2PromptProvider: remixDefProv,
+		Image2PromptModel:    ollamaDefModel,
+		Image2PromptThink:    ollamaDefThink,
+		Text2PromptProvider:  studioDefProv,
+		Text2PromptModel:     openaiDefModel,
+		Text2PromptThink:     openaiDefThink,
 	}
 	_ = s.catalog.SaveSettings(r.Context(), cfg)
 	http.Redirect(w, r, "/?tab=settings&notice=Settings+saved+successfully", http.StatusSeeOther)
@@ -1676,7 +1741,8 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg, _ := s.catalog.GetSettings(ctx)
-	usedProv, usedMod, _, usedThk := s.catalog.ResolveExecutionRoute(cfg, cfg.Text2PromptProvider, cfg.Text2PromptModel, cfg.Text2PromptThink, override)
+	defProv, defMod, defThk := cfg.GetStudioDefaults()
+	usedProv, usedMod, _, usedThk := s.catalog.ResolveExecutionRoute(cfg, defProv, defMod, defThk, override)
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":      "ok",
