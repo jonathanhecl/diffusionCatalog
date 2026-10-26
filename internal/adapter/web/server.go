@@ -494,6 +494,9 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	if tab == "remix" {
 		tab = "studio"
 	}
+	if tab == "groups" {
+		tab = "collections"
+	}
 
 	// If opening the catalog grid directly with no query parameters, and a saved filter cookie exists,
 	// redirect to restore the saved filters in the URL so user sees them clearly.
@@ -1274,7 +1277,7 @@ func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	if name != "" {
 		_, _ = s.catalog.CreateGroup(r.Context(), name, category, desc, 0)
 	}
-	http.Redirect(w, r, "/?tab=groups", http.StatusSeeOther)
+	http.Redirect(w, r, "/?tab=collections", http.StatusSeeOther)
 }
 
 func (s *Server) handleAttachGroup(w http.ResponseWriter, r *http.Request) {
@@ -1284,7 +1287,7 @@ func (s *Server) handleAttachGroup(w http.ResponseWriter, r *http.Request) {
 	if assetID > 0 && groupID > 0 {
 		_ = s.catalog.AssignAssetToGroup(r.Context(), groupID, assetID)
 	}
-	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10), http.StatusSeeOther)
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Added+to+collection", http.StatusSeeOther)
 }
 
 func (s *Server) handleDetachGroup(w http.ResponseWriter, r *http.Request) {
@@ -1294,7 +1297,7 @@ func (s *Server) handleDetachGroup(w http.ResponseWriter, r *http.Request) {
 	if assetID > 0 && groupID > 0 {
 		_ = s.catalog.RemoveAssetFromGroup(r.Context(), groupID, assetID)
 	}
-	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Removed+from+group", http.StatusSeeOther)
+	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Removed+from+collection", http.StatusSeeOther)
 }
 
 func (s *Server) handleCreateCharacter(w http.ResponseWriter, r *http.Request) {

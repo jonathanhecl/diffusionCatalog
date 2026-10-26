@@ -731,11 +731,188 @@ a {
   padding: 6px 14px;
 }
 
-/* Character & Group Cards */
+/* Character Cards */
 .character-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+}
+
+/* Collections Grid & Cards (Nintendo Switch Inspired Multi-Cover Preview) */
+.collections-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 1200px) {
+  .collections-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .collections-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .collections-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.collection-card {
+  display: flex;
+  flex-direction: column;
+  background: #181920;
+  border: 2px solid #232530;
+  border-radius: 8px;
+  padding: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.collection-card:hover,
+.collection-card:focus-visible {
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+  outline: none;
+}
+
+.collection-cover-stage {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: #0f1015;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+}
+
+/* 3-Image Cover Layout: 1 large left, 2 stacked right */
+.collection-cover-trio {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+}
+
+.collection-cover-trio .cover-primary {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.collection-cover-trio .cover-secondary-col {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  height: 100%;
+}
+
+.collection-cover-trio .cover-secondary-col img,
+.collection-cover-trio .cover-secondary-col video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 2-Image Cover Layout */
+.collection-cover-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+}
+
+.collection-cover-duo img,
+.collection-cover-duo video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 1-Image Cover Layout */
+.collection-cover-single {
+  width: 100%;
+  height: 100%;
+}
+
+.collection-cover-single img,
+.collection-cover-single video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Empty Cover Layout */
+.collection-cover-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.collection-cover-empty .empty-icon {
+  font-size: 28px;
+  opacity: 0.6;
+}
+
+.collection-info {
+  padding: 8px 4px 4px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.collection-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.collection-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 16px;
+}
+
+.collection-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748b;
 }
 
 .char-card {

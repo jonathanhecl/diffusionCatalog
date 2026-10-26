@@ -178,8 +178,8 @@
       <a href="/?tab=characters" class="nav-tab {{if eq .ActiveTab "characters"}}active{{end}}">
         <span class="tab-icon">&#128100;</span> Characters{{if gt (len .Page.Characters) 0}} <span class="tab-badge">{{len .Page.Characters}}</span>{{end}}
       </a>
-      <a href="/?tab=groups" class="nav-tab {{if eq .ActiveTab "groups"}}active{{end}}">
-        <span class="tab-icon">&#128193;</span> Groups{{if gt (len .Page.Groups) 0}} <span class="tab-badge">{{len .Page.Groups}}</span>{{end}}
+      <a href="/?tab=collections" class="nav-tab {{if or (eq .ActiveTab "collections") (eq .ActiveTab "groups")}}active{{end}}">
+        <span class="tab-icon">&#128193;</span> Collections{{if gt (len .Page.Groups) 0}} <span class="tab-badge">{{len .Page.Groups}}</span>{{end}}
       </a>
       <a href="/?face_mode=1" class="nav-tab {{if eq .ActiveTab "faces"}}active{{end}}">
         <span class="tab-icon">&#128269;</span> Faces
@@ -209,9 +209,9 @@
         {{else if eq .ActiveTab "characters"}}
           <h1 class="hero-title">Character &amp; Concept <span class="highlight">Prompt Folders</span></h1>
           <p class="hero-sub">Reusable character sheets with canonical positive/negative prompts, trigger words, LoRAs, and linked example galleries.</p>
-        {{else if eq .ActiveTab "groups"}}
-          <h1 class="hero-title">Agnostic <span class="highlight">Collections &amp; Folders</span></h1>
-          <p class="hero-sub">Organize diffusion images and videos into arbitrary collections without altering your underlying filesystem.</p>
+        {{else if or (eq .ActiveTab "collections") (eq .ActiveTab "groups")}}
+          <h1 class="hero-title">&#128193; <span class="highlight">Collections</span></h1>
+          <p class="hero-sub">Organize and browse your media in curated visual collections.</p>
     {{else if eq .ActiveTab "generators"}}
           <h1 class="hero-title">Target <span class="highlight">Generator Models, System Prompts &amp; LoRAs</span></h1>
           <p class="hero-sub">Manage diffusion/video model families (Flux, Krea 2, Qwen-Image, MOSS, MiniMax H3), their generation context prompts, and their dedicated LoRAs.</p>
@@ -541,7 +541,7 @@
               </form>
             </div>
             <div>
-              <div class="facet-title"><span>LINK TO AGNOSTIC GROUP</span></div>
+              <div class="facet-title"><span>COLLECTIONS</span></div>
               {{if .SelectedAsset.Groups}}
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
                   {{range .SelectedAsset.Groups}}
@@ -550,7 +550,7 @@
                       <form action="/admin/groups/detach" method="POST" style="display:inline;margin:0;">
                         <input type="hidden" name="asset_id" value="{{$.SelectedAsset.ID}}">
                         <input type="hidden" name="group_id" value="{{.ID}}">
-                        <button type="submit" class="tag-del-btn" title="Remove from group">&times;</button>
+                        <button type="submit" class="tag-del-btn" title="Remove from collection">&times;</button>
                       </form>
                     </div>
                   {{end}}
@@ -559,7 +559,7 @@
               <form action="/admin/groups/attach" method="POST" style="display:flex;gap:8px;">
                 <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
                 <select name="group_id" class="input-dark" required>
-                  <option value="">Add to Group...</option>
+                  <option value="">Add to Collection...</option>
                   {{range .Page.Groups}}
                     <option value="{{.ID}}">{{.Name}}</option>
                   {{end}}
@@ -758,7 +758,7 @@
         <div style="margin-bottom:36px;">
           <div class="results-bar">
             <div class="results-count" style="font-size:14px;">
-              More Media in Group / Folder
+              More Media in Collection
               {{range $idx, $gr := .SelectedAsset.Groups}}
                 {{if eq $idx 0}}<strong style="font-size:16px;color:#93c5fd;">{{$gr.Name}}</strong>{{end}}
               {{end}}
@@ -4346,33 +4346,96 @@
         </form>
       </div>
 
-    {{else if eq .ActiveTab "groups"}}
-      <div class="results-bar" style="margin-top:18px;">
-        <div class="results-count">Agnostic Groups &amp; Collections: <strong>{{len .Page.Groups}}</strong></div>
-      </div>
-      <div class="character-grid" style="margin-bottom:28px;">
-        {{range .Page.Groups}}
-          <div class="char-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <h3 style="font-size:16px;">{{.Name}}</h3>
-              <span class="badge-chip">{{.Category}}</span>
-            </div>
-            <p style="color:var(--text-muted);font-size:12px;">{{.Description}}</p>
-            <div style="margin-top:auto;padding-top:8px;">
-              <a href="/?group_id={{.ID}}" class="btn-primary" style="display:inline-block;padding:6px 14px;font-size:12px;">Browse {{.AssetCount}} Assets</a>
-            </div>
-          </div>
-        {{end}}
+    {{else if or (eq .ActiveTab "collections") (eq .ActiveTab "groups")}}
+      <div class="results-bar" style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;">
+        <div class="results-count">Collections: <strong>{{len .Page.Groups}}</strong></div>
+        <button type="button" class="btn-primary" onclick="const f=document.getElementById('createCollectionBox');f.style.display=f.style.display==='none'?'block':'none';if(f.style.display!=='none')f.querySelector('input[name=name]').focus();" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:6px 14px;cursor:pointer;">
+          <span>&#43;</span> New Collection
+        </button>
       </div>
 
-      <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:18px;margin-bottom:40px;max-width:640px;">
-        <h3 style="margin-bottom:12px;font-size:15px;">Create Agnostic Group</h3>
+      <div id="createCollectionBox" style="display:none;background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:18px;margin-bottom:24px;max-width:600px;">
+        <h3 style="margin-bottom:12px;font-size:15px;color:#f8fafc;">New Collection</h3>
         <form action="/admin/groups/create" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:10px;">
-          <input type="text" name="name" placeholder="Group Name (e.g. Lighting Studies)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-          <input type="text" name="category" placeholder="Agnostic Category (e.g. Reference, Project, Moodboard)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          <input type="text" name="description" placeholder="Description..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          <div><button type="submit" class="btn-primary">Create Group</button></div>
+          <input type="text" name="name" placeholder="Collection Title (e.g. Cyberpunk Characters)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+          <textarea name="description" placeholder="Description..." class="input-dark" rows="2" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+          <div style="display:flex;gap:10px;">
+            <button type="submit" class="btn-primary">Create Collection</button>
+            <button type="button" class="btn-ghost" onclick="document.getElementById('createCollectionBox').style.display='none';">Cancel</button>
+          </div>
         </form>
+      </div>
+
+      <div class="collections-grid">
+        {{range .Page.Groups}}
+          <a href="/?group_id={{.ID}}" class="collection-card">
+            <div class="collection-cover-stage">
+              {{$len := len .PreviewAssets}}
+              {{if ge $len 3}}
+                <div class="collection-cover-trio">
+                  {{$a0 := index .PreviewAssets 0}}
+                  {{if eq $a0.MediaType "video"}}
+                    <video src="/media/{{$a0.RelPath}}" muted loop playsinline class="cover-primary"></video>
+                  {{else}}
+                    <img src="/media/{{$a0.RelPath}}" alt="{{$a0.FileName}}" class="cover-primary" loading="lazy">
+                  {{end}}
+                  <div class="cover-secondary-col">
+                    {{$a1 := index .PreviewAssets 1}}
+                    {{if eq $a1.MediaType "video"}}
+                      <video src="/media/{{$a1.RelPath}}" muted loop playsinline></video>
+                    {{else}}
+                      <img src="/media/{{$a1.RelPath}}" alt="{{$a1.FileName}}" loading="lazy">
+                    {{end}}
+                    {{$a2 := index .PreviewAssets 2}}
+                    {{if eq $a2.MediaType "video"}}
+                      <video src="/media/{{$a2.RelPath}}" muted loop playsinline></video>
+                    {{else}}
+                      <img src="/media/{{$a2.RelPath}}" alt="{{$a2.FileName}}" loading="lazy">
+                    {{end}}
+                  </div>
+                </div>
+              {{else if eq $len 2}}
+                <div class="collection-cover-duo">
+                  {{$a0 := index .PreviewAssets 0}}
+                  {{if eq $a0.MediaType "video"}}
+                    <video src="/media/{{$a0.RelPath}}" muted loop playsinline></video>
+                  {{else}}
+                    <img src="/media/{{$a0.RelPath}}" alt="{{$a0.FileName}}" loading="lazy">
+                  {{end}}
+                  {{$a1 := index .PreviewAssets 1}}
+                  {{if eq $a1.MediaType "video"}}
+                    <video src="/media/{{$a1.RelPath}}" muted loop playsinline></video>
+                  {{else}}
+                    <img src="/media/{{$a1.RelPath}}" alt="{{$a1.FileName}}" loading="lazy">
+                  {{end}}
+                </div>
+              {{else if eq $len 1}}
+                <div class="collection-cover-single">
+                  {{$a0 := index .PreviewAssets 0}}
+                  {{if eq $a0.MediaType "video"}}
+                    <video src="/media/{{$a0.RelPath}}" muted loop playsinline></video>
+                  {{else}}
+                    <img src="/media/{{$a0.RelPath}}" alt="{{$a0.FileName}}" loading="lazy">
+                  {{end}}
+                </div>
+              {{else}}
+                <div class="collection-cover-empty">
+                  <span class="empty-icon">&#128193;</span>
+                  <span>Empty Collection</span>
+                </div>
+              {{end}}
+            </div>
+            <div class="collection-info">
+              <h3 class="collection-title" title="{{.Name}}">{{.Name}}</h3>
+              {{if .Description}}
+                <p class="collection-desc">{{.Description}}</p>
+              {{end}}
+              <div class="collection-meta">
+                <span>{{.AssetCount}} items</span>
+              </div>
+            </div>
+          </a>
+        {{end}}
       </div>
 
     {{else}}
@@ -4485,9 +4548,9 @@
             </div>
 
             <div class="facet-block">
-              <div class="facet-title"><span>AGNOSTIC GROUP</span></div>
+              <div class="facet-title"><span>COLLECTION</span></div>
               <select name="group_id" class="input-dark" onchange="this.form.submit()">
-                <option value="0">All Groups</option>
+                <option value="0">All Collections</option>
                 {{range .Page.Groups}}
                   <option value="{{.ID}}" {{if eq $.Filter.GroupID .ID}}selected{{end}}>{{.Name}} ({{.AssetCount}})</option>
                 {{end}}

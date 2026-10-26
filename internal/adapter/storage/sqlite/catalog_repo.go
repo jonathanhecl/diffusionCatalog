@@ -1380,6 +1380,36 @@ func (r *Repository) ListGroups(ctx context.Context) ([]domain.Group, error) {
 		}
 		out = append(out, g)
 	}
+
+	if len(out) > 0 {
+		pRows, pErr := db.QueryContext(ctx, `
+			SELECT group_id, id, rel_path, file_name, media_type, rating
+			FROM (
+				SELECT ga.group_id, a.id, a.rel_path, a.file_name, a.media_type, a.rating,
+				       ROW_NUMBER() OVER (PARTITION BY ga.group_id ORDER BY a.rating DESC, a.file_mtime DESC, a.id DESC) as rn
+				FROM group_assets ga
+				JOIN assets a ON a.id = ga.asset_id
+			)
+			WHERE rn <= 3
+			ORDER BY group_id, rn ASC`)
+		if pErr == nil {
+			defer pRows.Close()
+			previewsByGroup := make(map[int64][]domain.GroupPreviewAsset)
+			for pRows.Next() {
+				var gid int64
+				var pa domain.GroupPreviewAsset
+				if err := pRows.Scan(&gid, &pa.ID, &pa.RelPath, &pa.FileName, &pa.MediaType, &pa.Rating); err == nil {
+					previewsByGroup[gid] = append(previewsByGroup[gid], pa)
+				}
+			}
+			for i := range out {
+				if previews, ok := previewsByGroup[out[i].ID]; ok {
+					out[i].PreviewAssets = previews
+				}
+			}
+		}
+	}
+
 	return out, nil
 }
 

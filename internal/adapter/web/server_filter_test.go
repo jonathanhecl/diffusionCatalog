@@ -206,3 +206,43 @@ func TestSynthesizeSceneInMemoryNoTempFiles(t *testing.T) {
 		t.Errorf("expected 0 scene_canvas temporary files in %s, found %d: %v", uploadsDir, len(matches), matches)
 	}
 }
+
+func TestCollectionsTabRendering(t *testing.T) {
+	server, repo, id1, id2 := setupTestServer(t)
+	ctx := context.Background()
+	handler := server.Handler()
+
+	// Create a collection and link assets
+	gid, err := repo.CreateGroup(ctx, &domain.Group{Name: "Retro Classics", Description: "Vintage arcade art"})
+	if err != nil {
+		t.Fatalf("CreateGroup error: %v", err)
+	}
+	_ = repo.AttachAssetToGroup(ctx, gid, id1)
+	_ = repo.AttachAssetToGroup(ctx, gid, id2)
+
+	// Visit /?tab=collections
+	req := httptest.NewRequest("GET", "/?tab=collections", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Collections") {
+		t.Errorf("expected page to contain 'Collections'")
+	}
+	if !strings.Contains(body, "Retro Classics") {
+		t.Errorf("expected page to contain collection name 'Retro Classics'")
+	}
+	if !strings.Contains(body, "collections-grid") {
+		t.Errorf("expected page to contain 'collections-grid' class")
+	}
+	if !strings.Contains(body, "collection-cover-duo") && !strings.Contains(body, "collection-cover-trio") {
+		t.Errorf("expected page to render multi-cover preview container")
+	}
+	if strings.Contains(body, "Agnostic Groups") {
+		t.Errorf("expected 'Agnostic Groups' text to be completely removed")
+	}
+}
