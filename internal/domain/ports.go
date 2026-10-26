@@ -140,23 +140,81 @@ func (f CatalogFilter) QueryWithPage(page int) string {
 	return v.Encode()
 }
 
+// FilterWithoutField returns a copy of the filter with the specified field cleared.
+func (f CatalogFilter) FilterWithoutField(field string) CatalogFilter {
+	cp := f
+	switch field {
+	case "group_id":
+		cp.GroupID = 0
+	case "character_id":
+		cp.CharacterID = 0
+	case "category":
+		cp.Category = ""
+	case "subcategory":
+		cp.Subcategory = ""
+	case "q":
+		cp.Query = ""
+	case "trigger":
+		cp.Trigger = ""
+	case "min_rating":
+		cp.MinRating = 0
+	case "favorites":
+		cp.FavoritesOnly = false
+	case "engine":
+		cp.Engine = ""
+	case "model":
+		cp.ModelName = ""
+	case "media_type":
+		cp.MediaType = ""
+	case "root_id":
+		cp.RootID = 0
+	case "face_mode":
+		cp.FaceMode = false
+	}
+	cp.Page = 1
+	return cp
+}
+
+// FilterWithoutTag returns a copy of the filter excluding a specific tag.
+func (f CatalogFilter) FilterWithoutTag(tagToRemove string) CatalogFilter {
+	cp := f
+	var tags []string
+	for _, t := range cp.TagNames {
+		if t != tagToRemove {
+			tags = append(tags, t)
+		}
+	}
+	cp.TagNames = tags
+	cp.Page = 1
+	return cp
+}
+
 // QueryWithoutField returns a query string excluding the specified field.
+// If no active filters or non-default sort remain, it returns "reset=1" (or "reset=1&per_page=...")
+// so that saved filter cookies are cleanly reset when exiting the last filter.
 func (f CatalogFilter) QueryWithoutField(field string) string {
-	v := f.QueryValuesWithoutPage()
-	v.Del(field)
-	return v.Encode()
+	next := f.FilterWithoutField(field)
+	if !next.HasActiveFilters() && (next.SortBy == "" || next.SortBy == "newest") {
+		if next.PerPage > 0 && next.PerPage != 50 {
+			return "reset=1&per_page=" + strconv.Itoa(next.PerPage)
+		}
+		return "reset=1"
+	}
+	return next.QueryString()
 }
 
 // QueryWithoutTag returns a query string excluding a specific tag.
+// If no active filters or non-default sort remain, it returns "reset=1" (or "reset=1&per_page=...")
+// so that saved filter cookies are cleanly reset when exiting the last filter.
 func (f CatalogFilter) QueryWithoutTag(tagToRemove string) string {
-	v := f.QueryValuesWithoutPage()
-	v.Del("tag")
-	for _, t := range f.TagNames {
-		if t != tagToRemove {
-			v.Add("tag", t)
+	next := f.FilterWithoutTag(tagToRemove)
+	if !next.HasActiveFilters() && (next.SortBy == "" || next.SortBy == "newest") {
+		if next.PerPage > 0 && next.PerPage != 50 {
+			return "reset=1&per_page=" + strconv.Itoa(next.PerPage)
 		}
+		return "reset=1"
 	}
-	return v.Encode()
+	return next.QueryString()
 }
 
 // QueryWithTrigger returns a query string with the specified trigger word.

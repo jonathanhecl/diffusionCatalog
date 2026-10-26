@@ -339,4 +339,59 @@ func TestActiveCollectionBannerAndFilterIndicator(t *testing.T) {
 	if !strings.Contains(body, "Exit Collection") {
 		t.Errorf("expected 'Exit Collection' button in collection banner")
 	}
+
+	// Exit collection and chip remove button should link to /?reset=1 when group_id is the only filter
+	if !strings.Contains(body, `href="/?reset=1" class="btn-ghost active-coll-exit"`) {
+		t.Errorf("expected Exit Collection button to link to /?reset=1, got body:\n%s", body)
+	}
+	if !strings.Contains(body, `href="/?reset=1" class="chip-remove"`) {
+		t.Errorf("expected collection chip remove button to link to /?reset=1")
+	}
+
+	// Verify that clicking Exit Collection clears the filter cookie and redirects cleanly
+	var filterCookie *http.Cookie
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "dc_catalog_filter" {
+			filterCookie = c
+			break
+		}
+	}
+	if filterCookie == nil {
+		t.Fatalf("expected cookie dc_catalog_filter to be set")
+	}
+
+	reqExit := httptest.NewRequest("GET", "/?reset=1", nil)
+	reqExit.AddCookie(filterCookie)
+	wExit := httptest.NewRecorder()
+	handler.ServeHTTP(wExit, reqExit)
+
+	if wExit.Code != http.StatusFound {
+		t.Fatalf("expected status 302 from /?reset=1, got %d", wExit.Code)
+	}
+	var resetCookie *http.Cookie
+	for _, c := range wExit.Result().Cookies() {
+		if c.Name == "dc_catalog_filter" {
+			resetCookie = c
+			break
+		}
+	}
+	if resetCookie == nil || resetCookie.MaxAge > 0 {
+		t.Errorf("expected cookie to be cleared (MaxAge < 0)")
+	}
+
+	// Now verify multi-filter scenario: group_id AND category
+	reqMulti := httptest.NewRequest("GET", "/?category=Cyberpunk&group_id="+strconv.FormatInt(gid, 10), nil)
+	wMulti := httptest.NewRecorder()
+	handler.ServeHTTP(wMulti, reqMulti)
+	if wMulti.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", wMulti.Code)
+	}
+	bodyMulti := wMulti.Body.String()
+	// When removing group_id while category is active, it should keep category
+	if !strings.Contains(bodyMulti, `href="/?category=Cyberpunk" class="btn-ghost active-coll-exit"`) {
+		t.Errorf("expected Exit Collection to link to /?category=Cyberpunk when category is also active")
+	}
+	if !strings.Contains(bodyMulti, `href="/?category=Cyberpunk" class="chip-remove"`) {
+		t.Errorf("expected collection chip remove to link to /?category=Cyberpunk")
+	}
 }

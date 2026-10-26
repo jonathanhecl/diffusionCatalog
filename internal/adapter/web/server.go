@@ -289,15 +289,15 @@ func NewServer(
 		},
 		"clearFilterURL": func(f domain.CatalogFilter, field string) string {
 			q := f.QueryWithoutField(field)
-			if q == "" {
-				return "/"
+			if q == "" || q == "reset=1" {
+				return "/?reset=1"
 			}
 			return "/?" + q
 		},
 		"filterWithoutTagURL": func(f domain.CatalogFilter, tag string) string {
 			q := f.QueryWithoutTag(tag)
-			if q == "" {
-				return "/"
+			if q == "" || q == "reset=1" {
+				return "/?reset=1"
 			}
 			return "/?" + q
 		},
@@ -502,7 +502,11 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 		})
-		http.Redirect(w, r, "/", http.StatusFound)
+		target := "/"
+		if pp := r.URL.Query().Get("per_page"); pp != "" && pp != "50" {
+			target = "/?per_page=" + pp
+		}
+		http.Redirect(w, r, target, http.StatusFound)
 		return
 	}
 
