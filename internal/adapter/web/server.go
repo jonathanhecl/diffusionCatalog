@@ -2,7 +2,6 @@ package web
 
 import (
 	"embed"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -982,22 +981,12 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		rawImagePayload = strings.TrimSpace(r.FormValue("video_frame_data"))
 	}
 	if rawImagePayload != "" {
-		idx := strings.Index(rawImagePayload, ";base64,")
-		b64Content := rawImagePayload
-		if idx != -1 {
-			b64Content = rawImagePayload[idx+8:]
+		if strings.HasPrefix(rawImagePayload, "data:image/") {
+			frameImagePath = rawImagePayload
+		} else {
+			frameImagePath = "data:image/jpeg;base64," + rawImagePayload
 		}
-		if rawDecoded, err := base64.StdEncoding.DecodeString(b64Content); err == nil && len(rawDecoded) > 0 {
-			uploadsDir := filepath.Join(s.cacheDir, "uploads")
-			_ = os.MkdirAll(uploadsDir, 0755)
-			frameImagePath = filepath.Join(uploadsDir, fmt.Sprintf("attached_%d_%d.jpg", assetID, time.Now().UnixNano()))
-			if err := os.WriteFile(frameImagePath, rawDecoded, 0644); err != nil {
-				log.Printf("[STUDIO] Failed to write attached image: %v", err)
-				frameImagePath = ""
-			} else {
-				log.Printf("[STUDIO] Attached image captured: %s (%d bytes)", frameImagePath, len(rawDecoded))
-			}
-		}
+		log.Printf("[STUDIO] Attached image captured in memory (%d chars)", len(frameImagePath))
 	}
 
 	if frameImagePath == "" && r.MultipartForm != nil {
@@ -1565,31 +1554,16 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 		override = parseExecutionOverride(r)
 	}
 
-	var canvasImagePath string
-	if canvasImageData != "" {
-		idx := strings.Index(canvasImageData, ";base64,")
-		b64Content := canvasImageData
-		if idx != -1 {
-			b64Content = canvasImageData[idx+8:]
-		}
-		if rawDecoded, err := base64.StdEncoding.DecodeString(b64Content); err == nil && len(rawDecoded) > 0 {
-			uploadsDir := filepath.Join(s.cacheDir, "uploads")
-			_ = os.MkdirAll(uploadsDir, 0755)
-			canvasImagePath = filepath.Join(uploadsDir, fmt.Sprintf("scene_canvas_%d.png", time.Now().UnixNano()))
-			if err := os.WriteFile(canvasImagePath, rawDecoded, 0644); err != nil {
-				log.Printf("[SCENE] Failed to write canvas capture: %v", err)
-				canvasImagePath = ""
-			} else {
-				log.Printf("[SCENE] Canvas capture saved: %s (%d bytes)", canvasImagePath, len(rawDecoded))
-			}
-		}
+	canvasImage := strings.TrimSpace(canvasImageData)
+	if canvasImage != "" {
+		log.Printf("[SCENE] Canvas capture processed in memory (%d chars)", len(canvasImage))
 	}
 
 	if targetProfile != "" {
 		_ = s.catalog.SetDefaultTargetGenerator(ctx, targetProfile)
 	}
 
-	manifest, prompt, err := s.catalog.SynthesizeScenePrompt(ctx, sceneJSON, targetProfile, userHint, loraIDs, override, canvasImagePath)
+	manifest, prompt, err := s.catalog.SynthesizeScenePrompt(ctx, sceneJSON, targetProfile, userHint, loraIDs, override, canvasImage)
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -1611,7 +1585,7 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 		"provider":    usedProv,
 		"model":       usedMod,
 		"think":       usedThk,
-		"used_vision": canvasImagePath != "",
+		"used_vision": canvasImage != "",
 	})
 }
 

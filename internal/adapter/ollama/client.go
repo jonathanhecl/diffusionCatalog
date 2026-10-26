@@ -396,18 +396,33 @@ func (c *Client) inspectModel(ctx context.Context, baseURL, modelName string) (*
 	return &out, nil
 }
 
-// ImageToPrompt encodes a local image in base64 and sends it to either Ollama (/api/chat)
-// or oMLX (/v1/chat/completions) using the target generator's system prompt and optional thinking level.
-func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, absImagePath, userHint, thinkLevel string) (string, error) {
+// ImageToPrompt encodes an image (either from a local file path or in-memory data URL/base64)
+// and sends it to either Ollama (/api/chat) or oMLX (/v1/chat/completions) using the target
+// generator's system prompt and optional thinking level.
+func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error) {
 	if strings.TrimSpace(model) == "" {
 		return "", fmt.Errorf("no vision / image2prompt model configured in Settings")
 	}
 
-	imgBytes, err := os.ReadFile(absImagePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read image file: %w", err)
+	var b64 string
+	trimmedSource := strings.TrimSpace(imageSource)
+	if strings.HasPrefix(trimmedSource, "data:image/") {
+		idx := strings.Index(trimmedSource, ";base64,")
+		if idx != -1 {
+			b64 = trimmedSource[idx+8:]
+		} else {
+			b64 = trimmedSource
+		}
+	} else if strings.HasPrefix(trimmedSource, "base64:") {
+		b64 = strings.TrimPrefix(trimmedSource, "base64:")
+	} else {
+		imgBytes, err := os.ReadFile(trimmedSource)
+		if err != nil {
+			return "", fmt.Errorf("failed to read image file: %w", err)
+		}
+		b64 = base64.StdEncoding.EncodeToString(imgBytes)
 	}
-	b64 := base64.StdEncoding.EncodeToString(imgBytes)
+	b64 = strings.TrimSpace(b64)
 
 	userContent := "Analyze this image and generate a complete, production-ready generation prompt following your system instructions. Output only the final prompt without conversational filler."
 	if strings.TrimSpace(userHint) != "" {

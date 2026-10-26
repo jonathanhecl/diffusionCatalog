@@ -1053,9 +1053,9 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 	return sb.String(), nil
 }
 
-// SynthesizeScenePrompt compiles the scene JSON into a spatial manifest and calls ImageToPrompt if a canvas screenshot is provided,
+// SynthesizeScenePrompt compiles the scene JSON into a spatial manifest and calls ImageToPrompt if a canvas screenshot (file path or in-memory data URL) is provided,
 // falling back to TextToPrompt.
-func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, targetProfileSlug, userHint string, loraIDs []int64, override domain.PromptExecutionOverride, canvasImagePath string) (manifest string, prompt string, err error) {
+func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, targetProfileSlug, userHint string, loraIDs []int64, override domain.PromptExecutionOverride, canvasImage string) (manifest string, prompt string, err error) {
 	compiledManifest, err := s.CompileSceneDirectorManifest(ctx, sceneJSON)
 	if err != nil {
 		return "", "", err
@@ -1085,7 +1085,7 @@ func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, t
 	}
 
 	// If a canvas screenshot is provided, attempt multimodal vision synthesis so the LLM visually sees the layout
-	if strings.TrimSpace(canvasImagePath) != "" && s.ollama != nil {
+	if strings.TrimSpace(canvasImage) != "" && s.ollama != nil {
 		defProv := cfg.Image2PromptProvider
 		defMod := cfg.Image2PromptModel
 		defThink := cfg.Image2PromptThink
@@ -1103,7 +1103,7 @@ func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, t
 		provider, model, baseURL, think := resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
 		visualHint := fmt.Sprintf("This image is a visual canvas capture of a 2D scene staging layout with positioned subjects, poses, lighting, camera framing and environment elements.\n\nSpatial Layout Manifest:\n%s\n\nAnalyze the visual staging in the canvas image together with the spatial manifest to generate an evocative, highly-detailed diffusion prompt matching the exact positions, depth, poses, lighting, and elements depicted in the visual composition.", fullUserPrompt)
 
-		generated, vErr := s.ollama.ImageToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, model, sysPrompt, canvasImagePath, visualHint, think)
+		generated, vErr := s.ollama.ImageToPrompt(ctx, provider, baseURL, cfg.OMLXAPIKey, model, sysPrompt, canvasImage, visualHint, think)
 		if vErr == nil && strings.TrimSpace(generated) != "" {
 			_, _ = s.repo.SaveGeneratedPrompt(ctx, &domain.GeneratedPrompt{
 				TargetProfileSlug: targetProfileSlug,

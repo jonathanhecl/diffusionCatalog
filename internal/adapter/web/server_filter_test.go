@@ -162,3 +162,47 @@ func TestCatalogFilterPersistenceAndMediaNavigation(t *testing.T) {
 func itoa(v int64) string {
 	return strconv.FormatInt(v, 10)
 }
+
+func TestSynthesizeSceneInMemoryNoTempFiles(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, "cache")
+	dbPath := filepath.Join(tmpDir, "test_synth.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("sqlite.Open error: %v", err)
+	}
+
+	repo := sqlite.NewRepository(db)
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	extractor := metadata.NewExtractor()
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, nil)
+
+	server, err := web.NewServer(mediaDir, cacheDir, "noop", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("web.NewServer error: %v", err)
+	}
+	handler := server.Handler()
+
+	payload := `{
+		"scene_json": "{\"elements\":[]}",
+		"canvas_image_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+		"target_profile": "flux",
+		"user_hint": "test scene"
+	}`
+
+	req := httptest.NewRequest("POST", "/admin/compositions/synthesize", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	// Verify no temporary files were written to uploadsDir
+	uploadsDir := filepath.Join(cacheDir, "uploads")
+	matches, _ := filepath.Glob(filepath.Join(uploadsDir, "scene_canvas_*"))
+	if len(matches) > 0 {
+		t.Errorf("expected 0 scene_canvas temporary files in %s, found %d: %v", uploadsDir, len(matches), matches)
+	}
+}

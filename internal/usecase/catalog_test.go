@@ -316,6 +316,20 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 		t.Errorf("expected SynthesizeScenePrompt with canvasImagePath to invoke ImageToPrompt, got %q", mockOllama.lastCall)
 	}
 
+	// 4c. Test SynthesizeScenePrompt with in-memory canvas data URL (no disk temporary files)
+	mockOllama.lastCall = ""
+	inMemoryDataURL := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+	_, inMemoryVisionPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, inMemoryDataURL)
+	if err != nil {
+		t.Fatalf("SynthesizeScenePrompt with in-memory data URL failed: %v", err)
+	}
+	if inMemoryVisionPrompt == "" {
+		t.Errorf("expected non-empty prompt with in-memory canvas vision")
+	}
+	if mockOllama.lastCall != "ImageToPrompt" {
+		t.Errorf("expected in-memory data URL to invoke ImageToPrompt, got %q", mockOllama.lastCall)
+	}
+
 	// 5. Test StudioComposition CRUD
 	comp := &domain.StudioComposition{
 		Name:          "Rainy Street Scene",

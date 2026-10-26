@@ -2,6 +2,7 @@ package ollama
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -190,29 +191,138 @@ func TestCleanAIPrompt(t *testing.T) {
 
 func TestOllamaAndOMLXErrorParsing(t *testing.T) {
 	ctx := context.Background()
-	client := NewClient()
 
 	// 1. Ollama 404 JSON error
-	ollamaSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ollamaMux := http.NewServeMux()
+	ollamaMux.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"error":"model 'SuperQwen3.8-27b-abliterated-MLX-4bit' not found, try pulling it first"}`))
-	}))
-	defer ollamaSrv.Close()
+	})
+	ollamaClient := &Client{
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				rec := httptest.NewRecorder()
+				ollamaMux.ServeHTTP(rec, req)
+				return rec.Result(), nil
+			}),
+		},
+	}
 
-	_, err := client.TextToPrompt(ctx, domain.ProviderOllama, ollamaSrv.URL, "", "SuperQwen3.8-27b-abliterated-MLX-4bit", "sys", "concept", "")
+	_, err := ollamaClient.TextToPrompt(ctx, domain.ProviderOllama, "http://127.0.0.1:11434", "", "SuperQwen3.8-27b-abliterated-MLX-4bit", "sys", "concept", "")
 	if err == nil || !strings.Contains(err.Error(), "model 'SuperQwen3.8-27b-abliterated-MLX-4bit' not found") {
 		t.Errorf("expected clean unmarshaled error message, got %v", err)
 	}
 
 	// 2. oMLX 500 JSON error
-	omlxSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	omlxMux := http.NewServeMux()
+	omlxMux.HandleFunc("/v1/chat/completions", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(`{"error":{"message":"Engine out of memory while loading weights"}}`))
-	}))
-	defer omlxSrv.Close()
+	})
+	omlxClient := &Client{
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				rec := httptest.NewRecorder()
+				omlxMux.ServeHTTP(rec, req)
+				return rec.Result(), nil
+			}),
+		},
+	}
 
-	_, err = client.TextToPrompt(ctx, domain.ProviderOpenAI, omlxSrv.URL, "omlx", "some-model", "sys", "concept", "")
+	_, err = omlxClient.TextToPrompt(ctx, domain.ProviderOpenAI, "http://127.0.0.1:8000", "omlx", "some-model", "sys", "concept", "")
 	if err == nil || !strings.Contains(err.Error(), "Engine out of memory") {
 		t.Errorf("expected clean unmarshaled oMLX error message, got %v", err)
+	}
+}
+
+func TestImageToPromptInMemoryDataURL(t *testing.T) {
+	ctx := context.Background()
+	var capturedOllamaImage string
+	var capturedOMLXImageURL string
+
+	ollamaMux := http.NewServeMux()
+	ollamaMux.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Messages []struct {
+				Role    string   `json:"role"`
+				Content string   `json:"content"`
+				Images  []string `json:"images"`
+			} `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		for _, m := range req.Messages {
+			if len(m.Images) > 0 {
+				capturedOllamaImage = m.Images[0]
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"message":{"role":"assistant","content":"Cyberpunk alleyway with neon signs"}}`))
+	})
+
+	omlxMux := http.NewServeMux()
+	omlxMux.HandleFunc("/v1/chat/completions", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content []struct {
+					Type     string `json:"type"`
+					Text     string `json:"text"`
+					ImageURL *struct {
+						URL string `json:"url"`
+					} `json:"image_url"`
+				} `json:"content"`
+			} `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		for _, m := range req.Messages {
+			for _, c := range m.Content {
+				if c.ImageURL != nil {
+					capturedOMLXImageURL = c.ImageURL.URL
+				}
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"Moody neon rain, cinematic shot"}}]}`))
+	})
+
+	client := &Client{
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				rec := httptest.NewRecorder()
+				if strings.Contains(req.URL.Path, "completions") {
+					omlxMux.ServeHTTP(rec, req)
+				} else {
+					ollamaMux.ServeHTTP(rec, req)
+				}
+				return rec.Result(), nil
+			}),
+		},
+	}
+
+	rawB64 := "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+	dataURL := "data:image/png;base64," + rawB64
+
+	// Test with Ollama using in-memory data URL
+	prompt, err := client.ImageToPrompt(ctx, domain.ProviderOllama, "http://127.0.0.1:11434", "", "llava", "system prompt", dataURL, "user hint", "")
+	if err != nil {
+		t.Fatalf("expected ImageToPrompt with data URL to succeed, got %v", err)
+	}
+	if prompt == "" {
+		t.Errorf("expected non-empty prompt")
+	}
+	if capturedOllamaImage != rawB64 {
+		t.Errorf("expected Ollama image to receive extracted base64 %q, got %q", rawB64, capturedOllamaImage)
+	}
+
+	// Test with oMLX using in-memory data URL
+	omlxPrompt, err := client.ImageToPrompt(ctx, domain.ProviderOpenAI, "http://127.0.0.1:8000", "key", "vision-model", "system prompt", dataURL, "user hint", "")
+	if err != nil {
+		t.Fatalf("expected oMLX ImageToPrompt with data URL to succeed, got %v", err)
+	}
+	if omlxPrompt == "" {
+		t.Errorf("expected non-empty omlx prompt")
+	}
+	if capturedOMLXImageURL != dataURL {
+		t.Errorf("expected oMLX image to receive full data URL %q, got %q", dataURL, capturedOMLXImageURL)
 	}
 }

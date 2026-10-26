@@ -276,6 +276,6 @@ type OllamaProvider interface {
 	CheckOMLXStatus(ctx context.Context, baseURL, apiKey string) (online bool, modelCount int)
 	ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]OllamaModelInfo, error)
 
-	ImageToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, absImagePath, userHint, thinkLevel string) (string, error)
+	ImageToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error)
 	TextToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error)
 }
