@@ -1315,7 +1315,7 @@
                 </div>
               </div>
               <!-- Front Poses Grid -->
-              <div style="display:grid;grid-template-columns: repeat(3, 1fr); gap:4px;" id="quickPoseGridFront">
+              <div style="display:grid;grid-template-columns: repeat(3, 1fr); gap:4px; max-height:220px; overflow-y:auto; padding-right:2px;" id="quickPoseGridFront">
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Standing Idle" style="padding:4px 2px;font-size:10px;" title="Parado neutral">&#129485; Idle</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Walking / Striding" style="padding:4px 2px;font-size:10px;" title="Caminando">&#128694; Caminar</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Running / Sprint" style="padding:4px 2px;font-size:10px;" title="Corriendo dinámico">&#127939; Correr</button>
@@ -1330,9 +1330,27 @@
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crawling / All Fours" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Gateando en cuatro patas">&#128118; Gatear</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hanging / Suspended" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Colgado manos arriba pies en el aire">&#129495; Colgado</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Climbing (Ladder / Stairs)" style="padding:4px 2px;font-size:10px;color:#facc15;" title="Subiendo escalera">&#129692; Escalera</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands Up (Surrender / Cheer)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="De pie con ambas manos arriba">&#128588; Manos Arriba</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pointing Forward" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Con una mano apuntando al frente">&#128073; Apuntar</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Face (Shock)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Con ambas manos en la cara (shock/sorpresa)">&#128561; Cara Shock</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Boxing Guard (Defense)" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Posición defensiva de combate / boxeo">&#129354; Guardia Box</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Cross-Legged (Lotus)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado de piernas cruzadas / loto">&#129496; Piernas Cruz</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Forward" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado con ambas piernas adelante">&#129681; Piernas Adel</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Spread (V-Sit)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado con piernas adelante abiertas en V">&#129681; Piernas Abier</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="High Kick (Martial Arts)" style="padding:4px 2px;font-size:10px;color:#ef4444;" title="Pateando alto (artes marciales)">&#129355; Patada</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Knee Down Reaching Ground" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Una rodilla al suelo agachándose">&#129302; Rodilla Suelo</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Presenter (Pointing Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="De pie con manos señalando a un costado">&#128129; Presentador</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed (X-Pose)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="De pie con ambas manos cruzadas en X">&#9876; Brazos en X</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning Against Wall" style="padding:4px 2px;font-size:10px;color:#94a3b8;" title="De pie apoyado contra una pared">&#129521; En Pared</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Victory (Chest Out)" style="padding:4px 2px;font-size:10px;color:#eab308;" title="Posición de ganador sacando pecho">&#127942; Ganador</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Defeated (Collapsed)" style="padding:4px 2px;font-size:10px;color:#64748b;" title="Tirado en el suelo posición derrotado">&#128128; Derrotado</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling Head Down (Child's Pose)" style="padding:4px 2px;font-size:10px;color:#a855f7;" title="En el suelo cuerpo hacia abajo cabeza en el suelo">&#128583; Cabeza Suelo</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Supine Knees Bent" style="padding:4px 2px;font-size:10px;color:#06b6d4;" title="En el suelo mirando arriba rodillas flexionadas">&#128716; Espalda Suelo</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Push-Up (Plank)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Cuerpo abajo haciendo flexiones de brazos">&#128170; Flexiones</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Shield Advance (Combat Stride)" style="padding:4px 2px;font-size:10px;color:#3b82f6;" title="Un pie delante otro atrás avanzando con escudo">&#128737; Avance Escudo</button>
               </div>
               <!-- Side / Profile Poses Grid -->
-              <div style="display:none;grid-template-columns: repeat(3, 1fr); gap:4px;" id="quickPoseGridSide">
+              <div style="display:none;grid-template-columns: repeat(3, 1fr); gap:4px; max-height:220px; overflow-y:auto; padding-right:2px;" id="quickPoseGridSide">
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Standing Idle (Side)" style="padding:4px 2px;font-size:10px;" title="Parado de perfil">&#129485; Idle Lado</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Walking (Side)" style="padding:4px 2px;font-size:10px;" title="Caminando de perfil">&#128694; Caminar</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Running (Side)" style="padding:4px 2px;font-size:10px;" title="Corriendo de perfil">&#127939; Correr</button>
@@ -1347,6 +1365,23 @@
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crawling (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Gateando de lado en 4 patas">&#128118; Gatear</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hanging (Side)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Colgado manos arriba de perfil">&#129495; Colgado</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Climbing (Side)" style="padding:4px 2px;font-size:10px;color:#facc15;" title="Subiendo escalera de perfil">&#129692; Escalera</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands Up (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Manos arriba de perfil">&#128588; Manos Arriba</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pointing (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Apuntando al frente de perfil">&#128073; Apuntar</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Face (Side)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Manos en cara de perfil">&#128561; Cara Shock</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Boxing Guard (Side)" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Guardia boxeo de perfil">&#129354; Guardia Box</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Cross-Legged (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado piernas cruzadas de perfil">&#129496; Piernas Cruz</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Forward (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado piernas adelante de perfil">&#129681; Piernas Adel</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="High Kick (Side)" style="padding:4px 2px;font-size:10px;color:#ef4444;" title="Patada alta de perfil">&#129355; Patada</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Knee Down (Side)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Una rodilla al suelo de perfil">&#129302; Rodilla Suelo</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Presenter (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Presentador de perfil">&#128129; Presentador</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed X (Side)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="Brazos en X de perfil">&#9876; Brazos en X</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning (Side)" style="padding:4px 2px;font-size:10px;color:#94a3b8;" title="Apoyado en pared de perfil">&#129521; En Pared</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Victory (Side)" style="padding:4px 2px;font-size:10px;color:#eab308;" title="Victoria sacando pecho de perfil">&#127942; Ganador</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Defeated (Side)" style="padding:4px 2px;font-size:10px;color:#64748b;" title="Derrotado en suelo de perfil">&#128128; Derrotado</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Child's Pose (Side)" style="padding:4px 2px;font-size:10px;color:#a855f7;" title="Cabeza al suelo arrodillado de perfil">&#128583; Cabeza Suelo</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Supine Knees Bent (Side)" style="padding:4px 2px;font-size:10px;color:#06b6d4;" title="Boca arriba rodillas flexionadas de perfil">&#128716; Espalda Suelo</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Push-Up (Side)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Flexiones de brazos de perfil">&#128170; Flexiones</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Shield Advance (Side)" style="padding:4px 2px;font-size:10px;color:#3b82f6;" title="Avanzando con escudo de perfil">&#128737; Avance Escudo</button>
               </div>
             </div>
 
@@ -1355,7 +1390,12 @@
                 <span>PROPS &amp; FURNITURE</span>
               </div>
               <div style="display:grid;grid-template-columns: 1fr 1fr; gap:6px;">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="circle" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;border-color:rgba(167,139,250,0.5);background:rgba(167,139,250,0.08);" title="Objeto circular genérico personalizable (portal, fuego, lago, base...)">
+                  <span>&#9898;</span> Generic Circle
+                </button>
                 <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="sofa" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
+                  <span>&#128715;</span> Sofa
+                </button>
                   <span>&#128715;</span> Sofa
                 </button>
                 <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="chair" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
@@ -1498,9 +1538,10 @@
                 </div>
 
                 <!-- Prop Type & View Control Group (Visible when a prop is selected) -->
-                <div id="propControlGroup" style="display:none;align-items:center;gap:6px;">
+                <div id="propControlGroup" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
                   <span style="font-size:11px;color:#a78bfa;font-weight:600;">🛋️ Prop:</span>
                   <select id="propSubtypeSelect" style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 8px;color:#fff;font-size:11px;font-weight:600;">
+                    <option value="circle">&#9898; Generic Circle / Custom</option>
                     <option value="bed">&#128716; Bed (Cama)</option>
                     <option value="sofa">&#128715; Sofa</option>
                     <option value="chair">&#129681; Chair</option>
@@ -1512,6 +1553,10 @@
                     <option value="window">&#129687; Window</option>
                     <option value="door">&#128682; Doorway</option>
                   </select>
+                  <input type="text" id="propLabelInput" placeholder="Name (e.g. Sofa, Magic Portal)..." 
+                         style="width:130px;background:var(--bg-input);border:1px solid #7c3aed;border-radius:4px;padding:3px 6px;color:#ddd6fe;font-size:11px;" title="Prop name / label" />
+                  <input type="text" id="propDescInput" placeholder="Details (e.g. worn leather, glowing cyan)..." 
+                         style="width:190px;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 6px;color:#fff;font-size:11px;" title="Prop details, color, material or style" />
                   <button type="button" id="btnPropToggleView" class="btn-ghost" style="padding:2px 7px;font-size:11px;color:#38bdf8;" title="Alternar diseño del prop entre vista superior/planta y vista de perfil lateral">&#128257; Planta &#8596; Perfil</button>
                 </div>
 
@@ -1905,6 +1950,96 @@
       l_shoulder:{x:60,y:30},l_elbow:{x:68,y:40},l_wrist:{x:66,y:52},mid_hip:{x:50,y:56},
       r_hip:{x:44,y:58},r_knee:{x:40,y:72},r_ankle:{x:42,y:88},l_hip:{x:56,y:58},l_knee:{x:66,y:64},l_ankle:{x:64,y:78}
     },
+    "Hands Up (Surrender / Cheer)": {
+      nose:{x:50,y:14},neck:{x:50,y:24},r_shoulder:{x:40,y:26},r_elbow:{x:34,y:14},r_wrist:{x:32,y:2},
+      l_shoulder:{x:60,y:26},l_elbow:{x:66,y:14},l_wrist:{x:68,y:2},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:43,y:74},r_ankle:{x:42,y:95},l_hip:{x:56,y:56},l_knee:{x:57,y:74},l_ankle:{x:58,y:95}
+    },
+    "Pointing Forward": {
+      nose:{x:50,y:14},neck:{x:50,y:24},r_shoulder:{x:40,y:26},r_elbow:{x:32,y:26},r_wrist:{x:18,y:26},
+      l_shoulder:{x:60,y:26},l_elbow:{x:68,y:38},l_wrist:{x:60,y:52},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:42,y:74},r_ankle:{x:40,y:95},l_hip:{x:56,y:56},l_knee:{x:58,y:74},l_ankle:{x:60,y:95}
+    },
+    "Hands on Face (Shock)": {
+      nose:{x:50,y:15},neck:{x:50,y:24},r_shoulder:{x:39,y:26},r_elbow:{x:32,y:22},r_wrist:{x:43,y:15},
+      l_shoulder:{x:61,y:26},l_elbow:{x:68,y:22},l_wrist:{x:57,y:15},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:43,y:74},r_ankle:{x:42,y:95},l_hip:{x:56,y:56},l_knee:{x:57,y:74},l_ankle:{x:58,y:95}
+    },
+    "Boxing Guard (Defense)": {
+      nose:{x:52,y:16},neck:{x:50,y:25},r_shoulder:{x:41,y:27},r_elbow:{x:38,y:36},r_wrist:{x:44,y:22},
+      l_shoulder:{x:59,y:27},l_elbow:{x:58,y:34},l_wrist:{x:54,y:20},mid_hip:{x:50,y:54},
+      r_hip:{x:43,y:56},r_knee:{x:38,y:72},r_ankle:{x:35,y:92},l_hip:{x:57,y:56},l_knee:{x:62,y:73},l_ankle:{x:66,y:93}
+    },
+    "Sitting Cross-Legged (Lotus)": {
+      nose:{x:50,y:28},neck:{x:50,y:38},r_shoulder:{x:38,y:40},r_elbow:{x:30,y:52},r_wrist:{x:36,y:66},
+      l_shoulder:{x:62,y:40},l_elbow:{x:70,y:52},l_wrist:{x:64,y:66},mid_hip:{x:50,y:66},
+      r_hip:{x:42,y:68},r_knee:{x:24,y:78},r_ankle:{x:54,y:86},l_hip:{x:58,y:68},l_knee:{x:76,y:78},l_ankle:{x:46,y:86}
+    },
+    "Sitting Legs Forward": {
+      nose:{x:50,y:26},neck:{x:50,y:36},r_shoulder:{x:40,y:38},r_elbow:{x:35,y:52},r_wrist:{x:38,y:68},
+      l_shoulder:{x:60,y:38},l_elbow:{x:65,y:52},l_wrist:{x:62,y:68},mid_hip:{x:50,y:64},
+      r_hip:{x:44,y:66},r_knee:{x:45,y:80},r_ankle:{x:46,y:95},l_hip:{x:56,y:66},l_knee:{x:55,y:80},l_ankle:{x:54,y:95}
+    },
+    "Sitting Legs Spread (V-Sit)": {
+      nose:{x:50,y:28},neck:{x:50,y:38},r_shoulder:{x:40,y:40},r_elbow:{x:34,y:54},r_wrist:{x:42,y:68},
+      l_shoulder:{x:60,y:40},l_elbow:{x:66,y:54},l_wrist:{x:58,y:68},mid_hip:{x:50,y:64},
+      r_hip:{x:44,y:66},r_knee:{x:28,y:78},r_ankle:{x:14,y:92},l_hip:{x:56,y:66},l_knee:{x:72,y:78},l_ankle:{x:86,y:92}
+    },
+    "High Kick (Martial Arts)": {
+      nose:{x:42,y:18},neck:{x:44,y:27},r_shoulder:{x:36,y:29},r_elbow:{x:28,y:38},r_wrist:{x:36,y:48},
+      l_shoulder:{x:54,y:29},l_elbow:{x:62,y:22},l_wrist:{x:68,y:15},mid_hip:{x:46,y:54},
+      r_hip:{x:42,y:52},r_knee:{x:62,y:38},r_ankle:{x:88,y:25},l_hip:{x:48,y:56},l_knee:{x:45,y:74},l_ankle:{x:44,y:95}
+    },
+    "Knee Down Reaching Ground": {
+      nose:{x:50,y:38},neck:{x:50,y:48},r_shoulder:{x:40,y:50},r_elbow:{x:34,y:66},r_wrist:{x:32,y:84},
+      l_shoulder:{x:60,y:50},l_elbow:{x:68,y:58},l_wrist:{x:62,y:70},mid_hip:{x:50,y:66},
+      r_hip:{x:43,y:68},r_knee:{x:34,y:86},r_ankle:{x:34,y:95},l_hip:{x:57,y:68},l_knee:{x:68,y:76},l_ankle:{x:66,y:95}
+    },
+    "Presenter (Pointing Side)": {
+      nose:{x:54,y:14},neck:{x:52,y:24},r_shoulder:{x:42,y:26},r_elbow:{x:30,y:32},r_wrist:{x:16,y:36},
+      l_shoulder:{x:62,y:26},l_elbow:{x:48,y:36},l_wrist:{x:32,y:40},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:42,y:74},r_ankle:{x:40,y:95},l_hip:{x:56,y:56},l_knee:{x:58,y:74},l_ankle:{x:60,y:95}
+    },
+    "Arms Crossed (X-Pose)": {
+      nose:{x:50,y:14},neck:{x:50,y:24},r_shoulder:{x:39,y:26},r_elbow:{x:38,y:42},r_wrist:{x:58,y:30},
+      l_shoulder:{x:61,y:26},l_elbow:{x:62,y:42},l_wrist:{x:42,y:30},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:43,y:74},r_ankle:{x:42,y:95},l_hip:{x:56,y:56},l_knee:{x:57,y:74},l_ankle:{x:58,y:95}
+    },
+    "Leaning Against Wall": {
+      nose:{x:46,y:15},neck:{x:47,y:25},r_shoulder:{x:39,y:27},r_elbow:{x:35,y:42},r_wrist:{x:44,y:46},
+      l_shoulder:{x:58,y:27},l_elbow:{x:62,y:42},l_wrist:{x:54,y:46},mid_hip:{x:49,y:55},
+      r_hip:{x:44,y:57},r_knee:{x:48,y:75},r_ankle:{x:54,y:95},l_hip:{x:56,y:57},l_knee:{x:44,y:75},l_ankle:{x:38,y:95}
+    },
+    "Victory (Chest Out)": {
+      nose:{x:50,y:11},neck:{x:50,y:22},r_shoulder:{x:37,y:24},r_elbow:{x:24,y:32},r_wrist:{x:18,y:18},
+      l_shoulder:{x:63,y:24},l_elbow:{x:76,y:32},l_wrist:{x:82,y:18},mid_hip:{x:50,y:52},
+      r_hip:{x:43,y:54},r_knee:{x:40,y:72},r_ankle:{x:36,y:94},l_hip:{x:57,y:54},l_knee:{x:60,y:72},l_ankle:{x:64,y:94}
+    },
+    "Defeated (Collapsed)": {
+      nose:{x:22,y:72},neck:{x:32,y:74},r_shoulder:{x:34,y:66},r_elbow:{x:44,y:60},r_wrist:{x:55,y:56},
+      l_shoulder:{x:34,y:82},l_elbow:{x:42,y:86},l_wrist:{x:52,y:88},mid_hip:{x:58,y:75},
+      r_hip:{x:60,y:68},r_knee:{x:76,y:66},r_ankle:{x:92,y:68},l_hip:{x:60,y:80},l_knee:{x:76,y:82},l_ankle:{x:90,y:86}
+    },
+    "Kneeling Head Down (Child's Pose)": {
+      nose:{x:20,y:78},neck:{x:30,y:72},r_shoulder:{x:34,y:66},r_elbow:{x:22,y:68},r_wrist:{x:12,y:75},
+      l_shoulder:{x:34,y:78},l_elbow:{x:22,y:80},l_wrist:{x:12,y:85},mid_hip:{x:62,y:56},
+      r_hip:{x:64,y:52},r_knee:{x:78,y:76},r_ankle:{x:88,y:88},l_hip:{x:64,y:62},l_knee:{x:76,y:82},l_ankle:{x:86,y:92}
+    },
+    "Supine Knees Bent": {
+      nose:{x:16,y:68},neck:{x:26,y:70},r_shoulder:{x:28,y:64},r_elbow:{x:40,y:65},r_wrist:{x:52,y:66},
+      l_shoulder:{x:28,y:76},l_elbow:{x:40,y:77},l_wrist:{x:52,y:78},mid_hip:{x:54,y:70},
+      r_hip:{x:56,y:64},r_knee:{x:70,y:48},r_ankle:{x:80,y:74},l_hip:{x:56,y:76},l_knee:{x:74,y:52},l_ankle:{x:84,y:76}
+    },
+    "Push-Up (Plank)": {
+      nose:{x:18,y:56},neck:{x:28,y:60},r_shoulder:{x:30,y:54},r_elbow:{x:32,y:68},r_wrist:{x:30,y:82},
+      l_shoulder:{x:30,y:66},l_elbow:{x:34,y:74},l_wrist:{x:32,y:86},mid_hip:{x:60,y:66},
+      r_hip:{x:62,y:62},r_knee:{x:78,y:72},r_ankle:{x:94,y:82},l_hip:{x:62,y:70},l_knee:{x:78,y:76},l_ankle:{x:94,y:84}
+    },
+    "Shield Advance (Combat Stride)": {
+      nose:{x:52,y:18},neck:{x:50,y:27},r_shoulder:{x:40,y:29},r_elbow:{x:34,y:40},r_wrist:{x:44,y:36},
+      l_shoulder:{x:60,y:29},l_elbow:{x:66,y:24},l_wrist:{x:54,y:20},mid_hip:{x:48,y:56},
+      r_hip:{x:42,y:58},r_knee:{x:32,y:74},r_ankle:{x:24,y:92},l_hip:{x:55,y:58},l_knee:{x:66,y:72},l_ankle:{x:76,y:92}
+    },
 
     // --- Profile / Side View Poses ---
     "Standing Idle (Side)": {
@@ -1976,6 +2111,91 @@
       nose:{x:64,y:22},neck:{x:54,y:30},r_shoulder:{x:56,y:32},r_elbow:{x:66,y:20},r_wrist:{x:76,y:10},
       l_shoulder:{x:50,y:32},l_elbow:{x:62,y:42},l_wrist:{x:70,y:50},mid_hip:{x:46,y:58},
       r_hip:{x:47,y:60},r_knee:{x:40,y:76},r_ankle:{x:40,y:92},l_hip:{x:45,y:60},l_knee:{x:68,y:68},l_ankle:{x:68,y:82}
+    },
+    "Hands Up (Side)": {
+      nose:{x:58,y:14},neck:{x:50,y:24},r_shoulder:{x:52,y:26},r_elbow:{x:44,y:14},r_wrist:{x:42,y:2},
+      l_shoulder:{x:48,y:26},l_elbow:{x:54,y:14},l_wrist:{x:56,y:2},mid_hip:{x:48,y:54},
+      r_hip:{x:50,y:56},r_knee:{x:50,y:75},r_ankle:{x:52,y:95},l_hip:{x:46,y:56},l_knee:{x:46,y:75},l_ankle:{x:48,y:95}
+    },
+    "Pointing (Side)": {
+      nose:{x:64,y:14},neck:{x:50,y:24},r_shoulder:{x:54,y:26},r_elbow:{x:70,y:26},r_wrist:{x:86,y:26},
+      l_shoulder:{x:48,y:26},l_elbow:{x:42,y:40},l_wrist:{x:40,y:56},mid_hip:{x:48,y:54},
+      r_hip:{x:50,y:56},r_knee:{x:50,y:75},r_ankle:{x:52,y:95},l_hip:{x:46,y:56},l_knee:{x:46,y:75},l_ankle:{x:48,y:95}
+    },
+    "Hands on Face (Side)": {
+      nose:{x:60,y:15},neck:{x:50,y:24},r_shoulder:{x:52,y:26},r_elbow:{x:58,y:22},r_wrist:{x:64,y:15},
+      l_shoulder:{x:48,y:26},l_elbow:{x:54,y:24},l_wrist:{x:60,y:16},mid_hip:{x:48,y:54},
+      r_hip:{x:50,y:56},r_knee:{x:50,y:75},r_ankle:{x:52,y:95},l_hip:{x:46,y:56},l_knee:{x:46,y:75},l_ankle:{x:48,y:95}
+    },
+    "Boxing Guard (Side)": {
+      nose:{x:64,y:16},neck:{x:52,y:25},r_shoulder:{x:54,y:27},r_elbow:{x:66,y:34},r_wrist:{x:72,y:22},
+      l_shoulder:{x:48,y:27},l_elbow:{x:56,y:36},l_wrist:{x:62,y:24},mid_hip:{x:48,y:54},
+      r_hip:{x:50,y:56},r_knee:{x:38,y:72},r_ankle:{x:34,y:92},l_hip:{x:46,y:56},l_knee:{x:62,y:73},l_ankle:{x:66,y:93}
+    },
+    "Sitting Cross-Legged (Side)": {
+      nose:{x:60,y:28},neck:{x:50,y:38},r_shoulder:{x:50,y:40},r_elbow:{x:56,y:54},r_wrist:{x:60,y:68},
+      l_shoulder:{x:46,y:40},l_elbow:{x:44,y:54},l_wrist:{x:48,y:68},mid_hip:{x:44,y:66},
+      r_hip:{x:46,y:68},r_knee:{x:66,y:76},r_ankle:{x:56,y:86},l_hip:{x:42,y:68},l_knee:{x:62,y:78},l_ankle:{x:50,y:86}
+    },
+    "Sitting Legs Forward (Side)": {
+      nose:{x:58,y:26},neck:{x:48,y:36},r_shoulder:{x:48,y:38},r_elbow:{x:42,y:52},r_wrist:{x:40,y:68},
+      l_shoulder:{x:44,y:38},l_elbow:{x:40,y:52},l_wrist:{x:38,y:68},mid_hip:{x:42,y:64},
+      r_hip:{x:44,y:66},r_knee:{x:68,y:70},r_ankle:{x:90,y:76},l_hip:{x:40,y:66},l_knee:{x:66,y:72},l_ankle:{x:88,y:78}
+    },
+    "High Kick (Side)": {
+      nose:{x:38,y:20},neck:{x:44,y:28},r_shoulder:{x:46,y:30},r_elbow:{x:40,y:40},r_wrist:{x:46,y:48},
+      l_shoulder:{x:42,y:30},l_elbow:{x:32,y:24},l_wrist:{x:26,y:18},mid_hip:{x:46,y:54},
+      r_hip:{x:48,y:52},r_knee:{x:72,y:34},r_ankle:{x:92,y:18},l_hip:{x:44,y:56},l_knee:{x:44,y:74},l_ankle:{x:44,y:95}
+    },
+    "Knee Down (Side)": {
+      nose:{x:62,y:38},neck:{x:52,y:48},r_shoulder:{x:52,y:50},r_elbow:{x:58,y:64},r_wrist:{x:62,y:82},
+      l_shoulder:{x:48,y:50},l_elbow:{x:44,y:60},l_wrist:{x:42,y:72},mid_hip:{x:46,y:66},
+      r_hip:{x:46,y:68},r_knee:{x:34,y:86},r_ankle:{x:24,y:88},l_hip:{x:44,y:68},l_knee:{x:66,y:76},l_ankle:{x:64,y:95}
+    },
+    "Presenter (Side)": {
+      nose:{x:64,y:14},neck:{x:52,y:24},r_shoulder:{x:54,y:26},r_elbow:{x:68,y:30},r_wrist:{x:82,y:34},
+      l_shoulder:{x:48,y:26},l_elbow:{x:60,y:32},l_wrist:{x:74,y:38},mid_hip:{x:48,y:54},
+      r_hip:{x:50,y:56},r_knee:{x:50,y:75},r_ankle:{x:52,y:95},l_hip:{x:46,y:56},l_knee:{x:46,y:75},l_ankle:{x:48,y:95}
+    },
+    "Arms Crossed X (Side)": {
+      nose:{x:62,y:14},neck:{x:50,y:24},r_shoulder:{x:52,y:26},r_elbow:{x:64,y:38},r_wrist:{x:56,y:32},
+      l_shoulder:{x:48,y:26},l_elbow:{x:60,y:40},l_wrist:{x:52,y:30},mid_hip:{x:48,y:54},
+      r_hip:{x:50,y:56},r_knee:{x:50,y:75},r_ankle:{x:52,y:95},l_hip:{x:46,y:56},l_knee:{x:46,y:75},l_ankle:{x:48,y:95}
+    },
+    "Leaning (Side)": {
+      nose:{x:58,y:15},neck:{x:50,y:25},r_shoulder:{x:52,y:27},r_elbow:{x:56,y:42},r_wrist:{x:54,y:54},
+      l_shoulder:{x:46,y:27},l_elbow:{x:44,y:42},l_wrist:{x:48,y:54},mid_hip:{x:46,y:55},
+      r_hip:{x:48,y:57},r_knee:{x:46,y:75},r_ankle:{x:40,y:95},l_hip:{x:44,y:57},l_knee:{x:52,y:75},l_ankle:{x:56,y:95}
+    },
+    "Victory (Side)": {
+      nose:{x:62,y:11},neck:{x:50,y:22},r_shoulder:{x:54,y:24},r_elbow:{x:68,y:28},r_wrist:{x:78,y:14},
+      l_shoulder:{x:46,y:24},l_elbow:{x:34,y:28},l_wrist:{x:26,y:16},mid_hip:{x:46,y:52},
+      r_hip:{x:48,y:54},r_knee:{x:44,y:72},r_ankle:{x:40,y:94},l_hip:{x:44,y:54},l_knee:{x:56,y:72},l_ankle:{x:60,y:94}
+    },
+    "Defeated (Side)": {
+      nose:{x:20,y:74},neck:{x:30,y:75},r_shoulder:{x:34,y:72},r_elbow:{x:44,y:68},r_wrist:{x:54,y:66},
+      l_shoulder:{x:32,y:76},l_elbow:{x:42,y:80},l_wrist:{x:50,y:82},mid_hip:{x:56,y:76},
+      r_hip:{x:58,y:74},r_knee:{x:74,y:72},r_ankle:{x:90,y:74},l_hip:{x:56,y:78},l_knee:{x:72,y:78},l_ankle:{x:88,y:80}
+    },
+    "Child's Pose (Side)": {
+      nose:{x:18,y:80},neck:{x:28,y:74},r_shoulder:{x:34,y:70},r_elbow:{x:24,y:74},r_wrist:{x:14,y:80},
+      l_shoulder:{x:32,y:72},l_elbow:{x:22,y:76},l_wrist:{x:12,y:82},mid_hip:{x:60,y:60},
+      r_hip:{x:62,y:58},r_knee:{x:74,y:78},r_ankle:{x:54,y:84},l_hip:{x:60,y:62},l_knee:{x:72,y:80},l_ankle:{x:52,y:86}
+    },
+    "Supine Knees Bent (Side)": {
+      nose:{x:16,y:68},neck:{x:26,y:70},r_shoulder:{x:28,y:68},r_elbow:{x:38,y:70},r_wrist:{x:48,y:72},
+      l_shoulder:{x:26,y:72},l_elbow:{x:36,y:74},l_wrist:{x:46,y:76},mid_hip:{x:54,y:70},
+      r_hip:{x:56,y:70},r_knee:{x:72,y:52},r_ankle:{x:82,y:74},l_hip:{x:54,y:72},l_knee:{x:70,y:54},l_ankle:{x:80,y:76}
+    },
+    "Push-Up (Side)": {
+      nose:{x:16,y:62},neck:{x:26,y:64},r_shoulder:{x:28,y:62},r_elbow:{x:30,y:74},r_wrist:{x:30,y:86},
+      l_shoulder:{x:26,y:64},l_elbow:{x:28,y:76},l_wrist:{x:28,y:88},mid_hip:{x:58,y:68},
+      r_hip:{x:60,y:68},r_knee:{x:76,y:74},r_ankle:{x:92,y:84},l_hip:{x:58,y:70},l_knee:{x:74,y:76},l_ankle:{x:90,y:86}
+    },
+    "Shield Advance (Side)": {
+      nose:{x:64,y:18},neck:{x:54,y:27},r_shoulder:{x:56,y:29},r_elbow:{x:68,y:38},r_wrist:{x:78,y:32},
+      l_shoulder:{x:48,y:29},l_elbow:{x:44,y:38},l_wrist:{x:40,y:48},mid_hip:{x:46,y:56},
+      r_hip:{x:48,y:58},r_knee:{x:36,y:74},r_ankle:{x:26,y:92},l_hip:{x:44,y:58},l_knee:{x:64,y:72},l_ankle:{x:74,y:92}
     }
   };
 
@@ -1993,7 +2213,25 @@
     "Kneeling (One Knee)": "Kneeling One (Side)",
     "Crawling / All Fours": "Crawling (Side)",
     "Hanging / Suspended": "Hanging (Side)",
-    "Climbing (Ladder / Stairs)": "Climbing (Side)"
+    "Climbing (Ladder / Stairs)": "Climbing (Side)",
+    "Hands Up (Surrender / Cheer)": "Hands Up (Side)",
+    "Pointing Forward": "Pointing (Side)",
+    "Hands on Face (Shock)": "Hands on Face (Side)",
+    "Boxing Guard (Defense)": "Boxing Guard (Side)",
+    "Sitting Cross-Legged (Lotus)": "Sitting Cross-Legged (Side)",
+    "Sitting Legs Forward": "Sitting Legs Forward (Side)",
+    "Sitting Legs Spread (V-Sit)": "Sitting Legs Forward (Side)",
+    "High Kick (Martial Arts)": "High Kick (Side)",
+    "Knee Down Reaching Ground": "Knee Down (Side)",
+    "Presenter (Pointing Side)": "Presenter (Side)",
+    "Arms Crossed (X-Pose)": "Arms Crossed X (Side)",
+    "Leaning Against Wall": "Leaning (Side)",
+    "Victory (Chest Out)": "Victory (Side)",
+    "Defeated (Collapsed)": "Defeated (Side)",
+    "Kneeling Head Down (Child's Pose)": "Child's Pose (Side)",
+    "Supine Knees Bent": "Supine Knees Bent (Side)",
+    "Push-Up (Plank)": "Push-Up (Side)",
+    "Shield Advance (Combat Stride)": "Shield Advance (Side)"
   };
 
   const POSE_SIDE_TO_FRONT = {
@@ -2010,7 +2248,24 @@
     "Kneeling One (Side)": "Kneeling (One Knee)",
     "Crawling (Side)": "Crawling / All Fours",
     "Hanging (Side)": "Hanging / Suspended",
-    "Climbing (Side)": "Climbing (Ladder / Stairs)"
+    "Climbing (Side)": "Climbing (Ladder / Stairs)",
+    "Hands Up (Side)": "Hands Up (Surrender / Cheer)",
+    "Pointing (Side)": "Pointing Forward",
+    "Hands on Face (Side)": "Hands on Face (Shock)",
+    "Boxing Guard (Side)": "Boxing Guard (Defense)",
+    "Sitting Cross-Legged (Side)": "Sitting Cross-Legged (Lotus)",
+    "Sitting Legs Forward (Side)": "Sitting Legs Forward",
+    "High Kick (Side)": "High Kick (Martial Arts)",
+    "Knee Down (Side)": "Knee Down Reaching Ground",
+    "Presenter (Side)": "Presenter (Pointing Side)",
+    "Arms Crossed X (Side)": "Arms Crossed (X-Pose)",
+    "Leaning (Side)": "Leaning Against Wall",
+    "Victory (Side)": "Victory (Chest Out)",
+    "Defeated (Side)": "Defeated (Collapsed)",
+    "Child's Pose (Side)": "Kneeling Head Down (Child's Pose)",
+    "Supine Knees Bent (Side)": "Supine Knees Bent",
+    "Push-Up (Side)": "Push-Up (Plank)",
+    "Shield Advance (Side)": "Shield Advance (Combat Stride)"
   };
 
   // Anatomical Hierarchical Kinematics (FK Tree)
@@ -2595,6 +2850,30 @@
       glow.setAttribute('cx', w * 0.82); glow.setAttribute('cy', h * 0.16); glow.setAttribute('r', '8');
       glow.setAttribute('fill', '#fef08a'); glow.setAttribute('stroke', '#facc15'); glow.setAttribute('stroke-width', '2');
       g.appendChild(glow);
+    } else if (propType === 'circle' || propType === 'generic') {
+      const radius = Math.min(w, h) / 2 - 4;
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', w / 2); circle.setAttribute('cy', h / 2); circle.setAttribute('r', radius);
+      circle.setAttribute('fill', '#1e1b4b'); circle.setAttribute('stroke', '#a78bfa'); circle.setAttribute('stroke-width', '3');
+      circle.setAttribute('stroke-dasharray', '6,3');
+      g.appendChild(circle);
+
+      const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      innerCircle.setAttribute('cx', w / 2); innerCircle.setAttribute('cy', h / 2); innerCircle.setAttribute('r', radius * 0.55);
+      innerCircle.setAttribute('fill', '#312e81'); innerCircle.setAttribute('stroke', '#c4b5fd'); innerCircle.setAttribute('stroke-width', '1.5');
+      g.appendChild(innerCircle);
+
+      const crossH = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      crossH.setAttribute('x1', w / 2 - radius * 0.35); crossH.setAttribute('y1', h / 2);
+      crossH.setAttribute('x2', w / 2 + radius * 0.35); crossH.setAttribute('y2', h / 2);
+      crossH.setAttribute('stroke', '#e0e7ff'); crossH.setAttribute('stroke-width', '1.5');
+      g.appendChild(crossH);
+
+      const crossV = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      crossV.setAttribute('x1', w / 2); crossV.setAttribute('y1', h / 2 - radius * 0.35);
+      crossV.setAttribute('x2', w / 2); crossV.setAttribute('y2', h / 2 + radius * 0.35);
+      crossV.setAttribute('stroke', '#e0e7ff'); crossV.setAttribute('stroke-width', '1.5');
+      g.appendChild(crossV);
     } else {
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('x', '0'); rect.setAttribute('y', '0'); rect.setAttribute('width', w); rect.setAttribute('height', h);
@@ -2604,9 +2883,19 @@
 
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', w / 2); text.setAttribute('y', h + 15);
-    text.setAttribute('fill', '#94a3b8'); text.setAttribute('font-size', '11'); text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('fill', '#e0e7ff'); text.setAttribute('font-size', '11'); text.setAttribute('font-weight', '600'); text.setAttribute('text-anchor', 'middle');
     text.textContent = el.label || propType;
     g.appendChild(text);
+
+    if (el.description && el.description.trim()) {
+      const desc = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      desc.setAttribute('x', w / 2); desc.setAttribute('y', h + 27);
+      desc.setAttribute('fill', '#94a3b8'); desc.setAttribute('font-size', '9.5'); desc.setAttribute('font-style', 'italic'); desc.setAttribute('text-anchor', 'middle');
+      const maxLen = 22;
+      const descVal = el.description.trim();
+      desc.textContent = descVal.length > maxLen ? descVal.substring(0, maxLen) + '…' : descVal;
+      g.appendChild(desc);
+    }
   }
 
   function renderLight(g, el) {
@@ -3043,7 +3332,8 @@
         newEl.pose.r_shoulder.x = 36; newEl.pose.l_shoulder.x = 64;
       }
     } else if (type === 'prop') {
-      if (subtype === 'sofa') { newEl.width = 240; newEl.height = 130; newEl.label = "Leather Sofa"; }
+      if (subtype === 'circle' || subtype === 'generic') { newEl.width = 130; newEl.height = 130; newEl.label = "Custom Object"; newEl.description = ""; }
+      else if (subtype === 'sofa') { newEl.width = 240; newEl.height = 130; newEl.label = "Leather Sofa"; }
       else if (subtype === 'chair') { newEl.width = 90; newEl.height = 110; newEl.label = "Armchair"; }
       else if (subtype === 'table') { newEl.width = 190; newEl.height = 100; newEl.label = "Dining Table"; }
       else if (subtype === 'bed') { newEl.width = 250; newEl.height = 160; newEl.label = "Bed"; }
@@ -3101,10 +3391,11 @@
       noteGrp.style.display = 'none';
     }
 
-    // Character controls
+    // Character & Prop controls
     if (selEl.type === 'character') {
       facingGrp.style.display = 'flex';
       poseGrp.style.display = 'flex';
+      if (propGrp) propGrp.style.display = 'none';
       if (charPanel) {
         charPanel.style.display = 'flex';
         const badge = document.getElementById('charSelectedBadge');
@@ -3128,10 +3419,24 @@
       });
 
       document.getElementById('posePresetSelect').value = selEl.poseName || '';
+    } else if (selEl.type === 'prop') {
+      facingGrp.style.display = 'none';
+      poseGrp.style.display = 'none';
+      if (charPanel) charPanel.style.display = 'none';
+      if (propGrp) {
+        propGrp.style.display = 'flex';
+        const pSel = document.getElementById('propSubtypeSelect');
+        if (pSel) pSel.value = selEl.subtype || 'generic';
+        const pLbl = document.getElementById('propLabelInput');
+        if (pLbl) pLbl.value = selEl.label || '';
+        const pDesc = document.getElementById('propDescInput');
+        if (pDesc) pDesc.value = selEl.description || '';
+      }
     } else {
       facingGrp.style.display = 'none';
       poseGrp.style.display = 'none';
       if (charPanel) charPanel.style.display = 'none';
+      if (propGrp) propGrp.style.display = 'none';
     }
 
     // Sliders
@@ -3505,12 +3810,39 @@
       if (selEl && selEl.type === 'prop') {
         selEl.subtype = e.target.value;
         const labels = {
-          bed: "Studio Bed", sofa: "Leather Sofa", chair: "Armchair",
+          circle: "Custom Object", bed: "Studio Bed", sofa: "Leather Sofa", chair: "Armchair",
           table: "Dining Table", car: "Automobile", tree: "Tree",
           ladder: "Ladder", stairs: "Stairs", window: "Window Frame", door: "Doorway"
         };
         selEl.label = labels[selEl.subtype] || selEl.subtype;
+        const pLbl = document.getElementById('propLabelInput');
+        if (pLbl) pLbl.value = selEl.label;
         renderScene();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const propLabelInput = document.getElementById('propLabelInput');
+  if (propLabelInput) {
+    propLabelInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'prop') {
+        selEl.label = e.target.value.trim() || selEl.subtype;
+        renderScene();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const propDescInput = document.getElementById('propDescInput');
+  if (propDescInput) {
+    propDescInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'prop') {
+        selEl.description = e.target.value;
+        renderScene();
+        updateSpatialManifest();
       }
     });
   }
@@ -3696,7 +4028,8 @@
         const specIndent = charSpecs.length > 0 ? `\n    ${charSpecs.join('\n    ')}` : '';
         subjects.push(`- [${el.name || 'Character'}] (${el.subtype || 'figure'}) positioned in ${loc}:\n    ${facingDesc}${poseStr}${scaleStr}${mirrorStr}${specIndent}`);
       } else if (el.type === 'prop') {
-        props.push(`- [${el.label || el.subtype}] placed in ${loc}`);
+        const descSuffix = (el.description && el.description.trim()) ? ` (${el.description.trim()})` : '';
+        props.push(`- [${el.label || el.subtype}${descSuffix}] placed in ${loc}`);
       } else if (el.type === 'light') {
         lights.push(`- ${el.label || 'Light'} shining from ${loc} at ${el.rotation || 0}° angle`);
       } else if (el.type === 'note' && el.text) {

@@ -896,6 +896,7 @@ type SceneElementDTO struct {
 	Hair        string                 `json:"hair,omitempty"`
 	Clothing    string                 `json:"clothing,omitempty"`
 	Details     string                 `json:"details,omitempty"`
+	Description string                 `json:"description,omitempty"`
 	LightType   string                 `json:"lightType,omitempty"`
 	Color       string                 `json:"color,omitempty"`
 	Angle       string                 `json:"angle,omitempty"`
@@ -1052,6 +1053,13 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 			}
 			if propName == "" {
 				propName = "Prop object"
+			}
+			desc := strings.TrimSpace(el.Description)
+			if desc == "" {
+				desc = strings.TrimSpace(el.Details)
+			}
+			if desc != "" {
+				propName += fmt.Sprintf(" (%s)", desc)
 			}
 			propLines = append(propLines, fmt.Sprintf("- [%s] located in %s.", propName, loc))
 

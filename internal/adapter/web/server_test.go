@@ -275,6 +275,17 @@ func TestDirectorTabRendering(t *testing.T) {
 	if !strings.Contains(body, "charHairSelect") || !strings.Contains(body, "charClothingSelect") {
 		t.Errorf("expected body to contain character hair and clothing preset selects")
 	}
+	if !strings.Contains(body, "propLabelInput") || !strings.Contains(body, "propDescInput") {
+		t.Errorf("expected body to contain propLabelInput and propDescInput for customizable props")
+	}
+	if !strings.Contains(body, `data-subtype="circle"`) {
+		t.Errorf("expected body to contain generic circle prop in palette")
+	}
+	if !strings.Contains(body, `data-pose-name="Hands Up (Surrender / Cheer)"`) ||
+		!strings.Contains(body, `data-pose-name="High Kick (Martial Arts)"`) ||
+		!strings.Contains(body, `data-pose-name="Shield Advance (Combat Stride)"`) {
+		t.Errorf("expected body to contain new pose presets in quick shelf")
+	}
 	if strings.Contains(body, `data-subtype="mannequin"`) {
 		t.Errorf("expected OpenPose mannequin button to be removed from palette")
 	}
