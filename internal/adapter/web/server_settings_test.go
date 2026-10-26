@@ -215,11 +215,11 @@ func TestModelNameQuoteSanitization(t *testing.T) {
 	// 1. Save settings with quotes around default model names
 	form := url.Values{
 		"ollama_enabled":           {"1"},
-		"ollama_base_url":          {"http://127.0.0.1:11434"},
+		"ollama_base_url":          {"http://mac-mini.local:11434"},
 		"ollama_default_model":     {`"huggingface.co/grumd0/Nemotron-3.5-Bolt-E4B-Heretic-GGUF:Q4_K_M"`},
 		"ollama_default_think":     {"off"},
 		"openai_enabled":           {"1"},
-		"openai_base_url":          {"http://127.0.0.1:8000"},
+		"openai_base_url":          {"http://mac-mini.local:8000"},
 		"openai_default_model":     {`"bonsai-2-27b"`},
 		"openai_default_think":     {"low"},
 		"remix_default_provider":   {"ollama"},

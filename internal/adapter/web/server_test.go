@@ -385,3 +385,65 @@ func TestCleanModelName(t *testing.T) {
 		}
 	}
 }
+
+func TestRecentPromptsStudioRendering(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, "cache")
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	extractor := metadata.NewExtractor()
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, nil)
+
+	// Save a generated prompt with SceneDirection
+	_, err = repo.SaveGeneratedPrompt(ctx, &domain.GeneratedPrompt{
+		TargetProfileSlug: "flux",
+		SceneDirection:    "cyberpunk street at twilight with neon rain",
+		OutputPrompt:      "A highly detailed photograph of a cyberpunk street at twilight, reflective puddles",
+		Provider:          domain.ProviderOllama,
+		ModelName:         "gemma3:12b",
+	})
+	if err != nil {
+		t.Fatalf("failed to save generated prompt: %v", err)
+	}
+
+	srv, err := NewServer(mediaDir, cacheDir, "NoopVision", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("failed to construct web server: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/?tab=studio", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("expected HTTP 200, got %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "Recent Generated Prompts") {
+		t.Errorf("expected body to contain 'Recent Generated Prompts'")
+	}
+	if !strings.Contains(body, "cyberpunk street at twilight with neon rain") {
+		t.Errorf("expected body to display input concept text")
+	}
+	if !strings.Contains(body, "A highly detailed photograph of a cyberpunk street at twilight") {
+		t.Errorf("expected body to display output prompt text")
+	}
+	if !strings.Contains(body, "btn-copy-recent") {
+		t.Errorf("expected copy button for recent prompt")
+	}
+	if !strings.Contains(body, "clearSessionPromptHistory") {
+		t.Errorf("expected clearSessionPromptHistory handler")
+	}
+}

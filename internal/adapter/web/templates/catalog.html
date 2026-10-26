@@ -1099,27 +1099,53 @@
                 </div>
               </form>
 
-              <!-- History inside studio card -->
-              {{if .GeneratedHistory}}
-                <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-navy);">
-                  <div class="kv-label" style="margin-bottom:6px;">Recent Generated Prompts</div>
-                  <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;">
+              <!-- History inside studio card (Browser Session & Recent) -->
+              <div id="studio-recent-prompts-section" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-navy);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                  <div class="kv-label" style="margin-bottom:0;display:flex;align-items:center;gap:6px;">
+                    <span>Recent Generated Prompts</span>
+                    <span id="recent-prompts-count" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:10px;padding:1px 6px;border-radius:10px;">{{if .GeneratedHistory}}{{len .GeneratedHistory}}{{else}}0{{end}}</span>
+                  </div>
+                  <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;color:var(--text-muted);" onclick="clearSessionPromptHistory()" title="Clear temporary session history">Clear Session History</button>
+                </div>
+                <div id="studio-recent-prompts-list" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding-right:4px;">
+                  {{if .GeneratedHistory}}
                     {{range .GeneratedHistory}}
-                      <div class="prompt-box" style="font-size:11px;">
-                        <div style="display:flex;justify-content:space-between;color:var(--text-muted);margin-bottom:3px;">
-                          <span>
-                            Target: <strong style="color:#60a5fa;">{{.TargetProfileSlug}}</strong>
-                            {{if .CharacterName}}| <span style="color:#6ee7b7;">{{.CharacterName}}</span>{{end}}
-                            {{if .AssetID}}| <a href="/?tab=studio&asset_id={{.AssetID}}" style="color:#93c5fd;text-decoration:underline;">Asset #{{.AssetID}}</a>{{end}}
-                          </span>
-                          <span>[{{.Provider}}] {{.ModelName}}</span>
+                      <div class="prompt-box recent-prompt-card" data-server="1" data-target="{{.TargetProfileSlug}}" data-provider="{{.Provider}}" data-model="{{.ModelName}}" style="font-size:11px;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);margin-bottom:6px;flex-wrap:wrap;gap:4px;">
+                          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                            <span style="background:#0f172a;border:1px solid #1e3a5f;padding:1px 6px;border-radius:3px;color:#93c5fd;font-size:10.5px;">
+                              Target: <strong style="color:#60a5fa;">{{.TargetProfileSlug}}</strong>
+                            </span>
+                            {{if .CharacterName}}
+                              <span style="color:#6ee7b7;font-size:10.5px;">👤 {{.CharacterName}}</span>
+                            {{end}}
+                            {{if .AssetID}}
+                              <a href="/?tab=studio&asset_id={{.AssetID}}" style="color:#38bdf8;text-decoration:underline;font-size:10.5px;">Asset #{{.AssetID}}</a>
+                            {{end}}
+                            <span style="color:#64748b;font-size:10.5px;">[{{.Provider}}] {{.ModelName}}</span>
+                          </div>
+                          <div style="display:flex;align-items:center;gap:4px;">
+                            <button type="button" class="btn-ghost btn-copy-recent" style="padding:2px 7px;font-size:10.5px;color:#cbd5e1;background:#0f172a;border:1px solid #334155;border-radius:3px;cursor:pointer;" onclick="copyRecentPrompt(this)" title="Copy prompt to clipboard">
+                              📋 Copy
+                            </button>
+                            <button type="button" class="btn-ghost" style="padding:2px 6px;font-size:10.5px;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:3px;cursor:pointer;" onclick="useRecentPromptAsInput(this)" title="Load into input textarea">&#8617; Use</button>
+                          </div>
                         </div>
-                        <div style="color:#e2e8f0;">{{.OutputPrompt}}</div>
+                        {{if .SceneDirection}}
+                          <div class="recent-prompt-input" style="margin-bottom:6px;background:rgba(30,58,138,0.2);border:1px solid rgba(59,130,246,0.3);border-left:3px solid #3b82f6;padding:4px 8px;border-radius:3px;font-size:11px;color:#93c5fd;word-break:break-word;">
+                            <strong style="color:#60a5fa;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px;">Input:</strong>
+                            <span class="recent-prompt-input-text" style="color:#e0e7ff;">{{.SceneDirection}}</span>
+                          </div>
+                        {{end}}
+                        <div class="recent-prompt-output" style="color:#e2e8f0;white-space:pre-wrap;word-break:break-word;background:#020617;padding:6px 8px;border-radius:3px;border:1px solid #1e293b;line-height:1.4;font-family:monospace;font-size:11px;user-select:all;">{{.OutputPrompt}}</div>
                       </div>
                     {{end}}
-                  </div>
+                  {{else}}
+                    <div style="color:var(--text-muted);font-size:11px;padding:8px;text-align:center;font-style:italic;">No recent prompts in this session yet.</div>
+                  {{end}}
                 </div>
-              {{end}}
+              </div>
             </div>
           </div>
         </div>
@@ -5256,6 +5282,172 @@
       }
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function copyRecentPrompt(btn) {
+      var card = btn.closest('.recent-prompt-card');
+      if (!card) return;
+      var outEl = card.querySelector('.recent-prompt-output');
+      var text = outEl ? (outEl.innerText || outEl.textContent).trim() : '';
+      if (!text && btn.getAttribute('data-prompt')) {
+        text = btn.getAttribute('data-prompt').trim();
+      }
+      if (!text) return;
+      window.copyToClipboard(text, btn, 'Prompt copied to clipboard!');
+    }
+
+    function useRecentPromptAsInput(btn) {
+      var card = btn.closest('.recent-prompt-card');
+      if (!card) return;
+      var outEl = card.querySelector('.recent-prompt-output');
+      var text = outEl ? (outEl.innerText || outEl.textContent).trim() : '';
+      if (!text && btn.getAttribute('data-prompt')) {
+        text = btn.getAttribute('data-prompt').trim();
+      }
+      if (!text) return;
+      var inputEl = document.getElementById('studio-prompt-input');
+      if (inputEl) {
+        inputEl.value = text;
+        inputEl.focus();
+        inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.showToast('Prompt loaded into input textarea!', 'success');
+      }
+    }
+
+    function clearSessionPromptHistory() {
+      try {
+        sessionStorage.removeItem('dc_session_recent_prompts');
+        var list = document.getElementById('studio-recent-prompts-list');
+        if (list) {
+          list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:12px;text-align:center;font-style:italic;">No recent prompts in this session yet.</div>';
+        }
+        var countEl = document.getElementById('recent-prompts-count');
+        if (countEl) countEl.textContent = '0';
+        window.showToast('Session prompt history cleared', 'info');
+      } catch(e) {
+        console.error('Failed to clear session prompt history:', e);
+      }
+    }
+
+    function renderRecentPromptsList(items) {
+      var list = document.getElementById('studio-recent-prompts-list');
+      var countEl = document.getElementById('recent-prompts-count');
+      if (!list) return;
+      if (countEl) countEl.textContent = items ? items.length : 0;
+      if (!items || items.length === 0) {
+        list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:12px;text-align:center;font-style:italic;">No recent prompts in this session yet.</div>';
+        return;
+      }
+      var html = '';
+      items.forEach(function(item) {
+        var targetSlug = escapeHtml(item.target || 'flux');
+        var provInfo = escapeHtml(item.provider ? '[' + item.provider + '] ' + (item.model || '') : (item.model || ''));
+        var charInfo = item.characterName ? '<span style="color:#6ee7b7;font-size:10.5px;">👤 ' + escapeHtml(item.characterName) + '</span>' : '';
+        var assetInfo = item.assetId ? '<a href="/?tab=studio&asset_id=' + escapeHtml(item.assetId) + '" style="color:#38bdf8;text-decoration:underline;font-size:10.5px;">Asset #' + escapeHtml(item.assetId) + '</a>' : '';
+
+        var inputBlock = '';
+        if (item.input && item.input.trim()) {
+          inputBlock = '<div class="recent-prompt-input" style="margin-bottom:6px;background:rgba(30,58,138,0.2);border:1px solid rgba(59,130,246,0.3);border-left:3px solid #3b82f6;padding:4px 8px;border-radius:3px;font-size:11px;color:#93c5fd;word-break:break-word;">' +
+            '<strong style="color:#60a5fa;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px;">Input:</strong>' +
+            '<span class="recent-prompt-input-text" style="color:#e0e7ff;">' + escapeHtml(item.input) + '</span>' +
+            '</div>';
+        }
+
+        html += '<div class="prompt-box recent-prompt-card" data-target="' + targetSlug + '" data-provider="' + escapeHtml(item.provider || '') + '" data-model="' + escapeHtml(item.model || '') + '" style="font-size:11px;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);margin-bottom:6px;flex-wrap:wrap;gap:4px;">' +
+            '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+              '<span style="background:#0f172a;border:1px solid #1e3a5f;padding:1px 6px;border-radius:3px;color:#93c5fd;font-size:10.5px;">Target: <strong style="color:#60a5fa;">' + targetSlug + '</strong></span>' +
+              charInfo +
+              assetInfo +
+              '<span style="color:#64748b;font-size:10.5px;">' + provInfo + '</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:4px;">' +
+              '<button type="button" class="btn-ghost btn-copy-recent" style="padding:2px 7px;font-size:10.5px;color:#cbd5e1;background:#0f172a;border:1px solid #334155;border-radius:3px;cursor:pointer;" onclick="copyRecentPrompt(this)" title="Copy prompt to clipboard">📋 Copy</button>' +
+              '<button type="button" class="btn-ghost" style="padding:2px 6px;font-size:10.5px;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:3px;cursor:pointer;" onclick="useRecentPromptAsInput(this)" title="Load into input textarea">&#8617; Use</button>' +
+            '</div>' +
+          '</div>' +
+          inputBlock +
+          '<div class="recent-prompt-output" style="color:#e2e8f0;white-space:pre-wrap;word-break:break-word;background:#020617;padding:6px 8px;border-radius:3px;border:1px solid #1e293b;line-height:1.4;font-family:monospace;font-size:11px;user-select:all;">' + escapeHtml(item.output) + '</div>' +
+        '</div>';
+      });
+      list.innerHTML = html;
+    }
+
+    function initRecentPromptsSession() {
+      var sessionKey = 'dc_session_recent_prompts';
+      var sessionPrompts = [];
+      try {
+        var raw = sessionStorage.getItem(sessionKey);
+        if (raw) sessionPrompts = JSON.parse(raw) || [];
+      } catch(e) {
+        sessionPrompts = [];
+      }
+
+      var resEl = document.getElementById('studio-result-out');
+      var activeResult = resEl ? (resEl.innerText || resEl.textContent || '').trim() : '';
+      if (activeResult) {
+        var inputEl = document.getElementById('studio-prompt-input');
+        var activeInput = inputEl ? inputEl.value.trim() : '';
+        var targetSel = document.getElementById('studio-profile-select');
+        var activeTarget = targetSel ? targetSel.value : '';
+        var provSelect = document.getElementById('remixProviderSelect');
+        var activeProv = provSelect ? provSelect.value : '';
+        var isDuplicate = sessionPrompts.length > 0 && sessionPrompts[0].output === activeResult;
+        if (!isDuplicate) {
+          sessionPrompts.unshift({
+            target: activeTarget,
+            provider: activeProv,
+            model: '',
+            input: activeInput,
+            output: activeResult,
+            timestamp: Date.now()
+          });
+          if (sessionPrompts.length > 30) sessionPrompts.pop();
+          try {
+            sessionStorage.setItem(sessionKey, JSON.stringify(sessionPrompts));
+          } catch(e) {}
+        }
+      }
+
+      var serverCards = document.querySelectorAll('.recent-prompt-card[data-server="1"]');
+      serverCards.forEach(function(card) {
+        var outEl = card.querySelector('.recent-prompt-output');
+        var outText = outEl ? (outEl.innerText || outEl.textContent || '').trim() : '';
+        if (!outText) return;
+        var exists = sessionPrompts.some(function(p) { return p.output === outText; });
+        if (!exists) {
+          var inEl = card.querySelector('.recent-prompt-input-text');
+          sessionPrompts.push({
+            target: card.getAttribute('data-target') || '',
+            provider: card.getAttribute('data-provider') || '',
+            model: card.getAttribute('data-model') || '',
+            input: inEl ? (inEl.innerText || inEl.textContent || '').trim() : '',
+            output: outText,
+            timestamp: Date.now()
+          });
+        }
+      });
+
+      if (sessionPrompts.length > 30) {
+        sessionPrompts = sessionPrompts.slice(0, 30);
+      }
+      try {
+        sessionStorage.setItem(sessionKey, JSON.stringify(sessionPrompts));
+      } catch(e) {}
+
+      if (sessionPrompts.length > 0) {
+        renderRecentPromptsList(sessionPrompts);
+      }
+    }
+
     function copyStudioPrompt() {
       var el = document.getElementById('studio-result-out');
       if (!el) return;
@@ -5308,6 +5500,9 @@
         v.muted = true;
         v.defaultMuted = true;
       });
+
+      // Initialize session-backed recent generated prompts
+      initRecentPromptsSession();
     });
 
     var stageZoomState = { scale: 1, x: 0, y: 0, dragging: false, startX: 0, startY: 0 };
