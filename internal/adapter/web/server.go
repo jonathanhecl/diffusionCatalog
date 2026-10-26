@@ -344,6 +344,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/assets/rate", s.handleRateAsset)
 	mux.HandleFunc("POST /admin/assets/delete", s.handleDeleteAsset)
 	mux.HandleFunc("POST /admin/groups/create", s.handleCreateGroup)
+	mux.HandleFunc("POST /admin/groups/update", s.handleUpdateGroup)
+	mux.HandleFunc("POST /admin/groups/delete", s.handleDeleteGroup)
 	mux.HandleFunc("POST /admin/groups/attach", s.handleAttachGroup)
 	mux.HandleFunc("POST /admin/groups/detach", s.handleDetachGroup)
 	mux.HandleFunc("POST /admin/characters/create", s.handleCreateCharacter)
@@ -1278,6 +1280,71 @@ func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		_, _ = s.catalog.CreateGroup(r.Context(), name, category, desc, 0)
 	}
 	http.Redirect(w, r, "/?tab=collections", http.StatusSeeOther)
+}
+
+func (s *Server) handleUpdateGroup(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+	var id int64
+	var name, desc string
+
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		var req struct {
+			ID          int64  `json:"id"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
+		}
+		if json.NewDecoder(r.Body).Decode(&req) == nil {
+			id = req.ID
+			name = req.Name
+			desc = req.Description
+		}
+	} else {
+		id, _ = strconv.ParseInt(r.FormValue("id"), 10, 64)
+		name = r.FormValue("name")
+		desc = r.FormValue("description")
+	}
+
+	name = strings.TrimSpace(name)
+	desc = strings.TrimSpace(desc)
+	if id > 0 && name != "" {
+		_ = s.catalog.UpdateGroup(ctx, id, name, desc)
+	}
+
+	if strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		return
+	}
+	http.Redirect(w, r, "/?tab=collections&notice=Collection+updated", http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteGroup(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	ctx := r.Context()
+	var id int64
+
+	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		var req struct {
+			ID int64 `json:"id"`
+		}
+		if json.NewDecoder(r.Body).Decode(&req) == nil {
+			id = req.ID
+		}
+	} else {
+		id, _ = strconv.ParseInt(r.FormValue("id"), 10, 64)
+	}
+
+	if id > 0 {
+		_ = s.catalog.DeleteGroup(ctx, id)
+	}
+
+	if strings.Contains(r.Header.Get("Accept"), "application/json") || strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		return
+	}
+	http.Redirect(w, r, "/?tab=collections&notice=Collection+deleted", http.StatusSeeOther)
 }
 
 func (s *Server) handleAttachGroup(w http.ResponseWriter, r *http.Request) {

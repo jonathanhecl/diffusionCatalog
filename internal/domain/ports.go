@@ -216,6 +216,8 @@ type CatalogRepository interface {
 	ListTags(ctx context.Context) ([]Tag, error)
 
 	CreateGroup(ctx context.Context, group *Group) (int64, error)
+	UpdateGroup(ctx context.Context, id int64, name, description string) error
+	DeleteGroup(ctx context.Context, id int64) error
 	AttachAssetToGroup(ctx context.Context, groupID, assetID int64) error
 	DetachAssetFromGroup(ctx context.Context, groupID, assetID int64) error
 	ListGroups(ctx context.Context) ([]Group, error)

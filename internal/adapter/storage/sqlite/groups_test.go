@@ -104,4 +104,40 @@ func TestListGroupsPreviewAssets(t *testing.T) {
 	if g2.PreviewAssets[0].ID != mid2 || g2.PreviewAssets[0].Rating != 9 {
 		t.Errorf("expected 1st preview of Group 2 to be mid2 (rating 9), got ID=%d", g2.PreviewAssets[0].ID)
 	}
+
+	// Test UpdateGroup
+	if err := repo.UpdateGroup(ctx, g1ID, "Cyberpunk 2099", "Updated description"); err != nil {
+		t.Fatalf("UpdateGroup failed: %v", err)
+	}
+	updatedGroups, err := repo.ListGroups(ctx)
+	if err != nil {
+		t.Fatalf("ListGroups after update error: %v", err)
+	}
+	var foundUpdated bool
+	for _, g := range updatedGroups {
+		if g.ID == g1ID {
+			foundUpdated = true
+			if g.Name != "Cyberpunk 2099" {
+				t.Errorf("expected updated name 'Cyberpunk 2099', got %q", g.Name)
+			}
+			if g.Description != "Updated description" {
+				t.Errorf("expected updated description 'Updated description', got %q", g.Description)
+			}
+		}
+	}
+	if !foundUpdated {
+		t.Errorf("could not find updated group %d", g1ID)
+	}
+
+	// Test DeleteGroup
+	if err := repo.DeleteGroup(ctx, g2ID); err != nil {
+		t.Fatalf("DeleteGroup failed: %v", err)
+	}
+	afterDeleteGroups, _ := repo.ListGroups(ctx)
+	if len(afterDeleteGroups) != 1 {
+		t.Errorf("expected 1 group after delete, got %d", len(afterDeleteGroups))
+	}
+	if afterDeleteGroups[0].ID != g1ID {
+		t.Errorf("expected remaining group to be g1ID, got %d", afterDeleteGroups[0].ID)
+	}
 }

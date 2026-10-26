@@ -246,3 +246,62 @@ func TestCollectionsTabRendering(t *testing.T) {
 		t.Errorf("expected 'Agnostic Groups' text to be completely removed")
 	}
 }
+
+func TestUpdateAndDeleteCollectionEndpoints(t *testing.T) {
+	server, repo, id1, _ := setupTestServer(t)
+	ctx := context.Background()
+	handler := server.Handler()
+
+	gid, err := repo.CreateGroup(ctx, &domain.Group{Name: "Initial Collection", Description: "Initial desc"})
+	if err != nil {
+		t.Fatalf("CreateGroup error: %v", err)
+	}
+	_ = repo.AttachAssetToGroup(ctx, gid, id1)
+
+	// 1. Test POST /admin/groups/update
+	updateForm := "id=" + strconv.FormatInt(gid, 10) + "&name=Updated+Collection+Title&description=Updated+desc"
+	reqUpdate := httptest.NewRequest("POST", "/admin/groups/update", strings.NewReader(updateForm))
+	reqUpdate.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	wUpdate := httptest.NewRecorder()
+	handler.ServeHTTP(wUpdate, reqUpdate)
+
+	if wUpdate.Code != http.StatusSeeOther {
+		t.Errorf("expected 303 redirect, got %d", wUpdate.Code)
+	}
+	loc := wUpdate.Header().Get("Location")
+	if !strings.Contains(loc, "tab=collections") {
+		t.Errorf("expected redirect to tab=collections, got %s", loc)
+	}
+
+	// Verify update in SQLite
+	groups, _ := repo.ListGroups(ctx)
+	var found bool
+	for _, g := range groups {
+		if g.ID == gid && g.Name == "Updated Collection Title" && g.Description == "Updated desc" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected group to be updated in SQLite")
+	}
+
+	// 2. Test POST /admin/groups/delete
+	deleteForm := "id=" + strconv.FormatInt(gid, 10)
+	reqDelete := httptest.NewRequest("POST", "/admin/groups/delete", strings.NewReader(deleteForm))
+	reqDelete.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	wDelete := httptest.NewRecorder()
+	handler.ServeHTTP(wDelete, reqDelete)
+
+	if wDelete.Code != http.StatusSeeOther {
+		t.Errorf("expected 303 redirect, got %d", wDelete.Code)
+	}
+
+	// Verify group is deleted
+	groupsAfter, _ := repo.ListGroups(ctx)
+	for _, g := range groupsAfter {
+		if g.ID == gid {
+			t.Errorf("group %d still exists after delete", gid)
+		}
+	}
+}

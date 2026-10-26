@@ -335,6 +335,16 @@ func (s *CatalogService) RemoveAssetFromGroup(ctx context.Context, groupID, asse
 	return s.repo.DetachAssetFromGroup(ctx, groupID, assetID)
 }
 
+// UpdateGroup updates a collection's title and description.
+func (s *CatalogService) UpdateGroup(ctx context.Context, id int64, name, description string) error {
+	return s.repo.UpdateGroup(ctx, id, name, description)
+}
+
+// DeleteGroup deletes a collection by ID.
+func (s *CatalogService) DeleteGroup(ctx context.Context, id int64) error {
+	return s.repo.DeleteGroup(ctx, id)
+}
+
 // ListGroups returns all agnostic groups.
 func (s *CatalogService) ListGroups(ctx context.Context) ([]domain.Group, error) {
 	return s.repo.ListGroups(ctx)

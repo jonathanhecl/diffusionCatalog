@@ -4368,75 +4368,193 @@
 
       <div class="collections-grid">
         {{range .Page.Groups}}
-          <a href="/?group_id={{.ID}}" class="collection-card">
-            <div class="collection-cover-stage">
-              {{$len := len .PreviewAssets}}
-              {{if ge $len 3}}
-                <div class="collection-cover-trio">
-                  {{$a0 := index .PreviewAssets 0}}
-                  {{if eq $a0.MediaType "video"}}
-                    <video src="/media/{{$a0.RelPath}}" muted loop playsinline class="cover-primary"></video>
-                  {{else}}
-                    <img src="/media/{{$a0.RelPath}}" alt="{{$a0.FileName}}" class="cover-primary" loading="lazy">
-                  {{end}}
-                  <div class="cover-secondary-col">
+          <div class="collection-card" data-id="{{.ID}}" data-name="{{.Name}}" data-description="{{.Description}}">
+            <a href="/?group_id={{.ID}}" class="collection-card-link">
+              <div class="collection-cover-stage">
+                {{$len := len .PreviewAssets}}
+                {{if ge $len 3}}
+                  <div class="collection-cover-trio">
+                    {{$a0 := index .PreviewAssets 0}}
+                    {{if eq $a0.MediaType "video"}}
+                      <video src="/media/{{$a0.RelPath}}" muted loop playsinline class="cover-primary"></video>
+                    {{else}}
+                      <img src="/media/{{$a0.RelPath}}" alt="{{$a0.FileName}}" class="cover-primary" loading="lazy">
+                    {{end}}
+                    <div class="cover-secondary-col">
+                      {{$a1 := index .PreviewAssets 1}}
+                      {{if eq $a1.MediaType "video"}}
+                        <video src="/media/{{$a1.RelPath}}" muted loop playsinline></video>
+                      {{else}}
+                        <img src="/media/{{$a1.RelPath}}" alt="{{$a1.FileName}}" loading="lazy">
+                      {{end}}
+                      {{$a2 := index .PreviewAssets 2}}
+                      {{if eq $a2.MediaType "video"}}
+                        <video src="/media/{{$a2.RelPath}}" muted loop playsinline></video>
+                      {{else}}
+                        <img src="/media/{{$a2.RelPath}}" alt="{{$a2.FileName}}" loading="lazy">
+                      {{end}}
+                    </div>
+                  </div>
+                {{else if eq $len 2}}
+                  <div class="collection-cover-duo">
+                    {{$a0 := index .PreviewAssets 0}}
+                    {{if eq $a0.MediaType "video"}}
+                      <video src="/media/{{$a0.RelPath}}" muted loop playsinline></video>
+                    {{else}}
+                      <img src="/media/{{$a0.RelPath}}" alt="{{$a0.FileName}}" loading="lazy">
+                    {{end}}
                     {{$a1 := index .PreviewAssets 1}}
                     {{if eq $a1.MediaType "video"}}
                       <video src="/media/{{$a1.RelPath}}" muted loop playsinline></video>
                     {{else}}
                       <img src="/media/{{$a1.RelPath}}" alt="{{$a1.FileName}}" loading="lazy">
                     {{end}}
-                    {{$a2 := index .PreviewAssets 2}}
-                    {{if eq $a2.MediaType "video"}}
-                      <video src="/media/{{$a2.RelPath}}" muted loop playsinline></video>
+                  </div>
+                {{else if eq $len 1}}
+                  <div class="collection-cover-single">
+                    {{$a0 := index .PreviewAssets 0}}
+                    {{if eq $a0.MediaType "video"}}
+                      <video src="/media/{{$a0.RelPath}}" muted loop playsinline></video>
                     {{else}}
-                      <img src="/media/{{$a2.RelPath}}" alt="{{$a2.FileName}}" loading="lazy">
+                      <img src="/media/{{$a0.RelPath}}" alt="{{$a0.FileName}}" loading="lazy">
                     {{end}}
                   </div>
-                </div>
-              {{else if eq $len 2}}
-                <div class="collection-cover-duo">
-                  {{$a0 := index .PreviewAssets 0}}
-                  {{if eq $a0.MediaType "video"}}
-                    <video src="/media/{{$a0.RelPath}}" muted loop playsinline></video>
-                  {{else}}
-                    <img src="/media/{{$a0.RelPath}}" alt="{{$a0.FileName}}" loading="lazy">
-                  {{end}}
-                  {{$a1 := index .PreviewAssets 1}}
-                  {{if eq $a1.MediaType "video"}}
-                    <video src="/media/{{$a1.RelPath}}" muted loop playsinline></video>
-                  {{else}}
-                    <img src="/media/{{$a1.RelPath}}" alt="{{$a1.FileName}}" loading="lazy">
-                  {{end}}
-                </div>
-              {{else if eq $len 1}}
-                <div class="collection-cover-single">
-                  {{$a0 := index .PreviewAssets 0}}
-                  {{if eq $a0.MediaType "video"}}
-                    <video src="/media/{{$a0.RelPath}}" muted loop playsinline></video>
-                  {{else}}
-                    <img src="/media/{{$a0.RelPath}}" alt="{{$a0.FileName}}" loading="lazy">
-                  {{end}}
-                </div>
-              {{else}}
-                <div class="collection-cover-empty">
-                  <span class="empty-icon">&#128193;</span>
-                  <span>Empty Collection</span>
-                </div>
-              {{end}}
-            </div>
-            <div class="collection-info">
-              <h3 class="collection-title" title="{{.Name}}">{{.Name}}</h3>
-              {{if .Description}}
-                <p class="collection-desc">{{.Description}}</p>
-              {{end}}
-              <div class="collection-meta">
-                <span>{{.AssetCount}} items</span>
+                {{else}}
+                  <div class="collection-cover-empty">
+                    <span class="empty-icon">&#128193;</span>
+                    <span>Empty Collection</span>
+                  </div>
+                {{end}}
+              </div>
+              <div class="collection-info">
+                <h3 class="collection-title" title="{{.Name}}">{{.Name}}</h3>
+                {{if .Description}}
+                  <p class="collection-desc">{{.Description}}</p>
+                {{end}}
+              </div>
+            </a>
+            <div class="collection-meta">
+              <span>{{.AssetCount}} items</span>
+              <div class="collection-actions">
+                <button type="button" class="btn-card-action btn-edit-collection" title="Edit collection">&#9998; Edit</button>
+                <button type="button" class="btn-card-action btn-card-delete btn-delete-collection" title="Delete collection">&#128465;</button>
               </div>
             </div>
-          </a>
+          </div>
         {{end}}
       </div>
+
+      <!-- Edit Collection Modal -->
+      <div id="editCollectionModal" class="modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:16px;">
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:10px;padding:22px;width:100%;max-width:500px;box-shadow:0 12px 40px rgba(0,0,0,0.8);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border-navy);padding-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:16px;">&#9998;</span>
+              <strong style="font-size:15px;color:#fff;">Edit Collection</strong>
+            </div>
+            <button type="button" id="btnCloseEditCollection" class="btn-ghost" style="padding:4px 8px;font-size:16px;line-height:1;cursor:pointer;">&times;</button>
+          </div>
+          <form id="editCollectionForm" action="/admin/groups/update" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;">
+            <input type="hidden" name="id" id="editCollectionId">
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:600;">Title</label>
+              <input type="text" name="name" id="editCollectionName" class="input-dark" style="width:100%;" required>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:600;">Description</label>
+              <textarea name="description" id="editCollectionDesc" class="input-dark" rows="3" style="width:100%;"></textarea>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:12px;border-top:1px solid var(--border-navy);">
+              <button type="button" id="btnModalDeleteCollection" class="btn-danger" style="font-size:12px;padding:6px 14px;cursor:pointer;">Delete Collection</button>
+              <div style="display:flex;gap:8px;">
+                <button type="button" id="btnCancelEditCollection" class="btn-ghost" style="cursor:pointer;">Cancel</button>
+                <button type="submit" class="btn-primary" style="cursor:pointer;">Save Changes</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <script>
+      (function() {
+        const modal = document.getElementById('editCollectionModal');
+        const idInput = document.getElementById('editCollectionId');
+        const nameInput = document.getElementById('editCollectionName');
+        const descInput = document.getElementById('editCollectionDesc');
+
+        function openModal(id, name, desc) {
+          if (!modal) return;
+          idInput.value = id;
+          nameInput.value = name || '';
+          descInput.value = desc || '';
+          modal.style.display = 'flex';
+          nameInput.focus();
+        }
+
+        function closeModal() {
+          if (modal) modal.style.display = 'none';
+        }
+
+        const btnClose = document.getElementById('btnCloseEditCollection');
+        if (btnClose) btnClose.addEventListener('click', closeModal);
+        const btnCancel = document.getElementById('btnCancelEditCollection');
+        if (btnCancel) btnCancel.addEventListener('click', closeModal);
+        if (modal) {
+          modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeModal();
+          });
+        }
+
+        document.querySelectorAll('.btn-edit-collection').forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const card = btn.closest('.collection-card');
+            if (card) {
+              openModal(card.dataset.id, card.dataset.name, card.dataset.description);
+            }
+          });
+        });
+
+        function performDelete(id, name) {
+          if (confirm("Delete collection '" + name + "'?\n(Media files will NOT be deleted)")) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/admin/groups/delete';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'id';
+            input.value = id;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+          }
+        }
+
+        document.querySelectorAll('.btn-delete-collection').forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const card = btn.closest('.collection-card');
+            if (card) {
+              performDelete(card.dataset.id, card.dataset.name);
+            }
+          });
+        });
+
+        const btnModalDelete = document.getElementById('btnModalDeleteCollection');
+        if (btnModalDelete) {
+          btnModalDelete.addEventListener('click', function() {
+            const id = idInput.value;
+            const name = nameInput.value;
+            if (id) {
+              closeModal();
+              performDelete(id, name);
+            }
+          });
+        }
+      })();
+      </script>
 
     {{else}}
       <!-- Main 2-Column Catalog Layout (Matches Reference Layout) -->

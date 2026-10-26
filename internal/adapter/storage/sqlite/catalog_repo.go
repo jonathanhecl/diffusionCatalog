@@ -1339,6 +1339,26 @@ func (r *Repository) CreateGroup(ctx context.Context, g *domain.Group) (int64, e
 	return id, nil
 }
 
+// UpdateGroup updates the name, slug, and description of a group.
+func (r *Repository) UpdateGroup(ctx context.Context, id int64, name, description string) error {
+	db := r.conn()
+	slug := slugify(name)
+	_, err := db.ExecContext(ctx, `
+		UPDATE groups
+		SET name = ?, slug = ?, description = ?
+		WHERE id = ?`,
+		name, slug, description, id,
+	)
+	return err
+}
+
+// DeleteGroup deletes a group and cascades deletion to group_assets.
+func (r *Repository) DeleteGroup(ctx context.Context, id int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM groups WHERE id = ?`, id)
+	return err
+}
+
 // AttachAssetToGroup links an asset to a group.
 func (r *Repository) AttachAssetToGroup(ctx context.Context, groupID, assetID int64) error {
 	db := r.conn()
