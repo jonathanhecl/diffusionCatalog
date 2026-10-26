@@ -199,7 +199,7 @@
           <p class="hero-sub">Synthesize new diffusion/video prompts, or remix existing catalog media and attached images using Vision and LLM synthesis.</p>
         {{else if eq .ActiveTab "director"}}
           <h1 class="hero-title">&#127916; 2D <span class="highlight">Scene Director &amp; Staging Canvas</span></h1>
-          <p class="hero-sub">Position characters, articulated OpenPose figures, furniture, and lighting on an interactive canvas to compile spatial diffusion prompts with AI.</p>
+          <p class="hero-sub">Position articulated characters with posing skeletons, furniture, and lighting on an interactive canvas to compile spatial diffusion prompts with AI.</p>
         {{else if eq .ActiveTab "faces"}}
           <h1 class="hero-title">Extracted <span class="highlight">Face &amp; Subject</span> Explorer</h1>
           <p class="hero-sub">Inspect cropped regions, expression tags, and character clusters extracted via the pluggable VisionEngine port.</p>
@@ -1283,30 +1283,24 @@
                 <span>ARTICULATED CHARACTERS</span>
                 <span class="badge-chip" style="font-size:9px;background:#082f49;color:#38bdf8;">100% Posed</span>
               </div>
-              <div style="display:grid;grid-template-columns: 1fr 1fr; gap:6px;">
-                <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="mannequin" 
-                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#0284c7;background:rgba(2,132,199,0.08);" 
-                        title="Add OpenPose articulated character (wireframe &amp; joints)">
-                  <span style="font-size:20px;line-height:1;">&#129485;</span>
-                  <span style="font-size:11px;font-weight:600;margin-top:3px;color:#38bdf8;">OpenPose</span>
-                </button>
+              <div style="display:grid;grid-template-columns: 1fr 1fr 1fr; gap:6px;">
                 <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="male" 
-                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#475569;" 
-                        title="Add articulated male figure with silhouette skin">
+                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#0284c7;background:rgba(2,132,199,0.08);" 
+                        title="Add articulated male character with posing skeleton">
                   <span style="font-size:20px;line-height:1;">&#128104;</span>
-                  <span style="font-size:11px;margin-top:3px;">Male Pose</span>
+                  <span style="font-size:11px;font-weight:600;margin-top:3px;color:#38bdf8;">Male</span>
                 </button>
                 <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="female" 
-                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#475569;" 
-                        title="Add articulated female figure with silhouette skin">
+                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#0284c7;background:rgba(2,132,199,0.08);" 
+                        title="Add articulated female character with posing skeleton">
                   <span style="font-size:20px;line-height:1;">&#128105;</span>
-                  <span style="font-size:11px;margin-top:3px;">Female Pose</span>
+                  <span style="font-size:11px;font-weight:600;margin-top:3px;color:#38bdf8;">Female</span>
                 </button>
                 <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="child" 
-                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#475569;" 
-                        title="Add articulated child figure">
+                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#0284c7;background:rgba(2,132,199,0.08);" 
+                        title="Add articulated child character with posing skeleton">
                   <span style="font-size:20px;line-height:1;">&#129491;</span>
-                  <span style="font-size:11px;margin-top:3px;">Child Pose</span>
+                  <span style="font-size:11px;font-weight:600;margin-top:3px;color:#38bdf8;">Child</span>
                 </button>
               </div>
             </div>
@@ -1521,16 +1515,6 @@
                   <button type="button" id="btnPropToggleView" class="btn-ghost" style="padding:2px 7px;font-size:11px;color:#38bdf8;" title="Alternar diseño del prop entre vista superior/planta y vista de perfil lateral">&#128257; Planta &#8596; Perfil</button>
                 </div>
 
-                <!-- Body Skin / Render Mode (Skeleton, Silhouette, Hybrid) -->
-                <div id="skinControlGroup" style="display:flex;align-items:center;gap:5px;">
-                  <span style="font-size:11px;color:var(--text-muted);">Skin:</span>
-                  <select id="charSkinSelect" style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 6px;color:#fff;font-size:11px;">
-                    <option value="silhouette">👤 Silhouette</option>
-                    <option value="wireframe">🦴 OpenPose</option>
-                    <option value="hybrid">✨ Combined</option>
-                  </select>
-                </div>
-
                 <!-- Scale Slider (0.2x to 6.0x) -->
                 <div style="display:flex;align-items:center;gap:6px;">
                   <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Scale:</span>
@@ -1574,6 +1558,88 @@
                   <button type="button" id="btnFlipH" class="btn-ghost" style="padding:3px 7px;font-size:11px;" title="Flip Horizontal">&#8644; Flip</button>
                   <button type="button" id="btnDuplicateEl" class="btn-ghost" style="padding:3px 7px;font-size:11px;" title="Duplicate">&#10064; Copy</button>
                   <button type="button" id="btnDeleteEl" class="btn-ghost" style="padding:3px 7px;font-size:11px;color:#fca5a5;border-color:#b91c1c;" title="Delete">&#128465;</button>
+                </div>
+
+                <!-- Dedicated Character Customization Panel (Visible when a character is selected) -->
+                <div id="charCustomizationPanel" style="display:none;width:100%;margin-top:4px;padding-top:10px;border-top:1px solid rgba(30,58,138,0.4);background:rgba(15,23,42,0.6);border-radius:6px;padding:10px 12px;flex-direction:column;gap:8px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                    <span style="font-size:11px;font-weight:700;color:#38bdf8;display:flex;align-items:center;gap:6px;">
+                      <span>&#128100; CHARACTER ATTRIBUTES &amp; STYLING</span>
+                      <span id="charSelectedBadge" style="font-size:10px;color:#94a3b8;font-weight:normal;background:#1e293b;border:1px solid #334155;padding:1px 6px;border-radius:3px;"></span>
+                    </span>
+                    <span style="font-size:10.5px;color:var(--text-muted);font-style:italic;">All traits are automatically compiled into the AI Diffusion prompt</span>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns: 140px 1.2fr 1.2fr 1.5fr 1fr;gap:8px;align-items:flex-start;">
+                    <!-- Name & Label -->
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:600;color:#93c5fd;margin-bottom:2px;">Name / Label:</label>
+                      <input type="text" id="charNameInput" placeholder="e.g. Protagonist" 
+                             style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#60a5fa;font-size:11px;font-weight:700;" />
+                    </div>
+
+                    <!-- Characteristics / Traits -->
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:600;color:#93c5fd;margin-bottom:2px;">Features &amp; Physical Traits:</label>
+                      <input type="text" id="charFeaturesInput" placeholder="e.g. 28yo athletic, scar over eye..." 
+                             style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;" />
+                    </div>
+
+                    <!-- Hairstyle (Presets dropdown + Free editing) -->
+                    <div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                        <label style="font-size:10px;font-weight:600;color:#93c5fd;">Hairstyle &amp; Color:</label>
+                        <select id="charHairSelect" style="background:#0f172a;border:1px solid #334155;border-radius:3px;padding:1px 4px;color:#94a3b8;font-size:9.5px;max-width:100px;">
+                          <option value="">Presets...</option>
+                          <option value="messy short dark hair">Messy Short Hair</option>
+                          <option value="neat side part hairstyle">Neat Side Part</option>
+                          <option value="military buzz cut">Buzz Cut</option>
+                          <option value="long wavy blonde hair">Long Wavy Hair</option>
+                          <option value="high sleek ponytail">High Ponytail</option>
+                          <option value="bob cut with front bangs">Bob Cut w/ Bangs</option>
+                          <option value="tight braided hair">Braided Hair</option>
+                          <option value="curly afro hair">Curly Afro</option>
+                          <option value="clean bald head">Bald Head</option>
+                          <option value="cyberpunk undercut with dyed strands">Cyberpunk Undercut</option>
+                          <option value="slicked back hair with gel">Slicked Back</option>
+                          <option value="spiky anime-style hair">Spiky Anime</option>
+                        </select>
+                      </div>
+                      <input type="text" id="charHairInput" placeholder="e.g. messy high ponytail, dark brown..." 
+                             style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;" />
+                    </div>
+
+                    <!-- Clothing & Outfit (Presets dropdown + Free editing) -->
+                    <div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                        <label style="font-size:10px;font-weight:600;color:#93c5fd;">Clothing &amp; Outfit:</label>
+                        <select id="charClothingSelect" style="background:#0f172a;border:1px solid #334155;border-radius:3px;padding:1px 4px;color:#94a3b8;font-size:9.5px;max-width:100px;">
+                          <option value="">Presets...</option>
+                          <option value="t-shirt and denim jeans with sneakers">Casual T-Shirt &amp; Jeans</option>
+                          <option value="oversized streetwear hoodie, cargo pants, and sneakers">Streetwear Hoodie &amp; Cargos</option>
+                          <option value="slim tailored black business suit, white shirt, and silk tie">Formal Business Suit</option>
+                          <option value="black leather motorcycle jacket, dark denim, and combat boots">Leather Jacket &amp; Boots</option>
+                          <option value="futuristic cyberpunk techwear coat with tactical straps and glowing accents">Cyberpunk Techwear</option>
+                          <option value="tactical military vest, camo cargo pants, and combat boots">Tactical Military</option>
+                          <option value="medieval knight plate armor with chainmail and a dark cape">Knight Plate Armor</option>
+                          <option value="sleek sci-fi spacesuit with pressurized helmet and HUD visor">Sci-Fi Spacesuit</option>
+                          <option value="heavy winter wool coat, thick knitted turtleneck, and winter boots">Winter Heavy Coat</option>
+                          <option value="light summer linen shirt, shorts, and sandals">Summer Linen &amp; Shorts</option>
+                          <option value="elegant silk evening cocktail dress with high heels">Evening Cocktail Dress</option>
+                          <option value="athletic gym tank top, compression leggings, and running sneakers">Sportswear / Gym</option>
+                        </select>
+                      </div>
+                      <input type="text" id="charClothingInput" placeholder="e.g. black leather jacket, dark jeans, boots..." 
+                             style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;" />
+                    </div>
+
+                    <!-- Accessories & Details -->
+                    <div>
+                      <label style="display:block;font-size:10px;font-weight:600;color:#93c5fd;margin-bottom:2px;">Accessories &amp; Gear:</label>
+                      <input type="text" id="charDetailsInput" placeholder="e.g. glasses, sword, necklace..." 
+                             style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2018,7 +2084,7 @@
       {
         id: "char_" + Date.now(),
         type: "character",
-        subtype: "mannequin",
+        subtype: "male",
         skin: "hybrid",
         name: "Protagonist",
         x: 480,
@@ -2121,90 +2187,85 @@
     }
   }
 
-  // Render Articulated Character with Skin Modes (Wireframe, Silhouette, Hybrid)
+  // Render Articulated Character with Silhouette and Colored Skeleton Bones
   function renderArticulatedCharacter(g, el) {
     const pose = el.pose || POSE_PRESETS["Standing Idle"];
     const w = el.width;
     const h = el.height;
-    const skin = el.skin || (el.subtype === 'mannequin' ? 'hybrid' : 'silhouette');
 
     // 1. Render Silhouette Body Limbs (Smooth Mannequin Silhouette)
-    if (skin === 'silhouette' || skin === 'hybrid') {
-      const silhouetteColor = el.subtype === 'female' ? '#334155' : (el.subtype === 'child' ? '#3b4252' : '#1e293b');
-      const opacity = skin === 'hybrid' ? '0.75' : '1.0';
+    const silhouetteColor = el.subtype === 'female' ? '#334155' : (el.subtype === 'child' ? '#3b4252' : '#1e293b');
+    const opacity = '0.75';
 
-      const torso = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      const neckPt = { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h };
-      const rShPt = { x: (pose.r_shoulder.x / 100) * w, y: (pose.r_shoulder.y / 100) * h };
-      const lShPt = { x: (pose.l_shoulder.x / 100) * w, y: (pose.l_shoulder.y / 100) * h };
-      const rHipPt = { x: (pose.r_hip.x / 100) * w, y: (pose.r_hip.y / 100) * h };
-      const lHipPt = { x: (pose.l_hip.x / 100) * w, y: (pose.l_hip.y / 100) * h };
+    const torso = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    const neckPt = { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h };
+    const rShPt = { x: (pose.r_shoulder.x / 100) * w, y: (pose.r_shoulder.y / 100) * h };
+    const lShPt = { x: (pose.l_shoulder.x / 100) * w, y: (pose.l_shoulder.y / 100) * h };
+    const rHipPt = { x: (pose.r_hip.x / 100) * w, y: (pose.r_hip.y / 100) * h };
+    const lHipPt = { x: (pose.l_hip.x / 100) * w, y: (pose.l_hip.y / 100) * h };
 
-      const minShX = Math.min(rShPt.x, lShPt.x);
-      const maxShX = Math.max(rShPt.x, lShPt.x);
-      const minHipX = Math.min(rHipPt.x, lHipPt.x);
-      const maxHipX = Math.max(rHipPt.x, lHipPt.x);
-      const shWidth = Math.max(maxShX - minShX, 16);
-      const hipWidth = Math.max(maxHipX - minHipX, 16);
-      const midShX = (minShX + maxShX) / 2;
-      const midHipX = (minHipX + maxHipX) / 2;
+    const minShX = Math.min(rShPt.x, lShPt.x);
+    const maxShX = Math.max(rShPt.x, lShPt.x);
+    const minHipX = Math.min(rHipPt.x, lHipPt.x);
+    const maxHipX = Math.max(rHipPt.x, lHipPt.x);
+    const shWidth = Math.max(maxShX - minShX, 16);
+    const hipWidth = Math.max(maxHipX - minHipX, 16);
+    const midShX = (minShX + maxShX) / 2;
+    const midHipX = (minHipX + maxHipX) / 2;
 
-      torso.setAttribute('points', 
-        `${neckPt.x},${neckPt.y-4} ` +
-        `${midShX + shWidth/2 + 4},${(rShPt.y + lShPt.y)/2} ` +
-        `${midHipX + hipWidth/2 + 4},${(rHipPt.y + lHipPt.y)/2 + 8} ` +
-        `${midHipX - hipWidth/2 - 4},${(rHipPt.y + lHipPt.y)/2 + 8} ` +
-        `${midShX - shWidth/2 - 4},${(rShPt.y + lShPt.y)/2}`
-      );
-      torso.setAttribute('fill', silhouetteColor);
-      torso.setAttribute('fill-opacity', opacity);
-      torso.setAttribute('stroke', '#475569');
-      torso.setAttribute('stroke-width', '1.5');
-      g.appendChild(torso);
+    torso.setAttribute('points', 
+      `${neckPt.x},${neckPt.y-4} ` +
+      `${midShX + shWidth/2 + 4},${(rShPt.y + lShPt.y)/2} ` +
+      `${midHipX + hipWidth/2 + 4},${(rHipPt.y + lHipPt.y)/2 + 8} ` +
+      `${midHipX - hipWidth/2 - 4},${(rHipPt.y + lHipPt.y)/2 + 8} ` +
+      `${midShX - shWidth/2 - 4},${(rShPt.y + lShPt.y)/2}`
+    );
+    torso.setAttribute('fill', silhouetteColor);
+    torso.setAttribute('fill-opacity', opacity);
+    torso.setAttribute('stroke', '#475569');
+    torso.setAttribute('stroke-width', '1.5');
+    g.appendChild(torso);
 
-      const limbPairs = [
-        ["r_shoulder", "r_elbow", 14], ["r_elbow", "r_wrist", 11],
-        ["l_shoulder", "l_elbow", 14], ["l_elbow", "l_wrist", 11],
-        ["r_hip", "r_knee", 18], ["r_knee", "r_ankle", 14],
-        ["l_hip", "l_knee", 18], ["l_knee", "l_ankle", 14]
-      ];
+    const limbPairs = [
+      ["r_shoulder", "r_elbow", 14], ["r_elbow", "r_wrist", 11],
+      ["l_shoulder", "l_elbow", 14], ["l_elbow", "l_wrist", 11],
+      ["r_hip", "r_knee", 18], ["r_knee", "r_ankle", 14],
+      ["l_hip", "l_knee", 18], ["l_knee", "l_ankle", 14]
+    ];
 
-      limbPairs.forEach(([p1Name, p2Name, thickness]) => {
-        const p1 = pose[p1Name];
-        const p2 = pose[p2Name];
-        if (p1 && p2) {
-          const limb = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          limb.setAttribute('x1', (p1.x / 100) * w);
-          limb.setAttribute('y1', (p1.y / 100) * h);
-          limb.setAttribute('x2', (p2.x / 100) * w);
-          limb.setAttribute('y2', (p2.y / 100) * h);
-          limb.setAttribute('stroke', silhouetteColor);
-          limb.setAttribute('stroke-opacity', opacity);
-          limb.setAttribute('stroke-width', thickness);
-          limb.setAttribute('stroke-linecap', 'round');
-          g.appendChild(limb);
-        }
-      });
-    }
+    limbPairs.forEach(([p1Name, p2Name, thickness]) => {
+      const p1 = pose[p1Name];
+      const p2 = pose[p2Name];
+      if (p1 && p2) {
+        const limb = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        limb.setAttribute('x1', (p1.x / 100) * w);
+        limb.setAttribute('y1', (p1.y / 100) * h);
+        limb.setAttribute('x2', (p2.x / 100) * w);
+        limb.setAttribute('y2', (p2.y / 100) * h);
+        limb.setAttribute('stroke', silhouetteColor);
+        limb.setAttribute('stroke-opacity', opacity);
+        limb.setAttribute('stroke-width', thickness);
+        limb.setAttribute('stroke-linecap', 'round');
+        g.appendChild(limb);
+      }
+    });
 
-    // 2. Render OpenPose Colored Bones
-    if (skin === 'wireframe' || skin === 'hybrid') {
-      SKELETON_BONES.forEach(bone => {
-        const p1 = pose[bone.from];
-        const p2 = pose[bone.to];
-        if (p1 && p2) {
-          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          line.setAttribute('x1', (p1.x / 100) * w);
-          line.setAttribute('y1', (p1.y / 100) * h);
-          line.setAttribute('x2', (p2.x / 100) * w);
-          line.setAttribute('y2', (p2.y / 100) * h);
-          line.setAttribute('stroke', bone.color);
-          line.setAttribute('stroke-width', skin === 'hybrid' ? '3.5' : bone.width);
-          line.setAttribute('stroke-linecap', 'round');
-          g.appendChild(line);
-        }
-      });
-    }
+    // 2. ALWAYS Render Colored Skeleton Bones for ALL characters
+    SKELETON_BONES.forEach(bone => {
+      const p1 = pose[bone.from];
+      const p2 = pose[bone.to];
+      if (p1 && p2) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', (p1.x / 100) * w);
+        line.setAttribute('y1', (p1.y / 100) * h);
+        line.setAttribute('x2', (p2.x / 100) * w);
+        line.setAttribute('y2', (p2.y / 100) * h);
+        line.setAttribute('stroke', bone.color);
+        line.setAttribute('stroke-width', '3.5');
+        line.setAttribute('stroke-linecap', 'round');
+        g.appendChild(line);
+      }
+    });
 
     // 3. Render Head & Facing Visualizer
     const headX = (pose.nose.x / 100) * w;
@@ -2275,9 +2336,22 @@
 
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', w / 2); text.setAttribute('y', h + 18);
-    text.setAttribute('fill', '#94a3b8'); text.setAttribute('font-size', '11.5'); text.setAttribute('font-weight', '600'); text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('fill', '#93c5fd'); text.setAttribute('font-size', '11.5'); text.setAttribute('font-weight', '700'); text.setAttribute('text-anchor', 'middle');
     text.textContent = el.name || 'Character';
     g.appendChild(text);
+
+    let subtitle = [];
+    if (el.clothing && el.clothing.trim()) subtitle.push(el.clothing.trim());
+    else if (el.hair && el.hair.trim()) subtitle.push(el.hair.trim());
+    if (subtitle.length > 0) {
+      const subText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      subText.setAttribute('x', w / 2); subText.setAttribute('y', h + 30);
+      subText.setAttribute('fill', '#64748b'); subText.setAttribute('font-size', '9.5'); subText.setAttribute('text-anchor', 'middle');
+      let subStr = subtitle[0];
+      if (subStr.length > 25) subStr = subStr.substring(0, 23) + '…';
+      subText.textContent = subStr;
+      g.appendChild(subText);
+    }
   }
 
   // Render Props & Furniture
@@ -2712,10 +2786,17 @@
             renderScene();
           }
         } else if (el.type === 'character') {
-          const newName = prompt("Edit Character / Persona Name:", el.name || "");
-          if (newName !== null) {
-            el.name = newName;
-            renderScene();
+          const input = document.getElementById('charNameInput');
+          if (input) {
+            input.focus();
+            input.select();
+          } else {
+            const newName = prompt("Edit Character / Persona Name:", el.name || "");
+            if (newName !== null) {
+              el.name = newName;
+              renderScene();
+              updateSpatialManifest();
+            }
           }
         } else if (el.type === 'prop') {
           const newLabel = prompt("Edit Prop / Object Label:", el.label || "");
@@ -2935,23 +3016,18 @@
       newEl.poseName = "Standing Idle";
       newEl.pose = JSON.parse(JSON.stringify(POSE_PRESETS["Standing Idle"]));
 
+      newEl.skin = "hybrid";
       if (subtype === 'female') {
         newEl.name = "Female Figure";
-        newEl.skin = "silhouette";
         newEl.pose.r_shoulder.x = 42; newEl.pose.l_shoulder.x = 58;
         newEl.pose.r_hip.x = 42; newEl.pose.l_hip.x = 58;
       } else if (subtype === 'child') {
         newEl.name = "Child Figure";
-        newEl.skin = "silhouette";
         newEl.width = 120; newEl.height = 200;
         newEl.scale = 0.9;
-      } else if (subtype === 'male') {
-        newEl.name = "Male Figure";
-        newEl.skin = "silhouette";
-        newEl.pose.r_shoulder.x = 36; newEl.pose.l_shoulder.x = 64;
       } else {
-        newEl.name = "Articulated Mannequin";
-        newEl.skin = "hybrid";
+        newEl.name = "Male Figure";
+        newEl.pose.r_shoulder.x = 36; newEl.pose.l_shoulder.x = 64;
       }
     } else if (type === 'prop') {
       if (subtype === 'sofa') { newEl.width = 240; newEl.height = 130; newEl.label = "Leather Sofa"; }
@@ -2984,15 +3060,16 @@
     const noMsg = document.getElementById('noSelectionMsg');
     const ctrl = document.getElementById('selectionControls');
     const facingGrp = document.getElementById('facingControlGroup');
-    const skinGrp = document.getElementById('skinControlGroup');
     const poseGrp = document.getElementById('poseControlGroup');
     const noteGrp = document.getElementById('noteControlGroup');
     const propGrp = document.getElementById('propControlGroup');
+    const charPanel = document.getElementById('charCustomizationPanel');
     const layerBadge = document.getElementById('layerBadge');
 
     if (!selEl) {
       noMsg.style.display = 'block';
       ctrl.style.display = 'none';
+      if (charPanel) charPanel.style.display = 'none';
       return;
     }
 
@@ -3014,8 +3091,19 @@
     // Character controls
     if (selEl.type === 'character') {
       facingGrp.style.display = 'flex';
-      skinGrp.style.display = 'flex';
       poseGrp.style.display = 'flex';
+      if (charPanel) {
+        charPanel.style.display = 'flex';
+        const badge = document.getElementById('charSelectedBadge');
+        if (badge) badge.textContent = `[${selEl.subtype || 'Figure'}]`;
+        document.getElementById('charNameInput').value = selEl.name || '';
+        document.getElementById('charFeaturesInput').value = selEl.features || '';
+        document.getElementById('charHairInput').value = selEl.hair || '';
+        document.getElementById('charClothingInput').value = selEl.clothing || '';
+        document.getElementById('charDetailsInput').value = selEl.details || '';
+        document.getElementById('charHairSelect').value = '';
+        document.getElementById('charClothingSelect').value = '';
+      }
 
       document.querySelectorAll('.facing-btn').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-facing') === (selEl.facing || 'front'));
@@ -3026,12 +3114,11 @@
         }
       });
 
-      document.getElementById('charSkinSelect').value = selEl.skin || 'silhouette';
       document.getElementById('posePresetSelect').value = selEl.poseName || '';
     } else {
       facingGrp.style.display = 'none';
-      skinGrp.style.display = 'none';
       poseGrp.style.display = 'none';
+      if (charPanel) charPanel.style.display = 'none';
     }
 
     // Sliders
@@ -3046,12 +3133,96 @@
     rotVal.innerHTML = (selEl.rotation || 0) + '&deg;';
   }
 
+  // Character Customization Listeners
+  const charNameInput = document.getElementById('charNameInput');
+  if (charNameInput) {
+    charNameInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'character') {
+        selEl.name = e.target.value.trim() || 'Character';
+        renderScene();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const charFeaturesInput = document.getElementById('charFeaturesInput');
+  if (charFeaturesInput) {
+    charFeaturesInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'character') {
+        selEl.features = e.target.value;
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const charHairSelect = document.getElementById('charHairSelect');
+  const charHairInput = document.getElementById('charHairInput');
+  if (charHairSelect && charHairInput) {
+    charHairSelect.addEventListener('change', (e) => {
+      if (e.target.value) {
+        charHairInput.value = e.target.value;
+        const selEl = state.elements.find(x => x.id === state.selectedId);
+        if (selEl && selEl.type === 'character') {
+          selEl.hair = e.target.value;
+          renderScene();
+          updateSpatialManifest();
+        }
+      }
+    });
+    charHairInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'character') {
+        selEl.hair = e.target.value;
+        renderScene();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const charClothingSelect = document.getElementById('charClothingSelect');
+  const charClothingInput = document.getElementById('charClothingInput');
+  if (charClothingSelect && charClothingInput) {
+    charClothingSelect.addEventListener('change', (e) => {
+      if (e.target.value) {
+        charClothingInput.value = e.target.value;
+        const selEl = state.elements.find(x => x.id === state.selectedId);
+        if (selEl && selEl.type === 'character') {
+          selEl.clothing = e.target.value;
+          renderScene();
+          updateSpatialManifest();
+        }
+      }
+    });
+    charClothingInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'character') {
+        selEl.clothing = e.target.value;
+        renderScene();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const charDetailsInput = document.getElementById('charDetailsInput');
+  if (charDetailsInput) {
+    charDetailsInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'character') {
+        selEl.details = e.target.value;
+        updateSpatialManifest();
+      }
+    });
+  }
+
   // Note text input listener
   document.getElementById('noteTextInput').addEventListener('input', (e) => {
     const selEl = state.elements.find(x => x.id === state.selectedId);
     if (selEl && selEl.type === 'note') {
       selEl.text = e.target.value;
       renderScene();
+      updateSpatialManifest();
     }
   });
 
@@ -3062,17 +3233,9 @@
       if (selEl) {
         selEl.facing = btn.getAttribute('data-facing');
         renderScene();
+        updateSpatialManifest();
       }
     });
-  });
-
-  // Skin Select Handler
-  document.getElementById('charSkinSelect').addEventListener('change', (e) => {
-    const selEl = state.elements.find(x => x.id === state.selectedId);
-    if (selEl) {
-      selEl.skin = e.target.value;
-      renderScene();
-    }
   });
 
   // Scale Slider & Buttons
@@ -3510,7 +3673,15 @@
         const poseStr = el.poseName ? ` in ${el.poseName} stance` : '';
         const scaleStr = (el.scale && el.scale > 1.5) ? ` [Scale: ${el.scale.toFixed(1)}x CLOSE-UP FRAMING]` : '';
         const mirrorStr = el.flipH ? ` (mirrored pose)` : '';
-        subjects.push(`- [${el.name || 'Character'}] positioned in ${loc}:\n    ${facingDesc}${poseStr}${scaleStr}${mirrorStr}`);
+
+        let charSpecs = [];
+        if (el.features && el.features.trim()) charSpecs.push(`Features: ${el.features.trim()}`);
+        if (el.hair && el.hair.trim()) charSpecs.push(`Hairstyle: ${el.hair.trim()}`);
+        if (el.clothing && el.clothing.trim()) charSpecs.push(`Clothing / Outfit: ${el.clothing.trim()}`);
+        if (el.details && el.details.trim()) charSpecs.push(`Accessories & Details: ${el.details.trim()}`);
+
+        const specIndent = charSpecs.length > 0 ? `\n    ${charSpecs.join('\n    ')}` : '';
+        subjects.push(`- [${el.name || 'Character'}] (${el.subtype || 'figure'}) positioned in ${loc}:\n    ${facingDesc}${poseStr}${scaleStr}${mirrorStr}${specIndent}`);
       } else if (el.type === 'prop') {
         props.push(`- [${el.label || el.subtype}] placed in ${loc}`);
       } else if (el.type === 'light') {

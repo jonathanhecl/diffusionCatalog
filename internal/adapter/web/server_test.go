@@ -269,6 +269,15 @@ func TestDirectorTabRendering(t *testing.T) {
 	if !strings.Contains(body, "ARTICULATED CHARACTERS") {
 		t.Errorf("expected body to contain character palette")
 	}
+	if !strings.Contains(body, "charCustomizationPanel") {
+		t.Errorf("expected body to contain charCustomizationPanel")
+	}
+	if !strings.Contains(body, "charHairSelect") || !strings.Contains(body, "charClothingSelect") {
+		t.Errorf("expected body to contain character hair and clothing preset selects")
+	}
+	if strings.Contains(body, `data-subtype="mannequin"`) {
+		t.Errorf("expected OpenPose mannequin button to be removed from palette")
+	}
 	if !strings.Contains(body, "aspect-btn") {
 		t.Errorf("expected body to contain aspect ratio buttons")
 	}

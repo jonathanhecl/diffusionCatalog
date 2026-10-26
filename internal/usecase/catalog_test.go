@@ -239,6 +239,10 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 				"id": "char-1",
 				"type": "character",
 				"name": "Detective K",
+				"features": "40yo weathered face, stubble beard",
+				"hair": "messy dark hair with grey temples",
+				"clothing": "classic beige trench coat over a rumpled suit",
+				"details": "smoking a cigarette, fedora hat",
 				"x": 200,
 				"y": 550,
 				"scale": 1.3,
@@ -280,6 +284,12 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 
 	if !strings.Contains(manifest, "Detective K") || !strings.Contains(manifest, "Foreground-Left") {
 		t.Errorf("expected character in Foreground-Left, manifest:\n%s", manifest)
+	}
+	if !strings.Contains(manifest, "features: 40yo weathered face") || !strings.Contains(manifest, "clothing: classic beige trench coat") {
+		t.Errorf("expected character features and clothing in manifest:\n%s", manifest)
+	}
+	if !strings.Contains(manifest, "hair: messy dark hair") || !strings.Contains(manifest, "details: smoking a cigarette") {
+		t.Errorf("expected character hair and details in manifest:\n%s", manifest)
 	}
 	if !strings.Contains(manifest, "Vintage Armchair") || !strings.Contains(manifest, "Midground-Right") {
 		t.Errorf("expected prop in Midground-Right, manifest:\n%s", manifest)

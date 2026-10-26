@@ -892,6 +892,10 @@ type SceneElementDTO struct {
 	Facing      string                 `json:"facing,omitempty"`
 	PoseName    string                 `json:"poseName,omitempty"`
 	Pose        map[string]interface{} `json:"pose,omitempty"`
+	Features    string                 `json:"features,omitempty"`
+	Hair        string                 `json:"hair,omitempty"`
+	Clothing    string                 `json:"clothing,omitempty"`
+	Details     string                 `json:"details,omitempty"`
 	LightType   string                 `json:"lightType,omitempty"`
 	Color       string                 `json:"color,omitempty"`
 	Angle       string                 `json:"angle,omitempty"`
@@ -1020,8 +1024,26 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 				scaleDesc = ", smaller distant scale"
 			}
 
-			subjectLines = append(subjectLines, fmt.Sprintf("- [%s] positioned in %s: %s%s%s%s.",
-				charName, loc, facingDesc, poseDesc, mirrorDesc, scaleDesc))
+			var charTraits []string
+			if strings.TrimSpace(el.Features) != "" {
+				charTraits = append(charTraits, "features: "+strings.TrimSpace(el.Features))
+			}
+			if strings.TrimSpace(el.Hair) != "" {
+				charTraits = append(charTraits, "hair: "+strings.TrimSpace(el.Hair))
+			}
+			if strings.TrimSpace(el.Clothing) != "" {
+				charTraits = append(charTraits, "clothing: "+strings.TrimSpace(el.Clothing))
+			}
+			if strings.TrimSpace(el.Details) != "" {
+				charTraits = append(charTraits, "details: "+strings.TrimSpace(el.Details))
+			}
+			traitsDesc := ""
+			if len(charTraits) > 0 {
+				traitsDesc = " [" + strings.Join(charTraits, ", ") + "]"
+			}
+
+			subjectLines = append(subjectLines, fmt.Sprintf("- [%s]%s positioned in %s: %s%s%s%s.",
+				charName, traitsDesc, loc, facingDesc, poseDesc, mirrorDesc, scaleDesc))
 
 		case "prop":
 			propName := el.Label
