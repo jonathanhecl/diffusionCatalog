@@ -330,6 +330,12 @@ func TestDirectorTabRendering(t *testing.T) {
 	if !strings.Contains(body, `data-env-type="indoor"`) || !strings.Contains(body, `data-env-type="outdoor"`) || !strings.Contains(body, "btnRandomizeEnvironment") {
 		t.Errorf("expected body to contain indoor/outdoor filter buttons and randomize environment button")
 	}
+	if !strings.Contains(body, `data-random-target="pose"`) || !strings.Contains(body, `data-random-target="anatomy"`) ||
+		!strings.Contains(body, `data-random-target="expression"`) || !strings.Contains(body, `data-random-target="hair"`) ||
+		!strings.Contains(body, `data-random-target="clothing"`) || !strings.Contains(body, `data-random-target="details"`) ||
+		!strings.Contains(body, `data-random-target="environment"`) || !strings.Contains(body, `data-random-target="timeOfDay"`) {
+		t.Errorf("expected body to contain individual random buttons for each character and environment field")
+	}
 	if !strings.Contains(body, "aspect-btn") {
 		t.Errorf("expected body to contain aspect ratio buttons")
 	}
