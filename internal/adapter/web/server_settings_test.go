@@ -284,3 +284,32 @@ func TestStudioAttachedImageClientSessionStorage(t *testing.T) {
 		t.Errorf("expected removeStudioAttachedImage function in studio")
 	}
 }
+
+func TestDirectorNewPosesPresetsRendering(t *testing.T) {
+	server, _, _, _ := setupTestServer(t)
+	handler := server.Handler()
+
+	reqView := httptest.NewRequest("GET", "/?tab=director", nil)
+	wView := httptest.NewRecorder()
+	handler.ServeHTTP(wView, reqView)
+
+	if wView.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on director view, got %d", wView.Code)
+	}
+	body := wView.Body.String()
+
+	expectedSubstrings := []string{
+		"Leaning Forward (Balcony)",
+		"Pushing Heavy Load",
+		"Leaning Forward (Balcony Side)",
+		"Pushing Heavy Load (Side)",
+		"Asomado Balcón",
+		"Empujar Carga",
+	}
+
+	for _, substr := range expectedSubstrings {
+		if !strings.Contains(body, substr) {
+			t.Errorf("expected director view to contain %q, but not found", substr)
+		}
+	}
+}

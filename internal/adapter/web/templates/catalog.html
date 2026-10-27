@@ -1555,6 +1555,8 @@
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Supine Knees Bent" style="padding:4px 2px;font-size:10px;color:#06b6d4;" title="En el suelo mirando arriba rodillas flexionadas">&#128716; Espalda Suelo</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Push-Up (Plank)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Cuerpo abajo haciendo flexiones de brazos">&#128170; Flexiones</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Shield Advance (Combat Stride)" style="padding:4px 2px;font-size:10px;color:#3b82f6;" title="Un pie delante otro atrás avanzando con escudo">&#128737; Avance Escudo</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning Forward (Balcony)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Inclinado hacia adelante asomándose en balcón">&#127960; Asomado Balcón</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pushing Heavy Load" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Inclinado con ambas manos al frente empujando carga">&#128668; Empujar Carga</button>
               </div>
               <!-- Side / Profile Poses Grid -->
               <div style="display:none;grid-template-columns: repeat(3, 1fr); gap:4px; max-height:220px; overflow-y:auto; padding-right:2px;" id="quickPoseGridSide">
@@ -1589,6 +1591,8 @@
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Supine Knees Bent (Side)" style="padding:4px 2px;font-size:10px;color:#06b6d4;" title="Boca arriba rodillas flexionadas de perfil">&#128716; Espalda Suelo</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Push-Up (Side)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Flexiones de brazos de perfil">&#128170; Flexiones</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Shield Advance (Side)" style="padding:4px 2px;font-size:10px;color:#3b82f6;" title="Avanzando con escudo de perfil">&#128737; Avance Escudo</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning Forward (Balcony Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Inclinado asomándose en balcón de perfil">&#127960; Asomado Balcón</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pushing Heavy Load (Side)" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Empujando carga pesada de perfil">&#128668; Empujar Carga</button>
               </div>
             </div>
 
@@ -2659,6 +2663,16 @@
       l_shoulder:{x:60,y:29},l_elbow:{x:66,y:24},l_wrist:{x:54,y:20},mid_hip:{x:48,y:56},
       r_hip:{x:42,y:58},r_knee:{x:32,y:74},r_ankle:{x:24,y:92},l_hip:{x:55,y:58},l_knee:{x:66,y:72},l_ankle:{x:76,y:92}
     },
+    "Leaning Forward (Balcony)": {
+      nose:{x:50,y:20},neck:{x:50,y:30},r_shoulder:{x:38,y:32},r_elbow:{x:34,y:46},r_wrist:{x:40,y:52},
+      l_shoulder:{x:62,y:32},l_elbow:{x:66,y:46},l_wrist:{x:60,y:52},mid_hip:{x:50,y:58},
+      r_hip:{x:44,y:60},r_knee:{x:44,y:76},r_ankle:{x:44,y:95},l_hip:{x:56,y:60},l_knee:{x:56,y:76},l_ankle:{x:56,y:95}
+    },
+    "Pushing Heavy Load": {
+      nose:{x:50,y:24},neck:{x:50,y:34},r_shoulder:{x:40,y:36},r_elbow:{x:34,y:48},r_wrist:{x:32,y:60},
+      l_shoulder:{x:60,y:36},l_elbow:{x:66,y:48},l_wrist:{x:68,y:60},mid_hip:{x:50,y:58},
+      r_hip:{x:43,y:60},r_knee:{x:36,y:74},r_ankle:{x:32,y:92},l_hip:{x:57,y:60},l_knee:{x:64,y:74},l_ankle:{x:68,y:92}
+    },
 
     // --- Profile / Side View Poses ---
     "Standing Idle (Side)": {
@@ -2815,6 +2829,16 @@
       nose:{x:64,y:18},neck:{x:54,y:27},r_shoulder:{x:56,y:29},r_elbow:{x:68,y:38},r_wrist:{x:78,y:32},
       l_shoulder:{x:48,y:29},l_elbow:{x:44,y:38},l_wrist:{x:40,y:48},mid_hip:{x:46,y:56},
       r_hip:{x:48,y:58},r_knee:{x:36,y:74},r_ankle:{x:26,y:92},l_hip:{x:44,y:58},l_knee:{x:64,y:72},l_ankle:{x:74,y:92}
+    },
+    "Leaning Forward (Balcony Side)": {
+      nose:{x:70,y:22},neck:{x:60,y:30},r_shoulder:{x:58,y:32},r_elbow:{x:68,y:42},r_wrist:{x:76,y:44},
+      l_shoulder:{x:54,y:32},l_elbow:{x:64,y:42},l_wrist:{x:72,y:44},mid_hip:{x:44,y:56},
+      r_hip:{x:46,y:58},r_knee:{x:48,y:76},r_ankle:{x:48,y:95},l_hip:{x:42,y:58},l_knee:{x:44,y:76},l_ankle:{x:44,y:95}
+    },
+    "Pushing Heavy Load (Side)": {
+      nose:{x:76,y:26},neck:{x:68,y:32},r_shoulder:{x:64,y:34},r_elbow:{x:78,y:34},r_wrist:{x:90,y:34},
+      l_shoulder:{x:60,y:34},l_elbow:{x:74,y:34},l_wrist:{x:86,y:34},mid_hip:{x:42,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:58,y:72},r_ankle:{x:62,y:92},l_hip:{x:40,y:56},l_knee:{x:32,y:72},l_ankle:{x:20,y:92}
     }
   };
 
@@ -2850,7 +2874,9 @@
     "Kneeling Head Down (Child's Pose)": "Child's Pose (Side)",
     "Supine Knees Bent": "Supine Knees Bent (Side)",
     "Push-Up (Plank)": "Push-Up (Side)",
-    "Shield Advance (Combat Stride)": "Shield Advance (Side)"
+    "Shield Advance (Combat Stride)": "Shield Advance (Side)",
+    "Leaning Forward (Balcony)": "Leaning Forward (Balcony Side)",
+    "Pushing Heavy Load": "Pushing Heavy Load (Side)"
   };
 
   const POSE_SIDE_TO_FRONT = {
@@ -2884,7 +2910,9 @@
     "Child's Pose (Side)": "Kneeling Head Down (Child's Pose)",
     "Supine Knees Bent (Side)": "Supine Knees Bent",
     "Push-Up (Side)": "Push-Up (Plank)",
-    "Shield Advance (Side)": "Shield Advance (Combat Stride)"
+    "Shield Advance (Side)": "Shield Advance (Combat Stride)",
+    "Leaning Forward (Balcony Side)": "Leaning Forward (Balcony)",
+    "Pushing Heavy Load (Side)": "Pushing Heavy Load"
   };
 
   // Anatomical Hierarchical Kinematics (FK Tree)
@@ -4958,7 +4986,9 @@
       { label: "Crossing Arms in X", value: "Crossing Arms in X", desc: "Forearms crossed over chest forming an X" },
       { label: "Leaning Against Wall", value: "Leaning Against Wall", desc: "Casual stance leaning against surface" },
       { label: "Chest Out Proud (Winner)", value: "Chest Out Proud (Winner)", desc: "Puffed chest victory stance" },
-      { label: "Advancing with Shield Guard", value: "Advancing with Shield Guard", desc: "Defensive shield-carrying stride" }
+      { label: "Advancing with Shield Guard", value: "Advancing with Shield Guard", desc: "Defensive shield-carrying stride" },
+      { label: "Leaning Forward (Balcony)", value: "Leaning Forward (Balcony)", desc: "Leaning forward with forearms rested as if on a balcony railing" },
+      { label: "Pushing Heavy Load", value: "Pushing Heavy Load", desc: "Leaning forward with both hands pushing against heavy load, knees bent" }
     ],
     "Sitting, Kneeling & Ground": [
       { label: "Sitting Relaxed", value: "Sitting Relaxed", desc: "Casual seated position on sofa or chair" },
@@ -4977,7 +5007,9 @@
       { label: "Sitting Relaxed (Side)", value: "Sitting Relaxed (Side)", desc: "Seated pose seen from lateral side" },
       { label: "Crouching Action (Side)", value: "Crouching Action (Side)", desc: "Dynamic low crouching profile" },
       { label: "Sitting Cross-Legged (Side)", value: "Sitting Cross-Legged (Side)", desc: "Floor cross-legged from side" },
-      { label: "High Kick (Martial Arts)", value: "High Kick (Martial Arts)", desc: "High dynamic combat martial arts kick" }
+      { label: "High Kick (Martial Arts)", value: "High Kick (Martial Arts)", desc: "High dynamic combat martial arts kick" },
+      { label: "Leaning Forward (Balcony Side)", value: "Leaning Forward (Balcony Side)", desc: "Side profile leaning forward over balcony railing" },
+      { label: "Pushing Heavy Load (Side)", value: "Pushing Heavy Load (Side)", desc: "Side profile leaning forward pushing heavy load with bent legs" }
     ]
   };
 
@@ -5643,7 +5675,9 @@
           "Sitting Relaxed (Side)",
           "Crouching Action (Side)",
           "Sitting Cross-Legged (Side)",
-          "High Kick (Martial Arts)"
+          "High Kick (Martial Arts)",
+          "Leaning Forward (Balcony Side)",
+          "Pushing Heavy Load (Side)"
         ];
       } else {
         poses = [
@@ -5661,6 +5695,8 @@
           "Leaning Against Wall",
           "Chest Out Proud (Winner)",
           "Advancing with Shield Guard",
+          "Leaning Forward (Balcony)",
+          "Pushing Heavy Load",
           "Sitting Relaxed",
           "Sitting Cross-Legged (Floor)",
           "Sitting Legs Forward",
