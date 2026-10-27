@@ -275,10 +275,13 @@ func TestHandleImageToSceneEndpoint(t *testing.T) {
 		t.Errorf("expected 400 Bad Request for empty image, got %d", wEmpty.Code)
 	}
 
-	// 2. Test valid JSON payload with base64 image data
+	// 2. Test valid JSON payload with base64 image data and aspect ratio
 	payload := `{
 		"image_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-		"user_hint": "cyberpunk style"
+		"user_hint": "cyberpunk style",
+		"aspect_ratio": "3:4",
+		"canvas_width": 768,
+		"canvas_height": 1024
 	}`
 	req := httptest.NewRequest("POST", "/admin/compositions/image-to-scene", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
@@ -300,6 +303,9 @@ func TestHandleImageToSceneEndpoint(t *testing.T) {
 
 	if resp.Status != "ok" {
 		t.Errorf("expected status 'ok', got %q", resp.Status)
+	}
+	if resp.Scene["aspectRatio"] != "3:4" {
+		t.Errorf("expected aspectRatio '3:4', got %v", resp.Scene["aspectRatio"])
 	}
 	if !strings.Contains(resp.SceneJSON, "Runner") {
 		t.Errorf("expected scene_json to contain Runner, got %s", resp.SceneJSON)

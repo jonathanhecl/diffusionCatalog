@@ -1837,21 +1837,28 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleImageToScene(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var imageData, userHint string
+	var imageData, userHint, targetRatio string
+	var canvasW, canvasH float64
 	var override domain.PromptExecutionOverride
 
 	contentType := r.Header.Get("Content-Type")
 	if strings.Contains(contentType, "application/json") {
 		var req struct {
-			ImageData  string `json:"image_data"`
-			UserHint   string `json:"user_hint"`
-			Provider   string `json:"provider"`
-			Model      string `json:"model"`
-			ThinkLevel string `json:"think_level"`
+			ImageData    string  `json:"image_data"`
+			UserHint     string  `json:"user_hint"`
+			Provider     string  `json:"provider"`
+			Model        string  `json:"model"`
+			ThinkLevel   string  `json:"think_level"`
+			AspectRatio  string  `json:"aspect_ratio"`
+			CanvasWidth  float64 `json:"canvas_width"`
+			CanvasHeight float64 `json:"canvas_height"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
 			imageData = req.ImageData
 			userHint = req.UserHint
+			targetRatio = strings.TrimSpace(req.AspectRatio)
+			canvasW = req.CanvasWidth
+			canvasH = req.CanvasHeight
 			override = domain.PromptExecutionOverride{
 				Provider:   domain.AIProviderType(strings.Trim(strings.TrimSpace(req.Provider), "\"' \t\r\n")),
 				Model:      strings.Trim(strings.TrimSpace(req.Model), "\"' \t\r\n"),
@@ -1861,6 +1868,13 @@ func (s *Server) handleImageToScene(w http.ResponseWriter, r *http.Request) {
 	} else if strings.Contains(contentType, "multipart/form-data") {
 		if err := r.ParseMultipartForm(32 << 20); err == nil {
 			userHint = r.FormValue("user_hint")
+			targetRatio = strings.TrimSpace(r.FormValue("aspect_ratio"))
+			if cw, err := strconv.ParseFloat(r.FormValue("canvas_width"), 64); err == nil {
+				canvasW = cw
+			}
+			if ch, err := strconv.ParseFloat(r.FormValue("canvas_height"), 64); err == nil {
+				canvasH = ch
+			}
 			override = parseExecutionOverride(r)
 			file, header, err := r.FormFile("image_file")
 			if err == nil {
@@ -1879,6 +1893,13 @@ func (s *Server) handleImageToScene(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		imageData = r.FormValue("image_data")
 		userHint = r.FormValue("user_hint")
+		targetRatio = strings.TrimSpace(r.FormValue("aspect_ratio"))
+		if cw, err := strconv.ParseFloat(r.FormValue("canvas_width"), 64); err == nil {
+			canvasW = cw
+		}
+		if ch, err := strconv.ParseFloat(r.FormValue("canvas_height"), 64); err == nil {
+			canvasH = ch
+		}
 		override = parseExecutionOverride(r)
 	}
 
@@ -1893,7 +1914,7 @@ func (s *Server) handleImageToScene(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sceneJSON, scene, err := s.catalog.ImageToScene(ctx, imageData, userHint, override)
+	sceneJSON, scene, err := s.catalog.ImageToScene(ctx, imageData, userHint, targetRatio, canvasW, canvasH, override)
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

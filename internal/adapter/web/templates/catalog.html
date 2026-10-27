@@ -1963,8 +1963,12 @@
 
                 <!-- Pose Dropdown + Save Pose Preset -->
                 <div id="poseControlGroup" style="display:flex;align-items:center;gap:5px;">
-                  <select id="posePresetSelect" class="director-select" style="max-width:170px;">
-                    <option value="">-- Apply Pose --</option>
+                  <button type="button" id="btnOpenPoseGallery" class="btn-primary" style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;font-size:11px;background:#0284c7;border-color:#0369a1;color:#fff;font-weight:600;cursor:pointer;" title="Abrir Álbum y Galería Visual de Posturas">
+                    <span>🧍</span>
+                    <span>Galería de Poses</span>
+                  </button>
+                  <select id="posePresetSelect" class="director-select" style="max-width:140px;">
+                    <option value="">-- Postura rápida --</option>
                     {{range .StudioPoses}}
                       <option value="{{.Name}}" data-pose="{{.PoseJSON}}">{{.Name}}</option>
                     {{end}}
@@ -2506,6 +2510,31 @@
               </div>
             </div>
 
+            <!-- Detected Aspect Ratio & Canvas Adjustment -->
+            <div id="i2sAspectRow" style="display:none;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:6px;padding:8px 12px;align-items:center;justify-content:space-between;gap:8px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:15px;">📐</span>
+                <div>
+                  <div style="font-size:11.5px;color:#f1f5f9;font-weight:600;">
+                    Detected: <span id="i2sDetectedDimText" style="color:#38bdf8;">0×0</span> &rarr; <span id="i2sDetectedRatioBadge" style="background:#7e22ce;color:#fff;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700;">4:3</span>
+                  </div>
+                  <div style="font-size:10px;color:var(--text-muted);">Scene canvas will automatically adapt to this proportion</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <label style="font-size:11px;color:var(--text-muted);font-weight:600;">Canvas:</label>
+                <select id="i2sAspectSelect" class="director-select" style="font-size:11px;padding:3px 6px;width:auto;">
+                  <option value="auto">Auto (Detected)</option>
+                  <option value="4:3">4:3 (Standard)</option>
+                  <option value="3:4">3:4 (Portrait)</option>
+                  <option value="16:9">16:9 (Widescreen)</option>
+                  <option value="9:16">9:16 (Story / Reel)</option>
+                  <option value="1:1">1:1 (Square)</option>
+                  <option value="21:9">21:9 (Ultrawide)</option>
+                </select>
+              </div>
+            </div>
+
             <!-- Optional Guidance / User Hint -->
             <div>
               <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Director Guidance / Hint (Optional):</label>
@@ -2621,6 +2650,60 @@
               <button type="button" id="btnConfirmSavePose" class="btn-primary" style="padding:6px 16px;font-size:12px;background:#0891b2;border-color:#0e7490;">Save Pose</button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Modal: Álbum de Posiciones Artísticas (Visual Pose Gallery) -->
+      <div id="poseGalleryModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:12px;width:96%;max-width:980px;height:90vh;max-height:820px;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.95);overflow:hidden;">
+          
+          <!-- Modal Header -->
+          <div style="padding:14px 20px;border-bottom:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;background:#060d1b;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:22px;">🧍</span>
+              <div>
+                <h3 style="margin:0;font-size:15px;color:#fff;font-weight:700;">Álbum de Posiciones Artísticas &amp; Anatomía</h3>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                  Hacé click en cualquier miniatura para aplicar la postura al personaje seleccionado en el escenario.
+                </div>
+              </div>
+            </div>
+            <button type="button" id="btnClosePoseGallery" class="btn-ghost close-modal" style="padding:4px 10px;font-size:16px;" aria-label="Cerrar">&#x2715;</button>
+          </div>
+
+          <!-- Controls: Category Tabs & Search Bar -->
+          <div style="padding:10px 18px;border-bottom:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(15,23,42,0.5);">
+            <div id="poseCategoryTabs" style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" class="btn-ghost pose-cat-btn active" data-cat="all" style="padding:4px 10px;font-size:11px;border-radius:4px;">Todas (<span id="pose-count-all">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="standing" style="padding:4px 10px;font-size:11px;border-radius:4px;">🦶 De pie (<span id="pose-count-standing">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="kneeling" style="padding:4px 10px;font-size:11px;border-radius:4px;">🦵 De rodillas (<span id="pose-count-kneeling">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="sitting" style="padding:4px 10px;font-size:11px;border-radius:4px;">🧘 Sentadas (<span id="pose-count-sitting">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="lying" style="padding:4px 10px;font-size:11px;border-radius:4px;">🛌 Suelo &amp; Puente (<span id="pose-count-lying">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="action" style="padding:4px 10px;font-size:11px;border-radius:4px;">⚡ Dinámicas (<span id="pose-count-action">0</span>)</button>
+            </div>
+            <div style="position:relative;min-width:200px;">
+              <input type="text" id="poseGallerySearch" placeholder="🔍 Filtrar posturas..." 
+                     style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 8px;color:#fff;font-size:11.5px;" />
+            </div>
+          </div>
+
+          <!-- Poses Grid -->
+          <div id="poseGalleryGrid" style="flex:1;overflow-y:auto;padding:16px;display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:12px;align-content:start;background:#030712;">
+            <!-- Generated dynamically by renderPoseGallery() -->
+          </div>
+
+          <!-- Modal Footer -->
+          <div style="padding:10px 18px;border-top:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;background:#060d1b;font-size:11px;color:var(--text-muted);">
+            <span id="poseGalleryStatus">Seleccioná una postura para aplicarla al personaje actual.</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#94a3b8;font-size:11px;">
+                <input type="checkbox" id="chkKeepGalleryOpen" />
+                <span>Mantener galería abierta tras seleccionar</span>
+              </label>
+              <button type="button" id="btnCancelPoseGallery" class="btn-ghost close-modal" style="padding:4px 12px;font-size:11.5px;">Cerrar</button>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -6811,6 +6894,10 @@
   const i2sPreviewContainer = document.getElementById('i2sPreviewContainer');
   const i2sPreviewImg = document.getElementById('i2sPreviewImg');
   const i2sClearBtn = document.getElementById('i2sClearBtn');
+  const i2sAspectRow = document.getElementById('i2sAspectRow');
+  const i2sDetectedDimText = document.getElementById('i2sDetectedDimText');
+  const i2sDetectedRatioBadge = document.getElementById('i2sDetectedRatioBadge');
+  const i2sAspectSelect = document.getElementById('i2sAspectSelect');
   const i2sHintInput = document.getElementById('i2sHintInput');
   const i2sProviderSelect = document.getElementById('i2sProviderSelect');
   const i2sModelSelect = document.getElementById('i2sModelSelect');
@@ -6820,6 +6907,49 @@
   const i2sBtnText = document.getElementById('i2sBtnText');
 
   let currentI2SDataUrl = "";
+  let detectedI2SRatio = "";
+  let detectedI2SCanvasW = 1024;
+  let detectedI2SCanvasH = 768;
+
+  const I2S_STANDARD_RATIOS = [
+    { ratio: '1:1', w: 900, h: 900, val: 1.0 },
+    { ratio: '9:16', w: 720, h: 1280, val: 9.0 / 16.0 },
+    { ratio: '3:4', w: 768, h: 1024, val: 3.0 / 4.0 },
+    { ratio: '4:3', w: 1024, h: 768, val: 4.0 / 3.0 },
+    { ratio: '16:9', w: 1280, h: 720, val: 16.0 / 9.0 },
+    { ratio: '21:9', w: 1440, h: 617, val: 21.0 / 9.0 }
+  ];
+
+  function calculateClosestAspectRatio(width, height) {
+    if (!width || !height || width <= 0 || height <= 0) {
+      return { ratio: '4:3', w: 1024, h: 768 };
+    }
+    const actualRatio = width / height;
+    let bestRatio = '4:3';
+    let bestW = 1024;
+    let bestH = 768;
+    let minDiff = Infinity;
+
+    for (const cand of I2S_STANDARD_RATIOS) {
+      const diff = Math.abs(Math.log(actualRatio) - Math.log(cand.val));
+      if (diff < minDiff) {
+        minDiff = diff;
+        bestRatio = cand.ratio;
+        bestW = cand.w;
+        bestH = cand.h;
+      }
+    }
+    return { ratio: bestRatio, w: bestW, h: bestH };
+  }
+
+  function getCanvasDimensionsForRatio(ratio) {
+    for (const cand of I2S_STANDARD_RATIOS) {
+      if (cand.ratio === ratio) {
+        return { w: cand.w, h: cand.h };
+      }
+    }
+    return { w: 1024, h: 768 };
+  }
 
   window.switchI2SProvider = function() {
     const provEl = document.getElementById('i2sProviderSelect');
@@ -6900,14 +7030,37 @@
     i2sPreviewContainer.style.display = 'flex';
     btnConfirmImageToScene.disabled = false;
     i2sStatusText.textContent = "";
+
+    // Detect image dimensions and calculate closest standard aspect ratio
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (w > 0 && h > 0) {
+        const matched = calculateClosestAspectRatio(w, h);
+        detectedI2SRatio = matched.ratio;
+        detectedI2SCanvasW = matched.w;
+        detectedI2SCanvasH = matched.h;
+        if (i2sAspectRow) i2sAspectRow.style.display = 'flex';
+        if (i2sDetectedDimText) i2sDetectedDimText.textContent = `${w}×${h} px`;
+        if (i2sDetectedRatioBadge) i2sDetectedRatioBadge.textContent = matched.ratio;
+        if (i2sAspectSelect) i2sAspectSelect.value = 'auto';
+      }
+    };
+    img.src = dataUrl;
   }
 
   function clearI2SImage() {
     currentI2SDataUrl = "";
+    detectedI2SRatio = "";
+    detectedI2SCanvasW = 1024;
+    detectedI2SCanvasH = 768;
     i2sFileInput.value = "";
     i2sPreviewImg.src = "";
     i2sPlaceholder.style.display = 'block';
     i2sPreviewContainer.style.display = 'none';
+    if (i2sAspectRow) i2sAspectRow.style.display = 'none';
+    if (i2sAspectSelect) i2sAspectSelect.value = 'auto';
     btnConfirmImageToScene.disabled = true;
     i2sStatusText.textContent = "";
   }
@@ -6997,11 +7150,25 @@
         i2sStatusText.textContent = "Reconstructing staging with Vision LLM...";
 
         try {
+          let targetRatio = detectedI2SRatio || "4:3";
+          let canvasW = detectedI2SCanvasW || 1024;
+          let canvasH = detectedI2SCanvasH || 768;
+
+          if (i2sAspectSelect && i2sAspectSelect.value && i2sAspectSelect.value !== 'auto') {
+            targetRatio = i2sAspectSelect.value;
+            const dim = getCanvasDimensionsForRatio(targetRatio);
+            canvasW = dim.w;
+            canvasH = dim.h;
+          }
+
           const payload = {
             image_data: currentI2SDataUrl,
             user_hint: i2sHintInput ? i2sHintInput.value.trim() : "",
             provider: i2sProviderSelect ? i2sProviderSelect.value : "",
-            model: i2sModelSelect ? (i2sModelSelect.value || '').trim() : ""
+            model: i2sModelSelect ? (i2sModelSelect.value || '').trim() : "",
+            aspect_ratio: targetRatio,
+            canvas_width: canvasW,
+            canvas_height: canvasH
           };
 
           const resp = await fetch('/admin/compositions/image-to-scene', {

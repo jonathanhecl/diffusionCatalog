@@ -1,10 +1,17 @@
 package usecase
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
+	"io"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1534,8 +1541,86 @@ func cleanJSONResponse(raw string) string {
 	return raw
 }
 
+// getCanvasDimensionsForRatio returns standard width and height for a target aspect ratio matching Scene Director canvas.
+func getCanvasDimensionsForRatio(ratio string) (float64, float64) {
+	switch ratio {
+	case "1:1":
+		return 900, 900
+	case "9:16":
+		return 720, 1280
+	case "3:4":
+		return 768, 1024
+	case "4:3":
+		return 1024, 768
+	case "21:9":
+		return 1440, 617
+	case "16:9":
+		return 1280, 720
+	default:
+		return 1024, 768
+	}
+}
+
+// detectImageDimensionsAndRatio decodes an image config to find its natural dimensions and closest matching standard ratio.
+func detectImageDimensionsAndRatio(imageSource string) (string, float64, float64) {
+	type ratioCandidate struct {
+		name   string
+		ratio  float64
+		width  float64
+		height float64
+	}
+	candidates := []ratioCandidate{
+		{name: "9:16", ratio: 9.0 / 16.0, width: 720, height: 1280},
+		{name: "3:4", ratio: 3.0 / 4.0, width: 768, height: 1024},
+		{name: "1:1", ratio: 1.0, width: 900, height: 900},
+		{name: "4:3", ratio: 4.0 / 3.0, width: 1024, height: 768},
+		{name: "16:9", ratio: 16.0 / 9.0, width: 1280, height: 720},
+		{name: "21:9", ratio: 21.0 / 9.0, width: 1440, height: 617},
+	}
+
+	var imgReader io.Reader
+	trimmed := strings.TrimSpace(imageSource)
+	if strings.HasPrefix(trimmed, "data:image/") {
+		idx := strings.Index(trimmed, ";base64,")
+		if idx != -1 {
+			b, err := base64.StdEncoding.DecodeString(trimmed[idx+8:])
+			if err == nil {
+				imgReader = bytes.NewReader(b)
+			}
+		}
+	} else if strings.HasPrefix(trimmed, "base64:") {
+		b, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(trimmed, "base64:"))
+		if err == nil {
+			imgReader = bytes.NewReader(b)
+		}
+	} else if _, err := os.Stat(trimmed); err == nil {
+		if f, err := os.Open(trimmed); err == nil {
+			defer f.Close()
+			imgReader = f
+		}
+	}
+
+	if imgReader != nil {
+		if cfg, _, err := image.DecodeConfig(imgReader); err == nil && cfg.Width > 0 && cfg.Height > 0 {
+			actual := float64(cfg.Width) / float64(cfg.Height)
+			best := candidates[4] // default 16:9
+			minDiff := math.Abs(math.Log(actual) - math.Log(best.ratio))
+			for _, c := range candidates {
+				diff := math.Abs(math.Log(actual) - math.Log(c.ratio))
+				if diff < minDiff {
+					minDiff = diff
+					best = c
+				}
+			}
+			return best.name, best.width, best.height
+		}
+	}
+
+	return "16:9", 1280, 720
+}
+
 // ImageToScene analyzes an input image using a multimodal Vision LLM and converts it into a SceneDirectorDTO composition.
-func (s *CatalogService) ImageToScene(ctx context.Context, imageSource, userHint string, override domain.PromptExecutionOverride) (string, *SceneDirectorDTO, error) {
+func (s *CatalogService) ImageToScene(ctx context.Context, imageSource, userHint, targetAspectRatio string, canvasWidth, canvasHeight float64, override domain.PromptExecutionOverride) (string, *SceneDirectorDTO, error) {
 	if s.ollama == nil {
 		return "", nil, fmt.Errorf("AI vision provider is not configured")
 	}
@@ -1556,7 +1641,19 @@ func (s *CatalogService) ImageToScene(ctx context.Context, imageSource, userHint
 		apiKey = cfg.OMLXAPIKey
 	}
 
-	userPrompt := "Analyze this image and reconstruct it into the SceneDirector 2D staging JSON format according to your system prompt instructions. Return ONLY the JSON object."
+	if strings.TrimSpace(targetAspectRatio) == "" || canvasWidth <= 0 || canvasHeight <= 0 {
+		detRatio, detW, detH := detectImageDimensionsAndRatio(imageSource)
+		if strings.TrimSpace(targetAspectRatio) == "" {
+			targetAspectRatio = detRatio
+		}
+		if canvasWidth <= 0 || canvasHeight <= 0 {
+			canvasWidth = detW
+			canvasHeight = detH
+		}
+	}
+
+	userPrompt := fmt.Sprintf("Analyze this image and reconstruct it into the SceneDirector 2D staging JSON format according to your system prompt instructions.\n\nTARGET STAGING CANVAS:\n- Aspect Ratio: %s\n- Canvas Dimensions: %0.0fx%0.0f (width x height)\n- Coordinate System: all element coordinates (x, y) MUST be within x in [0, %0.0f] and y in [0, %0.0f].\n\nEnsure 'aspectRatio' in your JSON is '%s', 'canvasWidth' is %0.0f, and 'canvasHeight' is %0.0f. Return ONLY the JSON object.",
+		targetAspectRatio, canvasWidth, canvasHeight, canvasWidth, canvasHeight, targetAspectRatio, canvasWidth, canvasHeight)
 	if strings.TrimSpace(userHint) != "" {
 		userPrompt += "\nAdditional user directives / hints:\n" + strings.TrimSpace(userHint)
 	}
@@ -1573,15 +1670,9 @@ func (s *CatalogService) ImageToScene(ctx context.Context, imageSource, userHint
 	}
 
 	// Validate & sanitize defaults
-	if scene.AspectRatio == "" {
-		scene.AspectRatio = "16:9"
-	}
-	if scene.CanvasWidth <= 0 {
-		scene.CanvasWidth = 1024
-	}
-	if scene.CanvasHeight <= 0 {
-		scene.CanvasHeight = 576
-	}
+	scene.AspectRatio = targetAspectRatio
+	scene.CanvasWidth = canvasWidth
+	scene.CanvasHeight = canvasHeight
 	if scene.Perspective == "" {
 		scene.Perspective = "front"
 	}

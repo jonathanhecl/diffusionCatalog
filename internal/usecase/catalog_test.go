@@ -763,7 +763,7 @@ func TestImageToScene(t *testing.T) {
 	})
 
 	dummyImage := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-	sceneJSON, scene, err := catalogSvc.ImageToScene(ctx, dummyImage, "cyberpunk tone", domain.PromptExecutionOverride{})
+	sceneJSON, scene, err := catalogSvc.ImageToScene(ctx, dummyImage, "cyberpunk tone", "16:9", 1024, 576, domain.PromptExecutionOverride{})
 	if err != nil {
 		t.Fatalf("ImageToScene failed: %v", err)
 	}
@@ -774,6 +774,10 @@ func TestImageToScene(t *testing.T) {
 
 	if scene == nil {
 		t.Fatalf("expected non-nil scene")
+	}
+
+	if scene.AspectRatio != "16:9" || scene.CanvasWidth != 1024 || scene.CanvasHeight != 576 {
+		t.Errorf("expected enforced aspect ratio 16:9 (1024x576), got %s (%fx%f)", scene.AspectRatio, scene.CanvasWidth, scene.CanvasHeight)
 	}
 
 	if scene.EnvironmentType != "outdoor" || scene.TimeOfDay != "night" {
