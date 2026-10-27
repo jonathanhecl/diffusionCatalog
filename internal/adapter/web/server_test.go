@@ -272,8 +272,15 @@ func TestDirectorTabRendering(t *testing.T) {
 	if !strings.Contains(body, "charCustomizationPanel") {
 		t.Errorf("expected body to contain charCustomizationPanel")
 	}
-	if !strings.Contains(body, "charHairSelect") || !strings.Contains(body, "charClothingSelect") {
-		t.Errorf("expected body to contain character hair and clothing preset selects")
+	if !strings.Contains(body, "charHairSelect") || !strings.Contains(body, "charClothingSelect") ||
+		!strings.Contains(body, "charFeaturesSelect") || !strings.Contains(body, "charDetailsSelect") {
+		t.Errorf("expected body to contain character hair, clothing, features, and details preset selects")
+	}
+	if !strings.Contains(body, `data-ratio="4:3"`) || !strings.Contains(body, `data-ratio="3:4"`) {
+		t.Errorf("expected body to contain 4:3 and 3:4 aspect ratio buttons")
+	}
+	if !strings.Contains(body, `viewBox="0 0 1024 768"`) {
+		t.Errorf("expected default SVG canvas viewBox to be 1024 768 (4:3)")
 	}
 	if !strings.Contains(body, "propLabelInput") || !strings.Contains(body, "propDescInput") {
 		t.Errorf("expected body to contain propLabelInput and propDescInput for customizable props")
