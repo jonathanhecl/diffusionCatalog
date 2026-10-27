@@ -272,6 +272,9 @@ func TestDirectorTabRendering(t *testing.T) {
 	if !strings.Contains(body, "charCustomizationPanel") {
 		t.Errorf("expected body to contain charCustomizationPanel")
 	}
+	if !strings.Contains(body, "charPoseInput") || !strings.Contains(body, "charAnatomySelect") || !strings.Contains(body, "charExpressionSelect") {
+		t.Errorf("expected body to contain character pose input, anatomy select, and expression select")
+	}
 	if !strings.Contains(body, "charHairSelect") || !strings.Contains(body, "charClothingSelect") ||
 		!strings.Contains(body, "charFeaturesSelect") || !strings.Contains(body, "charDetailsSelect") {
 		t.Errorf("expected body to contain character hair, clothing, features, and details preset selects")

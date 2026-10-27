@@ -893,6 +893,8 @@ type SceneElementDTO struct {
 	Facing      string                 `json:"facing,omitempty"`
 	PoseName    string                 `json:"poseName,omitempty"`
 	Pose        map[string]interface{} `json:"pose,omitempty"`
+	Anatomy     string                 `json:"anatomy,omitempty"`
+	Expression  string                 `json:"expression,omitempty"`
 	Features    string                 `json:"features,omitempty"`
 	Hair        string                 `json:"hair,omitempty"`
 	Clothing    string                 `json:"clothing,omitempty"`
@@ -1029,8 +1031,14 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 			}
 
 			var charTraits []string
+			if strings.TrimSpace(el.Anatomy) != "" {
+				charTraits = append(charTraits, "anatomy: "+strings.TrimSpace(el.Anatomy))
+			}
 			if strings.TrimSpace(el.Features) != "" {
 				charTraits = append(charTraits, "features: "+strings.TrimSpace(el.Features))
+			}
+			if strings.TrimSpace(el.Expression) != "" {
+				charTraits = append(charTraits, "expression: "+strings.TrimSpace(el.Expression))
 			}
 			if strings.TrimSpace(el.Hair) != "" {
 				charTraits = append(charTraits, "hair: "+strings.TrimSpace(el.Hair))

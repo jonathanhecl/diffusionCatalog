@@ -298,6 +298,39 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 		t.Errorf("expected director note in manifest:\n%s", manifest)
 	}
 
+	// 3b. Test character with separate anatomy, expression, and custom pose name
+	anatomySceneJSON := `{
+		"aspectRatio": "4:3",
+		"elements": [
+			{
+				"id": "char-2",
+				"type": "character",
+				"name": "Warrior Queen",
+				"x": 200,
+				"y": 400,
+				"facing": "front",
+				"poseName": "High Kick (Martial Arts)",
+				"anatomy": "tall athletic muscular build, battle scar across left cheek",
+				"expression": "fierce determined combat glare with clenched jaw",
+				"hair": "long fiery red braids",
+				"clothing": "ornate dragon plate armor"
+			}
+		]
+	}`
+	anatomyManifest, err := catalogSvc.CompileSceneDirectorManifest(ctx, anatomySceneJSON)
+	if err != nil {
+		t.Fatalf("CompileSceneDirectorManifest with anatomy and expression failed: %v", err)
+	}
+	if !strings.Contains(anatomyManifest, "anatomy: tall athletic muscular build") {
+		t.Errorf("expected anatomy in manifest:\n%s", anatomyManifest)
+	}
+	if !strings.Contains(anatomyManifest, "expression: fierce determined combat glare") {
+		t.Errorf("expected expression in manifest:\n%s", anatomyManifest)
+	}
+	if !strings.Contains(anatomyManifest, "High Kick (Martial Arts)") {
+		t.Errorf("expected poseName in manifest:\n%s", anatomyManifest)
+	}
+
 	// 4. Test SynthesizeScenePrompt (without canvas capture -> TextToPrompt)
 	compiledManifest, generatedPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, "")
 	if err != nil {
