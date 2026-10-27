@@ -6469,11 +6469,6 @@
 
     viewer.textContent = manifest.trim();
   }
-    if (lights.length) manifest += `Lighting Vectors:\n${lights.join('\n')}\n\n`;
-    if (notes.length) manifest += `Directives & Notes:\n${notes.join('\n')}`;
-
-    viewer.textContent = manifest.trim();
-  }
 
   // --- Export Canvas as PNG & Copy to Clipboard ---
   function exportCanvasToDataURL(callback) {

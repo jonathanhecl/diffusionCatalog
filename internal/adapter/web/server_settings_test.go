@@ -331,4 +331,9 @@ func TestDirectorNewPosesPresetsRendering(t *testing.T) {
 			t.Errorf("expected director view to contain %q, but not found", substr)
 		}
 	}
+
+	// Ensure no duplicate closing block or syntax error around updateSpatialManifest
+	if strings.Contains(body, "viewer.textContent = manifest.trim();\n  }\n    if (lights.length)") {
+		t.Errorf("found duplicate corrupted updateSpatialManifest closure")
+	}
 }
