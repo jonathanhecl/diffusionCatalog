@@ -331,6 +331,35 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 		t.Errorf("expected poseName in manifest:\n%s", anatomyManifest)
 	}
 
+	// 3c. Test scene with environment, situation, and time of day
+	envSceneJSON := `{
+		"aspectRatio": "16:9",
+		"environmentType": "indoor",
+		"environment": "hospital emergency room with medical equipment and sterile lighting",
+		"timeOfDay": "dramatic golden hour sunset, warm fiery orange-gold glow",
+		"elements": [
+			{
+				"id": "char-env",
+				"type": "character",
+				"name": "Doctor Ramirez",
+				"x": 500,
+				"y": 300,
+				"facing": "front",
+				"clothing": "medical scrubs uniform in hospital ceil blue with stethoscope"
+			}
+		]
+	}`
+	envManifest, err := catalogSvc.CompileSceneDirectorManifest(ctx, envSceneJSON)
+	if err != nil {
+		t.Fatalf("CompileSceneDirectorManifest with environment failed: %v", err)
+	}
+	if !strings.Contains(envManifest, "Setting & Environment: [INDOOR] hospital emergency room") {
+		t.Errorf("expected indoor hospital setting in manifest:\n%s", envManifest)
+	}
+	if !strings.Contains(envManifest, "Time of Day & Atmosphere: dramatic golden hour sunset") {
+		t.Errorf("expected golden hour atmosphere in manifest:\n%s", envManifest)
+	}
+
 	// 4. Test SynthesizeScenePrompt (without canvas capture -> TextToPrompt)
 	compiledManifest, generatedPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, "")
 	if err != nil {

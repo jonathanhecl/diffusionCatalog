@@ -911,12 +911,15 @@ type SceneElementDTO struct {
 }
 
 type SceneDirectorDTO struct {
-	AspectRatio  string            `json:"aspectRatio"`
-	CanvasWidth  float64           `json:"canvasWidth"`
-	CanvasHeight float64           `json:"canvasHeight"`
-	Perspective  string            `json:"perspective,omitempty"` // "front" or "side"
-	Elements     []SceneElementDTO `json:"elements"`
-	DirectorNote string            `json:"directorNote,omitempty"`
+	AspectRatio     string            `json:"aspectRatio"`
+	CanvasWidth     float64           `json:"canvasWidth"`
+	CanvasHeight    float64           `json:"canvasHeight"`
+	Perspective     string            `json:"perspective,omitempty"` // "front" or "side"
+	EnvironmentType string            `json:"environmentType,omitempty"` // "any", "indoor", "outdoor"
+	Environment     string            `json:"environment,omitempty"`
+	TimeOfDay       string            `json:"timeOfDay,omitempty"`
+	Elements        []SceneElementDTO `json:"elements"`
+	DirectorNote    string            `json:"directorNote,omitempty"`
 }
 
 // CompileSceneDirectorManifest converts a structured 2D scene JSON into a spatial composition manifest.
@@ -1122,6 +1125,19 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 		sb.WriteString("Perspective: Lateral Side-View / Profile Scene Staging\n")
 	}
 	sb.WriteString(fmt.Sprintf("Framing & Camera Perspective: %s\n", cameraSummary))
+
+	if strings.TrimSpace(scene.Environment) != "" || strings.TrimSpace(scene.TimeOfDay) != "" {
+		envDesc := strings.TrimSpace(scene.Environment)
+		if scene.EnvironmentType != "" && scene.EnvironmentType != "any" {
+			envDesc = fmt.Sprintf("[%s] %s", strings.ToUpper(scene.EnvironmentType), envDesc)
+		}
+		if envDesc != "" {
+			sb.WriteString(fmt.Sprintf("Setting & Environment: %s\n", envDesc))
+		}
+		if strings.TrimSpace(scene.TimeOfDay) != "" {
+			sb.WriteString(fmt.Sprintf("Time of Day & Atmosphere: %s\n", strings.TrimSpace(scene.TimeOfDay)))
+		}
+	}
 
 	if len(subjectLines) > 0 {
 		sb.WriteString("Subjects & Characters:\n")

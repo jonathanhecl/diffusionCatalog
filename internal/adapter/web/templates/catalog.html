@@ -1668,8 +1668,132 @@
 
           <!-- CENTER: Interactive Staging Canvas & Transform Controls -->
           <div style="display:flex;flex-direction:column;gap:8px;">
+            <!-- Scene Environment, Setting & Atmosphere Bar -->
+            <div id="sceneEnvironmentBar" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:6px;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:11px;font-weight:700;color:#38bdf8;display:flex;align-items:center;gap:5px;">
+                    <span>🏛️ ENTORNO, AMBIENTE &amp; SITUACIÓN</span>
+                  </span>
+                  <!-- Indoor / Outdoor Switcher Pills -->
+                  <div style="display:inline-flex;background:#0f172a;border:1px solid #334155;border-radius:5px;padding:1px;gap:2px;">
+                    <button type="button" class="env-type-btn active" data-env-type="any" style="padding:2px 8px;font-size:10px;font-weight:600;border:none;border-radius:3px;background:#0284c7;color:#fff;cursor:pointer;">🌐 Todos</button>
+                    <button type="button" class="env-type-btn" data-env-type="indoor" style="padding:2px 8px;font-size:10px;font-weight:600;border:none;border-radius:3px;background:transparent;color:#94a3b8;cursor:pointer;">🏢 Indoor</button>
+                    <button type="button" class="env-type-btn" data-env-type="outdoor" style="padding:2px 8px;font-size:10px;font-weight:600;border:none;border-radius:3px;background:transparent;color:#94a3b8;cursor:pointer;">🌲 Outdoor</button>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <button type="button" id="btnRandomizeEnvironment" class="preset-pill-btn" style="color:#34d399;border-color:#059669;background:rgba(5,150,105,0.18);font-weight:700;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Generar aleatoriamente entorno y momento del día">
+                    <span>🎲 Random Env</span>
+                  </button>
+                  <button type="button" id="btnClearEnvironment" class="btn-ghost" style="padding:2px 6px;font-size:10px;color:var(--text-muted);" title="Limpiar entorno y momento del día">&#x2715; Limpiar</button>
+                </div>
+              </div>
+
+              <!-- Inputs Grid: Environment / Situation + Time of Day -->
+              <div style="display:grid;grid-template-columns: 1.35fr 1fr;gap:10px;align-items:start;">
+                <!-- Environment / Location Input -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Ubicación / Situación:</label>
+                    <button type="button" class="preset-pill-btn" data-preset-target="environment" title="Abrir catálogo visual de entornos y situaciones">
+                      <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                    </button>
+                  </div>
+                  <input type="text" id="sceneEnvironmentInput" placeholder="e.g. Hospital Emergency Room, Rustic Barn, Street Sidewalk..." 
+                         style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
+                  <select id="sceneEnvironmentSelect" style="display:none;">
+                    <option value="">Presets...</option>
+                    <optgroup label="Salud &amp; Cuidados (Indoor)">
+                      <option value="hospital emergency room with medical equipment and sterile lighting">Hospital / Sala de Urgencias</option>
+                      <option value="hospital clinic nursing ward with beds and monitoring screens">Enfermería / Sala de Clínica</option>
+                      <option value="veterinary animal clinic with examination table, medicine cabinets, and pet care gear">Veterinaria / Clínica de Mascotas</option>
+                    </optgroup>
+                    <optgroup label="Trabajo, Oficios &amp; Educación (Indoor)">
+                      <option value="busy auto repair garage with car lifts, scattered tools, engine parts, and grease-stained floors">Taller Mecánico / Taller de Autos</option>
+                      <option value="rustic wooden equestrian horse barn stables with hay bales, wooden stalls, and warm lantern dust">Establo / Granja con Caballos</option>
+                      <option value="janitor utility closet with mop buckets, industrial cleaning chemicals, brooms, and shelves">Sala de Limpieza / Conserje</option>
+                      <option value="academic school classroom with blackboard, student desks, books, and chalk dust">Aula de Clases / Salón Escolar</option>
+                      <option value="high-tech research science laboratory with holographic workstations, microscopes, and glass test tubes">Laboratorio Científico / High-Tech</option>
+                    </optgroup>
+                    <optgroup label="Social, Fiestas &amp; Eventos (Indoor)">
+                      <option value="luxurious wedding banquet celebration with decorated floral tables, fairy lights, and champagne glasses">Casamiento / Fiesta de Bodas</option>
+                      <option value="packed lively nightclub dancefloor with pulsating strobe lights, laser beams, and DJ booth">Disco / Boliche Bailable</option>
+                      <option value="moody vintage pub tavern with wooden bar counter, beer taps, and warm dim amber tavern lighting">Bar / Taberna Rústica</option>
+                      <option value="upscale gourmet dining restaurant with candlelit tables, white linen tablecloths, and wine glasses">Restaurante Elegante</option>
+                    </optgroup>
+                    <optgroup label="Transporte &amp; Vehículos (Indoor / Mixto)">
+                      <option value="interior of a modern car from passenger perspective looking through windshield and side windows">Dentro de un Auto / Carro</option>
+                      <option value="commercial passenger airplane cabin with rows of seats, overhead luggage bins, and oval windows">Cabina de Avión Comercial</option>
+                      <option value="interior of a city transit commuter bus with handrail poles, passenger seats, and city view outside windows">Interior de Bus / Colectivo</option>
+                      <option value="street bus stop shelter with glass transit booth, bench, route map, and waiting curb">Parada de Bus / Marquesina</option>
+                    </optgroup>
+                    <optgroup label="Urbano &amp; Calles (Outdoor)">
+                      <option value="vibrant public city square plaza with green park benches, stone fountain, and walking trees">Plaza / Parque Público</option>
+                      <option value="bustling downtown metropolitan city street with crosswalks, traffic, storefront facades, and pedestrians">Calle Urbana Concurrida</option>
+                      <option value="narrow gritty urban brick alleyway with fire escapes, steam vents, wet puddles, and dumpsters">Callejón Urbano / Alleyway</option>
+                      <option value="wide urban pedestrian sidewalk pavement lined with shop display windows, street lamps, and parked bikes">Vereda de Calle / Acera Peatonal</option>
+                      <option value="scenic highway roadside shoulder with asphalt guardrail, distant horizon, and telephone poles">Al Lado de una Carretera / Banquina</option>
+                      <option value="pedestrian walkway across a massive suspension steel bridge with river and skyline view">Sobre un Puente</option>
+                      <option value="gritty underpass beneath a concrete highway bridge with graffiti walls, concrete pillars, and shadows">Debajo de un Puente</option>
+                    </optgroup>
+                    <optgroup label="Histórico, Castillos &amp; Fantasía">
+                      <option value="grand medieval gothic castle throne room with stone arches, banners, torches, and royal throne">Salón del Trono de un Castillo</option>
+                      <option value="ancient stone fortress castle courtyard with towering battlements, drawbridge, and stone pavers">Patio Exterior de Castillo</option>
+                      <option value="dark damp stone dungeon with iron cell bars, hanging chains, and flickering wall torches">Calabozo Subterráneo</option>
+                    </optgroup>
+                    <optgroup label="Naturaleza &amp; Exteriores (Outdoor)">
+                      <option value="dense lush forest woods with mossy ancient trees, winding dirt path, and dappled sunbeams">Bosque Frondoso</option>
+                      <option value="sandy ocean coastal beach shoreline with breaking sea waves, shells, and coastal horizon">Playa al Océano con Olas</option>
+                      <option value="rugged snow-capped mountain ridge summit with rocky cliffs and panoramic alpine vista">Montaña Nevada</option>
+                    </optgroup>
+                  </select>
+                </div>
+
+                <!-- Time of Day & Lighting Input -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Momento del Día &amp; Luz:</label>
+                    <button type="button" class="preset-pill-btn" data-preset-target="timeOfDay" title="Abrir selector de momento del día y luz">
+                      <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                    </button>
+                  </div>
+                  <input type="text" id="sceneTimeOfDayInput" placeholder="e.g. Golden hour sunset, Deep night..." 
+                         style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
+                  <select id="sceneTimeOfDaySelect" style="display:none;">
+                    <option value="">Presets...</option>
+                    <optgroup label="Momentos del Día">
+                      <option value="bright natural daylight, clear sky, crisp illumination">☀️ Día / Bright Daylight</option>
+                      <option value="warm late afternoon sun, long angled shadows, rich amber illumination">🌇 Tarde / Late Afternoon</option>
+                      <option value="dramatic golden hour sunset, warm fiery orange-gold glow, backlighting, long dramatic shadows">✨ Golden Hour / Sunset Glow</option>
+                      <option value="early dawn twilight, cool misty morning atmosphere, gentle pale horizon light">🌅 Madrugada / Dawn Twilight</option>
+                      <option value="deep cinematic night, cool blue moonlight, soft shadows, ambient night glow">🌙 Noche / Night &amp; Moonlight</option>
+                      <option value="cinematic blue hour dusk, deep sapphire sky, glowing artificial city streetlights">🌌 Blue Hour / Crepúsculo Azul</option>
+                    </optgroup>
+                    <optgroup label="Clima &amp; Atmósfera">
+                      <option value="soft diffused overcast lighting, cinematic moody fog, gentle desaturated tones">☁️ Día Nublado / Overcast &amp; Fog</option>
+                      <option value="dark rainy night with vibrant neon reflections on wet asphalt pavement">🌧️ Noche Neón / Cyberpunk Rain</option>
+                      <option value="dramatic stormy thunderstorm sky with distant lightning flashes and dark clouds">⚡ Tormenta Eléctrica / Stormy</option>
+                    </optgroup>
+                  </select>
+                  <!-- Quick Time of Day Pills -->
+                  <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                    <button type="button" class="btn-ghost quick-time-btn" data-time="bright natural daylight, clear sky, crisp illumination" style="padding:1px 5px;font-size:9.5px;" title="Día brillante">☀️ Día</button>
+                    <button type="button" class="btn-ghost quick-time-btn" data-time="warm late afternoon sun, long angled shadows, rich amber illumination" style="padding:1px 5px;font-size:9.5px;" title="Tarde">🌇 Tarde</button>
+                    <button type="button" class="btn-ghost quick-time-btn" data-time="dramatic golden hour sunset, warm fiery orange-gold glow, backlighting, long dramatic shadows" style="padding:1px 5px;font-size:9.5px;color:#fbbf24;border-color:rgba(251,191,36,0.4);" title="Golden Hour">✨ Golden Hour</button>
+                    <button type="button" class="btn-ghost quick-time-btn" data-time="early dawn twilight, cool misty morning atmosphere, gentle pale horizon light" style="padding:1px 5px;font-size:9.5px;" title="Madrugada">🌅 Madrugada</button>
+                    <button type="button" class="btn-ghost quick-time-btn" data-time="deep cinematic night, cool blue moonlight, soft shadows, ambient night glow" style="padding:1px 5px;font-size:9.5px;" title="Noche">🌙 Noche</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Canvas Container -->
             <div id="canvasViewport" style="background:#070d18;border:2px solid #1e3a66;border-radius:8px;position:relative;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;">
+              <!-- Real-Time Canvas Environment & Lighting HUD Pill -->
+              <div id="canvasEnvironmentBadge" style="display:none;position:absolute;top:8px;left:8px;background:rgba(15,23,42,0.85);backdrop-filter:blur(4px);border:1px solid rgba(56,189,248,0.4);border-radius:4px;padding:3px 8px;font-size:10px;font-weight:600;color:#7dd3fc;pointer-events:none;z-index:10;gap:6px;align-items:center;">
+                <span id="canvasEnvText"></span>
+              </div>
               <svg id="directorSvg" viewBox="0 0 1024 768" style="width:100%;height:auto;display:block;user-select:none;touch-action:none;cursor:default;">
                 <defs>
                   <linearGradient id="gridGrad" x1="0" y1="0" x2="0" y2="1">
@@ -2794,7 +2918,10 @@
     selectedId: null,
     dragTarget: null,
     theaterMode: false,
-    scenePerspective: "front"
+    scenePerspective: "front",
+    environmentType: "any",
+    environment: "",
+    timeOfDay: ""
   };
 
   const svg = document.getElementById('directorSvg');
@@ -2831,6 +2958,15 @@
         }
         if (loadedScene.perspective) {
           state.scenePerspective = loadedScene.perspective;
+        }
+        if (loadedScene.environmentType) {
+          state.environmentType = loadedScene.environmentType;
+        }
+        if (loadedScene.environment) {
+          state.environment = loadedScene.environment;
+        }
+        if (loadedScene.timeOfDay) {
+          state.timeOfDay = loadedScene.timeOfDay;
         }
       }
     } catch (e) {
@@ -3056,6 +3192,29 @@
     renderGazeLines();
     updatePropertiesBar();
     updateSpatialManifest();
+    updateEnvironmentHUD();
+  }
+
+  function updateEnvironmentHUD() {
+    const badge = document.getElementById('canvasEnvironmentBadge');
+    const textSpan = document.getElementById('canvasEnvText');
+    if (!badge || !textSpan) return;
+
+    const parts = [];
+    if (state.environment && state.environment.trim()) {
+      const typeStr = (state.environmentType && state.environmentType !== 'any') ? `[${state.environmentType.toUpperCase()}] ` : '';
+      parts.push(`📍 ${typeStr}${state.environment.trim()}`);
+    }
+    if (state.timeOfDay && state.timeOfDay.trim()) {
+      parts.push(`🌅 ${state.timeOfDay.trim()}`);
+    }
+
+    if (parts.length > 0) {
+      textSpan.textContent = parts.join(' • ');
+      badge.style.display = 'inline-flex';
+    } else {
+      badge.style.display = 'none';
+    }
   }
 
   function renderElementContent(g, el) {
@@ -4801,7 +4960,9 @@
       expression: { title: "😊 Facial Expression & Mood", inputId: 'charExpressionInput', selectId: 'charExpressionSelect' },
       hair: { title: "✂️ Hairstyle & Color", inputId: 'charHairInput', selectId: 'charHairSelect' },
       clothing: { title: "👔 Clothing & Outfit", inputId: 'charClothingInput', selectId: 'charClothingSelect' },
-      details: { title: "⚔️ Accessories & Gear", inputId: 'charDetailsInput', selectId: 'charDetailsSelect' }
+      details: { title: "⚔️ Accessories & Gear", inputId: 'charDetailsInput', selectId: 'charDetailsSelect' },
+      environment: { title: "🏛️ Environment, Setting & Situation", inputId: 'sceneEnvironmentInput', selectId: 'sceneEnvironmentSelect' },
+      timeOfDay: { title: "🌅 Time of Day & Lighting Atmosphere", inputId: 'sceneTimeOfDayInput', selectId: 'sceneTimeOfDaySelect' }
     };
     const c = map[target];
     if (!c) return null;
@@ -4814,6 +4975,10 @@
       if (optgroups.length > 0) {
         optgroups.forEach(og => {
           const grpLabel = og.label || 'Presets';
+          if (target === 'environment') {
+            if (state.environmentType === 'indoor' && grpLabel.includes('(Outdoor)')) return;
+            if (state.environmentType === 'outdoor' && grpLabel.includes('(Indoor)')) return;
+          }
           data[grpLabel] = [];
           og.querySelectorAll('option').forEach(opt => {
             if (opt.value) {
@@ -5197,6 +5362,148 @@
     });
   }
 
+  // --- Scene Environment & Atmosphere Listeners ---
+  const envInput = document.getElementById('sceneEnvironmentInput');
+  if (envInput) {
+    envInput.addEventListener('input', (e) => {
+      state.environment = e.target.value.trim();
+      updateSpatialManifest();
+      updateEnvironmentHUD();
+    });
+  }
+
+  const timeInput = document.getElementById('sceneTimeOfDayInput');
+  if (timeInput) {
+    timeInput.addEventListener('input', (e) => {
+      state.timeOfDay = e.target.value.trim();
+      updateSpatialManifest();
+      updateEnvironmentHUD();
+    });
+  }
+
+  // Quick Time of Day buttons
+  document.querySelectorAll('.quick-time-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.getAttribute('data-time');
+      if (timeInput && val) {
+        timeInput.value = val;
+        state.timeOfDay = val;
+        timeInput.dispatchEvent(new Event('input'));
+      }
+    });
+  });
+
+  // Indoor / Outdoor / Any Filter Buttons
+  document.querySelectorAll('.env-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.env-type-btn').forEach(b => {
+        b.classList.remove('active');
+        b.style.background = 'transparent';
+        b.style.color = '#94a3b8';
+      });
+      btn.classList.add('active');
+      btn.style.background = '#0284c7';
+      btn.style.color = '#fff';
+      state.environmentType = btn.getAttribute('data-env-type') || 'any';
+      updateSpatialManifest();
+      updateEnvironmentHUD();
+    });
+  });
+
+  // Clear Environment Button
+  const btnClearEnv = document.getElementById('btnClearEnvironment');
+  if (btnClearEnv) {
+    btnClearEnv.addEventListener('click', () => {
+      state.environment = '';
+      state.timeOfDay = '';
+      if (envInput) envInput.value = '';
+      if (timeInput) timeInput.value = '';
+      updateSpatialManifest();
+      updateEnvironmentHUD();
+      showToast("Entorno y momento del día limpiados", "info");
+    });
+  }
+
+  // Randomize Environment Button
+  function randomizeEnvironment() {
+    const indoorEnvs = [
+      "hospital emergency room with medical equipment and sterile lighting",
+      "hospital clinic nursing ward with beds and monitoring screens",
+      "veterinary animal clinic with examination table, medicine cabinets, and pet care gear",
+      "busy auto repair garage with car lifts, scattered tools, engine parts, and grease-stained floors",
+      "rustic wooden equestrian horse barn stables with hay bales, wooden stalls, and warm lantern dust",
+      "janitor utility closet with mop buckets, industrial cleaning chemicals, brooms, and shelves",
+      "academic school classroom with blackboard, student desks, books, and chalk dust",
+      "high-tech research science laboratory with holographic workstations, microscopes, and glass test tubes",
+      "luxurious wedding banquet celebration with decorated floral tables, fairy lights, and champagne glasses",
+      "packed lively nightclub dancefloor with pulsating strobe lights, laser beams, and DJ booth",
+      "moody vintage pub tavern with wooden bar counter, beer taps, and warm dim amber tavern lighting",
+      "upscale gourmet dining restaurant with candlelit tables, white linen tablecloths, and wine glasses",
+      "interior of a modern car from passenger perspective looking through windshield and side windows",
+      "commercial passenger airplane cabin with rows of seats, overhead luggage bins, and oval windows",
+      "interior of a city transit commuter bus with handrail poles, passenger seats, and city view outside windows",
+      "grand medieval gothic castle throne room with stone arches, banners, torches, and royal throne",
+      "dark damp stone dungeon with iron cell bars, hanging chains, and flickering wall torches"
+    ];
+
+    const outdoorEnvs = [
+      "street bus stop shelter with glass transit booth, bench, route map, and waiting curb",
+      "vibrant public city square plaza with green park benches, stone fountain, and walking trees",
+      "bustling downtown metropolitan city street with crosswalks, traffic, storefront facades, and pedestrians",
+      "narrow gritty urban brick alleyway with fire escapes, steam vents, wet puddles, and dumpsters",
+      "wide urban pedestrian sidewalk pavement lined with shop display windows, street lamps, and parked bikes",
+      "scenic highway roadside shoulder with asphalt guardrail, distant horizon, and telephone poles",
+      "pedestrian walkway across a massive suspension steel bridge with river and skyline view",
+      "gritty underpass beneath a concrete highway bridge with graffiti walls, concrete pillars, and shadows",
+      "ancient stone fortress castle courtyard with towering battlements, drawbridge, and stone pavers",
+      "dense lush forest woods with mossy ancient trees, winding dirt path, and dappled sunbeams",
+      "sandy ocean coastal beach shoreline with breaking sea waves, shells, and coastal horizon",
+      "rugged snow-capped mountain ridge summit with rocky cliffs and panoramic alpine vista"
+    ];
+
+    const timesOfDay = [
+      "bright natural daylight, clear sky, crisp illumination",
+      "warm late afternoon sun, long angled shadows, rich amber illumination",
+      "dramatic golden hour sunset, warm fiery orange-gold glow, backlighting, long dramatic shadows",
+      "early dawn twilight, cool misty morning atmosphere, gentle pale horizon light",
+      "deep cinematic night, cool blue moonlight, soft shadows, ambient night glow",
+      "cinematic blue hour dusk, deep sapphire sky, glowing artificial city streetlights",
+      "soft diffused overcast lighting, cinematic moody fog, gentle desaturated tones",
+      "dark rainy night with vibrant neon reflections on wet asphalt pavement"
+    ];
+
+    let pool = [];
+    if (state.environmentType === 'indoor') {
+      pool = indoorEnvs;
+    } else if (state.environmentType === 'outdoor') {
+      pool = outdoorEnvs;
+    } else {
+      pool = indoorEnvs.concat(outdoorEnvs);
+    }
+
+    const randPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const chosenEnv = randPick(pool);
+    const chosenTime = randPick(timesOfDay);
+
+    state.environment = chosenEnv;
+    state.timeOfDay = chosenTime;
+
+    if (envInput) envInput.value = chosenEnv;
+    if (timeInput) timeInput.value = chosenTime;
+
+    updateSpatialManifest();
+    updateEnvironmentHUD();
+    showToast("🎲 Entorno y atmósfera generados!", "success");
+  }
+
+  const btnRandEnv = document.getElementById('btnRandomizeEnvironment');
+  if (btnRandEnv) {
+    btnRandEnv.addEventListener('click', (e) => {
+      e.stopPropagation();
+      randomizeEnvironment();
+    });
+  }
+
   // Theater Mode Toggle (Full Width Canvas)
   document.getElementById('btnToggleTheater').addEventListener('click', () => {
     state.theaterMode = !state.theaterMode;
@@ -5334,6 +5641,15 @@
     if (state.scenePerspective === 'side') {
       manifest += `Perspective: Lateral Side-View / Profile Scene Staging\n`;
     }
+    if ((state.environment && state.environment.trim()) || (state.timeOfDay && state.timeOfDay.trim())) {
+      const typeStr = (state.environmentType && state.environmentType !== 'any') ? `[${state.environmentType.toUpperCase()}] ` : '';
+      if (state.environment && state.environment.trim()) {
+        manifest += `Setting & Environment: ${typeStr}${state.environment.trim()}\n`;
+      }
+      if (state.timeOfDay && state.timeOfDay.trim()) {
+        manifest += `Time of Day & Atmosphere: ${state.timeOfDay.trim()}\n`;
+      }
+    }
     manifest += `\n`;
     if (subjects.length) manifest += `Subjects & Characters:\n${subjects.join('\n')}\n\n`;
     if (props.length) manifest += `Props & Environment:\n${props.join('\n')}\n\n`;
@@ -5416,6 +5732,9 @@
           perspective: state.scenePerspective,
           canvasWidth: state.width,
           canvasHeight: state.height,
+          environmentType: state.environmentType || 'any',
+          environment: state.environment || '',
+          timeOfDay: state.timeOfDay || '',
           elements: state.elements
         }),
         thumbnail_data: thumbnailData,
@@ -5451,6 +5770,19 @@
       state.compositionId = 0;
       state.elements = [];
       state.selectedId = null;
+      state.environmentType = 'any';
+      state.environment = '';
+      state.timeOfDay = '';
+      if (document.getElementById('sceneEnvironmentInput')) document.getElementById('sceneEnvironmentInput').value = '';
+      if (document.getElementById('sceneTimeOfDayInput')) document.getElementById('sceneTimeOfDayInput').value = '';
+      document.querySelectorAll('.env-type-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-env-type') === 'any');
+        if (b.classList.contains('active')) {
+          b.style.background = '#0284c7'; b.style.color = '#fff';
+        } else {
+          b.style.background = 'transparent'; b.style.color = '#94a3b8';
+        }
+      });
       document.getElementById('sceneNameInput').value = "New Scene";
       document.getElementById('sceneIdBadge').textContent = "Unsaved Scene";
       document.getElementById('directorPromptOutput').value = "";
@@ -5518,6 +5850,9 @@
       perspective: state.scenePerspective,
       canvasWidth: state.width,
       canvasHeight: state.height,
+      environmentType: state.environmentType || 'any',
+      environment: state.environment || '',
+      timeOfDay: state.timeOfDay || '',
       elements: state.elements
     });
 
@@ -5611,6 +5946,20 @@
   });
 
   // Initial render
+  if (document.getElementById('sceneEnvironmentInput')) {
+    document.getElementById('sceneEnvironmentInput').value = state.environment || '';
+  }
+  if (document.getElementById('sceneTimeOfDayInput')) {
+    document.getElementById('sceneTimeOfDayInput').value = state.timeOfDay || '';
+  }
+  document.querySelectorAll('.env-type-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-env-type') === (state.environmentType || 'any'));
+    if (btn.classList.contains('active')) {
+      btn.style.background = '#0284c7'; btn.style.color = '#fff';
+    } else {
+      btn.style.background = 'transparent'; btn.style.color = '#94a3b8';
+    }
+  });
   updateDirectorActiveIndicator();
   renderScene();
 })();

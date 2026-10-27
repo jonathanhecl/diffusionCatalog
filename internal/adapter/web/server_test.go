@@ -317,6 +317,19 @@ func TestDirectorTabRendering(t *testing.T) {
 	if strings.Contains(body, `data-subtype="mannequin"`) {
 		t.Errorf("expected OpenPose mannequin button to be removed from palette")
 	}
+	if !strings.Contains(body, "sceneEnvironmentBar") || !strings.Contains(body, "sceneEnvironmentInput") || !strings.Contains(body, "sceneTimeOfDayInput") {
+		t.Errorf("expected body to contain scene environment bar, environment input, and time of day input")
+	}
+	if !strings.Contains(body, "Hospital / Sala de Urgencias") || !strings.Contains(body, "Taller Mecánico / Taller de Autos") ||
+		!strings.Contains(body, "Casamiento / Fiesta de Bodas") || !strings.Contains(body, "Sobre un Puente") {
+		t.Errorf("expected body to contain indoor and outdoor environment location presets")
+	}
+	if !strings.Contains(body, "Golden Hour / Sunset Glow") || !strings.Contains(body, "Noche / Night &amp; Moonlight") {
+		t.Errorf("expected body to contain time of day and atmosphere presets")
+	}
+	if !strings.Contains(body, `data-env-type="indoor"`) || !strings.Contains(body, `data-env-type="outdoor"`) || !strings.Contains(body, "btnRandomizeEnvironment") {
+		t.Errorf("expected body to contain indoor/outdoor filter buttons and randomize environment button")
+	}
 	if !strings.Contains(body, "aspect-btn") {
 		t.Errorf("expected body to contain aspect ratio buttons")
 	}
