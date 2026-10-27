@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/adapter/metadata"
@@ -579,6 +580,112 @@ func TestResolveExecutionRoute(t *testing.T) {
 	p, m, url, th = catalogSvc.ResolveExecutionRoute(cfg, domain.ProviderOllama, "llama3:latest", "off", ov)
 	if p != domain.ProviderOpenAI || m != "custom-mlx-model" || url != "http://127.0.0.1:8000" || th != "medium" {
 		t.Errorf("unexpected override resolution: %v, %v, %v, %v", p, m, url, th)
+	}
+}
+
+type countingMockOllamaProvider struct {
+	checkStatusCalls int
+	mu               sync.Mutex
+}
+
+func (m *countingMockOllamaProvider) CheckStatus(ctx context.Context, baseURL string) (string, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.checkStatusCalls++
+	return "0.1.32", true
+}
+
+func (m *countingMockOllamaProvider) ListModels(ctx context.Context, baseURL string) ([]domain.OllamaModelInfo, error) {
+	return []domain.OllamaModelInfo{
+		{Name: "llama3:latest", Provider: domain.ProviderOllama},
+	}, nil
+}
+
+func (m *countingMockOllamaProvider) CheckOMLXStatus(ctx context.Context, baseURL, apiKey string) (bool, int) {
+	return true, 1
+}
+
+func (m *countingMockOllamaProvider) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]domain.OllamaModelInfo, error) {
+	return []domain.OllamaModelInfo{
+		{Name: "mlx-qwen:latest", Provider: domain.ProviderOpenAI},
+	}, nil
+}
+
+func (m *countingMockOllamaProvider) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, absImagePath, userHint, thinkLevel string) (string, error) {
+	return "", nil
+}
+
+func (m *countingMockOllamaProvider) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
+	return "", nil
+}
+
+func TestInspectAIBackendsCachingAndInvalidation(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	dbPath := filepath.Join(tmpDir, "test_cache.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	mock := &countingMockOllamaProvider{}
+
+	// Configure settings to enable Ollama
+	_ = repo.SaveSettings(ctx, domain.AppSettings{
+		OllamaEnabled: true,
+		OllamaBaseURL: "http://127.0.0.1:11434",
+		OpenAIEnabled: true,
+		OpenAIBaseURL: "http://127.0.0.1:8000",
+	})
+
+	catalogSvc := NewCatalogService(mediaDir, repo, mock)
+
+	// First call should probe servers
+	st1 := catalogSvc.InspectAIBackendsFresh(ctx)
+	if !st1.OllamaOnline || len(st1.OllamaModels) != 1 {
+		t.Fatalf("expected st1 to have 1 ollama model and be online, got: %+v", st1)
+	}
+	mock.mu.Lock()
+	initialCalls := mock.checkStatusCalls
+	mock.mu.Unlock()
+
+	if initialCalls == 0 {
+		t.Fatalf("expected at least 1 CheckStatus call, got 0")
+	}
+
+	// Second call should hit the 1-minute cache without probing again
+	st2 := catalogSvc.InspectAIBackends(ctx)
+	if !st2.OllamaOnline || len(st2.AllModels) != 2 {
+		t.Fatalf("expected cached status with 2 all models, got %+v", st2)
+	}
+
+	mock.mu.Lock()
+	callsAfterCacheHit := mock.checkStatusCalls
+	mock.mu.Unlock()
+
+	if callsAfterCacheHit != initialCalls {
+		t.Errorf("expected cache hit to NOT increment checkStatusCalls: before=%d, after=%d", initialCalls, callsAfterCacheHit)
+	}
+
+	// Invalidate cache
+	catalogSvc.InvalidateAICache()
+
+	// Third call should re-probe
+	st3 := catalogSvc.InspectAIBackendsFresh(ctx)
+	if !st3.OllamaOnline {
+		t.Fatalf("expected st3 to be online after re-probe")
+	}
+
+	mock.mu.Lock()
+	callsAfterInvalidate := mock.checkStatusCalls
+	mock.mu.Unlock()
+
+	if callsAfterInvalidate <= callsAfterCacheHit {
+		t.Errorf("expected checkStatusCalls to increase after cache invalidation: was %d, now %d", callsAfterCacheHit, callsAfterInvalidate)
 	}
 }
 

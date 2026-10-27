@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/adapter/metadata"
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
@@ -20,15 +22,28 @@ type CatalogService struct {
 	mediaDir string
 	repo     domain.CatalogRepository
 	ollama   domain.OllamaProvider
+
+	aiStatusMu    sync.RWMutex
+	aiRefreshMu   sync.Mutex
+	aiStatusCache AIBackendStatus
+	aiStatusTime  time.Time
 }
 
 // NewCatalogService creates a new CatalogService.
 func NewCatalogService(mediaDir string, repo domain.CatalogRepository, ollama domain.OllamaProvider) *CatalogService {
-	return &CatalogService{
+	s := &CatalogService{
 		mediaDir: mediaDir,
 		repo:     repo,
 		ollama:   ollama,
 	}
+	if ollama != nil && repo != nil {
+		go func() {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_ = s.InspectAIBackendsFresh(bgCtx)
+		}()
+	}
+	return s
 }
 
 // CurrentDBPath returns the active global SQLite database path.
@@ -456,30 +471,106 @@ func (s *CatalogService) buildLoRAContextBlock(ctx context.Context, targetSlug s
 
 // AIBackendStatus summarizes the live connectivity and discovered models of both Ollama and oMLX.
 type AIBackendStatus struct {
-	OllamaOnline  bool
-	OllamaVersion string
-	OllamaModels  []domain.OllamaModelInfo
-	OMLXOnline    bool
-	OMLXModels    []domain.OllamaModelInfo
-	AllModels     []domain.OllamaModelInfo
+	OllamaOnline  bool                     `json:"ollama_online"`
+	OllamaVersion string                   `json:"ollama_version"`
+	OllamaModels  []domain.OllamaModelInfo `json:"ollama_models"`
+	OMLXOnline    bool                     `json:"omlx_online"`
+	OMLXModels    []domain.OllamaModelInfo `json:"omlx_models"`
+	AllModels     []domain.OllamaModelInfo `json:"all_models"`
 }
 
-// InspectAIBackends checks both the configured Ollama server and oMLX server and merges their model lists.
+// InvalidateAICache resets the cache timestamp so the next call or background refresh fetches fresh data.
+func (s *CatalogService) InvalidateAICache() {
+	s.aiStatusMu.Lock()
+	s.aiStatusTime = time.Time{}
+	s.aiStatusMu.Unlock()
+}
+
+// InspectAIBackends returns cached AI backend status if fresh (< 1 min).
+// If the cache is stale but present, it returns the stale cache immediately and refreshes in the background (stale-while-revalidate).
+// If the cache is cold, it performs a live probe.
 func (s *CatalogService) InspectAIBackends(ctx context.Context) AIBackendStatus {
+	s.aiStatusMu.RLock()
+	cached := s.aiStatusCache
+	cachedAt := s.aiStatusTime
+	s.aiStatusMu.RUnlock()
+
+	// 1. Fresh cache hit (< 1 minute)
+	if !cachedAt.IsZero() && time.Since(cachedAt) < 1*time.Minute {
+		return cached
+	}
+
+	// 2. Stale cache: return immediately and revalidate in background
+	if !cachedAt.IsZero() {
+		go func() {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_ = s.InspectAIBackendsFresh(bgCtx)
+		}()
+		return cached
+	}
+
+	// 3. Cold cache: run fresh inspection
+	return s.InspectAIBackendsFresh(ctx)
+}
+
+// InspectAIBackendsFresh probes live servers and updates the cache.
+func (s *CatalogService) InspectAIBackendsFresh(ctx context.Context) AIBackendStatus {
+	s.aiRefreshMu.Lock()
+	defer s.aiRefreshMu.Unlock()
+
+	// Double-check if another goroutine just refreshed the cache while waiting for the lock
+	s.aiStatusMu.RLock()
+	if !s.aiStatusTime.IsZero() && time.Since(s.aiStatusTime) < 5*time.Second {
+		cached := s.aiStatusCache
+		s.aiStatusMu.RUnlock()
+		return cached
+	}
+	s.aiStatusMu.RUnlock()
+
+	st := s.probeAIBackends(ctx)
+
+	s.aiStatusMu.Lock()
+	s.aiStatusCache = st
+	s.aiStatusTime = time.Now()
+	s.aiStatusMu.Unlock()
+
+	return st
+}
+
+// probeAIBackends checks both the configured Ollama server and oMLX server concurrently and merges their model lists.
+func (s *CatalogService) probeAIBackends(ctx context.Context) AIBackendStatus {
 	var st AIBackendStatus
-	if s.ollama == nil {
+	if s.ollama == nil || s.repo == nil {
 		return st
 	}
-	cfg, _ := s.repo.GetSettings(ctx)
+	cfg, err := s.repo.GetSettings(ctx)
+	if err != nil {
+		return st
+	}
+
+	var (
+		wg            sync.WaitGroup
+		ollamaOnline  bool
+		ollamaVersion string
+		ollamaModels  []domain.OllamaModelInfo
+
+		omlxOnline bool
+		omlxModels []domain.OllamaModelInfo
+	)
 
 	if cfg.OllamaEnabled && strings.TrimSpace(cfg.OllamaBaseURL) != "" {
-		ver, online := s.ollama.CheckStatus(ctx, cfg.OllamaBaseURL)
-		st.OllamaOnline = online
-		st.OllamaVersion = ver
-		if online {
-			st.OllamaModels, _ = s.ollama.ListModels(ctx, cfg.OllamaBaseURL)
-			st.AllModels = append(st.AllModels, st.OllamaModels...)
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ver, online := s.ollama.CheckStatus(ctx, cfg.OllamaBaseURL)
+			if online {
+				models, _ := s.ollama.ListModels(ctx, cfg.OllamaBaseURL)
+				ollamaOnline = true
+				ollamaVersion = ver
+				ollamaModels = models
+			}
+		}()
 	}
 
 	openaiURL := cfg.OpenAIBaseURL
@@ -491,12 +582,30 @@ func (s *CatalogService) InspectAIBackends(ctx context.Context) AIBackendStatus 
 		apiKey = cfg.OMLXAPIKey
 	}
 	if cfg.OpenAIEnabled && strings.TrimSpace(openaiURL) != "" {
-		models, err := s.ollama.ListOMLXModels(ctx, openaiURL, apiKey)
-		if err == nil {
-			st.OMLXOnline = true
-			st.OMLXModels = models
-			st.AllModels = append(st.AllModels, models...)
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			models, err := s.ollama.ListOMLXModels(ctx, openaiURL, apiKey)
+			if err == nil {
+				omlxOnline = true
+				omlxModels = models
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	st.OllamaOnline = ollamaOnline
+	st.OllamaVersion = ollamaVersion
+	st.OllamaModels = ollamaModels
+	st.OMLXOnline = omlxOnline
+	st.OMLXModels = omlxModels
+
+	totalLen := len(ollamaModels) + len(omlxModels)
+	if totalLen > 0 {
+		st.AllModels = make([]domain.OllamaModelInfo, 0, totalLen)
+		st.AllModels = append(st.AllModels, ollamaModels...)
+		st.AllModels = append(st.AllModels, omlxModels...)
 	}
 
 	return st

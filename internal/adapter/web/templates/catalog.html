@@ -7152,21 +7152,21 @@
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                   {{if .AIStatus.OllamaOnline}}
-                    <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
+                    <span id="ollamaStatusBadge" class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
                       Ollama Online (v{{.AIStatus.OllamaVersion}}) — {{len .AIStatus.OllamaModels}} models
                     </span>
                   {{else}}
-                    <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
+                    <span id="ollamaStatusBadge" class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
                       Ollama Unreachable ({{.Settings.OllamaBaseURL}})
                     </span>
                   {{end}}
 
                   {{if .AIStatus.OMLXOnline}}
-                    <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
+                    <span id="openaiStatusBadge" class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
                       OpenAI Server Online — {{len .AIStatus.OMLXModels}} models
                     </span>
                   {{else}}
-                    <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
+                    <span id="openaiStatusBadge" class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
                       OpenAI Server Unreachable ({{.Settings.OMLXBaseURL}})
                     </span>
                   {{end}}
@@ -7377,7 +7377,7 @@
                   <button type="submit" class="btn-primary">Save Server &amp; App Settings</button>
                   <div style="display:flex;gap:8px;">
                     <a href="/?tab=settings&amp;section=generators" class="btn-ghost">Configure Generator Models &amp; LoRAs &rarr;</a>
-                    <a href="/?tab=settings&amp;section=providers" class="btn-ghost">Probe &amp; Refresh Models from Servers</a>
+                    <a href="/?tab=settings&amp;section=providers&amp;refresh=1" class="btn-ghost" id="probeRefreshBtn" onclick="handleProbeRefresh(event)">Probe &amp; Refresh Models from Servers</a>
                   </div>
                 </div>
               </form>
@@ -8182,11 +8182,113 @@
       }
     };
 
+    window.refreshAIStatusAsync = function(force) {
+      var url = '/api/v1/ai-status' + (force ? '?refresh=1' : '');
+      return fetch(url)
+        .then(function(res) {
+          if (!res.ok) throw new Error('status ' + res.status);
+          return res.json();
+        })
+        .then(function(st) {
+          if (!st) return;
+          if (st.ollama_models) {
+            window.aiProviderConfig.ollama.models = st.ollama_models.map(function(m) {
+              return { name: m.Name, vision: m.HasVision, size: m.ParameterSize };
+            });
+          }
+          if (st.omlx_models) {
+            window.aiProviderConfig.openai.models = st.omlx_models.map(function(m) {
+              return { name: m.Name, vision: m.HasVision, size: m.ParameterSize };
+            });
+          }
+          var dlAll = document.getElementById('ai-models-all');
+          if (dlAll && st.all_models) {
+            dlAll.innerHTML = st.all_models.map(function(m) {
+              var fam = m.Family ? ' ' + m.Family : '';
+              var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
+              var ctx = m.ContextLength ? ' ctx:' + m.ContextLength : '';
+              return '<option value="' + m.Name + '">[' + m.Provider + ']' + fam + sz + ctx + '</option>';
+            }).join('');
+          }
+          var dlVis = document.getElementById('ai-models-vision');
+          if (dlVis && st.all_models) {
+            dlVis.innerHTML = st.all_models.filter(function(m) { return m.HasVision; }).map(function(m) {
+              var status = m.VisionStatus ? ' (' + m.VisionStatus + ')' : '';
+              var ctx = m.ContextLength ? ' ctx:' + m.ContextLength : '';
+              return '<option value="' + m.Name + '">[' + m.Provider + '] Vision' + status + ctx + '</option>';
+            }).join('');
+          }
+          if (document.getElementById('remixProviderSelect')) switchProviderSelect('remix');
+          if (document.getElementById('charProviderSelect')) switchProviderSelect('char');
+          if (document.getElementById('directorProvider')) switchProviderSelect('director');
+
+          var ollamaStatusBadge = document.getElementById('ollamaStatusBadge');
+          if (ollamaStatusBadge) {
+            if (st.ollama_online) {
+              ollamaStatusBadge.className = 'badge-chip';
+              ollamaStatusBadge.style.background = '#064e3b';
+              ollamaStatusBadge.style.color = '#6ee7b7';
+              ollamaStatusBadge.style.borderColor = '#059669';
+              ollamaStatusBadge.textContent = 'Ollama Online (v' + (st.ollama_version || '') + ') — ' + (st.ollama_models ? st.ollama_models.length : 0) + ' models';
+            } else {
+              ollamaStatusBadge.className = 'badge-chip';
+              ollamaStatusBadge.style.background = '#450a0a';
+              ollamaStatusBadge.style.color = '#fca5a5';
+              ollamaStatusBadge.style.borderColor = '#dc2626';
+              ollamaStatusBadge.textContent = 'Ollama Unreachable';
+            }
+          }
+          var openaiStatusBadge = document.getElementById('openaiStatusBadge');
+          if (openaiStatusBadge) {
+            if (st.omlx_online) {
+              openaiStatusBadge.className = 'badge-chip';
+              openaiStatusBadge.style.background = '#064e3b';
+              openaiStatusBadge.style.color = '#6ee7b7';
+              openaiStatusBadge.style.borderColor = '#059669';
+              openaiStatusBadge.textContent = 'OpenAI Server Online — ' + (st.omlx_models ? st.omlx_models.length : 0) + ' models';
+            } else {
+              openaiStatusBadge.className = 'badge-chip';
+              openaiStatusBadge.style.background = '#450a0a';
+              openaiStatusBadge.style.color = '#fca5a5';
+              openaiStatusBadge.style.borderColor = '#dc2626';
+              openaiStatusBadge.textContent = 'OpenAI Server Unreachable';
+            }
+          }
+          return st;
+        })
+        .catch(function(err) {
+          console.debug('Async AI status fetch skipped or failed:', err);
+        });
+    };
+
+    window.handleProbeRefresh = function(ev) {
+      if (ev) ev.preventDefault();
+      var btn = document.getElementById('probeRefreshBtn');
+      if (btn) {
+        btn.textContent = 'Probing servers...';
+        btn.style.opacity = '0.6';
+        btn.style.pointerEvents = 'none';
+      }
+      window.refreshAIStatusAsync(true).finally(function() {
+        if (btn) {
+          btn.textContent = 'Probe & Refresh Models from Servers';
+          btn.style.opacity = '1';
+          btn.style.pointerEvents = 'auto';
+        }
+      });
+    };
+
     document.addEventListener('DOMContentLoaded', function() {
       if (document.getElementById('remixProviderSelect')) switchProviderSelect('remix');
       if (document.getElementById('charProviderSelect')) switchProviderSelect('char');
       if (document.getElementById('directorProvider')) switchProviderSelect('director');
       if (document.getElementById('studio-attached-preview-wrap')) restoreStudioAttachedImage();
+
+      // Non-blocking background sync for AI-enabled views (Prompt Studio, Scene Director, Characters, Settings)
+      var activeTab = '{{.ActiveTab}}';
+      if (activeTab === 'studio' || activeTab === 'director' || activeTab === 'characters' || activeTab === 'settings' || activeTab === 'asset_detail') {
+        setTimeout(function() { window.refreshAIStatusAsync(false); }, 150);
+      }
     });
 
     function filterLoRAsByModel(formEl, selectedSlug) {

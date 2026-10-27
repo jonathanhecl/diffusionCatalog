@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -347,6 +348,7 @@ func (s *Server) Handler() http.Handler {
 	// JSON API endpoints
 	mux.HandleFunc("GET /api/v1/catalog", s.handleAPICatalog)
 	mux.HandleFunc("GET /api/v1/settings", s.handleAPISettings)
+	mux.HandleFunc("GET /api/v1/ai-status", s.handleAPIAIStatus)
 
 	// Admin, Settings & Organization actions
 	mux.HandleFunc("POST /admin/login", s.handleLogin)
@@ -625,7 +627,12 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 
 	var aiStatus usecase.AIBackendStatus
 	if tab == "settings" || tab == "studio" || tab == "director" || tab == "asset_detail" || tab == "characters" || tab == "remix" {
-		aiStatus = s.catalog.InspectAIBackends(ctx)
+		if r.URL.Query().Get("refresh") == "1" {
+			s.catalog.InvalidateAICache()
+			aiStatus = s.catalog.InspectAIBackendsFresh(ctx)
+		} else {
+			aiStatus = s.catalog.InspectAIBackends(ctx)
+		}
 	}
 
 	var studioCompositions []domain.StudioComposition
@@ -733,7 +740,12 @@ func (s *Server) handleAPISettings(w http.ResponseWriter, r *http.Request) {
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
 	roots, _ := s.catalog.ListMediaRoots(ctx)
 	cats, _ := s.catalog.ListDefaultCategories(ctx)
-	aiStatus := s.catalog.InspectAIBackends(ctx)
+	var aiStatus usecase.AIBackendStatus
+	if r.URL.Query().Get("refresh") == "1" {
+		aiStatus = s.catalog.InspectAIBackendsFresh(ctx)
+	} else {
+		aiStatus = s.catalog.InspectAIBackends(ctx)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -744,6 +756,20 @@ func (s *Server) handleAPISettings(w http.ResponseWriter, r *http.Request) {
 		"default_categories": cats,
 		"ai_status":          aiStatus,
 	})
+}
+
+func (s *Server) handleAPIAIStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	force := r.URL.Query().Get("refresh") == "1" || r.URL.Query().Get("refresh") == "true"
+	var st usecase.AIBackendStatus
+	if force {
+		st = s.catalog.InspectAIBackendsFresh(ctx)
+	} else {
+		st = s.catalog.InspectAIBackends(ctx)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(st)
 }
 
 func (s *Server) handleSwitchDB(w http.ResponseWriter, r *http.Request) {
@@ -757,6 +783,7 @@ func (s *Server) handleSwitchDB(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/?tab=settings&section=db&notice=Failed+to+switch+DB:+"+err.Error(), http.StatusSeeOther)
 		return
 	}
+	s.catalog.InvalidateAICache()
 	if r.FormValue("rescan") == "1" || r.FormValue("rescan") == "on" {
 		s.scanner.StartScanAsync()
 	}
@@ -998,6 +1025,12 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		Text2PromptThink:     openaiDefThink,
 	}
 	_ = s.catalog.SaveSettings(r.Context(), cfg)
+	s.catalog.InvalidateAICache()
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = s.catalog.InspectAIBackendsFresh(bgCtx)
+	}()
 	http.Redirect(w, r, "/?tab=settings&section=providers&notice=Settings+saved+successfully", http.StatusSeeOther)
 }
 

@@ -2,6 +2,8 @@ package web
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -512,5 +514,53 @@ func TestRecentPromptsStudioRendering(t *testing.T) {
 	}
 	if !strings.Contains(body, "clearSessionPromptHistory") {
 		t.Errorf("expected clearSessionPromptHistory handler")
+	}
+}
+
+func TestAPIAIStatusEndpoint(t *testing.T) {
+	ctx := context.Background()
+	mediaDir := t.TempDir()
+	cacheDir := t.TempDir()
+	dbPath := filepath.Join(t.TempDir(), "test_api.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	extractor := metadata.NewExtractor()
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, nil)
+
+	srv, err := NewServer(mediaDir, cacheDir, "NoopVision", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("failed to construct web server: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/ai-status", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected HTTP 200, got %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("expected application/json content-type, got %s", ct)
+	}
+
+	var status usecase.AIBackendStatus
+	if err := json.Unmarshal(rec.Body.Bytes(), &status); err != nil {
+		t.Fatalf("failed to parse json response: %v", err)
+	}
+
+	// Test with refresh parameter
+	reqRefresh := httptest.NewRequest("GET", "/api/v1/ai-status?refresh=1", nil)
+	recRefresh := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(recRefresh, reqRefresh)
+	if recRefresh.Code != http.StatusOK {
+		t.Fatalf("expected HTTP 200 on refresh, got %d", recRefresh.Code)
 	}
 }
