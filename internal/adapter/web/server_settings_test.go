@@ -310,6 +310,20 @@ func TestDirectorNewPosesPresetsRendering(t *testing.T) {
 		"propRoleSelect",
 		"propFeatureControls",
 		"propBodyPartInput",
+		"Half Forward Fold (90°)",
+		"Downward-Facing Dog (Yoga)",
+		"Warrior II (Yoga Pose)",
+		"Cobra Pose (Upward Backbend)",
+		"Model Cross-Legged (Runway)",
+		"Sensual Cat Crawl (To Camera)",
+		"Model Lounging Recline (Glamour)",
+		"Torso 90",
+		"Perro Abajo",
+		"Guerrero II",
+		"Cobra Yoga",
+		"Modelo Cruzada",
+		"Gateo Cámara",
+		"Recostada Glam",
 	}
 
 	for _, substr := range expectedSubstrings {
