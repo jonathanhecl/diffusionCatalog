@@ -392,6 +392,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/compositions/save", s.handleSaveComposition)
 	mux.HandleFunc("POST /admin/compositions/delete", s.handleDeleteComposition)
 	mux.HandleFunc("POST /admin/compositions/synthesize", s.handleSynthesizeScene)
+	mux.HandleFunc("POST /admin/compositions/image-to-scene", s.handleImageToScene)
 	mux.HandleFunc("GET /api/compositions", s.handleListCompositions)
 	mux.HandleFunc("GET /api/compositions/", s.handleGetComposition)
 	mux.HandleFunc("GET /api/poses", s.handleListPoses)
@@ -1808,6 +1809,89 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 		"model":       usedMod,
 		"think":       usedThk,
 		"used_vision": canvasImage != "",
+	})
+}
+
+func (s *Server) handleImageToScene(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var imageData, userHint string
+	var override domain.PromptExecutionOverride
+
+	contentType := r.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		var req struct {
+			ImageData  string `json:"image_data"`
+			UserHint   string `json:"user_hint"`
+			Provider   string `json:"provider"`
+			Model      string `json:"model"`
+			ThinkLevel string `json:"think_level"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			imageData = req.ImageData
+			userHint = req.UserHint
+			override = domain.PromptExecutionOverride{
+				Provider:   domain.AIProviderType(strings.Trim(strings.TrimSpace(req.Provider), "\"' \t\r\n")),
+				Model:      strings.Trim(strings.TrimSpace(req.Model), "\"' \t\r\n"),
+				ThinkLevel: strings.Trim(strings.TrimSpace(req.ThinkLevel), "\"' \t\r\n"),
+			}
+		}
+	} else if strings.Contains(contentType, "multipart/form-data") {
+		if err := r.ParseMultipartForm(32 << 20); err == nil {
+			userHint = r.FormValue("user_hint")
+			override = parseExecutionOverride(r)
+			file, header, err := r.FormFile("image_file")
+			if err == nil {
+				defer file.Close()
+				buf, _ := io.ReadAll(file)
+				mimeType := header.Header.Get("Content-Type")
+				if mimeType == "" {
+					mimeType = "image/png"
+				}
+				imageData = fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(buf))
+			} else {
+				imageData = r.FormValue("image_data")
+			}
+		}
+	} else {
+		_ = r.ParseForm()
+		imageData = r.FormValue("image_data")
+		userHint = r.FormValue("user_hint")
+		override = parseExecutionOverride(r)
+	}
+
+	imageData = strings.TrimSpace(imageData)
+	if imageData == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  "no image data provided",
+		})
+		return
+	}
+
+	sceneJSON, scene, err := s.catalog.ImageToScene(ctx, imageData, userHint, override)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  err.Error(),
+		})
+		return
+	}
+
+	cfg, _ := s.catalog.GetSettings(ctx)
+	defProv, defMod, defThk := cfg.GetRemixDefaults()
+	usedProv, usedMod, _, usedThk := s.catalog.ResolveExecutionRoute(cfg, defProv, defMod, defThk, override)
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "ok",
+		"scene_json": sceneJSON,
+		"scene":      scene,
+		"provider":   usedProv,
+		"model":      usedMod,
+		"think":      usedThk,
 	})
 }
 

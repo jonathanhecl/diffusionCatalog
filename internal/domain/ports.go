@@ -357,4 +357,5 @@ type OllamaProvider interface {
 
 	ImageToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error)
 	TextToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error)
+	AnalyzeImage(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error)
 }

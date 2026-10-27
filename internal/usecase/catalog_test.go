@@ -100,7 +100,8 @@ func TestEndToEndSeedScanAndCatalogQuery(t *testing.T) {
 }
 
 type mockOllamaProvider struct {
-	lastCall string
+	lastCall        string
+	analyzeResponse string
 }
 
 func (m *mockOllamaProvider) CheckStatus(ctx context.Context, baseURL string) (string, bool) {
@@ -122,6 +123,13 @@ func (m *mockOllamaProvider) ImageToPrompt(ctx context.Context, provider domain.
 func (m *mockOllamaProvider) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
 	m.lastCall = "TextToPrompt"
 	return "remix text prompt", nil
+}
+func (m *mockOllamaProvider) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
+	m.lastCall = "AnalyzeImage"
+	if m.analyzeResponse != "" {
+		return m.analyzeResponse, nil
+	}
+	return `{"aspectRatio":"16:9","canvasWidth":1024,"canvasHeight":576,"elements":[{"id":"el_1","type":"character","name":"Hero","x":500,"y":300,"poseName":"Standing Idle"}]}`, nil
 }
 
 func TestRemixAndVisionOperationModeAndTargetGeneratorPersistence(t *testing.T) {
@@ -619,6 +627,10 @@ func (m *countingMockOllamaProvider) TextToPrompt(ctx context.Context, provider 
 	return "", nil
 }
 
+func (m *countingMockOllamaProvider) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
+	return "", nil
+}
+
 func TestInspectAIBackendsCachingAndInvalidation(t *testing.T) {
 	ctx := context.Background()
 	tmpDir := t.TempDir()
@@ -686,6 +698,102 @@ func TestInspectAIBackendsCachingAndInvalidation(t *testing.T) {
 
 	if callsAfterInvalidate <= callsAfterCacheHit {
 		t.Errorf("expected checkStatusCalls to increase after cache invalidation: was %d, now %d", callsAfterCacheHit, callsAfterInvalidate)
+	}
+}
+
+func TestImageToScene(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	dbPath := filepath.Join(tmpDir, "test_i2s.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	mockOllama := &mockOllamaProvider{
+		analyzeResponse: `
+		` + "```json" + `
+		{
+			"aspectRatio": "16:9",
+			"canvasWidth": 1024,
+			"canvasHeight": 576,
+			"perspective": "front",
+			"environmentType": "outdoor",
+			"environment": "Rainy cyberpunk alleyway with neon signs",
+			"timeOfDay": "night",
+			"elements": [
+				{
+					"type": "character",
+					"subtype": "female",
+					"name": "Detective",
+					"x": 400,
+					"y": 300,
+					"poseName": "Walking / Striding",
+					"facing": "three_quarter_left"
+				},
+				{
+					"type": "prop",
+					"subtype": "car",
+					"label": "Hovercar",
+					"x": 800,
+					"y": 450
+				},
+				{
+					"type": "light",
+					"lightType": "Key Light",
+					"color": "#38bdf8",
+					"x": 200,
+					"y": 150,
+					"rotation": 45
+				}
+			]
+		}
+		` + "```",
+	}
+
+	repo := sqlite.NewRepository(db)
+	catalogSvc := NewCatalogService(mediaDir, repo, mockOllama)
+	_ = catalogSvc.SaveSettings(ctx, domain.AppSettings{
+		RemixDefaultProvider: domain.ProviderOllama,
+		VisionModel:          "llava:latest",
+		OllamaDefaultModel:   "llava:latest",
+	})
+
+	dummyImage := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+	sceneJSON, scene, err := catalogSvc.ImageToScene(ctx, dummyImage, "cyberpunk tone", domain.PromptExecutionOverride{})
+	if err != nil {
+		t.Fatalf("ImageToScene failed: %v", err)
+	}
+
+	if mockOllama.lastCall != "AnalyzeImage" {
+		t.Errorf("expected AnalyzeImage to be called, got %q", mockOllama.lastCall)
+	}
+
+	if scene == nil {
+		t.Fatalf("expected non-nil scene")
+	}
+
+	if scene.EnvironmentType != "outdoor" || scene.TimeOfDay != "night" {
+		t.Errorf("unexpected scene environment: %+v", scene)
+	}
+
+	if len(scene.Elements) != 3 {
+		t.Fatalf("expected 3 elements, got %d", len(scene.Elements))
+	}
+
+	char := scene.Elements[0]
+	if char.Type != "character" || char.Subtype != "female" || char.PoseName != "Walking / Striding" {
+		t.Errorf("unexpected character element: %+v", char)
+	}
+	if char.ID == "" {
+		t.Errorf("expected auto-generated element ID")
+	}
+
+	if !strings.Contains(sceneJSON, "Detective") {
+		t.Errorf("expected sceneJSON to contain 'Detective', got %s", sceneJSON)
 	}
 }
 

@@ -1435,3 +1435,175 @@ func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, t
 
 	return compiledManifest, generatedPrompt, nil
 }
+
+// ImageToSceneSystemPrompt provides instructions for multimodal models to deconstruct an image into SceneDirector JSON.
+const ImageToSceneSystemPrompt = `You are an expert visual scene director and spatial composition analyst.
+Your task is to analyze the provided image/photo and deconstruct it into a 2D scene staging composition matching the SceneDirector JSON schema.
+
+Analyze:
+1. Aspect ratio: "16:9", "4:3", "1:1", "9:16", or "21:9" based on image orientation.
+2. Canvas dimensions: canvasWidth=1024, canvasHeight=768 (or 1024x576 for 16:9, 768x1024 for 9:16, 900x900 for 1:1).
+3. Environment:
+   - environmentType: "indoor" or "outdoor"
+   - environment: vivid description of the background and surroundings (e.g., "cyberpunk alley with neon signage", "sunlit modern living room")
+   - timeOfDay: "day", "night", "golden hour", "dusk", "foggy morning", etc.
+   - perspective: "front" (default) or "side"
+4. Characters / People:
+   For every visible person or major humanoid figure:
+   - type: "character"
+   - subtype: "male", "female", or "child"
+   - name: brief descriptive label (e.g. "Protagonist", "Woman in trenchcoat")
+   - x, y: center coordinates on canvas (0 to canvasWidth, 0 to canvasHeight)
+   - width: default 150 (scaled with character)
+   - height: default 270 (scaled with character)
+   - scale: 0.6 (distant background) to 1.5 (close foreground). Normal is 1.0.
+   - facing: one of "front", "back", "left", "right", "three_quarter_left", "three_quarter_right"
+   - poseName: CHOOSE THE CLOSEST MATCH from this list of standard poses:
+     "Standing Idle", "Walking / Striding", "Running / Sprint", "Sitting Relaxed",
+     "Crouching Action", "Arms Crossed", "Hands on Hips", "Reaching Dynamic",
+     "Lying Down", "Kneeling (Both Knees)", "Kneeling (One Knee)", "Crawling / All Fours",
+     "Hands Up (Surrender / Cheer)", "Pointing Forward", "Hands on Face (Shock)",
+     "Boxing Guard (Defense)", "Sitting Cross-Legged (Lotus)", "High Kick (Martial Arts)",
+     "Leaning Against Wall", "Victory (Chest Out)", "Defeated (Collapsed)", "Model Cross-Legged (Runway)",
+     "Standing Idle (Side)", "Walking (Side)", "Running (Side)", "Sitting (Side)", "Crouching (Side)"
+   - clothing: concise description of attire and colors
+   - expression: facial expression or mood
+   - hair: hair style and color
+   - anatomy: body build / posture notes
+5. Props / Objects:
+   For major furniture, vehicles, nature, architectural elements:
+   - type: "prop"
+   - subtype: choose from "sofa", "chair", "table", "bed", "car", "tree", "streetlight", "window", "door", "marker", "circle", "generic"
+   - label: concise name (e.g. "Leather Couch", "Sports Car", "Oak Tree")
+   - description: brief details
+   - x, y: center coordinates
+   - width, height: approximate proportional bounding size
+   - scale: 1.0 default
+6. Lighting:
+   Identify 1 or 2 key light sources:
+   - type: "light"
+   - lightType: "Key Light", "Rim Light", "Ambient Light", or "Neon Glow"
+   - x, y: position where the light source is located
+   - rotation: angle in degrees shining toward the subject (0-360)
+   - color: hex color code (e.g., "#fbbf24" for warm sunlight, "#38bdf8" for cool daylight, "#ec4899" for neon pink)
+7. Director Note:
+   - directorNote: concise cinematography guidance (camera framing, focal depth, lens, atmosphere)
+
+Output format:
+Return ONLY a valid, parseable JSON object matching this schema. Do not wrap in markdown or include conversational text.
+{
+  "aspectRatio": "16:9",
+  "canvasWidth": 1024,
+  "canvasHeight": 576,
+  "perspective": "front",
+  "environmentType": "indoor",
+  "environment": "...",
+  "timeOfDay": "golden hour",
+  "directorNote": "...",
+  "elements": [
+    ...
+  ]
+}`
+
+// cleanJSONResponse strips markdown fences and extracts the outermost JSON block.
+func cleanJSONResponse(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if strings.HasPrefix(raw, "```") {
+		lines := strings.Split(raw, "\n")
+		if len(lines) >= 2 && strings.HasPrefix(lines[0], "```") {
+			lines = lines[1:]
+		}
+		if len(lines) >= 1 && strings.HasPrefix(lines[len(lines)-1], "```") {
+			lines = lines[:len(lines)-1]
+		}
+		raw = strings.TrimSpace(strings.Join(lines, "\n"))
+	}
+	start := strings.Index(raw, "{")
+	end := strings.LastIndex(raw, "}")
+	if start != -1 && end != -1 && end > start {
+		return raw[start : end+1]
+	}
+	return raw
+}
+
+// ImageToScene analyzes an input image using a multimodal Vision LLM and converts it into a SceneDirectorDTO composition.
+func (s *CatalogService) ImageToScene(ctx context.Context, imageSource, userHint string, override domain.PromptExecutionOverride) (string, *SceneDirectorDTO, error) {
+	if s.ollama == nil {
+		return "", nil, fmt.Errorf("AI vision provider is not configured")
+	}
+	if strings.TrimSpace(imageSource) == "" {
+		return "", nil, fmt.Errorf("image source cannot be empty")
+	}
+
+	cfg, err := s.repo.GetSettings(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+
+	defProv, defMod, defThink := cfg.GetRemixDefaults()
+	provider, model, baseURL, think := resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
+
+	apiKey := cfg.OpenAIAPIKey
+	if apiKey == "" {
+		apiKey = cfg.OMLXAPIKey
+	}
+
+	userPrompt := "Analyze this image and reconstruct it into the SceneDirector 2D staging JSON format according to your system prompt instructions. Return ONLY the JSON object."
+	if strings.TrimSpace(userHint) != "" {
+		userPrompt += "\nAdditional user directives / hints:\n" + strings.TrimSpace(userHint)
+	}
+
+	rawJSON, err := s.ollama.AnalyzeImage(ctx, provider, baseURL, apiKey, model, ImageToSceneSystemPrompt, imageSource, userPrompt, think)
+	if err != nil {
+		return "", nil, fmt.Errorf("vision analysis failed: %w", err)
+	}
+
+	cleaned := cleanJSONResponse(rawJSON)
+	var scene SceneDirectorDTO
+	if err := json.Unmarshal([]byte(cleaned), &scene); err != nil {
+		return cleaned, nil, fmt.Errorf("failed to parse generated scene JSON: %w", err)
+	}
+
+	// Validate & sanitize defaults
+	if scene.AspectRatio == "" {
+		scene.AspectRatio = "16:9"
+	}
+	if scene.CanvasWidth <= 0 {
+		scene.CanvasWidth = 1024
+	}
+	if scene.CanvasHeight <= 0 {
+		scene.CanvasHeight = 576
+	}
+	if scene.Perspective == "" {
+		scene.Perspective = "front"
+	}
+	for i := range scene.Elements {
+		if scene.Elements[i].ID == "" {
+			scene.Elements[i].ID = fmt.Sprintf("el_%d_%d", time.Now().UnixNano(), i)
+		}
+		if scene.Elements[i].Type == "character" {
+			if scene.Elements[i].Width <= 0 {
+				scene.Elements[i].Width = 150
+			}
+			if scene.Elements[i].Height <= 0 {
+				scene.Elements[i].Height = 270
+			}
+			if scene.Elements[i].Scale <= 0 {
+				scene.Elements[i].Scale = 1.0
+			}
+			if scene.Elements[i].Facing == "" {
+				scene.Elements[i].Facing = "front"
+			}
+			if scene.Elements[i].PoseName == "" {
+				scene.Elements[i].PoseName = "Standing Idle"
+			}
+		}
+	}
+
+	reencoded, err := json.Marshal(scene)
+	if err != nil {
+		return cleaned, &scene, nil
+	}
+
+	return string(reencoded), &scene, nil
+}

@@ -396,12 +396,12 @@ func (c *Client) inspectModel(ctx context.Context, baseURL, modelName string) (*
 	return &out, nil
 }
 
-// ImageToPrompt encodes an image (either from a local file path or in-memory data URL/base64)
-// and sends it to either Ollama (/api/chat) or oMLX (/v1/chat/completions) using the target
-// generator's system prompt and optional thinking level.
-func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error) {
+// AnalyzeImage encodes an image (either from a local file path or in-memory data URL/base64)
+// and sends it to either Ollama (/api/chat) or oMLX (/v1/chat/completions) using a custom system prompt,
+// user prompt, and optional thinking level.
+func (c *Client) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
 	if strings.TrimSpace(model) == "" {
-		return "", fmt.Errorf("no vision / image2prompt model configured in Settings")
+		return "", fmt.Errorf("no vision / image model configured in Settings")
 	}
 
 	var b64 string
@@ -424,13 +424,8 @@ func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderTy
 	}
 	b64 = strings.TrimSpace(b64)
 
-	userContent := "Analyze this image and generate a complete, production-ready generation prompt following your system instructions. Output only the final prompt without conversational filler."
-	if strings.TrimSpace(userHint) != "" {
-		userContent += "\nAdditional context/hint: " + strings.TrimSpace(userHint)
-	}
-
 	if provider == domain.ProviderOMLX || provider == domain.ProviderOpenAI {
-		return c.executeOMLXVisionChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, userContent, b64, thinkLevel)
+		return c.executeOMLXVisionChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, userPrompt, b64, thinkLevel)
 	}
 
 	var messages []ollamaChatMessage
@@ -442,11 +437,23 @@ func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderTy
 	}
 	messages = append(messages, ollamaChatMessage{
 		Role:    "user",
-		Content: userContent,
+		Content: userPrompt,
 		Images:  []string{b64},
 	})
 
 	return c.executeOllamaChat(ctx, NormalizeOllamaURL(baseURL), model, messages, thinkLevel)
+}
+
+// ImageToPrompt encodes an image (either from a local file path or in-memory data URL/base64)
+// and sends it to either Ollama (/api/chat) or oMLX (/v1/chat/completions) using the target
+// generator's system prompt and optional thinking level.
+func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error) {
+	userContent := "Analyze this image and generate a complete, production-ready generation prompt following your system instructions. Output only the final prompt without conversational filler."
+	if strings.TrimSpace(userHint) != "" {
+		userContent += "\nAdditional context/hint: " + strings.TrimSpace(userHint)
+	}
+
+	return c.AnalyzeImage(ctx, provider, baseURL, apiKey, model, systemPrompt, imageSource, userContent, thinkLevel)
 }
 
 // TextToPrompt expands or converts an input concept or existing prompt into a target generator prompt

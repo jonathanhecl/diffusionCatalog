@@ -1473,6 +1473,7 @@
             <!-- Fullscreen / Theater Mode Toggle -->
             <button type="button" id="btnToggleTheater" class="btn-ghost" style="padding:5px 10px;font-size:11.5px;" title="Expand canvas to full available screen width">&#x26F6; Theater Mode</button>
             <button type="button" id="btnNewScene" class="btn-ghost" style="padding:5px 10px;font-size:11.5px;" title="Reset canvas to start a new composition">&#x2715; New</button>
+            <button type="button" id="btnImageToScene" class="btn-ghost" style="padding:5px 10px;font-size:11.5px;color:#c084fc;border-color:rgba(192,132,252,0.4);" title="Convert image/photo into a 2D Scene Director staging layout using Vision AI">&#128444;&#65039; Image to Scene</button>
             <button type="button" id="btnOpenScenesModal" class="btn-ghost" style="padding:5px 10px;font-size:11.5px;color:#38bdf8;border-color:#0284c7;" title="Open saved scene compositions">&#128194; Open Scenes ({{len .StudioCompositions}})</button>
             <button type="button" id="btnSaveComposition" class="btn-primary" style="padding:5px 12px;font-size:11.5px;background:#0284c7;border-color:#0369a1;font-weight:600;" title="Save current scene to SQLite">&#128190; Save Scene</button>
             <button type="button" id="btnExportPng" class="btn-ghost" style="padding:5px 10px;font-size:11.5px;" title="Download rendered composition as PNG image">&#128247; Export PNG</button>
@@ -2476,6 +2477,70 @@
                 <p>No saved scene compositions found yet.<br>Create a staging layout and click <strong>Save Scene</strong>.</p>
               </div>
             {{end}}
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Image to Scene Reconstructor -->
+      <div id="imageToSceneModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:10px;width:92%;max-width:540px;box-shadow:0 12px 40px rgba(0,0,0,0.85);overflow:hidden;">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:18px;">&#128444;&#65039;</span>
+              <strong style="font-size:14px;color:#fff;">Image to Scene Director</strong>
+            </div>
+            <button type="button" class="btn-ghost close-modal" style="padding:3px 8px;">&#x2715;</button>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;">
+            <!-- Dropzone / File Picker -->
+            <div id="i2sDropzone" style="border:2px dashed #475569;border-radius:8px;padding:22px 16px;text-align:center;cursor:pointer;background:var(--bg-card);transition:all 0.2s ease;">
+              <input type="file" id="i2sFileInput" accept="image/*" style="display:none;" />
+              <div id="i2sPlaceholder">
+                <div style="font-size:32px;margin-bottom:6px;">&#128247;</div>
+                <p style="font-size:12px;color:#e2e8f0;margin-bottom:4px;font-weight:600;">Click to upload or drag &amp; drop an image</p>
+                <span style="font-size:11px;color:var(--text-muted);">Paste from clipboard (Ctrl+V) also works</span>
+              </div>
+              <div id="i2sPreviewContainer" style="display:none;position:relative;flex-direction:column;align-items:center;justify-content:center;">
+                <img id="i2sPreviewImg" src="" alt="Preview" style="max-height:190px;max-width:100%;border-radius:6px;object-fit:contain;box-shadow:0 4px 14px rgba(0,0,0,0.6);" />
+                <button type="button" id="i2sClearBtn" class="btn-ghost" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.75);padding:2px 8px;font-size:11px;border-radius:4px;color:#fca5a5;border-color:rgba(239,68,68,0.4);">&#x2715; Remove</button>
+              </div>
+            </div>
+
+            <!-- Optional Guidance / User Hint -->
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Director Guidance / Hint (Optional):</label>
+              <input type="text" id="i2sHintInput" placeholder="e.g. Focus on the two main characters, cyberpunk night vibe..." 
+                     style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;color:#fff;font-size:12px;" />
+            </div>
+
+            <!-- Provider & Model overrides -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div>
+                <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">AI Provider:</label>
+                <select id="i2sProviderSelect" class="director-select" style="width:100%;font-size:11.5px;">
+                  <option value="">Default (From Settings)</option>
+                  <option value="ollama">Ollama</option>
+                  <option value="omlx">oMLX / OpenAI</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Vision Model (Optional):</label>
+                <input type="text" id="i2sModelInput" placeholder="Leave empty for default" 
+                       style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;" />
+              </div>
+            </div>
+
+            <!-- Action buttons & Status -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+              <span id="i2sStatusText" style="font-size:11.5px;color:var(--text-muted);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+              <div style="display:flex;gap:8px;">
+                <button type="button" class="btn-ghost close-modal" style="padding:6px 14px;font-size:12px;">Cancel</button>
+                <button type="button" id="btnConfirmImageToScene" class="btn-primary" style="padding:6px 18px;font-size:12px;background:#9333ea;border-color:#7e22ce;font-weight:600;" disabled>
+                  <span id="i2sBtnSpinner" style="display:none;margin-right:6px;">&#8987;</span>
+                  <span id="i2sBtnText">Reconstruct Scene</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -6611,8 +6676,238 @@
     b.addEventListener('click', () => {
       scenesModal.style.display = 'none';
       poseSaveModal.style.display = 'none';
+      if (document.getElementById('imageToSceneModal')) {
+        document.getElementById('imageToSceneModal').style.display = 'none';
+      }
     });
   });
+
+  // --- Apply Scene Data to State and UI ---
+  function applySceneData(loadedScene) {
+    if (!loadedScene || !loadedScene.elements) return;
+
+    if (loadedScene.aspectRatio) {
+      setAspectRatio(loadedScene.aspectRatio);
+    }
+    if (loadedScene.perspective) {
+      state.scenePerspective = loadedScene.perspective;
+      const lbl = document.getElementById('scenePerspectiveLabel');
+      if (lbl) {
+        lbl.textContent = (state.scenePerspective === 'side') ? 'Scene: Profile' : 'Scene: Front';
+      }
+    }
+    if (loadedScene.environmentType) {
+      state.environmentType = loadedScene.environmentType;
+      document.querySelectorAll('.env-type-btn').forEach(btn => {
+        if (btn.getAttribute('data-env-type') === loadedScene.environmentType) {
+          btn.classList.add('active');
+          btn.style.background = '#0284c7';
+          btn.style.color = '#fff';
+        } else {
+          btn.classList.remove('active');
+          btn.style.background = 'transparent';
+          btn.style.color = '#94a3b8';
+        }
+      });
+    }
+    if (loadedScene.environment) {
+      state.environment = loadedScene.environment;
+      const envInput = document.getElementById('sceneEnvironmentInput');
+      if (envInput) envInput.value = loadedScene.environment;
+    }
+    if (loadedScene.timeOfDay) {
+      state.timeOfDay = loadedScene.timeOfDay;
+      const todInput = document.getElementById('sceneTimeOfDayInput');
+      if (todInput) todInput.value = loadedScene.timeOfDay;
+    }
+
+    // Ensure elements have IDs, valid poses, dimensions and defaults
+    loadedScene.elements.forEach((el, idx) => {
+      if (!el.id) el.id = "el_" + Date.now() + "_" + idx;
+      if (el.type === 'character') {
+        if (!el.pose && el.poseName && POSE_PRESETS[el.poseName]) {
+          el.pose = JSON.parse(JSON.stringify(POSE_PRESETS[el.poseName]));
+        } else if (!el.pose) {
+          el.poseName = el.poseName || "Standing Idle";
+          el.pose = JSON.parse(JSON.stringify(POSE_PRESETS["Standing Idle"]));
+        }
+        if (!el.width) el.width = 150;
+        if (!el.height) el.height = 270;
+        if (!el.scale) el.scale = 1.0;
+        if (!el.facing) el.facing = "front";
+        if (!el.skin) el.skin = "hybrid";
+      } else if (el.type === 'prop') {
+        if (!el.width) el.width = 130;
+        if (!el.height) el.height = 130;
+        if (!el.scale) el.scale = 1.0;
+      } else if (el.type === 'light') {
+        if (!el.width) el.width = 150;
+        if (!el.height) el.height = 150;
+        if (!el.color) el.color = '#fbbf24';
+      }
+    });
+
+    state.elements = loadedScene.elements;
+    state.selectedId = state.elements.length > 0 ? state.elements[0].id : null;
+    syncZOrder();
+    renderScene();
+    updatePropertiesBar();
+  }
+
+  // --- Image to Scene Modal & Logic ---
+  const imageToSceneModal = document.getElementById('imageToSceneModal');
+  const btnImageToScene = document.getElementById('btnImageToScene');
+  const i2sDropzone = document.getElementById('i2sDropzone');
+  const i2sFileInput = document.getElementById('i2sFileInput');
+  const i2sPlaceholder = document.getElementById('i2sPlaceholder');
+  const i2sPreviewContainer = document.getElementById('i2sPreviewContainer');
+  const i2sPreviewImg = document.getElementById('i2sPreviewImg');
+  const i2sClearBtn = document.getElementById('i2sClearBtn');
+  const i2sHintInput = document.getElementById('i2sHintInput');
+  const i2sProviderSelect = document.getElementById('i2sProviderSelect');
+  const i2sModelInput = document.getElementById('i2sModelInput');
+  const i2sStatusText = document.getElementById('i2sStatusText');
+  const btnConfirmImageToScene = document.getElementById('btnConfirmImageToScene');
+  const i2sBtnSpinner = document.getElementById('i2sBtnSpinner');
+  const i2sBtnText = document.getElementById('i2sBtnText');
+
+  let currentI2SDataUrl = "";
+
+  function setI2SImage(dataUrl) {
+    currentI2SDataUrl = dataUrl;
+    i2sPreviewImg.src = dataUrl;
+    i2sPlaceholder.style.display = 'none';
+    i2sPreviewContainer.style.display = 'flex';
+    btnConfirmImageToScene.disabled = false;
+    i2sStatusText.textContent = "";
+  }
+
+  function clearI2SImage() {
+    currentI2SDataUrl = "";
+    i2sFileInput.value = "";
+    i2sPreviewImg.src = "";
+    i2sPlaceholder.style.display = 'block';
+    i2sPreviewContainer.style.display = 'none';
+    btnConfirmImageToScene.disabled = true;
+    i2sStatusText.textContent = "";
+  }
+
+  if (btnImageToScene && imageToSceneModal) {
+    btnImageToScene.addEventListener('click', () => {
+      imageToSceneModal.style.display = 'flex';
+    });
+
+    if (i2sDropzone && i2sFileInput) {
+      i2sDropzone.addEventListener('click', (e) => {
+        if (e.target !== i2sClearBtn && !i2sClearBtn.contains(e.target)) {
+          i2sFileInput.click();
+        }
+      });
+
+      i2sFileInput.addEventListener('change', () => {
+        if (i2sFileInput.files && i2sFileInput.files[0]) {
+          const reader = new FileReader();
+          reader.onload = (e) => setI2SImage(e.target.result);
+          reader.readAsDataURL(i2sFileInput.files[0]);
+        }
+      });
+
+      i2sDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        i2sDropzone.style.borderColor = '#c084fc';
+        i2sDropzone.style.background = 'rgba(192,132,252,0.08)';
+      });
+
+      ['dragleave', 'dragend'].forEach(evt => {
+        i2sDropzone.addEventListener(evt, () => {
+          i2sDropzone.style.borderColor = '#475569';
+          i2sDropzone.style.background = 'var(--bg-card)';
+        });
+      });
+
+      i2sDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        i2sDropzone.style.borderColor = '#475569';
+        i2sDropzone.style.background = 'var(--bg-card)';
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          const reader = new FileReader();
+          reader.onload = (ev) => setI2SImage(ev.target.result);
+          reader.readAsDataURL(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    if (i2sClearBtn) {
+      i2sClearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearI2SImage();
+      });
+    }
+
+    // Support pasting image from clipboard while modal is active
+    window.addEventListener('paste', (e) => {
+      if (imageToSceneModal.style.display === 'flex' && e.clipboardData && e.clipboardData.items) {
+        for (let i = 0; i < e.clipboardData.items.length; i++) {
+          const item = e.clipboardData.items[i];
+          if (item.type.indexOf('image') !== -1) {
+            const blob = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = (ev) => setI2SImage(ev.target.result);
+            reader.readAsDataURL(blob);
+            break;
+          }
+        }
+      }
+    });
+
+    if (btnConfirmImageToScene) {
+      btnConfirmImageToScene.addEventListener('click', async () => {
+        if (!currentI2SDataUrl) return;
+
+        btnConfirmImageToScene.disabled = true;
+        i2sBtnSpinner.style.display = 'inline-block';
+        i2sBtnText.textContent = "Analyzing Scene...";
+        i2sStatusText.style.color = '#38bdf8';
+        i2sStatusText.textContent = "Reconstructing staging with Vision LLM...";
+
+        try {
+          const payload = {
+            image_data: currentI2SDataUrl,
+            user_hint: i2sHintInput ? i2sHintInput.value.trim() : "",
+            provider: i2sProviderSelect ? i2sProviderSelect.value : "",
+            model: i2sModelInput ? i2sModelInput.value.trim() : ""
+          };
+
+          const resp = await fetch('/admin/compositions/image-to-scene', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await resp.json();
+          if (resp.ok && data.status === 'ok' && data.scene) {
+            applySceneData(data.scene);
+            document.getElementById('sceneNameInput').value = "Reconstructed Scene from Image";
+            document.getElementById('sceneIdBadge').textContent = "Unsaved Scene";
+            imageToSceneModal.style.display = 'none';
+            clearI2SImage();
+            const count = (data.scene.elements && data.scene.elements.length) || 0;
+            showToast(`Scene reconstructed successfully (${count} elements identified)!`, "success");
+          } else {
+            i2sStatusText.style.color = '#f87171';
+            i2sStatusText.textContent = data.error || "Failed to reconstruct scene";
+          }
+        } catch (err) {
+          i2sStatusText.style.color = '#f87171';
+          i2sStatusText.textContent = "Error: " + err.message;
+        } finally {
+          btnConfirmImageToScene.disabled = false;
+          i2sBtnSpinner.style.display = 'none';
+          i2sBtnText.textContent = "Reconstruct Scene";
+        }
+      });
+    }
+  }
 
   document.querySelectorAll('.btn-delete-comp').forEach(btn => {
     btn.addEventListener('click', async (e) => {

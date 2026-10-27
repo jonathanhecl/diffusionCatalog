@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -204,6 +205,107 @@ func TestSynthesizeSceneInMemoryNoTempFiles(t *testing.T) {
 	matches, _ := filepath.Glob(filepath.Join(uploadsDir, "scene_canvas_*"))
 	if len(matches) > 0 {
 		t.Errorf("expected 0 scene_canvas temporary files in %s, found %d: %v", uploadsDir, len(matches), matches)
+	}
+}
+
+type testWebOllamaMock struct {
+	lastCall string
+}
+
+func (m *testWebOllamaMock) CheckStatus(ctx context.Context, baseURL string) (string, bool) {
+	return "1.0", true
+}
+func (m *testWebOllamaMock) ListModels(ctx context.Context, baseURL string) ([]domain.OllamaModelInfo, error) {
+	return nil, nil
+}
+func (m *testWebOllamaMock) CheckOMLXStatus(ctx context.Context, baseURL, apiKey string) (bool, int) {
+	return false, 0
+}
+func (m *testWebOllamaMock) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]domain.OllamaModelInfo, error) {
+	return nil, nil
+}
+func (m *testWebOllamaMock) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error) {
+	return "", nil
+}
+func (m *testWebOllamaMock) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
+	return "", nil
+}
+func (m *testWebOllamaMock) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
+	m.lastCall = "AnalyzeImage"
+	return `{"aspectRatio":"16:9","canvasWidth":1024,"canvasHeight":576,"environmentType":"outdoor","elements":[{"type":"character","name":"Runner","poseName":"Running / Sprint"}]}`, nil
+}
+
+func TestHandleImageToSceneEndpoint(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, "cache")
+	dbPath := filepath.Join(tmpDir, "test_i2s_web.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("sqlite.Open error: %v", err)
+	}
+
+	repo := sqlite.NewRepository(db)
+	mockOllama := &testWebOllamaMock{}
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, mockOllama)
+	_ = catalogSvc.SaveSettings(ctx, domain.AppSettings{
+		RemixDefaultProvider: domain.ProviderOllama,
+		VisionModel:          "llava:latest",
+		OllamaDefaultModel:   "llava:latest",
+	})
+
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	extractor := metadata.NewExtractor()
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+
+	server, err := web.NewServer(mediaDir, cacheDir, "noop", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("web.NewServer error: %v", err)
+	}
+	handler := server.Handler()
+
+	// 1. Test empty body -> BadRequest
+	reqEmpty := httptest.NewRequest("POST", "/admin/compositions/image-to-scene", strings.NewReader(`{}`))
+	reqEmpty.Header.Set("Content-Type", "application/json")
+	wEmpty := httptest.NewRecorder()
+	handler.ServeHTTP(wEmpty, reqEmpty)
+	if wEmpty.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 Bad Request for empty image, got %d", wEmpty.Code)
+	}
+
+	// 2. Test valid JSON payload with base64 image data
+	payload := `{
+		"image_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+		"user_hint": "cyberpunk style"
+	}`
+	req := httptest.NewRequest("POST", "/admin/compositions/image-to-scene", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Status    string                 `json:"status"`
+		SceneJSON string                 `json:"scene_json"`
+		Scene     map[string]interface{} `json:"scene"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode JSON response: %v", err)
+	}
+
+	if resp.Status != "ok" {
+		t.Errorf("expected status 'ok', got %q", resp.Status)
+	}
+	if !strings.Contains(resp.SceneJSON, "Runner") {
+		t.Errorf("expected scene_json to contain Runner, got %s", resp.SceneJSON)
+	}
+	if mockOllama.lastCall != "AnalyzeImage" {
+		t.Errorf("expected AnalyzeImage called on Ollama mock, got %q", mockOllama.lastCall)
 	}
 }
 
