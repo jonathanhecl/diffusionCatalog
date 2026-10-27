@@ -3256,10 +3256,34 @@
       nose:{x:64,y:19},neck:{x:62,y:28},r_shoulder:{x:59,y:30},r_elbow:{x:73,y:28},r_wrist:{x:88,y:26},
       l_shoulder:{x:63,y:30},l_elbow:{x:76,y:29},l_wrist:{x:91,y:27},mid_hip:{x:50,y:54},
       r_hip:{x:48,y:56},r_knee:{x:44,y:74},r_ankle:{x:40,y:95},l_hip:{x:52,y:56},l_knee:{x:58,y:74},l_ankle:{x:64,y:95}
+    },
+    "Seiza (Japanese Kneeling)": {
+      nose:{x:50,y:20},neck:{x:50,y:29},r_shoulder:{x:41,y:31},r_elbow:{x:37,y:45},r_wrist:{x:43,y:62},
+      l_shoulder:{x:59,y:31},l_elbow:{x:63,y:45},l_wrist:{x:57,y:62},mid_hip:{x:50,y:60},
+      r_hip:{x:45,y:61},r_knee:{x:44,y:82},r_ankle:{x:46,y:92},l_hip:{x:55,y:61},l_knee:{x:56,y:82},l_ankle:{x:54,y:92}
+    },
+    "Seiza (Side)": {
+      nose:{x:60,y:22},neck:{x:50,y:30},r_shoulder:{x:50,y:32},r_elbow:{x:56,y:45},r_wrist:{x:64,y:58},
+      l_shoulder:{x:48,y:32},l_elbow:{x:54,y:45},l_wrist:{x:62,y:58},mid_hip:{x:46,y:60},
+      r_hip:{x:47,y:61},r_knee:{x:68,y:82},r_ankle:{x:38,y:84},l_hip:{x:45,y:61},l_knee:{x:66,y:82},l_ankle:{x:36,y:84}
+    },
+    "Dogeza (Japanese Bow)": {
+      nose:{x:50,y:82},neck:{x:50,y:74},r_shoulder:{x:40,y:72},r_elbow:{x:32,y:78},r_wrist:{x:42,y:86},
+      l_shoulder:{x:60,y:72},l_elbow:{x:68,y:78},l_wrist:{x:58,y:86},mid_hip:{x:50,y:56},
+      r_hip:{x:44,y:58},r_knee:{x:40,y:84},r_ankle:{x:44,y:92},l_hip:{x:56,y:58},l_knee:{x:60,y:84},l_ankle:{x:56,y:92}
+    },
+    "Dogeza (Side)": {
+      nose:{x:82,y:82},neck:{x:74,y:76},r_shoulder:{x:70,y:74},r_elbow:{x:76,y:80},r_wrist:{x:84,y:86},
+      l_shoulder:{x:68,y:74},l_elbow:{x:74,y:80},l_wrist:{x:82,y:86},mid_hip:{x:46,y:58},
+      r_hip:{x:48,y:59},r_knee:{x:62,y:84},r_ankle:{x:36,y:86},l_hip:{x:46,y:59},l_knee:{x:60,y:84},l_ankle:{x:34,y:86}
     }
   };
 
   const POSE_METADATA = {
+    // Japanese Traditional Poses
+    "Seiza (Japanese Kneeling)": { category: "kneeling", label: "Seiza (De rodillas japonés)", desc: "Postura formal japonesa sobre talones, espalda recta y manos en muslos" },
+    "Dogeza (Japanese Bow)": { category: "kneeling", label: "Dogeza (Reverencia solemne)", desc: "Reverencia solemne de rodillas con frente y palmas en el suelo" },
+
     // 20 Álbum Artístico Presets
     "Art: Contrapposto & Hip": { category: "standing", label: "Contrapposto & Cadera", desc: "Apoyo en una pierna, mano en nuca y cadera" },
     "Art: Hands Behind Head": { category: "standing", label: "Manos tras la Nuca", desc: "De pie frontal erguida, manos tras nuca" },
@@ -3370,7 +3394,9 @@
     "Cobra Pose (Upward Backbend)": "Cobra Pose (Side)",
     "Model Cross-Legged (Runway)": "Model Cross-Legged (Side)",
     "Sensual Cat Crawl (To Camera)": "Sensual Cat Crawl (Side)",
-    "Model Lounging Recline (Glamour)": "Model Recline (Side)"
+    "Model Lounging Recline (Glamour)": "Model Recline (Side)",
+    "Seiza (Japanese Kneeling)": "Seiza (Side)",
+    "Dogeza (Japanese Bow)": "Dogeza (Side)"
   };
 
   const POSE_SIDE_TO_FRONT = {
@@ -3413,7 +3439,9 @@
     "Cobra Pose (Side)": "Cobra Pose (Upward Backbend)",
     "Model Cross-Legged (Side)": "Model Cross-Legged (Runway)",
     "Sensual Cat Crawl (Side)": "Sensual Cat Crawl (To Camera)",
-    "Model Recline (Side)": "Model Lounging Recline (Glamour)"
+    "Model Recline (Side)": "Model Lounging Recline (Glamour)",
+    "Seiza (Side)": "Seiza (Japanese Kneeling)",
+    "Dogeza (Side)": "Dogeza (Japanese Bow)"
   };
 
   // Anatomical Hierarchical Kinematics (FK Tree)
