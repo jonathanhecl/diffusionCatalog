@@ -2517,16 +2517,64 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
               <div>
                 <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">AI Provider:</label>
-                <select id="i2sProviderSelect" class="director-select" style="width:100%;font-size:11.5px;">
-                  <option value="">Default (From Settings)</option>
-                  <option value="ollama">Ollama</option>
-                  <option value="omlx">oMLX / OpenAI</option>
+                {{$i2sDefaultProv := "ollama"}}
+                {{if or (eq .Settings.RemixDefaultProvider "openai") (eq .Settings.RemixDefaultProvider "omlx") (eq .Settings.Image2PromptProvider "openai") (eq .Settings.Image2PromptProvider "omlx")}}
+                  {{$i2sDefaultProv = "openai"}}
+                {{end}}
+                <select id="i2sProviderSelect" class="director-select" style="width:100%;font-size:11.5px;" onchange="switchI2SProvider()">
+                  <option value="ollama" {{if eq $i2sDefaultProv "ollama"}}selected{{end}}>Ollama</option>
+                  <option value="openai" {{if eq $i2sDefaultProv "openai"}}selected{{end}}>OpenAI / oMLX</option>
                 </select>
               </div>
               <div>
-                <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Vision Model (Optional):</label>
-                <input type="text" id="i2sModelInput" placeholder="Leave empty for default" 
-                       style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;" />
+                <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Vision Model:</label>
+                <select id="i2sModelSelect" class="director-select" style="width:100%;font-size:11.5px;">
+                  {{if eq $i2sDefaultProv "openai"}}
+                    {{if .Settings.OpenAIDefaultModel}}
+                      <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (default vision)</option>
+                    {{end}}
+                    <optgroup label="Vision Models 👁️">
+                      {{range .AIStatus.OMLXModels}}
+                        {{if .HasVision}}
+                          <option value="{{.Name}}" {{if eq $.Settings.OpenAIDefaultModel .Name}}selected{{end}}>
+                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️]
+                          </option>
+                        {{end}}
+                      {{end}}
+                    </optgroup>
+                    <optgroup label="Other Discovered Models">
+                      {{range .AIStatus.OMLXModels}}
+                        {{if not .HasVision}}
+                          <option value="{{.Name}}" {{if eq $.Settings.OpenAIDefaultModel .Name}}selected{{end}}>
+                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}
+                          </option>
+                        {{end}}
+                      {{end}}
+                    </optgroup>
+                  {{else}}
+                    {{if .Settings.OllamaDefaultModel}}
+                      <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (default vision)</option>
+                    {{end}}
+                    <optgroup label="Vision Models 👁️">
+                      {{range .AIStatus.OllamaModels}}
+                        {{if .HasVision}}
+                          <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
+                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️]
+                          </option>
+                        {{end}}
+                      {{end}}
+                    </optgroup>
+                    <optgroup label="Other Discovered Models">
+                      {{range .AIStatus.OllamaModels}}
+                        {{if not .HasVision}}
+                          <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
+                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}
+                          </option>
+                        {{end}}
+                      {{end}}
+                    </optgroup>
+                  {{end}}
+                </select>
               </div>
             </div>
 
@@ -6765,13 +6813,85 @@
   const i2sClearBtn = document.getElementById('i2sClearBtn');
   const i2sHintInput = document.getElementById('i2sHintInput');
   const i2sProviderSelect = document.getElementById('i2sProviderSelect');
-  const i2sModelInput = document.getElementById('i2sModelInput');
+  const i2sModelSelect = document.getElementById('i2sModelSelect');
   const i2sStatusText = document.getElementById('i2sStatusText');
   const btnConfirmImageToScene = document.getElementById('btnConfirmImageToScene');
   const i2sBtnSpinner = document.getElementById('i2sBtnSpinner');
   const i2sBtnText = document.getElementById('i2sBtnText');
 
   let currentI2SDataUrl = "";
+
+  window.switchI2SProvider = function() {
+    const provEl = document.getElementById('i2sProviderSelect');
+    const modEl = document.getElementById('i2sModelSelect');
+    if (!provEl || !modEl) return;
+
+    const cleanStr = (s) => (s || '').replace(/^["'\s]+|["'\s]+$/g, '');
+    let prov = cleanStr(provEl.value || 'ollama').toLowerCase();
+    if (prov === 'omlx') prov = 'openai';
+
+    const conf = (window.aiProviderConfig && window.aiProviderConfig[prov]) ? window.aiProviderConfig[prov] : null;
+    if (!conf) return;
+
+    const currentVal = cleanStr(modEl.value);
+    const defModel = cleanStr(conf.defaultModel);
+    modEl.innerHTML = '';
+
+    const models = conf.models || [];
+    const visionModels = models.filter(m => m.vision);
+    const otherModels = models.filter(m => !m.vision);
+
+    let selectedSet = false;
+
+    if (visionModels.length > 0) {
+      const grp = document.createElement('optgroup');
+      grp.label = "Vision Models 👁️";
+      visionModels.forEach(m => {
+        const mName = cleanStr(m.name);
+        if (!mName) return;
+        const opt = document.createElement('option');
+        opt.value = mName;
+        opt.textContent = mName + (m.size ? ' (' + cleanStr(m.size) + ')' : '') + ' [vision 👁️]';
+        if (!selectedSet && (mName === currentVal || mName === defModel)) {
+          opt.selected = true;
+          selectedSet = true;
+        }
+        grp.appendChild(opt);
+      });
+      modEl.appendChild(grp);
+    }
+
+    if (otherModels.length > 0) {
+      const grp = document.createElement('optgroup');
+      grp.label = "Other Discovered Models";
+      otherModels.forEach(m => {
+        const mName = cleanStr(m.name);
+        if (!mName) return;
+        const opt = document.createElement('option');
+        opt.value = mName;
+        opt.textContent = mName + (m.size ? ' (' + cleanStr(m.size) + ')' : '');
+        if (!selectedSet && (mName === currentVal || mName === defModel)) {
+          opt.selected = true;
+          selectedSet = true;
+        }
+        grp.appendChild(opt);
+      });
+      modEl.appendChild(grp);
+    }
+
+    if (!selectedSet && defModel) {
+      const opt = document.createElement('option');
+      opt.value = defModel;
+      opt.textContent = defModel + ' (default vision)';
+      opt.selected = true;
+      modEl.insertBefore(opt, modEl.firstChild);
+      selectedSet = true;
+    }
+
+    if (!selectedSet && modEl.options.length > 0) {
+      modEl.options[0].selected = true;
+    }
+  };
 
   function setI2SImage(dataUrl) {
     currentI2SDataUrl = dataUrl;
@@ -6875,7 +6995,7 @@
             image_data: currentI2SDataUrl,
             user_hint: i2sHintInput ? i2sHintInput.value.trim() : "",
             provider: i2sProviderSelect ? i2sProviderSelect.value : "",
-            model: i2sModelInput ? i2sModelInput.value.trim() : ""
+            model: i2sModelSelect ? (i2sModelSelect.value || '').trim() : ""
           };
 
           const resp = await fetch('/admin/compositions/image-to-scene', {
@@ -8516,6 +8636,7 @@
           if (document.getElementById('remixProviderSelect')) switchProviderSelect('remix');
           if (document.getElementById('charProviderSelect')) switchProviderSelect('char');
           if (document.getElementById('directorProvider')) switchProviderSelect('director');
+          if (window.switchI2SProvider) window.switchI2SProvider();
 
           var ollamaStatusBadge = document.getElementById('ollamaStatusBadge');
           if (ollamaStatusBadge) {
@@ -8691,6 +8812,7 @@
       if (document.getElementById('remixProviderSelect')) switchProviderSelect('remix');
       if (document.getElementById('charProviderSelect')) switchProviderSelect('char');
       if (document.getElementById('directorProvider')) switchProviderSelect('director');
+      if (window.switchI2SProvider) window.switchI2SProvider();
       if (document.getElementById('studio-attached-preview-wrap')) restoreStudioAttachedImage();
 
       // Non-blocking background sync for AI-enabled views (Prompt Studio, Scene Director, Characters, Settings)
