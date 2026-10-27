@@ -4298,6 +4298,19 @@
     const rotVal = document.getElementById('propRotateVal');
     rotSlider.value = selEl.rotation || 0;
     rotVal.innerHTML = (selEl.rotation || 0) + '&deg;';
+
+    const btnFlip = document.getElementById('btnFlipH');
+    if (btnFlip) {
+      if (selEl.flipH) {
+        btnFlip.classList.add('active');
+        btnFlip.style.background = '#0284c7';
+        btnFlip.style.color = '#fff';
+      } else {
+        btnFlip.classList.remove('active');
+        btnFlip.style.background = 'transparent';
+        btnFlip.style.color = 'var(--text-muted)';
+      }
+    }
   }
 
   // Character Customization Listeners
@@ -4502,7 +4515,14 @@
     btn.addEventListener('click', () => {
       const selEl = state.elements.find(x => x.id === state.selectedId);
       if (selEl) {
-        selEl.facing = btn.getAttribute('data-facing');
+        const targetFacing = btn.getAttribute('data-facing');
+        selEl.facing = targetFacing;
+        // If selecting profile Left/Right, synchronize flipH so the figure directly faces that side!
+        if (targetFacing === 'left') {
+          selEl.flipH = true;
+        } else if (targetFacing === 'right') {
+          selEl.flipH = false;
+        }
         renderScene();
         updateSpatialManifest();
       }
@@ -4591,7 +4611,14 @@
     const selEl = state.elements.find(x => x.id === state.selectedId);
     if (selEl) {
       selEl.flipH = !selEl.flipH;
+      if (selEl.type === 'character') {
+        if (selEl.facing === 'right') selEl.facing = 'left';
+        else if (selEl.facing === 'left') selEl.facing = 'right';
+        else if (selEl.facing === 'three_quarter_right') selEl.facing = 'three_quarter_left';
+        else if (selEl.facing === 'three_quarter_left') selEl.facing = 'three_quarter_right';
+      }
       renderScene();
+      updateSpatialManifest();
     }
   });
 
