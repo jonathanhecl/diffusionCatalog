@@ -275,6 +275,17 @@ func TestDirectorTabRendering(t *testing.T) {
 	if !strings.Contains(body, "charPoseInput") || !strings.Contains(body, "charAnatomySelect") || !strings.Contains(body, "charExpressionSelect") {
 		t.Errorf("expected body to contain character pose input, anatomy select, and expression select")
 	}
+	if !strings.Contains(body, "btnRandomizeChar") || !strings.Contains(body, "Random Look") {
+		t.Errorf("expected body to contain character randomize button")
+	}
+	if !strings.Contains(body, "East Asian heritage") || !strings.Contains(body, "African heritage") {
+		t.Errorf("expected body to contain ethnicity and complexion presets")
+	}
+	if !strings.Contains(body, "Double Space Buns") || !strings.Contains(body, "Double Ponytail") ||
+		!strings.Contains(body, "Messy High Bun") || !strings.Contains(body, "Punk Spiked Mohawk") ||
+		!strings.Contains(body, "Textured Pixie Cut") {
+		t.Errorf("expected body to contain buns, double ponytail, and punk hairstyles")
+	}
 	if !strings.Contains(body, "charHairSelect") || !strings.Contains(body, "charClothingSelect") ||
 		!strings.Contains(body, "charFeaturesSelect") || !strings.Contains(body, "charDetailsSelect") {
 		t.Errorf("expected body to contain character hair, clothing, features, and details preset selects")

@@ -1835,7 +1835,12 @@
                       <span>&#128100; CHARACTER ATTRIBUTES &amp; STYLING</span>
                       <span id="charSelectedBadge" style="font-size:10px;color:#94a3b8;font-weight:normal;background:#1e293b;border:1px solid #334155;padding:1px 6px;border-radius:3px;"></span>
                     </span>
-                    <span style="font-size:10.5px;color:var(--text-muted);font-style:italic;">All traits are automatically compiled into the AI Diffusion prompt</span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <button type="button" id="btnRandomizeChar" class="preset-pill-btn" style="color:#fbbf24;border-color:#d97706;background:rgba(217,119,6,0.18);font-weight:700;padding:3px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;" title="Generar aleatoriamente apariencia, vestimenta, peinado, anatomía y accesorios para este personaje">
+                        <span>&#127922; Random Look</span>
+                      </button>
+                      <span style="font-size:10.5px;color:var(--text-muted);font-style:italic;">Traits are compiled into AI prompt</span>
+                    </div>
                   </div>
 
                   <div style="display:flex;flex-direction:column;gap:10px;">
@@ -1875,6 +1880,16 @@
                         <!-- Compatibility select retained for tests and data structure -->
                         <select id="charAnatomySelect" style="display:none;">
                           <option value="">Presets...</option>
+                          <optgroup label="Ethnicity, Heritage &amp; Complexion">
+                            <option value="East Asian heritage, smooth porcelain skin, dark almond eyes">East Asian Heritage</option>
+                            <option value="African heritage, radiant deep melanin complexion, sculpted features">African / Deep Melanin</option>
+                            <option value="Hispanic Latino heritage, warm sun-kissed olive complexion, expressive dark eyes">Hispanic / Latino Olive</option>
+                            <option value="South Asian heritage, radiant golden bronze warm skin, striking deep eyes">South Asian / Desi Bronze</option>
+                            <option value="Nordic Scandinavian heritage, fair translucent skin with delicate freckles and icy eyes">Nordic Fair &amp; Freckled</option>
+                            <option value="Mediterranean Middle Eastern heritage, sun-drenched warm bronze complexion, chiseled features">Mediterranean / Middle Eastern</option>
+                            <option value="Indigenous Native heritage, rich coppery bronze skin, high cheekbones">Indigenous / Native Bronze</option>
+                            <option value="synthetic pale cyber-android complexion with subtle glowing biometric seams">Cyber-Android Synthetic</option>
+                          </optgroup>
                           <optgroup label="Body &amp; Physique">
                             <option value="tall athletic muscular build">Athletic Muscular</option>
                             <option value="lean slender agile build">Lean &amp; Slender</option>
@@ -1956,6 +1971,20 @@
                                style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
                         <select id="charHairSelect" style="display:none;">
                           <option value="">Presets...</option>
+                          <optgroup label="Buns &amp; Updos">
+                            <option value="messy high bun with loose framing face tendrils">Messy High Bun</option>
+                            <option value="playful double space buns with colorful hair ties">Double Space Buns</option>
+                            <option value="cute anime double low ponytails with soft ribbons">Double Ponytail</option>
+                            <option value="sleek elegant ballerina topknot high bun">Ballerina Topknot Bun</option>
+                            <option value="voluminous double curly afro puff buns">Double Afro Puffs</option>
+                          </optgroup>
+                          <optgroup label="Short &amp; Punk Cuts">
+                            <option value="textured cropped pixie cut with soft side-swept fringe">Textured Pixie Cut</option>
+                            <option value="edgy dyed punk mohawk with shaved temples and spiked crest">Punk Spiked Mohawk</option>
+                            <option value="undercut with long asymmetric side-swept locks and neon accents">Punk Asymmetric Undercut</option>
+                            <option value="messy 90s grunge shag layered cut with curtain bangs">Grunge Shag / Wolf Cut</option>
+                            <option value="sharp clean-cut short taper fade crop">Short Taper Fade Crop</option>
+                          </optgroup>
                           <optgroup label="Short Styles">
                             <option value="messy short dark textured hair">Messy Short Hair</option>
                             <option value="neat side part gentleman hairstyle">Neat Side Part</option>
@@ -4988,9 +5017,185 @@
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const target = btn.getAttribute('data-preset-target');
-      openPresetPopover(btn, target);
+      if (target) {
+        openPresetPopover(btn, target);
+      }
     });
   });
+
+  // Random Character Appearance Generator
+  function randomizeSelectedCharacter() {
+    const selEl = state.elements.find(x => x.id === state.selectedId);
+    if (!selEl || selEl.type !== 'character') {
+      showToast("Select a character first to randomize appearance!", "info");
+      return;
+    }
+
+    const ethnicities = [
+      "East Asian heritage, smooth porcelain skin, dark almond eyes",
+      "African heritage, radiant deep melanin complexion, sculpted features",
+      "Hispanic Latino heritage, warm sun-kissed olive complexion, expressive dark eyes",
+      "South Asian Indian heritage, radiant golden bronze warm skin, striking deep eyes",
+      "Nordic Scandinavian heritage, fair translucent skin with delicate freckles and icy blue eyes",
+      "Mediterranean Middle Eastern heritage, sun-drenched warm bronze complexion, sharp chiseled features",
+      "Indigenous Native heritage, rich coppery bronze skin, high sculpted cheekbones, deep dark eyes",
+      "synthetic pale cyber-android complexion with subtle glowing biometric seams and neon accents"
+    ];
+
+    const physiques = [
+      "tall athletic muscular build",
+      "lean slender agile build",
+      "burly stocky broad-shouldered build",
+      "curvy hourglass feminine silhouette",
+      "petite compact short frame",
+      "imposing towering giant stature",
+      "young adult in 20s with sharp features",
+      "mature adult in 40s with rugged handsome face",
+      "freckled cheeks with sun-kissed tanned skin",
+      "clean-shaven chiseled jawline and piercing eyes",
+      "full rugged beard and thick mustache"
+    ];
+
+    const expressions = [
+      "warm gentle welcoming smile and kind eyes",
+      "cheerful vibrant hearty laugh with crinkled eyes",
+      "mysterious confident smirk with raised eyebrow",
+      "flirty playful wink and gentle smile",
+      "serene peaceful blissful expression with closed eyes",
+      "fierce determined combat glare with clenched jaw",
+      "intense focused piercing stare with narrowed eyes",
+      "stoic emotionless expression with icy gaze",
+      "shocked wide-eyed gasp in disbelief",
+      "menacing wicked grin with sinister eyes"
+    ];
+
+    const hairStyles = [
+      "messy high bun with loose framing face tendrils",
+      "playful double space buns with colorful hair ties",
+      "cute anime double low ponytails with soft ribbons",
+      "sleek elegant ballerina topknot high bun",
+      "voluminous double curly afro puff buns",
+      "textured cropped pixie cut with soft side-swept fringe",
+      "edgy dyed punk mohawk with shaved temples and spiked crest",
+      "undercut with long asymmetric side-swept locks and neon accents",
+      "messy 90s grunge shag layered cut with curtain bangs",
+      "sharp clean-cut short taper fade crop",
+      "messy short textured hair",
+      "neat side part gentleman hairstyle",
+      "high sleek anime ponytail with flying bangs",
+      "bob cut with blunt front fringe bangs",
+      "shoulder-length wolf cut with curtain bangs",
+      "tight geometric cornrow braids",
+      "voluminous natural curly afro hair",
+      "thick dreadlocks tied back in a bun",
+      "platinum white long ethereal elf hair",
+      "spiky anime protagonist gravity-defying hair"
+    ];
+
+    const hairColors = [
+      "jet black",
+      "dark espresso brown",
+      "honey golden blonde",
+      "copper auburn red",
+      "platinum silver white",
+      "electric neon cyan",
+      "pastel lavender pink",
+      "emerald green dyed tips",
+      "midnight dark blue"
+    ];
+
+    const outfits = [
+      "heavy turnout firefighter jacket with reflective yellow-silver safety stripes, bunker pants, and suspenders",
+      "navy blue municipal police uniform with utility duty belt, badge, radio shoulder mic, and tactical slacks",
+      "tweed blazer with elbow patches over a buttoned knit cardigan, collared shirt, and pressed corduroy trousers",
+      "pristine white doctor lab coat over formal dress shirt and slacks with stethoscope around neck",
+      "medical scrubs uniform in hospital ceil blue with hospital badge and nursing clogs",
+      "double-breasted white chef coat with black piping, houndstooth kitchen trousers, and apron",
+      "fast-food crew polo shirt with contrast collar, employee name tag, apron, and visor cap",
+      "modern smart-casual blazer over a minimalist charcoal crewneck tee, tailored chinos, and leather loafers",
+      "luxurious three-piece bespoke executive suit with tailored vest, silk tie, french-cuff dress shirt, and polished oxfords",
+      "airline captain uniform with gold sleeve epaulets, double-breasted navy blazer, and peaked pilot cap",
+      "satin boxing trunks with wide elastic waistband, training robe, hand wraps, and boxing shoes",
+      "mexican lucha libre wrestler gear with vibrant laced mask, wrestling singlet tights, and tall laced boots",
+      "oversized 90s graphic skate tee, baggy faded cargo denim pants, canvas skate sneakers, and low socks",
+      "vibrant floral-print breezy summer sundress with pastel blossoms, spaghetti straps, and sunhat",
+      "tailored women's power suit blazer with matching high-waisted cigarette pants and satin blouse",
+      "elegant business blazer with tailored knee-length pencil skirt, sheer stockings, and classic pointed pumps",
+      "floor-length flowing silk evening cocktail gown with elegant neckline and high side slit",
+      "cropped ribbed knit top, high-rise relaxed jeans, and an oversized pastel knitted cardigan",
+      "classic distressed denim miniskirt with fitted crop baby tee and sneakers",
+      "edgy black leather miniskirt with fishnet tights and combat boots",
+      "high-waisted pleated tennis skirt with tucked-in polo shirt and crew socks",
+      "frayed cutoff short denim shorts (daisy dukes) with casual sleeveless tank top",
+      "high-rise 90s vintage wide-leg baggy denim jeans with fitted ribbed sweater",
+      "dark-wash stretch skinny denim jeans, fitted white t-shirt, and leather ankle boots",
+      "casual graphic t-shirt and distressed denim jeans with sneakers",
+      "oversized streetwear hoodie, cargo joggers, and chunky sneakers",
+      "classic black leather motorcycle jacket, dark denim, and combat boots",
+      "tactical military ballistic vest, ripstop camo cargo pants, and combat boots",
+      "futuristic cyberpunk techwear jacket with harness straps and utility pouches",
+      "traditional japanese samurai haori, kimono, and hakama",
+      "post-apocalyptic wasteland scavenger gear with salvaged leather and gas mask"
+    ];
+
+    const accessories = [
+      "classic black-rimmed eyeglasses",
+      "dark mirrored aviator sunglasses",
+      "high-tech augmented reality holographic HUD monocle",
+      "tactical ballistic protective goggles on forehead",
+      "backward streetwear baseball snapback cap",
+      "cozy knitted beanie pulled down low",
+      "chunky gold cuban link chain necklace and rings",
+      "silver ear piercings and studded leather wristband",
+      "tactical fingerless combat gloves",
+      "tactical sidearm holster at right hip",
+      "sheathed katana sword slung across back",
+      "heavy military tactical backpack with hydration tube",
+      ""
+    ];
+
+    const randPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    const chosenEth = randPick(ethnicities);
+    const chosenPhys = randPick(physiques);
+    const chosenAnatomy = `${chosenEth}, ${chosenPhys}`;
+    const chosenExpr = randPick(expressions);
+    const chosenHair = `${randPick(hairColors)} ${randPick(hairStyles)}`;
+    const chosenOutfit = randPick(outfits);
+    const chosenAcc = randPick(accessories);
+
+    selEl.anatomy = chosenAnatomy;
+    selEl.features = chosenAnatomy;
+    selEl.expression = chosenExpr;
+    selEl.hair = chosenHair;
+    selEl.clothing = chosenOutfit;
+    selEl.details = chosenAcc;
+
+    const anatIn = document.getElementById('charAnatomyInput');
+    if (anatIn) anatIn.value = chosenAnatomy;
+    const featIn = document.getElementById('charFeaturesInput');
+    if (featIn) featIn.value = chosenAnatomy;
+    const exprIn = document.getElementById('charExpressionInput');
+    if (exprIn) exprIn.value = chosenExpr;
+    const hairIn = document.getElementById('charHairInput');
+    if (hairIn) hairIn.value = chosenHair;
+    const clothIn = document.getElementById('charClothingInput');
+    if (clothIn) clothIn.value = chosenOutfit;
+    const detIn = document.getElementById('charDetailsInput');
+    if (detIn) detIn.value = chosenAcc;
+
+    renderScene();
+    updateSpatialManifest();
+    showToast("🎲 Random look generated for " + (selEl.name || "Character") + "!", "success");
+  }
+
+  const btnRandomizeChar = document.getElementById('btnRandomizeChar');
+  if (btnRandomizeChar) {
+    btnRandomizeChar.addEventListener('click', (e) => {
+      e.stopPropagation();
+      randomizeSelectedCharacter();
+    });
+  }
 
   // Theater Mode Toggle (Full Width Canvas)
   document.getElementById('btnToggleTheater').addEventListener('click', () => {
