@@ -387,6 +387,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/ollama/image2prompt", s.handleImage2Prompt)
 	mux.HandleFunc("POST /admin/ollama/character2prompt", s.handleCharacter2Prompt)
 	mux.HandleFunc("POST /admin/ollama/text2prompt", s.handleText2Prompt)
+	mux.HandleFunc("POST /admin/prompts/clear", s.handleClearPrompts)
 
 	// Scene Director / Prompt Studio Compositions & Poses
 	mux.HandleFunc("POST /admin/compositions/save", s.handleSaveComposition)
@@ -1345,6 +1346,28 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = s.tmpl.ExecuteTemplate(w, "catalog.html", data)
+}
+
+func (s *Server) handleClearPrompts(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	characterID, _ := strconv.ParseInt(r.FormValue("character_id"), 10, 64)
+	all := r.FormValue("all") == "1" || r.FormValue("all") == "true" || (assetID == 0 && characterID == 0)
+	if all {
+		assetID = 0
+		characterID = 0
+	}
+	if err := s.catalog.ClearGeneratedPrompts(ctx, assetID, characterID); err != nil {
+		http.Error(w, "Failed to clear prompt history: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if r.Header.Get("Accept") == "application/json" || strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+		return
+	}
+	http.Redirect(w, r, "/?tab=studio&notice=Prompt+history+cleared", http.StatusSeeOther)
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {

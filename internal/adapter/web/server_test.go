@@ -564,3 +564,61 @@ func TestAPIAIStatusEndpoint(t *testing.T) {
 		t.Fatalf("expected HTTP 200 on refresh, got %d", recRefresh.Code)
 	}
 }
+
+func TestClearPromptsEndpoint(t *testing.T) {
+	ctx := context.Background()
+	mediaDir := t.TempDir()
+	cacheDir := t.TempDir()
+	dbPath := filepath.Join(t.TempDir(), "test_prompts.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	extractor := metadata.NewExtractor()
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, nil)
+
+	// Insert a prompt into DB
+	_, err = repo.SaveGeneratedPrompt(ctx, &domain.GeneratedPrompt{
+		TargetProfileSlug: "flux",
+		SceneDirection:    "sample concept",
+		OutputPrompt:      "generated prompt output",
+		Provider:          domain.ProviderOllama,
+		ModelName:         "llama3:latest",
+	})
+	if err != nil {
+		t.Fatalf("failed to save generated prompt: %v", err)
+	}
+
+	historyBefore, _ := catalogSvc.ListGeneratedPrompts(ctx, 0, 0, 10)
+	if len(historyBefore) != 1 {
+		t.Fatalf("expected 1 prompt in history, got %d", len(historyBefore))
+	}
+
+	srv, err := NewServer(mediaDir, cacheDir, "NoopVision", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("failed to construct web server: %v", err)
+	}
+
+	// Call POST /admin/prompts/clear with JSON accept header
+	req := httptest.NewRequest("POST", "/admin/prompts/clear", strings.NewReader("all=1"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected HTTP 200, got %d", rec.Code)
+	}
+
+	// Verify history is now empty in DB
+	historyAfter, _ := catalogSvc.ListGeneratedPrompts(ctx, 0, 0, 10)
+	if len(historyAfter) != 0 {
+		t.Fatalf("expected 0 prompts in history after clear, got %d", len(historyAfter))
+	}
+}

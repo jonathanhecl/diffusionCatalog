@@ -616,6 +616,14 @@ func (s *CatalogService) ListGeneratedPrompts(ctx context.Context, assetID, char
 	return s.repo.ListGeneratedPrompts(ctx, assetID, characterID, limit)
 }
 
+// ClearGeneratedPrompts deletes recorded prompts from storage.
+func (s *CatalogService) ClearGeneratedPrompts(ctx context.Context, assetID, characterID int64) error {
+	if s.repo == nil {
+		return nil
+	}
+	return s.repo.ClearGeneratedPrompts(ctx, assetID, characterID)
+}
+
 // ResolveExecutionRoute resolves the provider, model, baseURL, and thinking level for a prompt generation task,
 // applying any per-request quick overrides on top of the persistent Settings defaults.
 func (s *CatalogService) ResolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProviderType, defaultModel, defaultThink string, override domain.PromptExecutionOverride) (domain.AIProviderType, string, string, string) {

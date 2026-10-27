@@ -1312,7 +1312,7 @@
                     <span>Recent Generated Prompts</span>
                     <span id="recent-prompts-count" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:10px;padding:1px 6px;border-radius:10px;">{{if .GeneratedHistory}}{{len .GeneratedHistory}}{{else}}0{{end}}</span>
                   </div>
-                  <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;color:var(--text-muted);" onclick="clearSessionPromptHistory()" title="Clear temporary session history">Clear Session History</button>
+                  <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;color:var(--text-muted);" onclick="clearSessionPromptHistory()" title="Clear prompt history from session and database">Clear History</button>
                 </div>
                 <div id="studio-recent-prompts-list" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding-right:4px;">
                   {{if .GeneratedHistory}}
@@ -8824,7 +8824,22 @@
         }
         var countEl = document.getElementById('recent-prompts-count');
         if (countEl) countEl.textContent = '0';
-        window.showToast('Session prompt history cleared', 'info');
+
+        // Also delete from database so prompts don't reappear on page refresh
+        fetch('/admin/prompts/clear', {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' },
+          body: new URLSearchParams({ all: '1' })
+        }).then(function(res) {
+          if (res.ok) {
+            window.showToast('Prompt history cleared', 'success');
+          } else {
+            window.showToast('Cleared session view', 'info');
+          }
+        }).catch(function(err) {
+          console.debug('Failed to clear server prompt history:', err);
+          window.showToast('Cleared session view', 'info');
+        });
       } catch(e) {
         console.error('Failed to clear session prompt history:', e);
       }

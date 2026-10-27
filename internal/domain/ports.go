@@ -324,6 +324,7 @@ type CatalogRepository interface {
 
 	SaveGeneratedPrompt(ctx context.Context, gp *GeneratedPrompt) (int64, error)
 	ListGeneratedPrompts(ctx context.Context, assetID, characterID int64, limit int) ([]GeneratedPrompt, error)
+	ClearGeneratedPrompts(ctx context.Context, assetID, characterID int64) error
 
 	SaveStudioComposition(ctx context.Context, comp *StudioComposition) (int64, error)
 	GetStudioCompositionByID(ctx context.Context, id int64) (*StudioComposition, error)

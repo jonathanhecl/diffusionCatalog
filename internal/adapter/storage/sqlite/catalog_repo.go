@@ -1094,6 +1094,29 @@ func (r *Repository) ListGeneratedPrompts(ctx context.Context, assetID, characte
 	return out, nil
 }
 
+// ClearGeneratedPrompts deletes generated prompts from the database.
+func (r *Repository) ClearGeneratedPrompts(ctx context.Context, assetID, characterID int64) error {
+	db := r.conn()
+	var (
+		query string
+		args  []interface{}
+	)
+	if assetID > 0 && characterID > 0 {
+		query = "DELETE FROM generated_prompts WHERE asset_id = ? OR character_id = ?"
+		args = []interface{}{assetID, characterID}
+	} else if assetID > 0 {
+		query = "DELETE FROM generated_prompts WHERE asset_id = ?"
+		args = []interface{}{assetID}
+	} else if characterID > 0 {
+		query = "DELETE FROM generated_prompts WHERE character_id = ?"
+		args = []interface{}{characterID}
+	} else {
+		query = "DELETE FROM generated_prompts"
+	}
+	_, err := db.ExecContext(ctx, query, args...)
+	return err
+}
+
 // SaveStudioComposition creates or updates a scene composition in SQLite.
 func (r *Repository) SaveStudioComposition(ctx context.Context, comp *domain.StudioComposition) (int64, error) {
 	db := r.conn()
