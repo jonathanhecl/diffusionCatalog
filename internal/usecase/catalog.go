@@ -900,6 +900,9 @@ type SceneElementDTO struct {
 	Clothing    string                 `json:"clothing,omitempty"`
 	Details       string                 `json:"details,omitempty"`
 	Description   string                 `json:"description,omitempty"`
+	MarkerRole        string             `json:"markerRole,omitempty"`        // "environment" or "character_feature"
+	TargetCharacterID string             `json:"targetCharacterId,omitempty"` // ID of target character if linked
+	TargetBodyPart    string             `json:"targetBodyPart,omitempty"`    // e.g. "Left Arm", "Right Knee", "Head / Face"
 	LookingAtID   string                 `json:"lookingAtId,omitempty"`
 	LookingAtName string                 `json:"lookingAtName,omitempty"`
 	LightType     string                 `json:"lightType,omitempty"`
@@ -955,6 +958,85 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 
 	if strings.TrimSpace(scene.DirectorNote) != "" {
 		noteLines = append(noteLines, scene.DirectorNote)
+	}
+
+	// 1. Index characters to resolve character feature markers (e.g. robotic arm, injured knee)
+	type charRef struct {
+		id   string
+		name string
+		x    float64
+		y    float64
+	}
+	var chars []charRef
+	for _, el := range scene.Elements {
+		if el.Type == "character" || el.Type == "silhouette" {
+			name := el.Name
+			if name == "" {
+				name = el.Label
+			}
+			if name == "" {
+				name = "Person / Character"
+			}
+			chars = append(chars, charRef{id: el.ID, name: name, x: el.X, y: el.Y})
+		}
+	}
+
+	var charFeatures = make(map[string][]string)
+	var featureLines []string
+	for _, el := range scene.Elements {
+		isFeatureMarker := el.MarkerRole == "character_feature" || el.Subtype == "marker" || (el.MarkerRole != "environment" && strings.TrimSpace(el.TargetBodyPart) != "")
+		if !isFeatureMarker {
+			continue
+		}
+
+		targetCharID := el.TargetCharacterID
+		targetCharName := ""
+		if targetCharID != "" {
+			for _, c := range chars {
+				if c.id == targetCharID {
+					targetCharName = c.name
+					break
+				}
+			}
+		}
+		if targetCharID == "" && len(chars) > 0 {
+			bestDist := 1e12
+			for _, c := range chars {
+				dx := c.x - el.X
+				dy := c.y - el.Y
+				dist := dx*dx + dy*dy
+				if dist < bestDist {
+					bestDist = dist
+					targetCharID = c.id
+					targetCharName = c.name
+				}
+			}
+		}
+		if targetCharName == "" {
+			targetCharName = "Subject"
+		}
+
+		bodyPart := strings.TrimSpace(el.TargetBodyPart)
+		if bodyPart == "" {
+			bodyPart = "Targeted Body Area"
+		}
+
+		desc := strings.TrimSpace(el.Description)
+		if desc == "" {
+			desc = strings.TrimSpace(el.Details)
+		}
+		if desc == "" {
+			desc = strings.TrimSpace(el.Label)
+		}
+		if desc == "" {
+			desc = "special feature detail"
+		}
+
+		featStr := fmt.Sprintf("[%s]: %s", bodyPart, desc)
+		if targetCharID != "" {
+			charFeatures[targetCharID] = append(charFeatures[targetCharID], featStr)
+		}
+		featureLines = append(featureLines, fmt.Sprintf("- [%s] -> %s (indicated by targeted body marker)", targetCharName, featStr))
 	}
 
 	for _, el := range scene.Elements {
@@ -1074,6 +1156,11 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 			if gazeTarget != "" {
 				charTraits = append(charTraits, "gaze: looking directly at ["+gazeTarget+"]")
 			}
+			if feats, ok := charFeatures[el.ID]; ok && len(feats) > 0 {
+				for _, f := range feats {
+					charTraits = append(charTraits, "targeted body feature "+f)
+				}
+			}
 			traitsDesc := ""
 			if len(charTraits) > 0 {
 				traitsDesc = " [" + strings.Join(charTraits, ", ") + "]"
@@ -1083,6 +1170,11 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 				charName, traitsDesc, loc, facingDesc, poseDesc, mirrorDesc, scaleDesc))
 
 		case "prop":
+			isFeatureMarker := el.MarkerRole == "character_feature" || el.Subtype == "marker" || (el.MarkerRole != "environment" && strings.TrimSpace(el.TargetBodyPart) != "")
+			if isFeatureMarker {
+				// Handled as character feature marker, skip environment prop
+				continue
+			}
 			propName := el.Label
 			if propName == "" {
 				propName = el.PropType
@@ -1144,6 +1236,11 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 		sb.WriteString(strings.Join(subjectLines, "\n") + "\n")
 	} else {
 		sb.WriteString("Subjects & Characters:\n- Standard subject composition.\n")
+	}
+
+	if len(featureLines) > 0 {
+		sb.WriteString("Character Targeted Features & Body Modifications:\n")
+		sb.WriteString(strings.Join(featureLines, "\n") + "\n")
 	}
 
 	if len(propLines) > 0 {

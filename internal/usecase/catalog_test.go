@@ -360,6 +360,49 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 		t.Errorf("expected golden hour atmosphere in manifest:\n%s", envManifest)
 	}
 
+	// 3d. Test character feature marker (body part modification / annotation like robotic arm)
+	markerSceneJSON := `{
+		"aspectRatio": "16:9",
+		"elements": [
+			{
+				"id": "char-cyborg",
+				"type": "character",
+				"name": "Cyborg Agent",
+				"x": 300,
+				"y": 250,
+				"facing": "front",
+				"poseName": "Standing Idle"
+			},
+			{
+				"id": "marker-arm",
+				"type": "prop",
+				"subtype": "circle",
+				"markerRole": "character_feature",
+				"targetCharacterId": "char-cyborg",
+				"targetBodyPart": "Left Arm",
+				"description": "advanced cybernetic prosthetic arm with chrome plating and exposed blue fiber optics",
+				"x": 380,
+				"y": 280
+			}
+		]
+	}`
+	markerManifest, err := catalogSvc.CompileSceneDirectorManifest(ctx, markerSceneJSON)
+	if err != nil {
+		t.Fatalf("CompileSceneDirectorManifest with feature marker failed: %v", err)
+	}
+	if !strings.Contains(markerManifest, "targeted body feature [Left Arm]: advanced cybernetic prosthetic arm") {
+		t.Errorf("expected character traits to include targeted body feature on Left Arm, got:\n%s", markerManifest)
+	}
+	if !strings.Contains(markerManifest, "Character Targeted Features & Body Modifications:") {
+		t.Errorf("expected section 'Character Targeted Features & Body Modifications:', got:\n%s", markerManifest)
+	}
+	if !strings.Contains(markerManifest, "[Cyborg Agent] -> [Left Arm]: advanced cybernetic prosthetic arm") {
+		t.Errorf("expected feature line linking Cyborg Agent to Left Arm, got:\n%s", markerManifest)
+	}
+	if strings.Contains(markerManifest, "Environment, Props & Staging Elements:") {
+		t.Errorf("expected feature marker to NOT be listed under Environment, Props & Staging Elements, got:\n%s", markerManifest)
+	}
+
 	// 4. Test SynthesizeScenePrompt (without canvas capture -> TextToPrompt)
 	compiledManifest, generatedPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, "")
 	if err != nil {

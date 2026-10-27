@@ -305,6 +305,11 @@ func TestDirectorNewPosesPresetsRendering(t *testing.T) {
 		"Pushing Heavy Load (Side)",
 		"Asomado Balcón",
 		"Empujar Carga",
+		`data-subtype="marker"`,
+		"Body Feature",
+		"propRoleSelect",
+		"propFeatureControls",
+		"propBodyPartInput",
 	}
 
 	for _, substr := range expectedSubstrings {

@@ -1601,6 +1601,9 @@
                 <span>PROPS &amp; FURNITURE</span>
               </div>
               <div style="display:grid;grid-template-columns: 1fr 1fr; gap:6px;">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="marker" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;border-color:rgba(6,182,212,0.6);background:rgba(6,182,212,0.08);color:#38bdf8;" title="Marcador anatómico para señalar detalles en el personaje (brazo robótico, ojo morado, rodilla vendada...)">
+                  <span>&#127919;</span> Body Feature
+                </button>
                 <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="circle" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;border-color:rgba(167,139,250,0.5);background:rgba(167,139,250,0.08);" title="Objeto circular genérico personalizable (portal, fuego, lago, base...)">
                   <span>&#9898;</span> Generic Circle
                 </button>
@@ -1896,6 +1899,7 @@
                 <div id="propControlGroup" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
                   <span style="font-size:11px;color:#a78bfa;font-weight:600;">🛋️ Prop:</span>
                   <select id="propSubtypeSelect" class="director-select" style="max-width:170px;">
+                    <option value="marker">&#127919; Body Feature Marker</option>
                     <option value="circle">&#9898; Generic Circle / Custom</option>
                     <option value="bed">&#128716; Bed (Cama)</option>
                     <option value="sofa">&#128715; Sofa</option>
@@ -1908,6 +1912,17 @@
                     <option value="window">&#129687; Window</option>
                     <option value="door">&#128682; Doorway</option>
                   </select>
+                  <select id="propRoleSelect" class="director-select" style="max-width:150px;background:#1e1b4b;border-color:#6366f1;color:#c7d2fe;" title="Definir si es un objeto del entorno o un marcador de detalle en un personaje">
+                    <option value="environment">🛋️ Objeto de entorno</option>
+                    <option value="character_feature">🎯 Detalle en personaje</option>
+                  </select>
+                  <div id="propFeatureControls" style="display:none;align-items:center;gap:5px;">
+                    <select id="propTargetCharSelect" class="director-select" style="max-width:140px;" title="Personaje al que se asocia este detalle (o Auto por posición)">
+                      <option value="">🎯 [Auto-detectar]</option>
+                    </select>
+                    <input type="text" id="propBodyPartInput" placeholder="Parte del cuerpo (ej. Brazo Izq, Ojo)..." 
+                           style="width:145px;background:var(--bg-input);border:1px solid #06b6d4;border-radius:4px;padding:3px 6px;color:#67e8f9;font-size:11px;" title="Parte del cuerpo anatómica" />
+                  </div>
                   <input type="text" id="propLabelInput" placeholder="Name (e.g. Sofa, Magic Portal)..." 
                          style="width:130px;background:var(--bg-input);border:1px solid #7c3aed;border-radius:4px;padding:3px 6px;color:#ddd6fe;font-size:11px;" title="Prop name / label" />
                   <input type="text" id="propDescInput" placeholder="Details (e.g. worn leather, glowing cyan)..." 
@@ -3448,11 +3463,134 @@
     }
   }
 
+  // Resolve nearest character and joint for body feature markers
+  function resolveCharacterJointForMarker(markerEl) {
+    const characters = state.elements.filter(x => x.type === 'character');
+    if (!characters.length) return null;
+
+    let targetChar = null;
+    if (markerEl.targetCharacterId) {
+      targetChar = characters.find(x => x.id === markerEl.targetCharacterId);
+    }
+
+    const s = markerEl.scale || 1.0;
+    const mx = markerEl.x + (markerEl.width * s) / 2;
+    const my = markerEl.y + (markerEl.height * s) / 2;
+
+    const JOINT_LABELS = {
+      "nose": "Head / Face (Ojo / Rostro / Cabeza)",
+      "neck": "Neck / Throat (Cuello)",
+      "r_shoulder": "Right Shoulder (Hombro Derecho)",
+      "r_elbow": "Right Arm / Elbow (Brazo / Codo Derecho)",
+      "r_wrist": "Right Hand / Wrist (Mano / Muñeca Derecha)",
+      "l_shoulder": "Left Shoulder (Hombro Izquierdo)",
+      "l_elbow": "Left Arm / Elbow (Brazo / Codo Izquierdo)",
+      "l_wrist": "Left Hand / Wrist (Mano / Muñeca Izquierda)",
+      "mid_hip": "Torso / Waist (Torso / Cintura)",
+      "r_hip": "Right Hip (Cadera Derecha)",
+      "r_knee": "Right Knee (Rodilla Derecha)",
+      "r_ankle": "Right Foot / Leg (Pie / Pierna Derecha)",
+      "l_hip": "Left Hip (Cadera Izquierda)",
+      "l_knee": "Left Knee (Rodilla Izquierda)",
+      "l_ankle": "Left Foot / Leg (Pie / Pierna Izquierda)"
+    };
+
+    let bestChar = null;
+    let bestJointName = null;
+    let bestDist = Infinity;
+    let bestJointCoords = null;
+
+    const candidateChars = targetChar ? [targetChar] : characters;
+
+    candidateChars.forEach(ch => {
+      const pose = ch.pose || POSE_PRESETS[ch.poseName || "Standing Idle"] || POSE_PRESETS["Standing Idle"];
+      if (!pose) return;
+      const chScale = ch.scale || 1.0;
+      Object.keys(pose).forEach(jKey => {
+        const pt = pose[jKey];
+        if (!pt) return;
+        const ptX = ch.flipH ? (100 - pt.x) : pt.x;
+        const jx = ch.x + (ptX / 100) * ch.width * chScale;
+        const jy = ch.y + (pt.y / 100) * ch.height * chScale;
+        const d = Math.hypot(jx - mx, jy - my);
+        if (d < bestDist) {
+          bestDist = d;
+          bestChar = ch;
+          bestJointName = jKey;
+          bestJointCoords = { x: jx, y: jy };
+        }
+      });
+    });
+
+    if (bestChar && bestJointName) {
+      return {
+        character: bestChar,
+        jointKey: bestJointName,
+        jointLabel: JOINT_LABELS[bestJointName] || bestJointName,
+        coords: bestJointCoords,
+        distance: bestDist
+      };
+    }
+    return null;
+  }
+
   // Render Props & Furniture
   function renderProp(g, el) {
     const w = el.width;
     const h = el.height;
     const propType = el.subtype;
+    const isFeatureMarker = el.markerRole === 'character_feature' || propType === 'marker';
+
+    if (isFeatureMarker) {
+      const radius = Math.min(w, h) / 2 - 4;
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', w / 2); circle.setAttribute('cy', h / 2); circle.setAttribute('r', radius);
+      circle.setAttribute('fill', 'rgba(6, 182, 212, 0.12)');
+      circle.setAttribute('stroke', '#06b6d4'); circle.setAttribute('stroke-width', '2.5');
+      circle.setAttribute('stroke-dasharray', '5,3');
+      g.appendChild(circle);
+
+      const inner = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      inner.setAttribute('cx', w / 2); inner.setAttribute('cy', h / 2); inner.setAttribute('r', radius * 0.45);
+      inner.setAttribute('fill', 'rgba(14, 165, 233, 0.25)');
+      inner.setAttribute('stroke', '#38bdf8'); inner.setAttribute('stroke-width', '1.5');
+      g.appendChild(inner);
+
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', w / 2); dot.setAttribute('cy', h / 2); dot.setAttribute('r', '3.5');
+      dot.setAttribute('fill', '#38bdf8');
+      g.appendChild(dot);
+
+      const ch1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      ch1.setAttribute('x1', w / 2 - radius); ch1.setAttribute('y1', h / 2);
+      ch1.setAttribute('x2', w / 2 + radius); ch1.setAttribute('y2', h / 2);
+      ch1.setAttribute('stroke', '#38bdf8'); ch1.setAttribute('stroke-width', '1.5');
+      g.appendChild(ch1);
+
+      const cv1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      cv1.setAttribute('x1', w / 2); cv1.setAttribute('y1', h / 2 - radius);
+      cv1.setAttribute('x2', w / 2); cv1.setAttribute('y2', h / 2 + radius);
+      cv1.setAttribute('stroke', '#38bdf8'); cv1.setAttribute('stroke-width', '1.5');
+      g.appendChild(cv1);
+
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', w / 2); text.setAttribute('y', h + 14);
+      text.setAttribute('fill', '#38bdf8'); text.setAttribute('font-size', '10.5'); text.setAttribute('font-weight', '700'); text.setAttribute('text-anchor', 'middle');
+      const bp = el.targetBodyPart || 'Body Feature';
+      text.textContent = `🎯 ${bp}`;
+      g.appendChild(text);
+
+      if (el.description && el.description.trim()) {
+        const desc = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        desc.setAttribute('x', w / 2); desc.setAttribute('y', h + 26);
+        desc.setAttribute('fill', '#e2e8f0'); desc.setAttribute('font-size', '9.5'); desc.setAttribute('font-style', 'italic'); desc.setAttribute('text-anchor', 'middle');
+        let dText = el.description.trim();
+        if (dText.length > 24) dText = dText.substring(0, 22) + '…';
+        desc.textContent = dText;
+        g.appendChild(desc);
+      }
+      return;
+    }
 
     if (propType === 'sofa') {
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -4082,8 +4220,20 @@
 
   svg.addEventListener('pointerup', (e) => {
     if (state.dragTarget) {
+      const dt = state.dragTarget;
       state.dragTarget = null;
       try { svg.releasePointerCapture(e.pointerId); } catch(err){}
+      const el = state.elements.find(x => x.id === dt.elId);
+      if (el && el.type === 'prop' && (el.markerRole === 'character_feature' || el.subtype === 'marker')) {
+        const res = resolveCharacterJointForMarker(el);
+        if (res) {
+          el.targetBodyPart = res.jointLabel;
+          const bpInput = document.getElementById('propBodyPartInput');
+          if (bpInput) bpInput.value = el.targetBodyPart;
+          renderScene();
+        }
+      }
+      updateSpatialManifest();
     }
   });
 
@@ -4160,7 +4310,14 @@
         newEl.pose.r_shoulder.x = 36; newEl.pose.l_shoulder.x = 64;
       }
     } else if (type === 'prop') {
-      if (subtype === 'circle' || subtype === 'generic') { newEl.width = 130; newEl.height = 130; newEl.label = "Custom Object"; newEl.description = ""; }
+      if (subtype === 'marker') {
+        newEl.width = 80; newEl.height = 80; newEl.label = "Body Feature"; newEl.description = "";
+        newEl.markerRole = "character_feature";
+        newEl.targetBodyPart = "Left Arm";
+      } else if (subtype === 'circle' || subtype === 'generic') {
+        newEl.width = 130; newEl.height = 130; newEl.label = "Custom Object"; newEl.description = "";
+        newEl.markerRole = "environment";
+      }
       else if (subtype === 'sofa') { newEl.width = 240; newEl.height = 130; newEl.label = "Leather Sofa"; }
       else if (subtype === 'chair') { newEl.width = 90; newEl.height = 110; newEl.label = "Armchair"; }
       else if (subtype === 'table') { newEl.width = 190; newEl.height = 100; newEl.label = "Dining Table"; }
@@ -4307,6 +4464,34 @@
         if (pLbl) pLbl.value = selEl.label || '';
         const pDesc = document.getElementById('propDescInput');
         if (pDesc) pDesc.value = selEl.description || '';
+
+        const roleSel = document.getElementById('propRoleSelect');
+        const isFeature = selEl.markerRole === 'character_feature' || selEl.subtype === 'marker';
+        if (roleSel) roleSel.value = isFeature ? 'character_feature' : (selEl.markerRole || 'environment');
+
+        const featControls = document.getElementById('propFeatureControls');
+        if (featControls) {
+          featControls.style.display = isFeature ? 'flex' : 'none';
+          const targetCharSel = document.getElementById('propTargetCharSelect');
+          if (targetCharSel) {
+            targetCharSel.innerHTML = '<option value="">🎯 [Auto-detectar]</option>';
+            state.elements.filter(x => x.type === 'character').forEach(ch => {
+              const opt = document.createElement('option');
+              opt.value = ch.id;
+              opt.textContent = `👤 ${ch.name || 'Character'}`;
+              if (ch.id === selEl.targetCharacterId) opt.selected = true;
+              targetCharSel.appendChild(opt);
+            });
+            targetCharSel.value = selEl.targetCharacterId || '';
+          }
+
+          if (isFeature && (!selEl.targetBodyPart || selEl.targetBodyPart === 'Auto-Detect')) {
+            const res = resolveCharacterJointForMarker(selEl);
+            if (res) selEl.targetBodyPart = res.jointLabel;
+          }
+          const bpInput = document.getElementById('propBodyPartInput');
+          if (bpInput) bpInput.value = selEl.targetBodyPart || '';
+        }
       }
     } else {
       facingGrp.style.display = 'none';
@@ -4836,13 +5021,70 @@
       if (selEl && selEl.type === 'prop') {
         selEl.subtype = e.target.value;
         const labels = {
-          circle: "Custom Object", bed: "Studio Bed", sofa: "Leather Sofa", chair: "Armchair",
+          marker: "Body Feature", circle: "Custom Object", bed: "Studio Bed", sofa: "Leather Sofa", chair: "Armchair",
           table: "Dining Table", car: "Automobile", tree: "Tree",
           ladder: "Ladder", stairs: "Stairs", window: "Window Frame", door: "Doorway"
         };
         selEl.label = labels[selEl.subtype] || selEl.subtype;
+        if (selEl.subtype === 'marker') {
+          selEl.markerRole = 'character_feature';
+          if (!selEl.targetBodyPart) {
+            const res = resolveCharacterJointForMarker(selEl);
+            if (res) selEl.targetBodyPart = res.jointLabel;
+          }
+        }
         const pLbl = document.getElementById('propLabelInput');
         if (pLbl) pLbl.value = selEl.label;
+        updatePropertiesBar();
+        renderScene();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const propRoleSelect = document.getElementById('propRoleSelect');
+  if (propRoleSelect) {
+    propRoleSelect.addEventListener('change', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'prop') {
+        selEl.markerRole = e.target.value;
+        if (selEl.markerRole === 'character_feature') {
+          if (!selEl.targetBodyPart) {
+            const res = resolveCharacterJointForMarker(selEl);
+            if (res) selEl.targetBodyPart = res.jointLabel;
+          }
+        }
+        updatePropertiesBar();
+        renderScene();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const propTargetCharSelect = document.getElementById('propTargetCharSelect');
+  if (propTargetCharSelect) {
+    propTargetCharSelect.addEventListener('change', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'prop') {
+        selEl.targetCharacterId = e.target.value;
+        const res = resolveCharacterJointForMarker(selEl);
+        if (res) {
+          selEl.targetBodyPart = res.jointLabel;
+          const bpInput = document.getElementById('propBodyPartInput');
+          if (bpInput) bpInput.value = selEl.targetBodyPart;
+        }
+        renderScene();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const propBodyPartInput = document.getElementById('propBodyPartInput');
+  if (propBodyPartInput) {
+    propBodyPartInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'prop') {
+        selEl.targetBodyPart = e.target.value.trim();
         renderScene();
         updateSpatialManifest();
       }
@@ -5972,6 +6214,36 @@
     const props = [];
     const lights = [];
     const notes = [];
+    const featureLines = [];
+    const charFeaturesMap = {};
+
+    // 1. Gather all character feature markers (e.g. robotic arm, eye scar, knee bandage)
+    state.elements.forEach(el => {
+      if (el.type === 'prop' && (el.markerRole === 'character_feature' || el.subtype === 'marker' || (el.markerRole !== 'environment' && el.targetBodyPart))) {
+        let targetChar = null;
+        if (el.targetCharacterId) {
+          targetChar = state.elements.find(x => x.id === el.targetCharacterId && x.type === 'character');
+        }
+        if (!targetChar) {
+          const res = resolveCharacterJointForMarker(el);
+          if (res) {
+            targetChar = res.character;
+            if (!el.targetBodyPart || el.targetBodyPart === 'Auto-Detect') {
+              el.targetBodyPart = res.jointLabel;
+            }
+          }
+        }
+        const charName = targetChar ? (targetChar.name || 'Character') : 'Subject';
+        const bp = el.targetBodyPart || 'Targeted Body Area';
+        const desc = (el.description && el.description.trim()) || el.label || 'distinctive detail';
+        const featStr = `[${bp}]: ${desc}`;
+        if (targetChar) {
+          if (!charFeaturesMap[targetChar.id]) charFeaturesMap[targetChar.id] = [];
+          charFeaturesMap[targetChar.id].push(featStr);
+        }
+        featureLines.push(`- [${charName}] -> ${featStr} (indicated by targeted body marker)`);
+      }
+    });
 
     state.elements.forEach(el => {
       const hNorm = el.x / state.width;
@@ -6009,6 +6281,11 @@
         if (el.hair && el.hair.trim()) charSpecs.push(`Hairstyle: ${el.hair.trim()}`);
         if (el.clothing && el.clothing.trim()) charSpecs.push(`Clothing / Outfit: ${el.clothing.trim()}`);
         if (el.details && el.details.trim()) charSpecs.push(`Accessories & Details: ${el.details.trim()}`);
+        if (charFeaturesMap[el.id] && charFeaturesMap[el.id].length > 0) {
+          charFeaturesMap[el.id].forEach(f => {
+            charSpecs.push(`Targeted Body Feature ${f}`);
+          });
+        }
         if (el.lookingAtId) {
           const targetEl = state.elements.find(x => x.id === el.lookingAtId);
           if (targetEl) {
@@ -6028,6 +6305,11 @@
         const specIndent = charSpecs.length > 0 ? `\n    ${charSpecs.join('\n    ')}` : '';
         subjects.push(`- [${el.name || 'Character'}] (${el.subtype || 'figure'}) positioned in ${loc}:\n    ${facingDesc}${poseStr}${scaleStr}${mirrorStr}${specIndent}`);
       } else if (el.type === 'prop') {
+        const isFeature = el.markerRole === 'character_feature' || el.subtype === 'marker' || (el.markerRole !== 'environment' && el.targetBodyPart);
+        if (isFeature) {
+          // Handled as character targeted body feature, skip environment prop
+          return;
+        }
         const descSuffix = (el.description && el.description.trim()) ? ` (${el.description.trim()})` : '';
         props.push(`- [${el.label || el.subtype}${descSuffix}] placed in ${loc}`);
       } else if (el.type === 'light') {
@@ -6052,7 +6334,13 @@
     }
     manifest += `\n`;
     if (subjects.length) manifest += `Subjects & Characters:\n${subjects.join('\n')}\n\n`;
+    if (featureLines.length) manifest += `Character Targeted Features & Body Modifications:\n${featureLines.join('\n')}\n\n`;
     if (props.length) manifest += `Props & Environment:\n${props.join('\n')}\n\n`;
+    if (lights.length) manifest += `Lighting Vectors:\n${lights.join('\n')}\n\n`;
+    if (notes.length) manifest += `Directives & Notes:\n${notes.join('\n')}`;
+
+    viewer.textContent = manifest.trim();
+  }
     if (lights.length) manifest += `Lighting Vectors:\n${lights.join('\n')}\n\n`;
     if (notes.length) manifest += `Directives & Notes:\n${notes.join('\n')}`;
 
