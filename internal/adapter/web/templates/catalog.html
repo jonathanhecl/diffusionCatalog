@@ -6915,6 +6915,12 @@
   if (btnImageToScene && imageToSceneModal) {
     btnImageToScene.addEventListener('click', () => {
       imageToSceneModal.style.display = 'flex';
+      if (typeof window.switchI2SProvider === 'function') {
+        window.switchI2SProvider();
+      }
+      if (typeof window.refreshAIStatusAsync === 'function') {
+        window.refreshAIStatusAsync(false);
+      }
     });
 
     if (i2sDropzone && i2sFileInput) {
@@ -8608,29 +8614,43 @@
           if (!st) return;
           if (st.ollama_models) {
             window.aiProviderConfig.ollama.models = st.ollama_models.map(function(m) {
-              return { name: m.Name, vision: m.HasVision, size: m.ParameterSize };
+              return {
+                name: m.name || m.Name || '',
+                vision: (m.has_vision !== undefined) ? m.has_vision : !!m.HasVision,
+                size: m.parameter_size || m.ParameterSize || ''
+              };
             });
           }
           if (st.omlx_models) {
             window.aiProviderConfig.openai.models = st.omlx_models.map(function(m) {
-              return { name: m.Name, vision: m.HasVision, size: m.ParameterSize };
+              return {
+                name: m.name || m.Name || '',
+                vision: (m.has_vision !== undefined) ? m.has_vision : !!m.HasVision,
+                size: m.parameter_size || m.ParameterSize || ''
+              };
             });
           }
           var dlAll = document.getElementById('ai-models-all');
           if (dlAll && st.all_models) {
             dlAll.innerHTML = st.all_models.map(function(m) {
-              var fam = m.Family ? ' ' + m.Family : '';
-              var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
-              var ctx = m.ContextLength ? ' ctx:' + m.ContextLength : '';
-              return '<option value="' + m.Name + '">[' + m.Provider + ']' + fam + sz + ctx + '</option>';
+              var mName = m.name || m.Name || '';
+              var fam = (m.family || m.Family) ? ' ' + (m.family || m.Family) : '';
+              var sz = (m.parameter_size || m.ParameterSize) ? ' (' + (m.parameter_size || m.ParameterSize) + ')' : '';
+              var ctx = (m.context_length || m.ContextLength) ? ' ctx:' + (m.context_length || m.ContextLength) : '';
+              var prov = m.provider || m.Provider || '';
+              return '<option value="' + mName + '">[' + prov + ']' + fam + sz + ctx + '</option>';
             }).join('');
           }
           var dlVis = document.getElementById('ai-models-vision');
           if (dlVis && st.all_models) {
-            dlVis.innerHTML = st.all_models.filter(function(m) { return m.HasVision; }).map(function(m) {
-              var status = m.VisionStatus ? ' (' + m.VisionStatus + ')' : '';
-              var ctx = m.ContextLength ? ' ctx:' + m.ContextLength : '';
-              return '<option value="' + m.Name + '">[' + m.Provider + '] Vision' + status + ctx + '</option>';
+            dlVis.innerHTML = st.all_models.filter(function(m) {
+              return (m.has_vision !== undefined) ? m.has_vision : m.HasVision;
+            }).map(function(m) {
+              var mName = m.name || m.Name || '';
+              var status = (m.vision_status || m.VisionStatus) ? ' (' + (m.vision_status || m.VisionStatus) + ')' : '';
+              var ctx = (m.context_length || m.ContextLength) ? ' ctx:' + (m.context_length || m.ContextLength) : '';
+              var prov = m.provider || m.Provider || '';
+              return '<option value="' + mName + '">[' + prov + '] Vision' + status + ctx + '</option>';
             }).join('');
           }
           if (document.getElementById('remixProviderSelect')) switchProviderSelect('remix');
