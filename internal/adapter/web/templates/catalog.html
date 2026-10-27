@@ -2654,6 +2654,26 @@
       </div>
 
       <!-- Modal: Álbum de Posiciones Artísticas (Visual Pose Gallery) -->
+      <style>
+        .pose-cat-btn.active {
+          background: #0284c7 !important;
+          color: #ffffff !important;
+          border-color: #0369a1 !important;
+          font-weight: 600 !important;
+        }
+        .pose-gallery-card {
+          transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+        .pose-gallery-card:hover {
+          transform: translateY(-2px);
+          border-color: #0284c7 !important;
+          background: #111d33 !important;
+          box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3) !important;
+        }
+        .pose-gallery-card:active {
+          transform: translateY(0);
+        }
+      </style>
       <div id="poseGalleryModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
         <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:12px;width:96%;max-width:980px;height:90vh;max-height:820px;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.95);overflow:hidden;">
           
@@ -3134,7 +3154,179 @@
       nose:{x:44,y:36},neck:{x:42,y:46},r_shoulder:{x:38,y:50},r_elbow:{x:34,y:68},r_wrist:{x:40,y:80},
       l_shoulder:{x:48,y:50},l_elbow:{x:58,y:60},l_wrist:{x:54,y:72},mid_hip:{x:50,y:74},
       r_hip:{x:52,y:76},r_knee:{x:70,y:76},r_ankle:{x:90,y:78},l_hip:{x:48,y:76},l_knee:{x:68,y:70},l_ankle:{x:88,y:72}
+    },
+
+    // --- 20 Álbum de Posiciones Artísticas (Mannequin Anatomy Reference) ---
+    "Art: Contrapposto & Hip": {
+      nose:{x:48,y:13},neck:{x:50,y:22},r_shoulder:{x:41,y:24},r_elbow:{x:29,y:36},r_wrist:{x:39,y:46},
+      l_shoulder:{x:59,y:25},l_elbow:{x:72,y:18},l_wrist:{x:56,y:12},mid_hip:{x:51,y:52},
+      r_hip:{x:44,y:53},r_knee:{x:43,y:73},r_ankle:{x:44,y:95},l_hip:{x:58,y:53},l_knee:{x:62,y:74},l_ankle:{x:66,y:95}
+    },
+    "Art: Hands Behind Head": {
+      nose:{x:50,y:13},neck:{x:50,y:22},r_shoulder:{x:41,y:25},r_elbow:{x:28,y:16},r_wrist:{x:44,y:12},
+      l_shoulder:{x:59,y:25},l_elbow:{x:72,y:16},l_wrist:{x:56,y:12},mid_hip:{x:50,y:53},
+      r_hip:{x:44,y:54},r_knee:{x:43,y:74},r_ankle:{x:43,y:95},l_hip:{x:56,y:54},l_knee:{x:57,y:74},l_ankle:{x:57,y:95}
+    },
+    "Art: 3/4 Over Shoulder": {
+      nose:{x:56,y:13},neck:{x:52,y:22},r_shoulder:{x:48,y:24},r_elbow:{x:44,y:38},r_wrist:{x:43,y:52},
+      l_shoulder:{x:58,y:24},l_elbow:{x:68,y:34},l_wrist:{x:56,y:44},mid_hip:{x:52,y:53},
+      r_hip:{x:47,y:54},r_knee:{x:45,y:74},r_ankle:{x:44,y:95},l_hip:{x:57,y:54},l_knee:{x:59,y:74},l_ankle:{x:60,y:95}
+    },
+    "Art: Leaning on Knees": {
+      nose:{x:50,y:16},neck:{x:50,y:25},r_shoulder:{x:40,y:27},r_elbow:{x:37,y:44},r_wrist:{x:40,y:64},
+      l_shoulder:{x:60,y:27},l_elbow:{x:63,y:44},l_wrist:{x:60,y:64},mid_hip:{x:50,y:50},
+      r_hip:{x:43,y:52},r_knee:{x:41,y:65},r_ankle:{x:40,y:95},l_hip:{x:57,y:52},l_knee:{x:59,y:65},l_ankle:{x:60,y:95}
+    },
+    "Art: Side Hip Rest (Mermaid)": {
+      nose:{x:47,y:22},neck:{x:44,y:31},r_shoulder:{x:36,y:34},r_elbow:{x:33,y:52},r_wrist:{x:31,y:70},
+      l_shoulder:{x:52,y:33},l_elbow:{x:58,y:48},l_wrist:{x:64,y:62},mid_hip:{x:50,y:64},
+      r_hip:{x:44,y:66},r_knee:{x:58,y:78},r_ankle:{x:82,y:74},l_hip:{x:56,y:65},l_knee:{x:66,y:76},l_ankle:{x:88,y:72}
+    },
+    "Art: Kneeling on Heels": {
+      nose:{x:50,y:22},neck:{x:50,y:31},r_shoulder:{x:40,y:33},r_elbow:{x:35,y:48},r_wrist:{x:37,y:65},
+      l_shoulder:{x:60,y:33},l_elbow:{x:65,y:48},l_wrist:{x:63,y:65},mid_hip:{x:50,y:62},
+      r_hip:{x:43,y:64},r_knee:{x:41,y:84},r_ankle:{x:38,y:92},l_hip:{x:57,y:64},l_knee:{x:59,y:84},l_ankle:{x:62,y:92}
+    },
+    "Art: Tall Kneeling Back-Arch": {
+      nose:{x:50,y:21},neck:{x:50,y:29},r_shoulder:{x:41,y:31},r_elbow:{x:28,y:22},r_wrist:{x:44,y:18},
+      l_shoulder:{x:59,y:31},l_elbow:{x:72,y:22},l_wrist:{x:56,y:18},mid_hip:{x:50,y:57},
+      r_hip:{x:44,y:59},r_knee:{x:42,y:84},r_ankle:{x:40,y:95},l_hip:{x:56,y:59},l_knee:{x:58,y:84},l_ankle:{x:60,y:95}
+    },
+    "Art: All Fours Crawl Front": {
+      nose:{x:50,y:23},neck:{x:50,y:32},r_shoulder:{x:38,y:34},r_elbow:{x:34,y:54},r_wrist:{x:33,y:76},
+      l_shoulder:{x:62,y:34},l_elbow:{x:66,y:54},l_wrist:{x:67,y:76},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:55},r_knee:{x:41,y:74},r_ankle:{x:38,y:78},l_hip:{x:56,y:55},l_knee:{x:59,y:74},l_ankle:{x:62,y:78}
+    },
+    "Art: Side Recline Head on Hand": {
+      nose:{x:23,y:46},neck:{x:30,y:49},r_shoulder:{x:27,y:49},r_elbow:{x:20,y:53},r_wrist:{x:24,y:47},
+      l_shoulder:{x:37,y:50},l_elbow:{x:48,y:48},l_wrist:{x:58,y:52},mid_hip:{x:53,y:53},
+      r_hip:{x:54,y:50},r_knee:{x:71,y:52},r_ankle:{x:90,y:54},l_hip:{x:55,y:56},l_knee:{x:68,y:60},l_ankle:{x:84,y:64}
+    },
+    "Art: Prone Feet Raised": {
+      nose:{x:50,y:46},neck:{x:50,y:54},r_shoulder:{x:40,y:53},r_elbow:{x:38,y:68},r_wrist:{x:46,y:54},
+      l_shoulder:{x:60,y:53},l_elbow:{x:62,y:68},l_wrist:{x:54,y:54},mid_hip:{x:50,y:68},
+      r_hip:{x:44,y:66},r_knee:{x:35,y:56},r_ankle:{x:32,y:22},l_hip:{x:56,y:66},l_knee:{x:65,y:56},l_ankle:{x:68,y:22}
+    },
+    "Art: Prone Cobra Backbend": {
+      nose:{x:65,y:44},neck:{x:66,y:52},r_shoulder:{x:64,y:54},r_elbow:{x:64,y:68},r_wrist:{x:65,y:84},
+      l_shoulder:{x:68,y:54},l_elbow:{x:69,y:68},l_wrist:{x:71,y:84},mid_hip:{x:52,y:72},
+      r_hip:{x:51,y:73},r_knee:{x:40,y:76},r_ankle:{x:26,y:78},l_hip:{x:53,y:73},l_knee:{x:38,y:76},l_ankle:{x:24,y:78}
+    },
+    "Art: Wide Stride Bench Sit": {
+      nose:{x:50,y:22},neck:{x:50,y:32},r_shoulder:{x:40,y:34},r_elbow:{x:36,y:52},r_wrist:{x:40,y:68},
+      l_shoulder:{x:60,y:34},l_elbow:{x:64,y:52},l_wrist:{x:60,y:68},mid_hip:{x:50,y:62},
+      r_hip:{x:44,y:63},r_knee:{x:28,y:72},r_ankle:{x:26,y:92},l_hip:{x:56,y:63},l_knee:{x:72,y:72},l_ankle:{x:74,y:92}
+    },
+    "Art: Deep Malasana Squat": {
+      nose:{x:50,y:32},neck:{x:50,y:42},r_shoulder:{x:40,y:44},r_elbow:{x:30,y:60},r_wrist:{x:26,y:76},
+      l_shoulder:{x:60,y:44},l_elbow:{x:70,y:60},l_wrist:{x:74,y:76},mid_hip:{x:50,y:74},
+      r_hip:{x:43,y:75},r_knee:{x:25,y:77},r_ankle:{x:29,y:95},l_hip:{x:57,y:75},l_knee:{x:75,y:77},l_ankle:{x:71,y:95}
+    },
+    "Art: Seated Floor Straddle": {
+      nose:{x:49,y:33},neck:{x:50,y:41},r_shoulder:{x:42,y:43},r_elbow:{x:38,y:56},r_wrist:{x:35,y:68},
+      l_shoulder:{x:58,y:43},l_elbow:{x:62,y:56},l_wrist:{x:65,y:68},mid_hip:{x:50,y:68},
+      r_hip:{x:45,y:69},r_knee:{x:34,y:79},r_ankle:{x:18,y:92},l_hip:{x:55,y:69},l_knee:{x:66,y:79},l_ankle:{x:82,y:92}
+    },
+    "Art: Tabletop Bridge": {
+      nose:{x:27,y:65},neck:{x:32,y:67},r_shoulder:{x:32,y:69},r_elbow:{x:40,y:74},r_wrist:{x:50,y:79},
+      l_shoulder:{x:35,y:68},l_elbow:{x:43,y:75},l_wrist:{x:53,y:81},mid_hip:{x:55,y:55},
+      r_hip:{x:56,y:55},r_knee:{x:72,y:54},r_ankle:{x:74,y:76},l_hip:{x:58,y:55},l_knee:{x:76,y:55},l_ankle:{x:78,y:78}
+    },
+    "Art: Flamingo One-Leg Stand": {
+      nose:{x:51,y:13},neck:{x:51,y:22},r_shoulder:{x:44,y:24},r_elbow:{x:40,y:38},r_wrist:{x:47,y:48},
+      l_shoulder:{x:58,y:24},l_elbow:{x:61,y:38},l_wrist:{x:53,y:48},mid_hip:{x:50,y:54},
+      r_hip:{x:45,y:55},r_knee:{x:46,y:46},r_ankle:{x:47,y:68},l_hip:{x:55,y:55},l_knee:{x:54,y:75},l_ankle:{x:53,y:95}
+    },
+    "Art: Wide Kneeling Stance": {
+      nose:{x:50,y:22},neck:{x:50,y:32},r_shoulder:{x:40,y:34},r_elbow:{x:34,y:50},r_wrist:{x:32,y:68},
+      l_shoulder:{x:60,y:34},l_elbow:{x:66,y:50},l_wrist:{x:68,y:68},mid_hip:{x:50,y:62},
+      r_hip:{x:44,y:64},r_knee:{x:30,y:84},r_ankle:{x:24,y:94},l_hip:{x:56,y:64},l_knee:{x:70,y:84},l_ankle:{x:76,y:94}
+    },
+    "Art: Single Leg Bridge Raise": {
+      nose:{x:23,y:77},neck:{x:27,y:78},r_shoulder:{x:29,y:78},r_elbow:{x:25,y:83},r_wrist:{x:20,y:84},
+      l_shoulder:{x:31,y:78},l_elbow:{x:27,y:84},l_wrist:{x:22,y:85},mid_hip:{x:51,y:68},
+      r_hip:{x:52,y:68},r_knee:{x:58,y:55},r_ankle:{x:62,y:24},l_hip:{x:50,y:68},l_knee:{x:63,y:73},l_ankle:{x:67,y:92}
+    },
+    "Art: Seated Vertical Leg Stretch": {
+      nose:{x:59,y:39},neck:{x:58,y:47},r_shoulder:{x:53,y:49},r_elbow:{x:47,y:36},r_wrist:{x:42,y:22},
+      l_shoulder:{x:63,y:49},l_elbow:{x:68,y:62},l_wrist:{x:72,y:78},mid_hip:{x:54,y:76},
+      r_hip:{x:52,y:77},r_knee:{x:48,y:52},r_ankle:{x:43,y:20},l_hip:{x:56,y:77},l_knee:{x:50,y:88},l_ankle:{x:42,y:92}
+    },
+    "Art: Wall Push Leaning": {
+      nose:{x:64,y:19},neck:{x:62,y:28},r_shoulder:{x:59,y:30},r_elbow:{x:73,y:28},r_wrist:{x:88,y:26},
+      l_shoulder:{x:63,y:30},l_elbow:{x:76,y:29},l_wrist:{x:91,y:27},mid_hip:{x:50,y:54},
+      r_hip:{x:48,y:56},r_knee:{x:44,y:74},r_ankle:{x:40,y:95},l_hip:{x:52,y:56},l_knee:{x:58,y:74},l_ankle:{x:64,y:95}
     }
+  };
+
+  const POSE_METADATA = {
+    // 20 Álbum Artístico Presets
+    "Art: Contrapposto & Hip": { category: "standing", label: "Contrapposto & Cadera", desc: "Apoyo en una pierna, mano en nuca y cadera" },
+    "Art: Hands Behind Head": { category: "standing", label: "Manos tras la Nuca", desc: "De pie frontal erguida, manos tras nuca" },
+    "Art: 3/4 Over Shoulder": { category: "standing", label: "3/4 Sobre el Hombro", desc: "De espaldas mirando sobre el hombro" },
+    "Art: Leaning on Knees": { category: "standing", label: "Inclinada en Rodillas", desc: "Torso inclinado con manos apoyadas en rodillas" },
+    "Art: Flamingo One-Leg Stand": { category: "standing", label: "Flamenco (Una Pierna)", desc: "Equilibrio en una pierna sosteniendo rodilla al pecho" },
+    "Art: Wall Push Leaning": { category: "standing", label: "Empuje / Apoyo Frontal", desc: "Inclinada adelante apoyando ambas manos" },
+
+    "Art: Kneeling on Heels": { category: "kneeling", label: "Arrodillada en Talones", desc: "De rodillas sentada en talones con manos en muslos" },
+    "Art: Tall Kneeling Back-Arch": { category: "kneeling", label: "Arrodillada con Arqueo", desc: "Arrodillada erguida con manos en nuca y arqueo" },
+    "Art: All Fours Crawl Front": { category: "kneeling", label: "A Cuatro Patas Frontal", desc: "Cuadrupedia frontal mirando hacia adelante" },
+    "Art: Wide Kneeling Stance": { category: "kneeling", label: "Rodillas Separadas", desc: "De rodillas con apertura amplia de piernas" },
+
+    "Art: Side Hip Rest (Mermaid)": { category: "sitting", label: "Sentada Sirena", desc: "De lado sobre cadera con piernas recogidas" },
+    "Art: Wide Stride Bench Sit": { category: "sitting", label: "Sentada Piernas Abiertas", desc: "Sentada frontal con piernas separadas" },
+    "Art: Deep Malasana Squat": { category: "sitting", label: "Sentadilla Malasana", desc: "Cuclillas profundas con rodillas abiertas" },
+    "Art: Seated Floor Straddle": { category: "sitting", label: "Sentada en V (Straddle)", desc: "Suelo con piernas abiertas en V y manos atrás" },
+    "Art: Seated Vertical Leg Stretch": { category: "sitting", label: "Estiramiento Pierna Vertical", desc: "Sentada en suelo sujetando pierna vertical" },
+
+    "Art: Side Recline Head on Hand": { category: "lying", label: "Reclinada Cabeza en Mano", desc: "Tumbada lateral apoyando cabeza en mano" },
+    "Art: Prone Feet Raised": { category: "lying", label: "Boca Abajo Pies Alzados", desc: "Boca abajo con barbilla en manos y pies elevados" },
+    "Art: Prone Cobra Backbend": { category: "lying", label: "Cobra Arqueada", desc: "Boca abajo arqueando torso con brazos estirados" },
+    "Art: Tabletop Bridge": { category: "lying", label: "Puente Mesa Invertido", desc: "Puente mirando arriba sobre 4 apoyos" },
+    "Art: Single Leg Bridge Raise": { category: "lying", label: "Puente con Pierna Alzada", desc: "Puente dorsal con una pierna vertical" },
+
+    // Built-in Library Frontal
+    "Standing Idle": { category: "standing", label: "De pie relajado", desc: "Postura erguida natural" },
+    "Walking / Striding": { category: "standing", label: "Caminando", desc: "Paso firme hacia adelante" },
+    "Running / Sprint": { category: "action", label: "Corriendo / Sprint", desc: "Carrera atlética intensa" },
+    "Sitting Relaxed": { category: "sitting", label: "Sentado relajado", desc: "Sentado natural en silla/sofá" },
+    "Crouching Action": { category: "action", label: "Agachado alerta", desc: "Postura agachada de sigilo" },
+    "Arms Crossed": { category: "standing", label: "Brazos cruzados", desc: "Postura desafiante con brazos cruzados" },
+    "Hands on Hips": { category: "standing", label: "Manos en la cintura", desc: "Postura heroica o de confianza" },
+    "Reaching Dynamic": { category: "action", label: "Alcanzando arriba", desc: "Brazo estirado hacia lo alto" },
+    "Lying Down": { category: "lying", label: "Tumbado / Supino", desc: "Tumbado horizontalmente" },
+    "Kneeling (Both Knees)": { category: "kneeling", label: "Arrodillado (Ambas)", desc: "De rodillas erguido" },
+    "Kneeling (One Knee)": { category: "kneeling", label: "Una rodilla al suelo", desc: "Caballero o postura de guardia" },
+    "Crawling / All Fours": { category: "kneeling", label: "A cuatro patas", desc: "Gateo en el suelo" },
+    "Hanging / Suspended": { category: "action", label: "Colgando / Suspendido", desc: "Brazos elevados sosteniéndose" },
+    "Climbing (Ladder / Stairs)": { category: "action", label: "Escalando", desc: "Subiendo escalera o muro" },
+    "Hands Up (Surrender / Cheer)": { category: "action", label: "Manos arriba", desc: "Brazos en alto festejo o sorpresa" },
+    "Pointing Forward": { category: "standing", label: "Señalando al frente", desc: "Brazo extendido apuntando" },
+    "Hands on Face (Shock)": { category: "standing", label: "Manos a la cara (Shock)", desc: "Gesto de sorpresa o impacto" },
+    "Boxing Guard (Defense)": { category: "action", label: "Guardia de boxeo", desc: "Puños en alto protegiendo" },
+    "Sitting Cross-Legged (Lotus)": { category: "sitting", label: "Sentado loto / Meditación", desc: "Piernas cruzadas en el suelo" },
+    "Sitting Legs Forward": { category: "sitting", label: "Sentado piernas al frente", desc: "Sentado en el suelo piernas estiradas" },
+    "Sitting Legs Spread (V-Sit)": { category: "sitting", label: "Sentado piernas en V", desc: "Sentado con piernas abiertas" },
+    "High Kick (Martial Arts)": { category: "action", label: "Patada alta marcial", desc: "Patada lateral dinámica elevada" },
+    "Knee Down Reaching Ground": { category: "kneeling", label: "Rodilla al suelo tocando piso", desc: "Agachado tocando el piso" },
+    "Presenter (Pointing Side)": { category: "standing", label: "Presentador / Anunciante", desc: "Mostrando hacia un lado" },
+    "Arms Crossed (X-Pose)": { category: "standing", label: "Brazos en X", desc: "Antebrazos cruzados en X" },
+    "Leaning Against Wall": { category: "standing", label: "Apoyado en pared", desc: "Postura casual recostada" },
+    "Victory (Chest Out)": { category: "standing", label: "Victoria / Pecho al frente", desc: "Celebración con orgullo" },
+    "Defeated (Collapsed)": { category: "lying", label: "Derrotado en suelo", desc: "Colapsado en el piso" },
+    "Kneeling Head Down (Child's Pose)": { category: "kneeling", label: "Postura del niño (Yoga)", desc: "Arrodillado con frente al suelo" },
+    "Supine Knees Bent": { category: "lying", label: "Tumbado rodillas flexionadas", desc: "Boca arriba con rodillas alzadas" },
+    "Push-Up (Plank)": { category: "action", label: "Flexión / Plancha", desc: "Apoyo en manos y pies en tabla" },
+    "Shield Advance (Combat Stride)": { category: "action", label: "Avance con escudo", desc: "Zancada táctica de combate" },
+    "Leaning Forward (Balcony)": { category: "standing", label: "Asomado al balcón", desc: "Apoyado hacia adelante" },
+    "Pushing Heavy Load": { category: "action", label: "Empujando carga pesada", desc: "Fuerza inclinada hacia adelante" },
+    "Half Forward Fold (90°)": { category: "standing", label: "Flexión a 90°", desc: "Torso inclinado a 90 grados" },
+    "Downward-Facing Dog (Yoga)": { category: "action", label: "Perro boca abajo (Yoga)", desc: "V invertida manos y pies al suelo" },
+    "Warrior II (Yoga Pose)": { category: "action", label: "Guerrero II (Yoga)", desc: "Apertura amplia brazos extendidos" },
+    "Cobra Pose (Upward Backbend)": { category: "lying", label: "Postura de la Cobra", desc: "Boca abajo arqueando torso" },
+    "Model Cross-Legged (Runway)": { category: "standing", label: "Modelo piernas cruzadas", desc: "Paso de pasarela estilizado" },
+    "Sensual Cat Crawl (To Camera)": { category: "kneeling", label: "Gateo felino hacia cámara", desc: "Postura felina a cuatro patas" },
+    "Model Lounging Recline (Glamour)": { category: "lying", label: "Reclinado glamour", desc: "Tumbado lateral estilizado" }
   };
 
   const POSE_FRONT_TO_SIDE = {
@@ -5493,6 +5685,282 @@
       }
     } catch(err) {
       showToast("Network error saving pose: " + err.message, "error");
+    }
+  });
+
+  // --- Visual Pose Gallery Modal & Micro-Skeleton Generator ---
+  function createPoseThumbnailSVG(pose, size = 100) {
+    if (!pose) return '';
+    const bones = [
+      { from: "neck", to: "nose", color: "#ec4899" },
+      { from: "neck", to: "mid_hip", color: "#f43f5e" },
+      { from: "neck", to: "r_shoulder", color: "#f59e0b" },
+      { from: "r_shoulder", to: "r_elbow", color: "#eab308" },
+      { from: "r_elbow", to: "r_wrist", color: "#facc15" },
+      { from: "neck", to: "l_shoulder", color: "#06b6d4" },
+      { from: "l_shoulder", to: "l_elbow", color: "#0ea5e9" },
+      { from: "l_elbow", to: "l_wrist", color: "#38bdf8" },
+      { from: "mid_hip", to: "r_hip", color: "#10b981" },
+      { from: "r_hip", to: "r_knee", color: "#22c55e" },
+      { from: "r_knee", to: "r_ankle", color: "#4ade80" },
+      { from: "mid_hip", to: "l_hip", color: "#3b82f6" },
+      { from: "l_hip", to: "l_knee", color: "#6366f1" },
+      { from: "l_knee", to: "l_ankle", color: "#818cf8" }
+    ];
+
+    let lines = '';
+    bones.forEach(b => {
+      const p1 = pose[b.from];
+      const p2 = pose[b.to];
+      if (p1 && p2 && p1.x != null && p1.y != null && p2.x != null && p2.y != null) {
+        lines += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${b.color}" stroke-width="4.5" stroke-linecap="round" />`;
+      }
+    });
+
+    let head = '';
+    if (pose.nose && pose.nose.x != null) {
+      head = `<circle cx="${pose.nose.x}" cy="${pose.nose.y}" r="6.5" fill="rgba(236,72,153,0.25)" stroke="#ec4899" stroke-width="2" />`;
+    }
+
+    let joints = '';
+    for (const k in pose) {
+      const pt = pose[k];
+      if (pt && pt.x != null && pt.y != null) {
+        joints += `<circle cx="${pt.x}" cy="${pt.y}" r="2.2" fill="#ffffff" />`;
+      }
+    }
+
+    return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" style="background:#050a14;display:block;border-radius:6px;width:100%;height:100%;">${lines}${head}${joints}</svg>`;
+  }
+
+  let activePoseGalleryCategory = 'all';
+
+  function updatePoseGalleryCounts() {
+    const counts = { all: 0, standing: 0, kneeling: 0, sitting: 0, lying: 0, action: 0 };
+    Object.keys(POSE_PRESETS).forEach(pName => {
+      if (pName.endsWith('(Side)')) return;
+      const meta = POSE_METADATA[pName] || { category: 'standing' };
+      const cat = meta.category || 'standing';
+      if (counts[cat] !== undefined) counts[cat]++;
+      counts.all++;
+    });
+
+    const setTxt = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+    setTxt('pose-count-all', counts.all);
+    setTxt('pose-count-standing', counts.standing);
+    setTxt('pose-count-kneeling', counts.kneeling);
+    setTxt('pose-count-sitting', counts.sitting);
+    setTxt('pose-count-lying', counts.lying);
+    setTxt('pose-count-action', counts.action);
+  }
+
+  function renderPoseGallery(filterCat = activePoseGalleryCategory, searchQuery = '') {
+    activePoseGalleryCategory = filterCat;
+    const grid = document.getElementById('poseGalleryGrid');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+    const q = searchQuery.toLowerCase().trim();
+
+    // Collect candidate poses
+    const poseEntries = [];
+    Object.keys(POSE_PRESETS).forEach(pName => {
+      if (pName.endsWith('(Side)') && !q.includes('side')) return;
+      const meta = POSE_METADATA[pName] || {
+        category: pName.toLowerCase().includes('sit') ? 'sitting' :
+                  pName.toLowerCase().includes('kneel') ? 'kneeling' :
+                  pName.toLowerCase().includes('ly') || pName.toLowerCase().includes('bridge') ? 'lying' : 'standing',
+        label: pName,
+        desc: ''
+      };
+      poseEntries.push({
+        name: pName,
+        pose: POSE_PRESETS[pName],
+        category: meta.category || 'standing',
+        label: meta.label || pName,
+        desc: meta.desc || ''
+      });
+    });
+
+    // Also include custom saved studio poses from select if any
+    const pSel = document.getElementById('posePresetSelect');
+    if (pSel) {
+      Array.from(pSel.options).forEach(opt => {
+        if (opt.value && opt.hasAttribute('data-pose') && !POSE_PRESETS[opt.value]) {
+          try {
+            const parsed = JSON.parse(opt.getAttribute('data-pose'));
+            poseEntries.push({
+              name: opt.value,
+              pose: parsed,
+              category: 'custom',
+              label: opt.textContent,
+              desc: 'Postura personalizada guardada'
+            });
+          } catch(e) {}
+        }
+      });
+    }
+
+    let renderedCount = 0;
+    const selEl = state.elements.find(x => x.id === state.selectedId);
+    const currentPoseName = selEl ? selEl.poseName : null;
+
+    poseEntries.forEach(item => {
+      // Category filter
+      if (filterCat !== 'all' && item.category !== filterCat) return;
+
+      // Search query filter
+      if (q) {
+        const text = (item.name + ' ' + item.label + ' ' + item.desc + ' ' + item.category).toLowerCase();
+        if (!text.includes(q)) return;
+      }
+
+      renderedCount++;
+      const isCurrent = currentPoseName && (currentPoseName === item.name || currentPoseName === item.label);
+      const card = document.createElement('div');
+      card.className = 'pose-gallery-card';
+      card.setAttribute('data-posename', item.name);
+      card.style.cssText = `
+        cursor: pointer;
+        background: ${isCurrent ? '#0c223d' : '#0d1527'};
+        border: 1px solid ${isCurrent ? '#0284c7' : '#1e293b'};
+        border-radius: 8px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        text-align: center;
+        position: relative;
+      `;
+
+      if (isCurrent) {
+        const badge = document.createElement('div');
+        badge.style.cssText = 'position:absolute;top:4px;right:4px;background:#0284c7;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;';
+        badge.textContent = 'ACTUAL';
+        card.appendChild(badge);
+      }
+
+      const thumbWrap = document.createElement('div');
+      thumbWrap.style.cssText = 'width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;background:#050a14;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.06);';
+      thumbWrap.innerHTML = createPoseThumbnailSVG(item.pose, 110);
+      card.appendChild(thumbWrap);
+
+      const titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-size:11px;font-weight:600;color:#f1f5f9;line-height:1.2;margin-top:2px;max-width:100%;word-break:break-word;';
+      titleEl.textContent = item.label;
+      card.appendChild(titleEl);
+
+      if (item.desc) {
+        const descEl = document.createElement('div');
+        descEl.style.cssText = 'font-size:9.5px;color:#94a3b8;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;';
+        descEl.textContent = item.desc;
+        card.appendChild(descEl);
+      }
+
+      card.addEventListener('click', () => {
+        const selected = state.elements.find(x => x.id === state.selectedId);
+        if (!selected || selected.type !== 'character') {
+          showToast('Seleccioná primero un personaje en el escenario para aplicarle la postura.', 'error');
+          return;
+        }
+
+        applyPoseByName(item.name);
+        const statusEl = document.getElementById('poseGalleryStatus');
+        if (statusEl) {
+          statusEl.innerHTML = `Postura <strong style="color:#38bdf8;">${item.label}</strong> aplicada a <span style="color:#f8fafc;">${selected.name || 'Personaje'}</span>`;
+        }
+        showToast(`Postura "${item.label}" aplicada`, 'success');
+
+        const keepOpen = document.getElementById('chkKeepGalleryOpen') && document.getElementById('chkKeepGalleryOpen').checked;
+        if (!keepOpen) {
+          closePoseGallery();
+        } else {
+          renderPoseGallery(activePoseGalleryCategory, searchQuery);
+        }
+      });
+
+      grid.appendChild(card);
+    });
+
+    if (renderedCount === 0) {
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--text-muted);font-size:13px;">
+          No se encontraron posturas que coincidan con la búsqueda.
+        </div>
+      `;
+    }
+  }
+
+  function openPoseGallery() {
+    const modal = document.getElementById('poseGalleryModal');
+    if (!modal) return;
+    updatePoseGalleryCounts();
+
+    const selEl = state.elements.find(x => x.id === state.selectedId);
+    const statusEl = document.getElementById('poseGalleryStatus');
+    if (statusEl) {
+      if (selEl && selEl.type === 'character') {
+        statusEl.innerHTML = `Aplicando postura a: <strong style="color:#38bdf8;">${selEl.name || 'Personaje seleccionado'}</strong>`;
+      } else {
+        statusEl.textContent = 'Seleccioná una postura para aplicarla al personaje actual.';
+      }
+    }
+
+    renderPoseGallery(activePoseGalleryCategory, document.getElementById('poseGallerySearch')?.value || '');
+    modal.style.display = 'flex';
+  }
+
+  function closePoseGallery() {
+    const modal = document.getElementById('poseGalleryModal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  // Gallery Event Listeners
+  const btnOpenGallery = document.getElementById('btnOpenPoseGallery');
+  if (btnOpenGallery) btnOpenGallery.addEventListener('click', openPoseGallery);
+
+  const btnCloseGallery = document.getElementById('btnClosePoseGallery');
+  if (btnCloseGallery) btnCloseGallery.addEventListener('click', closePoseGallery);
+
+  const btnCancelGallery = document.getElementById('btnCancelPoseGallery');
+  if (btnCancelGallery) btnCancelGallery.addEventListener('click', closePoseGallery);
+
+  const modalGallery = document.getElementById('poseGalleryModal');
+  if (modalGallery) {
+    modalGallery.addEventListener('click', (e) => {
+      if (e.target === modalGallery) closePoseGallery();
+    });
+  }
+
+  // Category filter tabs
+  document.querySelectorAll('.pose-cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.pose-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const cat = btn.getAttribute('data-cat') || 'all';
+      renderPoseGallery(cat, document.getElementById('poseGallerySearch')?.value || '');
+    });
+  });
+
+  // Search input filter
+  const gallerySearch = document.getElementById('poseGallerySearch');
+  if (gallerySearch) {
+    gallerySearch.addEventListener('input', (e) => {
+      renderPoseGallery(activePoseGalleryCategory, e.target.value);
+    });
+  }
+
+  // Close with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const modal = document.getElementById('poseGalleryModal');
+      if (modal && modal.style.display === 'flex') {
+        closePoseGallery();
+      }
     }
   });
 
