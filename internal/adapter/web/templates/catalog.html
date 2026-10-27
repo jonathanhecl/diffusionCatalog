@@ -96,6 +96,212 @@
       }
     };
   </script>
+  <style>
+    /* Enhanced Dropdown & Preset Popover Styles for Scene Director */
+    .director-select {
+      background-color: #0b1329 !important;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2338bdf8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.75' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+      background-repeat: no-repeat !important;
+      background-position: right 7px center !important;
+      background-size: 13px !important;
+      border: 1px solid #1e3a8a !important;
+      border-radius: 5px !important;
+      padding: 4px 24px 4px 8px !important;
+      color: #e2e8f0 !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      cursor: pointer !important;
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      transition: all 0.15s ease !important;
+    }
+    .director-select:hover {
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.25) !important;
+    }
+    .director-select:focus {
+      outline: none !important;
+      border-color: #60a5fa !important;
+      box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.35) !important;
+    }
+
+    .preset-pill-btn {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #38bdf8;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      line-height: 1.4;
+    }
+    .preset-pill-btn:hover, .preset-pill-btn.active {
+      background: #1e293b;
+      border-color: #0284c7;
+      color: #7dd3fc;
+      box-shadow: 0 0 8px rgba(2, 132, 199, 0.3);
+    }
+
+    /* Floating Rich Dropdown Popover */
+    #presetDropdownPopover {
+      position: fixed;
+      background: #090e1a;
+      border: 1px solid #1e3a8a;
+      border-radius: 8px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.85), 0 0 0 1px rgba(56,189,248,0.25);
+      z-index: 100000;
+      width: 310px;
+      max-height: 380px;
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+      animation: presetPopFade 0.15s ease-out;
+    }
+    @keyframes presetPopFade {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .popover-header {
+      padding: 8px 10px;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .popover-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .popover-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .popover-close {
+      background: transparent;
+      border: none;
+      color: #64748b;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .popover-close:hover { color: #f87171; }
+
+    .popover-search {
+      width: 100%;
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      padding: 4px 8px;
+      color: #fff;
+      font-size: 11px;
+    }
+    .popover-search:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+
+    .popover-body {
+      overflow-y: auto;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 290px;
+    }
+    .popover-group-title {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 5px;
+      margin-bottom: 2px;
+      padding-left: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .popover-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 8px;
+      border-radius: 4px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      gap: 6px;
+    }
+    .popover-item:hover {
+      background: #1e293b;
+      border-color: #0284c7;
+    }
+    .popover-item-text {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .popover-item-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .popover-item-desc {
+      font-size: 9.5px;
+      color: #94a3b8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .popover-item-append {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #38bdf8;
+      border-radius: 3px;
+      padding: 2px 5px;
+      font-size: 9.5px;
+      font-weight: 700;
+      opacity: 0.7;
+      transition: all 0.12s;
+    }
+    .popover-item:hover .popover-item-append {
+      opacity: 1;
+      background: #0284c7;
+      color: #fff;
+      border-color: #0284c7;
+    }
+
+    .popover-footer {
+      padding: 5px 10px;
+      background: #020617;
+      border-top: 1px solid #1e293b;
+      font-size: 9.5px;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
 </head>
 <body>
   <!-- Global Scan Progress Banner (tracks async directory indexing in real-time with %, items, speed & ETA) -->
@@ -1542,7 +1748,7 @@
                 <!-- Looking At Gaze Target (Character, Prop, or Custom target) -->
                 <div id="lookingAtControlGroup" style="display:none;align-items:center;gap:6px;">
                   <span style="font-size:11px;color:#38bdf8;font-weight:600;" title="Objeto o personaje al que mira la figura">👀 Looking At:</span>
-                  <select id="charLookingAtSelect" style="background:var(--bg-input);border:1px solid #0284c7;border-radius:4px;padding:3px 8px;color:#e0f2fe;font-size:11px;font-weight:600;max-width:180px;">
+                  <select id="charLookingAtSelect" class="director-select" style="max-width:180px;">
                     <option value="">-- Camera / Neutral --</option>
                   </select>
                 </div>
@@ -1557,7 +1763,7 @@
                 <!-- Prop Type & View Control Group (Visible when a prop is selected) -->
                 <div id="propControlGroup" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
                   <span style="font-size:11px;color:#a78bfa;font-weight:600;">🛋️ Prop:</span>
-                  <select id="propSubtypeSelect" style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 8px;color:#fff;font-size:11px;font-weight:600;">
+                  <select id="propSubtypeSelect" class="director-select" style="max-width:170px;">
                     <option value="circle">&#9898; Generic Circle / Custom</option>
                     <option value="bed">&#128716; Bed (Cama)</option>
                     <option value="sofa">&#128715; Sofa</option>
@@ -1595,7 +1801,7 @@
 
                 <!-- Pose Dropdown + Save Pose Preset -->
                 <div id="poseControlGroup" style="display:flex;align-items:center;gap:5px;">
-                  <select id="posePresetSelect" style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 6px;color:#fff;font-size:11px;max-width:130px;">
+                  <select id="posePresetSelect" class="director-select" style="max-width:170px;">
                     <option value="">-- Apply Pose --</option>
                     {{range .StudioPoses}}
                       <option value="{{.Name}}" data-pose="{{.PoseJSON}}">{{.Name}}</option>
@@ -1632,226 +1838,248 @@
                     <span style="font-size:10.5px;color:var(--text-muted);font-style:italic;">All traits are automatically compiled into the AI Diffusion prompt</span>
                   </div>
 
-                  <div style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="display:flex;flex-direction:column;gap:10px;">
                     <!-- Row 1: Identity, Pose, Anatomy/Physique & Facial Expression -->
-                    <div style="display:grid;grid-template-columns: 130px 1.15fr 1.35fr 1.35fr;gap:8px;align-items:flex-start;">
+                    <div style="display:grid;grid-template-columns: 130px 1.15fr 1.35fr 1.35fr;gap:10px;align-items:flex-start;">
                       <!-- Name & Label -->
                       <div>
-                        <label style="display:block;font-size:10px;font-weight:600;color:#93c5fd;margin-bottom:2px;">Name / Label:</label>
+                        <div style="margin-bottom:3px;">
+                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;">Name / Label:</label>
+                        </div>
                         <input type="text" id="charNameInput" placeholder="e.g. Protagonist" 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#60a5fa;font-size:11px;font-weight:700;" />
+                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#60a5fa;font-size:11.5px;font-weight:700;" />
                       </div>
 
                       <!-- Pose / Posture (Editable, synchronized with active pose) -->
                       <div>
-                        <label style="display:block;font-size:10px;font-weight:600;color:#93c5fd;margin-bottom:2px;">Pose / Stance:</label>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Pose / Stance:</label>
+                          <button type="button" class="preset-pill-btn" data-preset-target="pose" title="Abrir selector visual de poses">
+                            <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                          </button>
+                        </div>
                         <input type="text" id="charPoseInput" placeholder="e.g. Standing Idle, leaning back..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#38bdf8;font-size:11px;font-weight:600;" />
+                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#38bdf8;font-size:11px;font-weight:600;" />
                       </div>
 
                       <!-- Anatomy & Physique (Presets dropdown + Free editing) -->
                       <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                          <label style="font-size:10px;font-weight:600;color:#93c5fd;">Anatomy &amp; Body:</label>
-                          <select id="charAnatomySelect" style="background:#0f172a;border:1px solid #334155;border-radius:3px;padding:1px 4px;color:#94a3b8;font-size:9.5px;max-width:110px;">
-                            <option value="">Presets...</option>
-                            <optgroup label="Body &amp; Physique">
-                              <option value="tall athletic muscular build">Athletic Muscular</option>
-                              <option value="lean slender agile build">Lean &amp; Slender</option>
-                              <option value="burly stocky broad-shouldered build">Stocky &amp; Burly</option>
-                              <option value="curvy hourglass feminine silhouette">Curvy Silhouette</option>
-                              <option value="petite compact short frame">Petite / Short</option>
-                              <option value="imposing towering giant stature">Tall &amp; Imposing</option>
-                              <option value="chubby soft rounded build">Soft / Chubby</option>
-                            </optgroup>
-                            <optgroup label="Age &amp; Archetypes">
-                              <option value="young adult in 20s with sharp features">Young Adult (20s)</option>
-                              <option value="mature adult in 40s with rugged handsome face">Mature Adult (40s)</option>
-                              <option value="distinguished elderly senior with silver stubble and wrinkles">Elderly Senior</option>
-                              <option value="youthful teenager with soft facial features">Teenager</option>
-                              <option value="cute playful child with bright eyes">Young Child</option>
-                            </optgroup>
-                            <optgroup label="Skin &amp; Marks">
-                              <option value="weathered face with prominent battle scar across left eye">Battle Scar on Eye</option>
-                              <option value="full rugged beard and thick mustache">Full Beard &amp; Mustache</option>
-                              <option value="clean-shaven chiseled jawline and piercing eyes">Chiseled Clean-shaven</option>
-                              <option value="freckled cheeks with sun-kissed tanned skin">Freckles &amp; Tan</option>
-                              <option value="pale porcelain skin with dark goth eyeliner">Pale Porcelain</option>
-                              <option value="glowing cybernetic optical implant on right temple">Cybernetic Eye Implant</option>
-                              <option value="intricate glowing biometric tattoos on face and neck">Glowing Cyber Tattoos</option>
-                              <option value="fierce war paint markings across bridge of nose">War Paint Markings</option>
-                            </optgroup>
-                          </select>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Anatomy &amp; Body:</label>
+                          <button type="button" class="preset-pill-btn" data-preset-target="anatomy" title="Abrir selector visual de anatomía">
+                            <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                          </button>
                         </div>
                         <input type="text" id="charAnatomyInput" placeholder="e.g. 28yo athletic muscular build, scar over eye..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;" />
-                        <!-- Fallback / compatibility elements for legacy scripts or assertions -->
+                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
+                        <!-- Compatibility select retained for tests and data structure -->
+                        <select id="charAnatomySelect" style="display:none;">
+                          <option value="">Presets...</option>
+                          <optgroup label="Body &amp; Physique">
+                            <option value="tall athletic muscular build">Athletic Muscular</option>
+                            <option value="lean slender agile build">Lean &amp; Slender</option>
+                            <option value="burly stocky broad-shouldered build">Stocky &amp; Burly</option>
+                            <option value="curvy hourglass feminine silhouette">Curvy Silhouette</option>
+                            <option value="petite compact short frame">Petite / Short</option>
+                            <option value="imposing towering giant stature">Tall &amp; Imposing</option>
+                            <option value="chubby soft rounded build">Soft / Chubby</option>
+                          </optgroup>
+                          <optgroup label="Age &amp; Archetypes">
+                            <option value="young adult in 20s with sharp features">Young Adult (20s)</option>
+                            <option value="mature adult in 40s with rugged handsome face">Mature Adult (40s)</option>
+                            <option value="distinguished elderly senior with silver stubble and wrinkles">Elderly Senior</option>
+                            <option value="youthful teenager with soft facial features">Teenager</option>
+                            <option value="cute playful child with bright eyes">Young Child</option>
+                          </optgroup>
+                          <optgroup label="Skin &amp; Marks">
+                            <option value="weathered face with prominent battle scar across left eye">Battle Scar on Eye</option>
+                            <option value="full rugged beard and thick mustache">Full Beard &amp; Mustache</option>
+                            <option value="clean-shaven chiseled jawline and piercing eyes">Chiseled Clean-shaven</option>
+                            <option value="freckled cheeks with sun-kissed tanned skin">Freckles &amp; Tan</option>
+                            <option value="pale porcelain skin with dark goth eyeliner">Pale Porcelain</option>
+                            <option value="glowing cybernetic optical implant on right temple">Cybernetic Eye Implant</option>
+                            <option value="intricate glowing biometric tattoos on face and neck">Glowing Cyber Tattoos</option>
+                            <option value="fierce war paint markings across bridge of nose">War Paint Markings</option>
+                          </optgroup>
+                        </select>
                         <select id="charFeaturesSelect" style="display:none;"></select>
                         <input type="hidden" id="charFeaturesInput" />
                       </div>
 
                       <!-- Expression & Emotion (Presets dropdown + Free editing) -->
                       <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                          <label style="font-size:10px;font-weight:600;color:#93c5fd;">Expression &amp; Mood:</label>
-                          <select id="charExpressionSelect" style="background:#0f172a;border:1px solid #334155;border-radius:3px;padding:1px 4px;color:#94a3b8;font-size:9.5px;max-width:110px;">
-                            <option value="">Presets...</option>
-                            <optgroup label="Positive &amp; Warm">
-                              <option value="warm gentle welcoming smile and kind eyes">Warm &amp; Smiling</option>
-                              <option value="cheerful vibrant hearty laugh with crinkled eyes">Hearty Laugh</option>
-                              <option value="mysterious confident smirk with raised eyebrow">Confident Smirk</option>
-                              <option value="flirty playful wink and gentle smile">Playful Wink</option>
-                              <option value="serene peaceful blissful expression with closed eyes">Serene &amp; Peaceful</option>
-                            </optgroup>
-                            <optgroup label="Intense &amp; Combat">
-                              <option value="fierce determined combat glare with clenched jaw">Fierce &amp; Determined</option>
-                              <option value="intense focused piercing stare with narrowed eyes">Intense Focused Stare</option>
-                              <option value="enraged screaming war cry with bared teeth">Screaming War Cry</option>
-                              <option value="menacing wicked grin with sinister eyes">Sinister / Wicked Grin</option>
-                            </optgroup>
-                            <optgroup label="Serious &amp; Melancholic">
-                              <option value="stoic emotionless expression with icy gaze">Stoic &amp; Serious</option>
-                              <option value="melancholic sorrowful look with glistening tears">Melancholic / Sad</option>
-                              <option value="shocked wide-eyed gasp in disbelief">Shocked &amp; Surprised</option>
-                              <option value="exhausted weary gaze with heavy eyelids">Weary &amp; Exhausted</option>
-                              <option value="nervous anxious sweating expression with darting eyes">Nervous &amp; Anxious</option>
-                            </optgroup>
-                          </select>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Expression &amp; Mood:</label>
+                          <button type="button" class="preset-pill-btn" data-preset-target="expression" title="Abrir selector visual de expresiones">
+                            <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                          </button>
                         </div>
                         <input type="text" id="charExpressionInput" placeholder="e.g. confident smirk, warm smile, intense glare..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;" />
+                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
+                        <select id="charExpressionSelect" style="display:none;">
+                          <option value="">Presets...</option>
+                          <optgroup label="Positive &amp; Warm">
+                            <option value="warm gentle welcoming smile and kind eyes">Warm &amp; Smiling</option>
+                            <option value="cheerful vibrant hearty laugh with crinkled eyes">Hearty Laugh</option>
+                            <option value="mysterious confident smirk with raised eyebrow">Confident Smirk</option>
+                            <option value="flirty playful wink and gentle smile">Playful Wink</option>
+                            <option value="serene peaceful blissful expression with closed eyes">Serene &amp; Peaceful</option>
+                          </optgroup>
+                          <optgroup label="Intense &amp; Combat">
+                            <option value="fierce determined combat glare with clenched jaw">Fierce &amp; Determined</option>
+                            <option value="intense focused piercing stare with narrowed eyes">Intense Focused Stare</option>
+                            <option value="enraged screaming war cry with bared teeth">Screaming War Cry</option>
+                            <option value="menacing wicked grin with sinister eyes">Sinister / Wicked Grin</option>
+                          </optgroup>
+                          <optgroup label="Serious &amp; Melancholic">
+                            <option value="stoic emotionless expression with icy gaze">Stoic &amp; Serious</option>
+                            <option value="melancholic sorrowful look with glistening tears">Melancholic / Sad</option>
+                            <option value="shocked wide-eyed gasp in disbelief">Shocked &amp; Surprised</option>
+                            <option value="exhausted weary gaze with heavy eyelids">Weary &amp; Exhausted</option>
+                            <option value="nervous anxious sweating expression with darting eyes">Nervous &amp; Anxious</option>
+                          </optgroup>
+                        </select>
                       </div>
                     </div>
 
                     <!-- Row 2: Styling, Outfit & Gear -->
-                    <div style="display:grid;grid-template-columns: 1fr 1.35fr 1.35fr;gap:8px;align-items:flex-start;">
+                    <div style="display:grid;grid-template-columns: 1fr 1.35fr 1.35fr;gap:10px;align-items:flex-start;">
                       <!-- Hairstyle (Presets dropdown + Free editing) -->
                       <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                          <label style="font-size:10px;font-weight:600;color:#93c5fd;">Hairstyle &amp; Color:</label>
-                          <select id="charHairSelect" style="background:#0f172a;border:1px solid #334155;border-radius:3px;padding:1px 4px;color:#94a3b8;font-size:9.5px;max-width:105px;">
-                            <option value="">Presets...</option>
-                            <optgroup label="Short Styles">
-                              <option value="messy short dark textured hair">Messy Short Hair</option>
-                              <option value="neat side part gentleman hairstyle">Neat Side Part</option>
-                              <option value="military high and tight buzz cut">Military Buzz Cut</option>
-                              <option value="clean shaved bald head">Clean Bald Head</option>
-                              <option value="shaved sides with textured pompadour">Pompadour Fade</option>
-                              <option value="slicked back hair with pomade sheen">Slicked Back</option>
-                            </optgroup>
-                            <optgroup label="Medium &amp; Long">
-                              <option value="long wavy cascading hair over shoulders">Long Wavy Hair</option>
-                              <option value="high sleek anime ponytail with flying bangs">High Ponytail</option>
-                              <option value="bob cut with blunt front fringe bangs">Bob Cut w/ Bangs</option>
-                              <option value="shoulder-length wolf cut with curtain bangs">Wolf / Shag Cut</option>
-                              <option value="flowing windblown wild locks">Windblown Wild Locks</option>
-                              <option value="cute playful twin pigtails with ribbons">Twin Pigtails</option>
-                            </optgroup>
-                            <optgroup label="Textured &amp; Braids">
-                              <option value="tight geometric cornrow braids">Cornrow Braids</option>
-                              <option value="voluminous natural curly afro hair">Curly Afro</option>
-                              <option value="thick dreadlocks tied back in a bun">Dreadlocks Bun</option>
-                              <option value="intricate viking braided warrior plaits">Viking Braids</option>
-                            </optgroup>
-                            <optgroup label="Alternative &amp; Fantasy">
-                              <option value="cyberpunk undercut with glowing neon dyed strands">Cyberpunk Neon Undercut</option>
-                              <option value="spiky anime protagonist gravity-defying hair">Spiky Anime Hair</option>
-                              <option value="platinum white long ethereal elf hair">Platinum Ethereal White</option>
-                              <option value="fiery red asymmetric undercut bob">Vibrant Fiery Red</option>
-                            </optgroup>
-                          </select>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Hairstyle &amp; Color:</label>
+                          <button type="button" class="preset-pill-btn" data-preset-target="hair" title="Abrir selector visual de peinados">
+                            <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                          </button>
                         </div>
                         <input type="text" id="charHairInput" placeholder="e.g. messy high ponytail, dark brown..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;" />
+                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
+                        <select id="charHairSelect" style="display:none;">
+                          <option value="">Presets...</option>
+                          <optgroup label="Short Styles">
+                            <option value="messy short dark textured hair">Messy Short Hair</option>
+                            <option value="neat side part gentleman hairstyle">Neat Side Part</option>
+                            <option value="military high and tight buzz cut">Military Buzz Cut</option>
+                            <option value="clean shaved bald head">Clean Bald Head</option>
+                            <option value="shaved sides with textured pompadour">Pompadour Fade</option>
+                            <option value="slicked back hair with pomade sheen">Slicked Back</option>
+                          </optgroup>
+                          <optgroup label="Medium &amp; Long">
+                            <option value="long wavy cascading hair over shoulders">Long Wavy Hair</option>
+                            <option value="high sleek anime ponytail with flying bangs">High Ponytail</option>
+                            <option value="bob cut with blunt front fringe bangs">Bob Cut w/ Bangs</option>
+                            <option value="shoulder-length wolf cut with curtain bangs">Wolf / Shag Cut</option>
+                            <option value="flowing windblown wild locks">Windblown Wild Locks</option>
+                            <option value="cute playful twin pigtails with ribbons">Twin Pigtails</option>
+                          </optgroup>
+                          <optgroup label="Textured &amp; Braids">
+                            <option value="tight geometric cornrow braids">Cornrow Braids</option>
+                            <option value="voluminous natural curly afro hair">Curly Afro</option>
+                            <option value="thick dreadlocks tied back in a bun">Dreadlocks Bun</option>
+                            <option value="intricate viking braided warrior plaits">Viking Braids</option>
+                          </optgroup>
+                          <optgroup label="Alternative &amp; Fantasy">
+                            <option value="cyberpunk undercut with glowing neon dyed strands">Cyberpunk Neon Undercut</option>
+                            <option value="spiky anime protagonist gravity-defying hair">Spiky Anime Hair</option>
+                            <option value="platinum white long ethereal elf hair">Platinum Ethereal White</option>
+                            <option value="fiery red asymmetric undercut bob">Vibrant Fiery Red</option>
+                          </optgroup>
+                        </select>
                       </div>
 
                       <!-- Clothing & Outfit (Presets dropdown + Free editing) -->
                       <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                          <label style="font-size:10px;font-weight:600;color:#93c5fd;">Clothing &amp; Outfit:</label>
-                          <select id="charClothingSelect" style="background:#0f172a;border:1px solid #334155;border-radius:3px;padding:1px 4px;color:#94a3b8;font-size:9.5px;max-width:110px;">
-                            <option value="">Presets...</option>
-                            <optgroup label="Urban &amp; Casual">
-                              <option value="casual graphic t-shirt and distressed denim jeans with sneakers">Casual T-Shirt &amp; Jeans</option>
-                              <option value="oversized streetwear hoodie, cargo joggers, and chunky sneakers">Streetwear Hoodie &amp; Cargos</option>
-                              <option value="classic black leather motorcycle jacket, dark denim, and combat boots">Leather Biker Jacket</option>
-                              <option value="plaid flannel shirt over white crewneck tee and canvas pants">Flannel &amp; Canvas</option>
-                              <option value="heavy winter wool trench coat, knitted turtleneck, and leather boots">Winter Wool Trench Coat</option>
-                              <option value="breezy summer linen button-down shirt, khaki shorts, and espadrilles">Summer Linen &amp; Shorts</option>
-                            </optgroup>
-                            <optgroup label="Formal &amp; Elegant">
-                              <option value="slim tailored midnight-black business suit, crisp white shirt, and silk tie">Formal Business Suit</option>
-                              <option value="luxury velvet tuxedo jacket with satin lapels and black bow tie">Velvet Tuxedo</option>
-                              <option value="elegant silk evening cocktail dress with delicate embroidery and high heels">Evening Silk Gown</option>
-                              <option value="victorian gothic embroidered frock coat, brocade vest, and cravat">Victorian Frock Coat</option>
-                            </optgroup>
-                            <optgroup label="Tactical &amp; Military">
-                              <option value="tactical military ballistic vest, ripstop camo cargo pants, and combat boots">Tactical Military Gear</option>
-                              <option value="futuristic cyberpunk techwear jacket with harness straps and utility pouches">Cyberpunk Techwear</option>
-                              <option value="special forces stealth black operative uniform with balaclava">Stealth Spec-Ops</option>
-                              <option value="pilot flight bomber jacket with fur collar, aviators, and flight pants">Aviator Flight Suit</option>
-                            </optgroup>
-                            <optgroup label="Fantasy &amp; Period">
-                              <option value="medieval knight polished plate armor with engraved steel and chainmail">Knight Plate Armor</option>
-                              <option value="leather rogue assassin tunic with hooded traveler cloak">Rogue Assassin Cowl</option>
-                              <option value="flowing mystic sorcerer robes with gold embroidered runes">Sorcerer Mystic Robes</option>
-                              <option value="traditional japanese samurai haori, kimono, and hakama">Samurai Kimono &amp; Hakama</option>
-                            </optgroup>
-                            <optgroup label="Sci-Fi &amp; Futuristic">
-                              <option value="sleek armored sci-fi spacesuit with sealed visor and chest life-support">Sci-Fi Spacesuit</option>
-                              <option value="cybernetic motorized exoskeleton combat frame over armored bodysuit">Cyber Exoskeleton</option>
-                              <option value="post-apocalyptic wasteland scavenger gear with salvaged leather and gas mask">Wasteland Scavenger</option>
-                            </optgroup>
-                            <optgroup label="Sports &amp; Profession">
-                              <option value="athletic performance gym tank top, compression leggings, and runners">Sportswear / Gym</option>
-                              <option value="white laboratory scientist coat over button-up shirt and slacks">Lab Scientist Coat</option>
-                              <option value="scrubs medical uniform with stethoscope around neck">Medical Doctor Scrubs</option>
-                            </optgroup>
-                          </select>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Clothing &amp; Outfit:</label>
+                          <button type="button" class="preset-pill-btn" data-preset-target="clothing" title="Abrir selector visual de vestimenta">
+                            <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                          </button>
                         </div>
                         <input type="text" id="charClothingInput" placeholder="e.g. black leather jacket, dark jeans, boots..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;" />
+                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
+                        <select id="charClothingSelect" style="display:none;">
+                          <option value="">Presets...</option>
+                          <optgroup label="Urban &amp; Casual">
+                            <option value="casual graphic t-shirt and distressed denim jeans with sneakers">Casual T-Shirt &amp; Jeans</option>
+                            <option value="oversized streetwear hoodie, cargo joggers, and chunky sneakers">Streetwear Hoodie &amp; Cargos</option>
+                            <option value="classic black leather motorcycle jacket, dark denim, and combat boots">Leather Biker Jacket</option>
+                            <option value="plaid flannel shirt over white crewneck tee and canvas pants">Flannel &amp; Canvas</option>
+                            <option value="heavy winter wool trench coat, knitted turtleneck, and leather boots">Winter Wool Trench Coat</option>
+                            <option value="breezy summer linen button-down shirt, khaki shorts, and espadrilles">Summer Linen &amp; Shorts</option>
+                          </optgroup>
+                          <optgroup label="Formal &amp; Elegant">
+                            <option value="slim tailored midnight-black business suit, crisp white shirt, and silk tie">Formal Business Suit</option>
+                            <option value="luxury velvet tuxedo jacket with satin lapels and black bow tie">Velvet Tuxedo</option>
+                            <option value="elegant silk evening cocktail dress with delicate embroidery and high heels">Evening Silk Gown</option>
+                            <option value="victorian gothic embroidered frock coat, brocade vest, and cravat">Victorian Frock Coat</option>
+                          </optgroup>
+                          <optgroup label="Tactical &amp; Military">
+                            <option value="tactical military ballistic vest, ripstop camo cargo pants, and combat boots">Tactical Military Gear</option>
+                            <option value="futuristic cyberpunk techwear jacket with harness straps and utility pouches">Cyberpunk Techwear</option>
+                            <option value="special forces stealth black operative uniform with balaclava">Stealth Spec-Ops</option>
+                            <option value="pilot flight bomber jacket with fur collar, aviators, and flight pants">Aviator Flight Suit</option>
+                          </optgroup>
+                          <optgroup label="Fantasy &amp; Period">
+                            <option value="medieval knight polished plate armor with engraved steel and chainmail">Knight Plate Armor</option>
+                            <option value="leather rogue assassin tunic with hooded traveler cloak">Rogue Assassin Cowl</option>
+                            <option value="flowing mystic sorcerer robes with gold embroidered runes">Sorcerer Mystic Robes</option>
+                            <option value="traditional japanese samurai haori, kimono, and hakama">Samurai Kimono &amp; Hakama</option>
+                          </optgroup>
+                          <optgroup label="Sci-Fi &amp; Futuristic">
+                            <option value="sleek armored sci-fi spacesuit with sealed visor and chest life-support">Sci-Fi Spacesuit</option>
+                            <option value="cybernetic motorized exoskeleton combat frame over armored bodysuit">Cyber Exoskeleton</option>
+                            <option value="post-apocalyptic wasteland scavenger gear with salvaged leather and gas mask">Wasteland Scavenger</option>
+                          </optgroup>
+                          <optgroup label="Sports &amp; Profession">
+                            <option value="athletic performance gym tank top, compression leggings, and runners">Sportswear / Gym</option>
+                            <option value="white laboratory scientist coat over button-up shirt and slacks">Lab Scientist Coat</option>
+                            <option value="scrubs medical uniform with stethoscope around neck">Medical Doctor Scrubs</option>
+                          </optgroup>
+                        </select>
                       </div>
 
                       <!-- Accessories & Details (Presets dropdown + Free editing) -->
                       <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                          <label style="font-size:10px;font-weight:600;color:#93c5fd;">Accessories &amp; Gear:</label>
-                          <select id="charDetailsSelect" style="background:#0f172a;border:1px solid #334155;border-radius:3px;padding:1px 4px;color:#94a3b8;font-size:9.5px;max-width:110px;">
-                            <option value="">Presets...</option>
-                            <optgroup label="Eyewear &amp; Face">
-                              <option value="classic black-rimmed eyeglasses">Classic Glasses</option>
-                              <option value="dark mirrored aviator sunglasses">Aviator Sunglasses</option>
-                              <option value="high-tech augmented reality holographic HUD monocle">Cyber HUD Monocle</option>
-                              <option value="tactical ballistic protective goggles on forehead">Tactical Goggles</option>
-                              <option value="medical face mask or respirator mask">Respirator Mask</option>
-                            </optgroup>
-                            <optgroup label="Headwear &amp; Helmets">
-                              <option value="backward streetwear baseball snapback cap">Baseball Cap</option>
-                              <option value="cozy knitted beanie pulled down low">Knitted Beanie</option>
-                              <option value="wide-brim classic felt fedora hat">Felt Fedora Hat</option>
-                              <option value="military ballistic combat helmet with night-vision mount">Combat Helmet w/ NVG</option>
-                              <option value="golden ornate royal crown with embedded jewels">Royal Golden Crown</option>
-                            </optgroup>
-                            <optgroup label="Jewelry &amp; Wearables">
-                              <option value="chunky gold cuban link chain necklace and rings">Gold Chain &amp; Rings</option>
-                              <option value="silver ear piercings and studded leather wristband">Piercings &amp; Studded Band</option>
-                              <option value="tactical fingerless combat gloves">Fingerless Gloves</option>
-                              <option value="shemagh military tactical scarf draped around neck">Shemagh Scarf</option>
-                              <option value="smartwatch and glowing biometric wrist cuff">Biometric Smart Cuff</option>
-                            </optgroup>
-                            <optgroup label="Weapons &amp; Equipment">
-                              <option value="tactical sidearm holster at right hip">Holstered Sidearm</option>
-                              <option value="sheathed katana sword slung across back">Katana on Back</option>
-                              <option value="magic wooden staff with glowing crystal focus orb">Magic Crystal Staff</option>
-                              <option value="heavy military tactical backpack with hydration tube">Tactical Backpack</option>
-                              <option value="dual combat daggers sheathed at lower back">Dual Combat Daggers</option>
-                              <option value="heavy reinforced riot tower shield">Tower Shield</option>
-                            </optgroup>
-                          </select>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Accessories &amp; Gear:</label>
+                          <button type="button" class="preset-pill-btn" data-preset-target="details" title="Abrir selector visual de accesorios">
+                            <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                          </button>
                         </div>
                         <input type="text" id="charDetailsInput" placeholder="e.g. glasses, sword, necklace..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;" />
+                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
+                        <select id="charDetailsSelect" style="display:none;">
+                          <option value="">Presets...</option>
+                          <optgroup label="Eyewear &amp; Face">
+                            <option value="classic black-rimmed eyeglasses">Classic Glasses</option>
+                            <option value="dark mirrored aviator sunglasses">Aviator Sunglasses</option>
+                            <option value="high-tech augmented reality holographic HUD monocle">Cyber HUD Monocle</option>
+                            <option value="tactical ballistic protective goggles on forehead">Tactical Goggles</option>
+                            <option value="medical face mask or respirator mask">Respirator Mask</option>
+                          </optgroup>
+                          <optgroup label="Headwear &amp; Helmets">
+                            <option value="backward streetwear baseball snapback cap">Baseball Cap</option>
+                            <option value="cozy knitted beanie pulled down low">Knitted Beanie</option>
+                            <option value="wide-brim classic felt fedora hat">Felt Fedora Hat</option>
+                            <option value="military ballistic combat helmet with night-vision mount">Combat Helmet w/ NVG</option>
+                            <option value="golden ornate royal crown with embedded jewels">Royal Golden Crown</option>
+                          </optgroup>
+                          <optgroup label="Jewelry &amp; Wearables">
+                            <option value="chunky gold cuban link chain necklace and rings">Gold Chain &amp; Rings</option>
+                            <option value="silver ear piercings and studded leather wristband">Piercings &amp; Studded Band</option>
+                            <option value="tactical fingerless combat gloves">Fingerless Gloves</option>
+                            <option value="shemagh military tactical scarf draped around neck">Shemagh Scarf</option>
+                            <option value="smartwatch and glowing biometric wrist cuff">Biometric Smart Cuff</option>
+                          </optgroup>
+                          <optgroup label="Weapons &amp; Equipment">
+                            <option value="tactical sidearm holster at right hip">Holstered Sidearm</option>
+                            <option value="sheathed katana sword slung across back">Katana on Back</option>
+                            <option value="magic wooden staff with glowing crystal focus orb">Magic Crystal Staff</option>
+                            <option value="heavy military tactical backpack with hydration tube">Tactical Backpack</option>
+                            <option value="dual combat daggers sheathed at lower back">Dual Combat Daggers</option>
+                            <option value="heavy reinforced riot tower shield">Tower Shield</option>
+                          </optgroup>
+                        </select>
                       </div>
                     </div>
                   </div>
@@ -2029,7 +2257,7 @@
             </div>
             <div>
               <label style="font-size:11.5px;color:var(--text-muted);display:block;margin-bottom:4px;">Category:</label>
-              <select id="poseSaveCategory" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:7px 10px;color:#fff;font-size:12px;">
+              <select id="poseSaveCategory" class="director-select" style="width:100%;">
                 <option value="Standing">Standing</option>
                 <option value="Sitting">Sitting</option>
                 <option value="Action">Action / Dynamic</option>
@@ -2042,6 +2270,22 @@
               <button type="button" id="btnConfirmSavePose" class="btn-primary" style="padding:6px 16px;font-size:12px;background:#0891b2;border-color:#0e7490;">Save Pose</button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Floating Rich Preset Dropdown Popover -->
+      <div id="presetDropdownPopover" style="display:none;">
+        <div class="popover-header">
+          <div class="popover-title-row">
+            <span id="popoverTitle" class="popover-title">✦ Presets</span>
+            <button type="button" id="popoverCloseBtn" class="popover-close" title="Cerrar">&#x2715;</button>
+          </div>
+          <input type="text" id="popoverSearchInput" class="popover-search" placeholder="🔍 Buscar o filtrar opciones..." autocomplete="off" />
+        </div>
+        <div id="popoverItemsBody" class="popover-body"></div>
+        <div class="popover-footer">
+          <button type="button" id="popoverClearBtn" class="btn-ghost" style="padding:1px 6px;font-size:9.5px;color:#fca5a5;">Limpiar campo</button>
+          <span style="font-size:9.5px;color:#64748b;">Click: reemplazar • [+ Add]: combinar</span>
         </div>
       </div>
 
@@ -4419,6 +4663,303 @@
     } catch(err) {
       showToast("Network error saving pose: " + err.message, "error");
     }
+  });
+
+  // --- Rich Preset Dropdown Popover Logic ---
+  const presetPopover = document.getElementById('presetDropdownPopover');
+  const popoverTitle = document.getElementById('popoverTitle');
+  const popoverCloseBtn = document.getElementById('popoverCloseBtn');
+  const popoverSearch = document.getElementById('popoverSearchInput');
+  const popoverBody = document.getElementById('popoverItemsBody');
+  const popoverClearBtn = document.getElementById('popoverClearBtn');
+
+  let currentActiveTarget = null;
+  let currentActiveButton = null;
+
+  const POSE_CATEGORIES = {
+    "Frontal & Bipedal Standing": [
+      { label: "Standing Idle", value: "Standing Idle", desc: "Relaxed natural upright posture" },
+      { label: "Walking / Striding", value: "Walking / Striding", desc: "Mid-stride forward movement" },
+      { label: "Running / Sprint", value: "Running / Sprint", desc: "Dynamic athletic sprint" },
+      { label: "Arms Crossed", value: "Arms Crossed", desc: "Confident defiant folded arms" },
+      { label: "Hands on Hips", value: "Hands on Hips", desc: "Assertive commanding heroic stance" },
+      { label: "Hands Up (Cheer / Surrender)", value: "Hands Up (Surrender / Cheer)", desc: "Both hands raised overhead" },
+      { label: "Pointing Forward", value: "Pointing Forward", desc: "One arm extended pointing directly forward" },
+      { label: "Hands on Face (Shock / Despair)", value: "Hands on Face (Shock / Despair)", desc: "Hands gripping face in shock" },
+      { label: "Boxer Defense (Combat Guard)", value: "Boxer Defense (Combat Guard)", desc: "Defensive guard with raised fists" },
+      { label: "Presenter / Announcer", value: "Presenter / Announcer", desc: "Gesturing with open hands to one side" },
+      { label: "Crossing Arms in X", value: "Crossing Arms in X", desc: "Forearms crossed over chest forming an X" },
+      { label: "Leaning Against Wall", value: "Leaning Against Wall", desc: "Casual stance leaning against surface" },
+      { label: "Chest Out Proud (Winner)", value: "Chest Out Proud (Winner)", desc: "Puffed chest victory stance" },
+      { label: "Advancing with Shield Guard", value: "Advancing with Shield Guard", desc: "Defensive shield-carrying stride" }
+    ],
+    "Sitting, Kneeling & Ground": [
+      { label: "Sitting Relaxed", value: "Sitting Relaxed", desc: "Casual seated position on sofa or chair" },
+      { label: "Sitting Cross-Legged (Floor)", value: "Sitting Cross-Legged (Floor)", desc: "Lotus / floor seated posture" },
+      { label: "Sitting Legs Forward", value: "Sitting Legs Forward", desc: "Seated with legs extended straight forward" },
+      { label: "Sitting Legs Open (Spread)", value: "Sitting Legs Open (Spread)", desc: "Seated on floor with legs spread in V" },
+      { label: "Kneeling One Knee Ground", value: "Kneeling One Knee Ground", desc: "One knee down, bending low" },
+      { label: "Defeated Sprawled Ground", value: "Defeated Sprawled Ground", desc: "Defeated body collapsed flat on floor" },
+      { label: "Face Down Kneeling Head Floor", value: "Face Down Kneeling Head Floor", desc: "Prostrate on floor, head down, hips up" },
+      { label: "Supine Knees Bent (Face Up)", value: "Supine Knees Bent (Face Up)", desc: "Lying face up flat on back, knees bent" },
+      { label: "Floor Pushups (Exercise)", value: "Floor Pushups (Exercise)", desc: "Plank position doing pushups" }
+    ],
+    "Action & Profile (Side View)": [
+      { label: "Standing Idle (Side)", value: "Standing Idle (Side)", desc: "Natural upright profile stance" },
+      { label: "Walking / Striding (Side)", value: "Walking / Striding (Side)", desc: "Walking stride in pure profile view" },
+      { label: "Sitting Relaxed (Side)", value: "Sitting Relaxed (Side)", desc: "Seated pose seen from lateral side" },
+      { label: "Crouching Action (Side)", value: "Crouching Action (Side)", desc: "Dynamic low crouching profile" },
+      { label: "Sitting Cross-Legged (Side)", value: "Sitting Cross-Legged (Side)", desc: "Floor cross-legged from side" },
+      { label: "High Kick (Martial Arts)", value: "High Kick (Martial Arts)", desc: "High dynamic combat martial arts kick" }
+    ]
+  };
+
+  function getTargetFieldConfig(target) {
+    if (target === 'pose') {
+      const data = JSON.parse(JSON.stringify(POSE_CATEGORIES));
+      const poseSel = document.getElementById('posePresetSelect');
+      if (poseSel) {
+        const customItems = [];
+        Array.from(poseSel.options).forEach(opt => {
+          if (opt.value && opt.hasAttribute('data-pose')) {
+            customItems.push({ label: opt.textContent.trim(), value: opt.value, desc: "Custom user saved pose" });
+          }
+        });
+        if (customItems.length > 0) {
+          data["Saved Custom Poses"] = customItems;
+        }
+      }
+      return {
+        title: "⚡ Poses & Stances",
+        input: document.getElementById('charPoseInput'),
+        select: document.getElementById('posePresetSelect'),
+        isPose: true,
+        data: data
+      };
+    }
+    const map = {
+      anatomy: { title: "💪 Anatomy & Physique", inputId: 'charAnatomyInput', selectId: 'charAnatomySelect' },
+      expression: { title: "😊 Facial Expression & Mood", inputId: 'charExpressionInput', selectId: 'charExpressionSelect' },
+      hair: { title: "✂️ Hairstyle & Color", inputId: 'charHairInput', selectId: 'charHairSelect' },
+      clothing: { title: "👔 Clothing & Outfit", inputId: 'charClothingInput', selectId: 'charClothingSelect' },
+      details: { title: "⚔️ Accessories & Gear", inputId: 'charDetailsInput', selectId: 'charDetailsSelect' }
+    };
+    const c = map[target];
+    if (!c) return null;
+    const input = document.getElementById(c.inputId);
+    const select = document.getElementById(c.selectId);
+    
+    const data = {};
+    if (select) {
+      const optgroups = select.querySelectorAll('optgroup');
+      if (optgroups.length > 0) {
+        optgroups.forEach(og => {
+          const grpLabel = og.label || 'Presets';
+          data[grpLabel] = [];
+          og.querySelectorAll('option').forEach(opt => {
+            if (opt.value) {
+              data[grpLabel].push({ label: opt.textContent.trim(), value: opt.value, desc: opt.value });
+            }
+          });
+        });
+      } else {
+        data['Presets'] = [];
+        select.querySelectorAll('option').forEach(opt => {
+          if (opt.value) {
+            data['Presets'].push({ label: opt.textContent.trim(), value: opt.value, desc: opt.value });
+          }
+        });
+      }
+    }
+    return { title: c.title, input, select, isPose: false, data };
+  }
+
+  function renderPopoverItems(config, filterQuery = '') {
+    if (!popoverBody) return;
+    popoverBody.innerHTML = '';
+    const q = (filterQuery || '').toLowerCase().trim();
+    let totalRendered = 0;
+
+    Object.keys(config.data).forEach(grpName => {
+      const items = config.data[grpName].filter(item => {
+        if (!q) return true;
+        return item.label.toLowerCase().includes(q) || item.value.toLowerCase().includes(q) || (item.desc && item.desc.toLowerCase().includes(q));
+      });
+
+      if (items.length === 0) return;
+
+      const grpEl = document.createElement('div');
+      grpEl.className = 'popover-group-title';
+      grpEl.textContent = grpName;
+      popoverBody.appendChild(grpEl);
+
+      items.forEach(item => {
+        totalRendered++;
+        const row = document.createElement('div');
+        row.className = 'popover-item';
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'popover-item-text';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'popover-item-label';
+        labelSpan.textContent = item.label;
+
+        const descSpan = document.createElement('span');
+        descSpan.className = 'popover-item-desc';
+        descSpan.textContent = item.desc || item.value;
+
+        textDiv.appendChild(labelSpan);
+        textDiv.appendChild(descSpan);
+        row.appendChild(textDiv);
+
+        if (!config.isPose) {
+          const appendBtn = document.createElement('button');
+          appendBtn.type = 'button';
+          appendBtn.className = 'popover-item-append';
+          appendBtn.textContent = '+ Add';
+          appendBtn.title = 'Añadir al texto existente';
+          appendBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            applyPresetValue(config, item.value, true);
+          });
+          row.appendChild(appendBtn);
+        }
+
+        row.addEventListener('click', () => {
+          applyPresetValue(config, item.value, false);
+          closePresetPopover();
+        });
+
+        popoverBody.appendChild(row);
+      });
+    });
+
+    if (totalRendered === 0) {
+      const emptyMsg = document.createElement('div');
+      emptyMsg.style.padding = '24px 10px';
+      emptyMsg.style.textAlign = 'center';
+      emptyMsg.style.color = '#64748b';
+      emptyMsg.style.fontSize = '11px';
+      emptyMsg.textContent = `No se encontraron presets para "${filterQuery}"`;
+      popoverBody.appendChild(emptyMsg);
+    }
+  }
+
+  function applyPresetValue(config, val, isAppend = false) {
+    if (!config.input) return;
+    if (isAppend && config.input.value.trim()) {
+      config.input.value = config.input.value.trim() + ', ' + val;
+    } else {
+      config.input.value = val;
+    }
+    config.input.dispatchEvent(new Event('input'));
+    if (config.select) {
+      config.select.value = val;
+      config.select.dispatchEvent(new Event('change'));
+    }
+    if (config.isPose) {
+      applyPoseByName(val);
+    }
+  }
+
+  function openPresetPopover(btn, targetKey) {
+    if (currentActiveButton === btn && presetPopover && presetPopover.style.display === 'flex') {
+      closePresetPopover();
+      return;
+    }
+
+    const config = getTargetFieldConfig(targetKey);
+    if (!config || !presetPopover) return;
+
+    currentActiveTarget = targetKey;
+    currentActiveButton = btn;
+
+    document.querySelectorAll('.preset-pill-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    if (popoverTitle) popoverTitle.innerHTML = config.title;
+    if (popoverSearch) popoverSearch.value = '';
+    renderPopoverItems(config, '');
+
+    // Position popover
+    presetPopover.style.display = 'flex';
+    const rect = btn.getBoundingClientRect();
+    const popoverWidth = 310;
+    const popoverHeight = 380;
+
+    let left = rect.left;
+    if (left + popoverWidth > window.innerWidth - 10) {
+      left = window.innerWidth - popoverWidth - 10;
+    }
+    if (left < 10) left = 10;
+
+    let top = rect.bottom + 6;
+    if (top + popoverHeight > window.innerHeight - 10) {
+      top = rect.top - popoverHeight - 6;
+    }
+
+    presetPopover.style.left = `${left}px`;
+    presetPopover.style.top = `${top}px`;
+
+    if (popoverSearch) setTimeout(() => popoverSearch.focus(), 50);
+  }
+
+  function closePresetPopover() {
+    if (presetPopover) presetPopover.style.display = 'none';
+    if (currentActiveButton) currentActiveButton.classList.remove('active');
+    currentActiveTarget = null;
+    currentActiveButton = null;
+  }
+
+  if (popoverCloseBtn) popoverCloseBtn.addEventListener('click', closePresetPopover);
+
+  if (popoverSearch) {
+    popoverSearch.addEventListener('input', (e) => {
+      if (currentActiveTarget) {
+        const config = getTargetFieldConfig(currentActiveTarget);
+        if (config) renderPopoverItems(config, e.target.value);
+      }
+    });
+  }
+
+  if (popoverClearBtn) {
+    popoverClearBtn.addEventListener('click', () => {
+      if (currentActiveTarget) {
+        const config = getTargetFieldConfig(currentActiveTarget);
+        if (config && config.input) {
+          config.input.value = '';
+          config.input.dispatchEvent(new Event('input'));
+          if (config.select) config.select.value = '';
+        }
+        closePresetPopover();
+      }
+    });
+  }
+
+  // Close on click outside
+  document.addEventListener('click', (e) => {
+    if (presetPopover && presetPopover.style.display === 'flex') {
+      if (!presetPopover.contains(e.target) && !e.target.closest('.preset-pill-btn')) {
+        closePresetPopover();
+      }
+    }
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && presetPopover && presetPopover.style.display === 'flex') {
+      closePresetPopover();
+    }
+  });
+
+  // Attach click listener to all preset buttons
+  document.querySelectorAll('.preset-pill-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = btn.getAttribute('data-preset-target');
+      openPresetPopover(btn, target);
+    });
   });
 
   // Theater Mode Toggle (Full Width Canvas)
