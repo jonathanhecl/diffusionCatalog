@@ -276,6 +276,9 @@ func TestDirectorTabRendering(t *testing.T) {
 		!strings.Contains(body, "charFeaturesSelect") || !strings.Contains(body, "charDetailsSelect") {
 		t.Errorf("expected body to contain character hair, clothing, features, and details preset selects")
 	}
+	if !strings.Contains(body, "charLookingAtSelect") || !strings.Contains(body, "gazeLinesGroup") || !strings.Contains(body, "gazeArrow") {
+		t.Errorf("expected body to contain Looking At gaze selector, gaze lines SVG group, and gaze arrowhead marker")
+	}
 	if !strings.Contains(body, `data-ratio="4:3"`) || !strings.Contains(body, `data-ratio="3:4"`) {
 		t.Errorf("expected body to contain 4:3 and 3:4 aspect ratio buttons")
 	}

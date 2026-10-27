@@ -1485,6 +1485,11 @@
                   <pattern id="canvasGrid" width="40" height="40" patternUnits="userSpaceOnUse">
                     <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#162c4e" stroke-width="0.8" opacity="0.4" />
                   </pattern>
+
+                  <!-- Gaze Line Arrowhead Marker -->
+                  <marker id="gazeArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 9 5 L 0 9 z" fill="#38bdf8" />
+                  </marker>
                 </defs>
 
                 <!-- Background Layer: Grid & Horizon Lines -->
@@ -1505,6 +1510,9 @@
 
                 <!-- Elements Dynamic Render Group -->
                 <g id="elementsGroup"></g>
+
+                <!-- Gaze Lines Layer ("Looking At" visualizer) -->
+                <g id="gazeLinesGroup"></g>
 
                 <!-- Interactive Selection Overlay Group -->
                 <g id="selectionOverlayGroup"></g>
@@ -1529,6 +1537,14 @@
                     <button type="button" class="btn-ghost facing-btn" data-facing="right" style="padding:2px 7px;font-size:11px;" title="Profile Right (90 deg)">▶️ Right</button>
                     <button type="button" class="btn-ghost facing-btn" data-facing="back" style="padding:2px 7px;font-size:11px;" title="Back view (turned away from camera)">🔙 Back</button>
                   </div>
+                </div>
+
+                <!-- Looking At Gaze Target (Character, Prop, or Custom target) -->
+                <div id="lookingAtControlGroup" style="display:none;align-items:center;gap:6px;">
+                  <span style="font-size:11px;color:#38bdf8;font-weight:600;" title="Objeto o personaje al que mira la figura">👀 Looking At:</span>
+                  <select id="charLookingAtSelect" style="background:var(--bg-input);border:1px solid #0284c7;border-radius:4px;padding:3px 8px;color:#e0f2fe;font-size:11px;font-weight:600;max-width:180px;">
+                    <option value="">-- Camera / Neutral --</option>
+                  </select>
                 </div>
 
                 <!-- Note Editing Control Group (Visible when a note is selected) -->
@@ -2525,6 +2541,130 @@
     return `translate(${el.x}, ${el.y}) translate(${cx}, ${cy}) rotate(${rot}) scale(${scaleX}, ${scaleY}) translate(${-cx}, ${-cy})`;
   }
 
+  // Helper: compute world coordinates of a local element point (localX, localY)
+  function getElementPointInWorld(el, localX, localY) {
+    const cx = el.width / 2;
+    const cy = el.height / 2;
+    const scaleX = el.flipH ? -(el.scale || 1.0) : (el.scale || 1.0);
+    const scaleY = el.scale || 1.0;
+    const rotRad = (el.rotation || 0) * (Math.PI / 180);
+
+    const dx = (localX - cx) * scaleX;
+    const dy = (localY - cy) * scaleY;
+
+    const rx = dx * Math.cos(rotRad) - dy * Math.sin(rotRad);
+    const ry = dx * Math.sin(rotRad) + dy * Math.cos(rotRad);
+
+    return {
+      x: el.x + cx + rx,
+      y: el.y + cy + ry
+    };
+  }
+
+  // Render Gaze "Looking At" dashed lines connecting character face to targeted object
+  function renderGazeLines() {
+    const gazeGroup = document.getElementById('gazeLinesGroup');
+    if (!gazeGroup) return;
+    gazeGroup.innerHTML = '';
+
+    state.elements.forEach(el => {
+      if (el.type === 'character' && el.lookingAtId) {
+        const target = state.elements.find(x => x.id === el.lookingAtId);
+        if (!target) {
+          el.lookingAtId = null;
+          el.lookingAtName = '';
+          return;
+        }
+
+        const pose = el.pose || POSE_PRESETS["Standing Idle"] || {};
+        const nose = pose.nose || { x: 50, y: 15 };
+        const fromPt = getElementPointInWorld(el, (nose.x / 100) * el.width, (nose.y / 100) * el.height);
+
+        let targetLocalX = target.width / 2;
+        let targetLocalY = target.height / 2;
+        if (target.type === 'character') {
+          targetLocalY = target.height * 0.28;
+        }
+        const toPt = getElementPointInWorld(target, targetLocalX, targetLocalY);
+
+        // Darker shadow line for contrast against all scene backgrounds
+        const shadowLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        shadowLine.setAttribute('x1', fromPt.x);
+        shadowLine.setAttribute('y1', fromPt.y);
+        shadowLine.setAttribute('x2', toPt.x);
+        shadowLine.setAttribute('y2', toPt.y);
+        shadowLine.setAttribute('stroke', '#0284c7');
+        shadowLine.setAttribute('stroke-width', '4');
+        shadowLine.setAttribute('stroke-linecap', 'round');
+        shadowLine.setAttribute('stroke-opacity', '0.45');
+        gazeGroup.appendChild(shadowLine);
+
+        // High-visibility dashed gaze line
+        const gazeLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        gazeLine.setAttribute('x1', fromPt.x);
+        gazeLine.setAttribute('y1', fromPt.y);
+        gazeLine.setAttribute('x2', toPt.x);
+        gazeLine.setAttribute('y2', toPt.y);
+        gazeLine.setAttribute('stroke', '#38bdf8');
+        gazeLine.setAttribute('stroke-width', '2');
+        gazeLine.setAttribute('stroke-dasharray', '6,4');
+        gazeLine.setAttribute('stroke-linecap', 'round');
+        gazeLine.setAttribute('marker-end', 'url(#gazeArrow)');
+        gazeGroup.appendChild(gazeLine);
+
+        // Origin eye indicator at character face
+        const eyeDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        eyeDot.setAttribute('cx', fromPt.x);
+        eyeDot.setAttribute('cy', fromPt.y);
+        eyeDot.setAttribute('r', '4');
+        eyeDot.setAttribute('fill', '#38bdf8');
+        eyeDot.setAttribute('stroke', '#082f49');
+        eyeDot.setAttribute('stroke-width', '1.5');
+        gazeGroup.appendChild(eyeDot);
+
+        // Destination target reticle at target center
+        const targetReticle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        targetReticle.setAttribute('cx', toPt.x);
+        targetReticle.setAttribute('cy', toPt.y);
+        targetReticle.setAttribute('r', '7');
+        targetReticle.setAttribute('fill', 'rgba(56,189,248,0.15)');
+        targetReticle.setAttribute('stroke', '#38bdf8');
+        targetReticle.setAttribute('stroke-width', '1.5');
+        targetReticle.setAttribute('stroke-dasharray', '3,2');
+        gazeGroup.appendChild(targetReticle);
+
+        // Target Label Pill at midpoint
+        const midX = (fromPt.x + toPt.x) / 2;
+        const midY = (fromPt.y + toPt.y) / 2;
+        const targetLabel = target.name || target.label || target.subtype || 'Target';
+        const displayLabel = `👀 ${targetLabel}`;
+
+        const textLen = Math.max(displayLabel.length * 6.5 + 16, 50);
+        const pillBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        pillBg.setAttribute('x', midX - textLen / 2);
+        pillBg.setAttribute('y', midY - 17);
+        pillBg.setAttribute('width', textLen);
+        pillBg.setAttribute('height', '15');
+        pillBg.setAttribute('rx', '4');
+        pillBg.setAttribute('fill', '#082f49');
+        pillBg.setAttribute('fill-opacity', '0.9');
+        pillBg.setAttribute('stroke', '#0284c7');
+        pillBg.setAttribute('stroke-width', '1');
+        gazeGroup.appendChild(pillBg);
+
+        const tagText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        tagText.setAttribute('x', midX);
+        tagText.setAttribute('y', midY - 6);
+        tagText.setAttribute('fill', '#e0f2fe');
+        tagText.setAttribute('font-size', '10');
+        tagText.setAttribute('font-weight', '700');
+        tagText.setAttribute('text-anchor', 'middle');
+        tagText.textContent = displayLabel;
+        gazeGroup.appendChild(tagText);
+      }
+    });
+  }
+
   // --- Rendering Elements & SVG ---
   function renderScene() {
     elementsGroup.innerHTML = '';
@@ -2548,6 +2688,7 @@
       }
     });
 
+    renderGazeLines();
     updatePropertiesBar();
     updateSpatialManifest();
   }
@@ -3480,12 +3621,15 @@
     const noteGrp = document.getElementById('noteControlGroup');
     const propGrp = document.getElementById('propControlGroup');
     const charPanel = document.getElementById('charCustomizationPanel');
+    const lookingAtGrp = document.getElementById('lookingAtControlGroup');
+    const lookingAtSel = document.getElementById('charLookingAtSelect');
     const layerBadge = document.getElementById('layerBadge');
 
     if (!selEl) {
       noMsg.style.display = 'block';
       ctrl.style.display = 'none';
       if (charPanel) charPanel.style.display = 'none';
+      if (lookingAtGrp) lookingAtGrp.style.display = 'none';
       return;
     }
 
@@ -3509,6 +3653,38 @@
       facingGrp.style.display = 'flex';
       poseGrp.style.display = 'flex';
       if (propGrp) propGrp.style.display = 'none';
+
+      // Setup Looking At gaze target dropdown
+      if (lookingAtGrp && lookingAtSel) {
+        lookingAtGrp.style.display = 'flex';
+        lookingAtSel.innerHTML = '<option value="">-- Camera / Neutral --</option>';
+        state.elements.forEach(other => {
+          if (other.id !== selEl.id) {
+            let label = other.name || other.label || other.subtype || other.type;
+            if (other.type === 'character') {
+              label = `👤 ${label}`;
+            } else if (other.type === 'prop') {
+              const d = (other.description && other.description.trim()) ? ` (${other.description.trim()})` : '';
+              label = `🛋️ ${label}${d}`;
+            } else if (other.type === 'light') {
+              label = `💡 ${label}`;
+            } else if (other.type === 'camera') {
+              label = `📷 ${label}`;
+            } else if (other.type === 'note') {
+              label = `📝 Note`;
+            }
+            const opt = document.createElement('option');
+            opt.value = other.id;
+            opt.textContent = label;
+            if (other.id === selEl.lookingAtId) {
+              opt.selected = true;
+            }
+            lookingAtSel.appendChild(opt);
+          }
+        });
+        lookingAtSel.value = selEl.lookingAtId || '';
+      }
+
       if (charPanel) {
         charPanel.style.display = 'flex';
         const badge = document.getElementById('charSelectedBadge');
@@ -3537,6 +3713,7 @@
     } else if (selEl.type === 'prop') {
       facingGrp.style.display = 'none';
       poseGrp.style.display = 'none';
+      if (lookingAtGrp) lookingAtGrp.style.display = 'none';
       if (charPanel) charPanel.style.display = 'none';
       if (propGrp) {
         propGrp.style.display = 'flex';
@@ -3550,6 +3727,7 @@
     } else {
       facingGrp.style.display = 'none';
       poseGrp.style.display = 'none';
+      if (lookingAtGrp) lookingAtGrp.style.display = 'none';
       if (charPanel) charPanel.style.display = 'none';
       if (propGrp) propGrp.style.display = 'none';
     }
@@ -3666,6 +3844,25 @@
       const selEl = state.elements.find(x => x.id === state.selectedId);
       if (selEl && selEl.type === 'character') {
         selEl.details = e.target.value;
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  // Looking At Gaze Target Listener
+  const charLookingAtSelect = document.getElementById('charLookingAtSelect');
+  if (charLookingAtSelect) {
+    charLookingAtSelect.addEventListener('change', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'character') {
+        selEl.lookingAtId = e.target.value || null;
+        if (selEl.lookingAtId) {
+          const target = state.elements.find(x => x.id === selEl.lookingAtId);
+          selEl.lookingAtName = target ? (target.name || target.label || target.subtype || '') : '';
+        } else {
+          selEl.lookingAtName = '';
+        }
+        renderScene();
         updateSpatialManifest();
       }
     });
@@ -4166,6 +4363,21 @@
         if (el.hair && el.hair.trim()) charSpecs.push(`Hairstyle: ${el.hair.trim()}`);
         if (el.clothing && el.clothing.trim()) charSpecs.push(`Clothing / Outfit: ${el.clothing.trim()}`);
         if (el.details && el.details.trim()) charSpecs.push(`Accessories & Details: ${el.details.trim()}`);
+        if (el.lookingAtId) {
+          const targetEl = state.elements.find(x => x.id === el.lookingAtId);
+          if (targetEl) {
+            const targetName = targetEl.name || targetEl.label || targetEl.subtype || 'target';
+            const targetNormX = targetEl.x / state.width;
+            let targetHPos = "Center";
+            if (targetNormX < 0.35) targetHPos = "Left";
+            else if (targetNormX > 0.65) targetHPos = "Right";
+            const targetNormY = targetEl.y / state.height;
+            let targetVPos = "Midground";
+            if (targetNormY > 0.60) targetVPos = "Foreground";
+            else if (targetNormY < 0.35) targetVPos = "Background";
+            charSpecs.push(`Eye Contact / Gaze: Gazing directly at [${targetName}] in ${targetVPos}-${targetHPos}`);
+          }
+        }
 
         const specIndent = charSpecs.length > 0 ? `\n    ${charSpecs.join('\n    ')}` : '';
         subjects.push(`- [${el.name || 'Character'}] (${el.subtype || 'figure'}) positioned in ${loc}:\n    ${facingDesc}${poseStr}${scaleStr}${mirrorStr}${specIndent}`);

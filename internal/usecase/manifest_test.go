@@ -237,3 +237,45 @@ func TestScannerAutoDeletesMissingMediaFromCatalogAndManifest(t *testing.T) {
 		}
 	}
 }
+
+func TestCompileSceneDirectorManifest_GazeLookingAt(t *testing.T) {
+	ctx := context.Background()
+	catalogSvc := NewCatalogService("", nil, nil)
+
+	sceneJSON := `{
+		"aspectRatio": "4:3",
+		"canvasWidth": 1024,
+		"canvasHeight": 768,
+		"elements": [
+			{
+				"id": "char_1",
+				"type": "character",
+				"name": "Elena",
+				"x": 300,
+				"y": 400,
+				"lookingAtId": "prop_1",
+				"lookingAtName": "Studio Sofa"
+			},
+			{
+				"id": "prop_1",
+				"type": "prop",
+				"label": "Studio Sofa",
+				"description": "red leather",
+				"x": 700,
+				"y": 450
+			}
+		]
+	}`
+
+	manifest, err := catalogSvc.CompileSceneDirectorManifest(ctx, sceneJSON)
+	if err != nil {
+		t.Fatalf("CompileSceneDirectorManifest failed: %v", err)
+	}
+
+	if !strings.Contains(manifest, "looking directly at [Studio Sofa]") {
+		t.Errorf("expected manifest to include gaze direction, got:\n%s", manifest)
+	}
+	if !strings.Contains(manifest, "Studio Sofa (red leather)") {
+		t.Errorf("expected manifest to include prop with description, got:\n%s", manifest)
+	}
+}

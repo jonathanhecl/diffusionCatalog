@@ -878,6 +878,7 @@ func (s *CatalogService) DeleteStudioPose(ctx context.Context, id int64) error {
 type SceneElementDTO struct {
 	ID          string                 `json:"id"`
 	Type        string                 `json:"type"` // "character", "silhouette", "prop", "light", "camera", "note"
+	Subtype     string                 `json:"subtype,omitempty"`
 	Name        string                 `json:"name,omitempty"`
 	Label       string                 `json:"label,omitempty"`
 	PropType    string                 `json:"propType,omitempty"`
@@ -895,9 +896,11 @@ type SceneElementDTO struct {
 	Features    string                 `json:"features,omitempty"`
 	Hair        string                 `json:"hair,omitempty"`
 	Clothing    string                 `json:"clothing,omitempty"`
-	Details     string                 `json:"details,omitempty"`
-	Description string                 `json:"description,omitempty"`
-	LightType   string                 `json:"lightType,omitempty"`
+	Details       string                 `json:"details,omitempty"`
+	Description   string                 `json:"description,omitempty"`
+	LookingAtID   string                 `json:"lookingAtId,omitempty"`
+	LookingAtName string                 `json:"lookingAtName,omitempty"`
+	LightType     string                 `json:"lightType,omitempty"`
 	Color       string                 `json:"color,omitempty"`
 	Angle       string                 `json:"angle,omitempty"`
 	FOV         string                 `json:"fov,omitempty"`
@@ -1037,6 +1040,28 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 			}
 			if strings.TrimSpace(el.Details) != "" {
 				charTraits = append(charTraits, "details: "+strings.TrimSpace(el.Details))
+			}
+
+			gazeTarget := strings.TrimSpace(el.LookingAtName)
+			if gazeTarget == "" && el.LookingAtID != "" {
+				for _, other := range scene.Elements {
+					if other.ID == el.LookingAtID {
+						gazeTarget = other.Name
+						if gazeTarget == "" {
+							gazeTarget = other.Label
+						}
+						if gazeTarget == "" {
+							gazeTarget = other.Subtype
+						}
+						if gazeTarget == "" {
+							gazeTarget = other.PropType
+						}
+						break
+					}
+				}
+			}
+			if gazeTarget != "" {
+				charTraits = append(charTraits, "gaze: looking directly at ["+gazeTarget+"]")
 			}
 			traitsDesc := ""
 			if len(charTraits) > 0 {
