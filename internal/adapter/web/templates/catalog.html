@@ -7187,11 +7187,11 @@
                         <span>1. Ollama Provider</span>
                       </label>
                       {{if .AIStatus.OllamaOnline}}
-                        <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
+                        <span id="ollamaCardBadge" class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
                           Online (v{{.AIStatus.OllamaVersion}}) &bull; {{len .AIStatus.OllamaModels}} models
                         </span>
                       {{else}}
-                        <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
+                        <span id="ollamaCardBadge" class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
                           Unreachable
                         </span>
                       {{end}}
@@ -7207,9 +7207,9 @@
                         <label style="font-size:11.5px;color:var(--text-muted);">
                           Default Model <strong style="color:#38bdf8;">(Vision Required 👁️)</strong>
                         </label>
-                        <button type="submit" class="btn-ghost" style="font-size:10.5px;padding:2px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Save endpoint and load models">&#x21bb; Load Models</button>
+                        <button type="button" class="btn-ghost" onclick="handleProbeRefresh(event)" style="font-size:10.5px;padding:2px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Test endpoint and reload models">&#x21bb; Load Models</button>
                       </div>
-                      <select name="ollama_default_model" class="input-dark" required>
+                      <select name="ollama_default_model" id="ollamaDefaultModelSelect" class="input-dark" required>
                         {{if .Settings.OllamaDefaultModel}}
                           <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (current default)</option>
                         {{else}}
@@ -7256,11 +7256,11 @@
                         <span>2. OpenAI Compatible (oMLX, vLLM, OpenAI)</span>
                       </label>
                       {{if .AIStatus.OMLXOnline}}
-                        <span class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
+                        <span id="openaiCardBadge" class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
                           Online &bull; {{len .AIStatus.OMLXModels}} models
                         </span>
                       {{else}}
-                        <span class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
+                        <span id="openaiCardBadge" class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
                           Unreachable
                         </span>
                       {{end}}
@@ -7282,9 +7282,9 @@
                         <label style="font-size:11.5px;color:var(--text-muted);">
                           Default Model <strong style="color:#38bdf8;">(Vision Required 👁️)</strong>
                         </label>
-                        <button type="submit" class="btn-ghost" style="font-size:10.5px;padding:2px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Save endpoint and load models">&#x21bb; Load Models</button>
+                        <button type="button" class="btn-ghost" onclick="handleProbeRefresh(event)" style="font-size:10.5px;padding:2px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Test endpoint and reload models">&#x21bb; Load Models</button>
                       </div>
-                      <select name="openai_default_model" class="input-dark" required>
+                      <select name="openai_default_model" id="openaiDefaultModelSelect" class="input-dark" required>
                         {{if .Settings.OpenAIDefaultModel}}
                           <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (current default)</option>
                         {{else}}
@@ -8254,6 +8254,106 @@
               openaiStatusBadge.textContent = 'OpenAI Server Unreachable';
             }
           }
+
+          // Update Settings card badges
+          var ollamaCardBadge = document.getElementById('ollamaCardBadge');
+          if (ollamaCardBadge) {
+            if (st.ollama_online) {
+              ollamaCardBadge.style.background = '#064e3b';
+              ollamaCardBadge.style.color = '#6ee7b7';
+              ollamaCardBadge.style.borderColor = '#059669';
+              ollamaCardBadge.textContent = 'Online (v' + (st.ollama_version || '') + ') • ' + (st.ollama_models ? st.ollama_models.length : 0) + ' models';
+            } else {
+              ollamaCardBadge.style.background = '#450a0a';
+              ollamaCardBadge.style.color = '#fca5a5';
+              ollamaCardBadge.style.borderColor = '#dc2626';
+              ollamaCardBadge.textContent = 'Unreachable';
+            }
+          }
+          var openaiCardBadge = document.getElementById('openaiCardBadge');
+          if (openaiCardBadge) {
+            if (st.omlx_online) {
+              openaiCardBadge.style.background = '#064e3b';
+              openaiCardBadge.style.color = '#6ee7b7';
+              openaiCardBadge.style.borderColor = '#059669';
+              openaiCardBadge.textContent = 'Online • ' + (st.omlx_models ? st.omlx_models.length : 0) + ' models';
+            } else {
+              openaiCardBadge.style.background = '#450a0a';
+              openaiCardBadge.style.color = '#fca5a5';
+              openaiCardBadge.style.borderColor = '#dc2626';
+              openaiCardBadge.textContent = 'Unreachable';
+            }
+          }
+
+          // Populate Ollama Default Model dropdown in Settings
+          var ollamaSel = document.getElementById('ollamaDefaultModelSelect');
+          if (ollamaSel && st.ollama_models && st.ollama_models.length > 0) {
+            var curVal = ollamaSel.value;
+            var html = '';
+            if (curVal) {
+              html += '<option value="' + curVal + '" selected>' + curVal + ' (current default)</option>';
+            } else {
+              html += '<option value="">Select Default Vision Model...</option>';
+            }
+            var visModels = st.ollama_models.filter(function(m) { return m.HasVision; });
+            var otherModels = st.ollama_models.filter(function(m) { return !m.HasVision; });
+            if (visModels.length > 0) {
+              html += '<optgroup label="Detected Vision Models">';
+              visModels.forEach(function(m) {
+                var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
+                var ctx = m.ContextLength ? ' [ctx:' + m.ContextLength + ']' : '';
+                var sel = (m.Name === curVal) ? ' selected' : '';
+                html += '<option value="' + m.Name + '"' + sel + '>' + m.Name + sz + ' [vision 👁️]' + ctx + '</option>';
+              });
+              html += '</optgroup>';
+            }
+            if (otherModels.length > 0) {
+              html += '<optgroup label="All Discovered Models">';
+              otherModels.forEach(function(m) {
+                var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
+                var ctx = m.ContextLength ? ' [ctx:' + m.ContextLength + ']' : '';
+                var sel = (m.Name === curVal) ? ' selected' : '';
+                html += '<option value="' + m.Name + '"' + sel + '>' + m.Name + sz + ctx + '</option>';
+              });
+              html += '</optgroup>';
+            }
+            ollamaSel.innerHTML = html;
+          }
+
+          // Populate OpenAI Default Model dropdown in Settings
+          var openaiSel = document.getElementById('openaiDefaultModelSelect');
+          if (openaiSel && st.omlx_models && st.omlx_models.length > 0) {
+            var curVal = openaiSel.value;
+            var html = '';
+            if (curVal) {
+              html += '<option value="' + curVal + '" selected>' + curVal + ' (current default)</option>';
+            } else {
+              html += '<option value="">Select Default Vision Model...</option>';
+            }
+            var visModels = st.omlx_models.filter(function(m) { return m.HasVision; });
+            var otherModels = st.omlx_models.filter(function(m) { return !m.HasVision; });
+            if (visModels.length > 0) {
+              html += '<optgroup label="Detected Vision Models">';
+              visModels.forEach(function(m) {
+                var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
+                var ctx = m.ContextLength ? ' [ctx:' + m.ContextLength + ']' : '';
+                var sel = (m.Name === curVal) ? ' selected' : '';
+                html += '<option value="' + m.Name + '"' + sel + '>' + m.Name + sz + ' [vision 👁️]' + ctx + '</option>';
+              });
+              html += '</optgroup>';
+            }
+            if (otherModels.length > 0) {
+              html += '<optgroup label="All Discovered Models">';
+              otherModels.forEach(function(m) {
+                var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
+                var ctx = m.ContextLength ? ' [ctx:' + m.ContextLength + ']' : '';
+                var sel = (m.Name === curVal) ? ' selected' : '';
+                html += '<option value="' + m.Name + '"' + sel + '>' + m.Name + sz + ctx + '</option>';
+              });
+              html += '</optgroup>';
+            }
+            openaiSel.innerHTML = html;
+          }
           return st;
         })
         .catch(function(err) {
@@ -8264,6 +8364,20 @@
     window.handleProbeRefresh = function(ev) {
       if (ev) ev.preventDefault();
       var btn = document.getElementById('probeRefreshBtn');
+      var badges = [
+        document.getElementById('ollamaStatusBadge'),
+        document.getElementById('openaiStatusBadge'),
+        document.getElementById('ollamaCardBadge'),
+        document.getElementById('openaiCardBadge')
+      ];
+      badges.forEach(function(b) {
+        if (b) {
+          b.style.background = '#1e293b';
+          b.style.color = '#94a3b8';
+          b.style.borderColor = '#475569';
+          b.textContent = 'Probing...';
+        }
+      });
       if (btn) {
         btn.textContent = 'Probing servers...';
         btn.style.opacity = '0.6';
