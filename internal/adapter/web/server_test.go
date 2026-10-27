@@ -279,6 +279,10 @@ func TestDirectorTabRendering(t *testing.T) {
 		!strings.Contains(body, "charFeaturesSelect") || !strings.Contains(body, "charDetailsSelect") {
 		t.Errorf("expected body to contain character hair, clothing, features, and details preset selects")
 	}
+	if !strings.Contains(body, "Bombero / Firefighter Gear") || !strings.Contains(body, "Vestido Floreado / Floral Sundress") ||
+		!strings.Contains(body, "Minifalda de Jean / Denim Miniskirt") || !strings.Contains(body, "Dependiente Fast-Food / Crew") {
+		t.Errorf("expected body to contain rich professional, formal, and feminine clothing presets")
+	}
 	if !strings.Contains(body, "charLookingAtSelect") || !strings.Contains(body, "gazeLinesGroup") || !strings.Contains(body, "gazeArrow") {
 		t.Errorf("expected body to contain Looking At gaze selector, gaze lines SVG group, and gaze arrowhead marker")
 	}
