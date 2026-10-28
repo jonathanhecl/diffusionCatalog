@@ -707,6 +707,32 @@
               </form>
             </div>
             <div>
+              <div class="facet-title" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>DETECTED FACES ({{len .SelectedAsset.Faces}})</span>
+                {{if eq .SelectedAsset.MediaType "image"}}
+                  <form action="/admin/assets/scan-faces" method="POST" style="margin:0;">
+                    <input type="hidden" name="asset_id" value="{{.SelectedAsset.ID}}">
+                    <button type="submit" class="btn-ghost" style="padding:2px 8px;font-size:11px;" title="Scan this image for faces and compute biometric embeddings">&#128269; Scan Faces</button>
+                  </form>
+                {{end}}
+              </div>
+              {{if .SelectedAsset.Faces}}
+                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                  {{range .SelectedAsset.Faces}}
+                    <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:4px 6px;display:flex;align-items:center;gap:6px;">
+                      <img src="/cache/{{.CropRelPath}}" alt="{{.ClusterLabel}}" style="width:28px;height:28px;border-radius:4px;object-fit:cover;">
+                      <div>
+                        <div style="font-size:11px;font-weight:600;color:#fff;">{{.ClusterLabel}}</div>
+                        <div style="font-size:10px;color:var(--text-muted);">{{printf "%.0f%%" (mul100 .Confidence)}}</div>
+                      </div>
+                    </div>
+                  {{end}}
+                </div>
+              {{else}}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:6px;">No faces detected yet. Click "Scan Faces" above to extract.</div>
+              {{end}}
+            </div>
+            <div>
               <div class="facet-title"><span>COLLECTIONS</span></div>
               {{if .SelectedAsset.Groups}}
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">

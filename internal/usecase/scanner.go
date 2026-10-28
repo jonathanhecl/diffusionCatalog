@@ -631,22 +631,23 @@ func hashFilePrefix(absPath string, size int64) (string, error) {
 }
 
 func resolveAssetAbsolutePath(asset domain.MediaAsset, roots []domain.MediaRoot) string {
+	cleanRel := normalizeManifestRelPath("", asset.RelPath)
 	if asset.RootPath != "" {
-		p := filepath.Join(asset.RootPath, filepath.FromSlash(asset.RelPath))
+		p := filepath.Join(asset.RootPath, filepath.FromSlash(cleanRel))
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}
 	}
 	for _, r := range roots {
 		if r.ID == asset.RootID {
-			p := filepath.Join(r.Path, filepath.FromSlash(asset.RelPath))
+			p := filepath.Join(r.Path, filepath.FromSlash(cleanRel))
 			if _, err := os.Stat(p); err == nil {
 				return p
 			}
 		}
 	}
 	for _, r := range roots {
-		p := filepath.Join(r.Path, filepath.FromSlash(asset.RelPath))
+		p := filepath.Join(r.Path, filepath.FromSlash(cleanRel))
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}
@@ -922,4 +923,31 @@ func cosineSimilarity(a, b []float32) float64 {
 		return 0
 	}
 	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
+}
+
+// ScanAssetFaces detects and crops faces for a single asset, saving them and updating clusters.
+func (s *ScannerService) ScanAssetFaces(ctx context.Context, assetID int64) (int, error) {
+	if s.vision == nil {
+		return 0, fmt.Errorf("vision engine not configured")
+	}
+	asset, err := s.repo.GetAssetByID(ctx, assetID)
+	if err != nil || asset == nil {
+		return 0, fmt.Errorf("asset not found: %w", err)
+	}
+	roots, _ := s.repo.ListMediaRoots(ctx)
+	absPath := resolveAssetAbsolutePath(*asset, roots)
+	if absPath == "" {
+		return 0, fmt.Errorf("unable to resolve absolute path for asset %d (%s)", assetID, asset.RelPath)
+	}
+
+	faces, err := s.vision.DetectAndCropFaces(ctx, asset.ID, absPath, s.cacheDir)
+	if err != nil {
+		return 0, err
+	}
+	_ = s.repo.DeleteFacesForAsset(ctx, asset.ID)
+	for i := range faces {
+		_, _ = s.repo.SaveDetectedFace(ctx, &faces[i])
+	}
+	_, _ = s.ClusterDetectedFaces(ctx, 0.50)
+	return len(faces), nil
 }

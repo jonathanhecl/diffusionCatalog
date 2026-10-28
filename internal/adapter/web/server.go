@@ -369,6 +369,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/assets/category", s.handleSetAssetCategory)
 	mux.HandleFunc("POST /admin/assets/rate", s.handleRateAsset)
 	mux.HandleFunc("POST /admin/assets/delete", s.handleDeleteAsset)
+	mux.HandleFunc("POST /admin/assets/scan-faces", s.handleScanAssetFaces)
 	mux.HandleFunc("POST /admin/groups/create", s.handleCreateGroup)
 	mux.HandleFunc("POST /admin/groups/update", s.handleUpdateGroup)
 	mux.HandleFunc("POST /admin/groups/delete", s.handleDeleteGroup)
@@ -1594,6 +1595,28 @@ func (s *Server) handleRenameFaceCluster(w http.ResponseWriter, r *http.Request)
 	referer := r.Header.Get("Referer")
 	if referer == "" {
 		referer = "/?face_mode=1"
+	}
+	http.Redirect(w, r, referer, http.StatusSeeOther)
+}
+
+func (s *Server) handleScanAssetFaces(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
+	if assetID > 0 {
+		count, err := s.scanner.ScanAssetFaces(r.Context(), assetID)
+		if r.Header.Get("Accept") == "application/json" {
+			w.Header().Set("Content-Type", "application/json")
+			if err != nil {
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "faces_found": count})
+			return
+		}
+	}
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		referer = "/"
 	}
 	http.Redirect(w, r, referer, http.StatusSeeOther)
 }
