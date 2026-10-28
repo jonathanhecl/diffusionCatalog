@@ -768,8 +768,8 @@ func (s *Server) handleAPIAIStatus(w http.ResponseWriter, r *http.Request) {
 		st = s.catalog.InspectAIBackendsFresh(ctx)
 	} else {
 		cached := s.catalog.InspectAIBackends(ctx)
-		// If cached status is offline or empty, probe fresh so async client gets live truth
-		if !cached.OllamaOnline && !cached.OMLXOnline {
+		// If cached status has not finished its first check, probe fresh
+		if !cached.Checked {
 			st = s.catalog.InspectAIBackendsFresh(ctx)
 		} else {
 			st = cached

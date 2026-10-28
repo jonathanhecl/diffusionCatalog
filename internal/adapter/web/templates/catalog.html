@@ -9139,6 +9139,10 @@
                     <span id="ollamaStatusBadge" class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
                       Ollama Online (v{{.AIStatus.OllamaVersion}}) — {{len .AIStatus.OllamaModels}} models
                     </span>
+                  {{else if not .AIStatus.Checked}}
+                    <span id="ollamaStatusBadge" class="badge-chip" style="background:#1e293b;color:#94a3b8;border-color:#334155;padding:4px 10px;font-size:12px;">
+                      Checking Ollama...
+                    </span>
                   {{else}}
                     <span id="ollamaStatusBadge" class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
                       Ollama Unreachable ({{.Settings.OllamaBaseURL}})
@@ -9149,9 +9153,13 @@
                     <span id="openaiStatusBadge" class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:4px 10px;font-size:12px;">
                       OpenAI Server Online — {{len .AIStatus.OMLXModels}} models
                     </span>
+                  {{else if not .AIStatus.Checked}}
+                    <span id="openaiStatusBadge" class="badge-chip" style="background:#1e293b;color:#94a3b8;border-color:#334155;padding:4px 10px;font-size:12px;">
+                      Checking OpenAI Server...
+                    </span>
                   {{else}}
                     <span id="openaiStatusBadge" class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:4px 10px;font-size:12px;">
-                      OpenAI Server Unreachable ({{.Settings.OMLXBaseURL}})
+                      OpenAI Server Unreachable ({{if .Settings.OpenAIBaseURL}}{{.Settings.OpenAIBaseURL}}{{else}}{{.Settings.OMLXBaseURL}}{{end}})
                     </span>
                   {{end}}
                 </div>
@@ -9173,6 +9181,10 @@
                       {{if .AIStatus.OllamaOnline}}
                         <span id="ollamaCardBadge" class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
                           Online (v{{.AIStatus.OllamaVersion}}) &bull; {{len .AIStatus.OllamaModels}} models
+                        </span>
+                      {{else if not .AIStatus.Checked}}
+                        <span id="ollamaCardBadge" class="badge-chip" style="background:#1e293b;color:#94a3b8;border-color:#334155;padding:2px 8px;font-size:11px;">
+                          Checking...
                         </span>
                       {{else}}
                         <span id="ollamaCardBadge" class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
@@ -9242,6 +9254,10 @@
                       {{if .AIStatus.OMLXOnline}}
                         <span id="openaiCardBadge" class="badge-chip" style="background:#064e3b;color:#6ee7b7;border-color:#059669;padding:2px 8px;font-size:11px;">
                           Online &bull; {{len .AIStatus.OMLXModels}} models
+                        </span>
+                      {{else if not .AIStatus.Checked}}
+                        <span id="openaiCardBadge" class="badge-chip" style="background:#1e293b;color:#94a3b8;border-color:#334155;padding:2px 8px;font-size:11px;">
+                          Checking...
                         </span>
                       {{else}}
                         <span id="openaiCardBadge" class="badge-chip" style="background:#450a0a;color:#fca5a5;border-color:#dc2626;padding:2px 8px;font-size:11px;">
@@ -10292,6 +10308,12 @@
               ollamaStatusBadge.style.color = '#6ee7b7';
               ollamaStatusBadge.style.borderColor = '#059669';
               ollamaStatusBadge.textContent = 'Ollama Online (v' + (st.ollama_version || '') + ') — ' + (st.ollama_models ? st.ollama_models.length : 0) + ' models';
+            } else if (!st.checked) {
+              ollamaStatusBadge.className = 'badge-chip';
+              ollamaStatusBadge.style.background = '#1e293b';
+              ollamaStatusBadge.style.color = '#94a3b8';
+              ollamaStatusBadge.style.borderColor = '#334155';
+              ollamaStatusBadge.textContent = 'Checking Ollama...';
             } else {
               ollamaStatusBadge.className = 'badge-chip';
               ollamaStatusBadge.style.background = '#450a0a';
@@ -10308,6 +10330,12 @@
               openaiStatusBadge.style.color = '#6ee7b7';
               openaiStatusBadge.style.borderColor = '#059669';
               openaiStatusBadge.textContent = 'OpenAI Server Online — ' + (st.omlx_models ? st.omlx_models.length : 0) + ' models';
+            } else if (!st.checked) {
+              openaiStatusBadge.className = 'badge-chip';
+              openaiStatusBadge.style.background = '#1e293b';
+              openaiStatusBadge.style.color = '#94a3b8';
+              openaiStatusBadge.style.borderColor = '#334155';
+              openaiStatusBadge.textContent = 'Checking OpenAI Server...';
             } else {
               openaiStatusBadge.className = 'badge-chip';
               openaiStatusBadge.style.background = '#450a0a';
@@ -10325,6 +10353,11 @@
               ollamaCardBadge.style.color = '#6ee7b7';
               ollamaCardBadge.style.borderColor = '#059669';
               ollamaCardBadge.textContent = 'Online (v' + (st.ollama_version || '') + ') • ' + (st.ollama_models ? st.ollama_models.length : 0) + ' models';
+            } else if (!st.checked) {
+              ollamaCardBadge.style.background = '#1e293b';
+              ollamaCardBadge.style.color = '#94a3b8';
+              ollamaCardBadge.style.borderColor = '#334155';
+              ollamaCardBadge.textContent = 'Checking...';
             } else {
               ollamaCardBadge.style.background = '#450a0a';
               ollamaCardBadge.style.color = '#fca5a5';
@@ -10339,6 +10372,11 @@
               openaiCardBadge.style.color = '#6ee7b7';
               openaiCardBadge.style.borderColor = '#059669';
               openaiCardBadge.textContent = 'Online • ' + (st.omlx_models ? st.omlx_models.length : 0) + ' models';
+            } else if (!st.checked) {
+              openaiCardBadge.style.background = '#1e293b';
+              openaiCardBadge.style.color = '#94a3b8';
+              openaiCardBadge.style.borderColor = '#334155';
+              openaiCardBadge.textContent = 'Checking...';
             } else {
               openaiCardBadge.style.background = '#450a0a';
               openaiCardBadge.style.color = '#fca5a5';

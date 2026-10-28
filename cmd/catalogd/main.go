@@ -57,6 +57,13 @@ func main() {
 	scannerService := usecase.NewScannerService(cfg.MediaDir, cfg.CacheDir, repo, extractor, visionEngine)
 	scannerService.SetOllamaProvider(ollamaClient)
 
+	// Warm up AI backend status cache in background on startup
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = catalogService.InspectAIBackendsFresh(bgCtx)
+	}()
+
 	authService, err := usecase.NewAuthService(ctx, repo, cfg.AdminUser, cfg.AdminPass)
 	if err != nil {
 		log.Fatalf("failed to initialize auth service: %v", err)

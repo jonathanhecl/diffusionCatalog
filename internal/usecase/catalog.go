@@ -512,6 +512,7 @@ func (s *CatalogService) buildLoRAContextBlock(ctx context.Context, targetSlug s
 
 // AIBackendStatus summarizes the live connectivity and discovered models of both Ollama and oMLX.
 type AIBackendStatus struct {
+	Checked       bool                     `json:"checked"`
 	OllamaOnline  bool                     `json:"ollama_online"`
 	OllamaVersion string                   `json:"ollama_version"`
 	OllamaModels  []domain.OllamaModelInfo `json:"ollama_models"`
@@ -569,7 +570,13 @@ func (s *CatalogService) InspectAIBackendsFresh(ctx context.Context) AIBackendSt
 	}
 	s.aiStatusMu.RUnlock()
 
-	st := s.probeAIBackends(ctx)
+	// Use an independent probe context with timeout so client cancellations (e.g. browser F5 reload)
+	// never abort backend network checks mid-flight or cache false offline states.
+	probeCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	st := s.probeAIBackends(probeCtx)
+	st.Checked = true
 
 	s.aiStatusMu.Lock()
 	s.aiStatusCache = st
