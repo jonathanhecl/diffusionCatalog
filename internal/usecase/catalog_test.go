@@ -183,7 +183,7 @@ func TestRemixAndVisionOperationModeAndTargetGeneratorPersistence(t *testing.T) 
 	}
 
 	// 3. Test mode == "remix" on a video asset: MUST use TextToPrompt, NOT ImageToPrompt
-	out, err := catalogSvc.RunImage2Prompt(ctx, assetID, "flux", "remix", "make it neon", 0, nil, domain.PromptExecutionOverride{}, false, "")
+	out, _, err := catalogSvc.RunImage2Prompt(ctx, assetID, "flux", "remix", "make it neon", 0, nil, domain.PromptExecutionOverride{}, false, "")
 	if err != nil {
 		t.Fatalf("RunImage2Prompt remix mode failed: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestRemixAndVisionOperationModeAndTargetGeneratorPersistence(t *testing.T) 
 	}
 
 	// 4. Test mode == "vision" on an attached frame: MUST use ImageToPrompt
-	outVision, err := catalogSvc.RunImage2Prompt(ctx, assetID, "flux", "vision", "inspect visual details", 0, nil, domain.PromptExecutionOverride{}, false, filepath.Join(cacheDir, "fake_frame.jpg"))
+	outVision, _, err := catalogSvc.RunImage2Prompt(ctx, assetID, "flux", "vision", "inspect visual details", 0, nil, domain.PromptExecutionOverride{}, false, filepath.Join(cacheDir, "fake_frame.jpg"))
 	if err != nil {
 		t.Fatalf("RunImage2Prompt vision mode failed: %v", err)
 	}
@@ -419,7 +419,7 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 	}
 
 	// 4. Test SynthesizeScenePrompt (without canvas capture -> TextToPrompt)
-	compiledManifest, generatedPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, "")
+	compiledManifest, generatedPrompt, _, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, "")
 	if err != nil {
 		t.Fatalf("SynthesizeScenePrompt failed: %v", err)
 	}
@@ -435,7 +435,7 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 	if err := os.WriteFile(dummyCanvasPath, []byte("fake png content"), 0644); err != nil {
 		t.Fatalf("failed to write dummy canvas: %v", err)
 	}
-	_, visionPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, dummyCanvasPath)
+	_, visionPrompt, _, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, dummyCanvasPath)
 	if err != nil {
 		t.Fatalf("SynthesizeScenePrompt with canvas image failed: %v", err)
 	}
@@ -449,7 +449,7 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 	// 4c. Test SynthesizeScenePrompt with in-memory canvas data URL (no disk temporary files)
 	mockOllama.lastCall = ""
 	inMemoryDataURL := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-	_, inMemoryVisionPrompt, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, inMemoryDataURL)
+	_, inMemoryVisionPrompt, _, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, inMemoryDataURL)
 	if err != nil {
 		t.Fatalf("SynthesizeScenePrompt with in-memory data URL failed: %v", err)
 	}

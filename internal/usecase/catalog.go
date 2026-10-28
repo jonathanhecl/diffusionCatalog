@@ -734,17 +734,19 @@ func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProv
 // RunImage2Prompt runs the configured Ollama or oMLX Image2Prompt (or Remix Text2Prompt) on an asset
 // using the selected generator profile's system prompt (e.g., flux, krea2, moss, minimaxh3), selected model LoRAs,
 // optional character/scene direction, and optional quick model/thinking overrides.
-func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, loraIDs []int64, override domain.PromptExecutionOverride, saveToAsset bool, frameImagePath string) (string, error) {
+func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, loraIDs []int64, override domain.PromptExecutionOverride, saveToAsset bool, frameImagePath string) (string, float64, error) {
 	if s.ollama == nil {
-		return "", fmt.Errorf("AI provider is not initialized")
+		return "", 0, fmt.Errorf("AI provider is not initialized")
 	}
+
+	startTime := time.Now()
 
 	var asset *domain.MediaAsset
 	if assetID > 0 {
 		var err error
 		asset, err = s.repo.GetAssetByID(ctx, assetID)
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 	}
 
@@ -755,7 +757,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 
 	cfg, err := s.repo.GetSettings(ctx)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if profileSlug == "" {
 		profileSlug = cfg.DefaultTargetGenerator
@@ -822,7 +824,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		}
 		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, promptInstruction, usedThink)
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 	} else {
 		// Vision analysis via Image2Prompt model
@@ -837,14 +839,16 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		} else if asset != nil {
 			absPath = s.ResolveAssetAbsPath(ctx, asset)
 		} else {
-			return "", fmt.Errorf("no media asset or image provided for vision analysis")
+			return "", 0, fmt.Errorf("no media asset or image provided for vision analysis")
 		}
 
 		generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, absPath, combinedHint, usedThink)
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 	}
+
+	durationSec := time.Since(startTime).Seconds()
 
 	if generated != "" {
 		var aid *int64
@@ -859,6 +863,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 			OutputPrompt:      generated,
 			Provider:          usedProvider,
 			ModelName:         fmt.Sprintf("%s (think:%s)", usedModel, usedThink),
+			DurationSec:       durationSec,
 		})
 	}
 
@@ -869,22 +874,23 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		absPath := s.ResolveAssetAbsPath(ctx, asset)
 		_ = metadata.WritePromptSidecarTXT(absPath, asset.Metadata)
 	}
-	return generated, nil
+	return generated, durationSec, nil
 }
 
 // RunCharacterPrompt synthesizes a new prompt for a specific Character in a given scene, movie style, or action
 // tailored to a target generator profile (e.g., flux, krea2, qwen-image, moss, minimaxh3 video), optional model-specific LoRAs, and optional quick model/thinking overrides.
-func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int64, profileSlug, sceneDirection string, refAssetID int64, loraIDs []int64, override domain.PromptExecutionOverride) (string, error) {
+func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int64, profileSlug, sceneDirection string, refAssetID int64, loraIDs []int64, override domain.PromptExecutionOverride) (string, float64, error) {
 	if s.ollama == nil {
-		return "", fmt.Errorf("AI provider is not initialized")
+		return "", 0, fmt.Errorf("AI provider is not initialized")
 	}
+	startTime := time.Now()
 	ch, err := s.repo.GetCharacterByID(ctx, characterID)
 	if err != nil {
-		return "", fmt.Errorf("character not found: %w", err)
+		return "", 0, fmt.Errorf("character not found: %w", err)
 	}
 	cfg, err := s.repo.GetSettings(ctx)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if profileSlug == "" {
 		profileSlug = cfg.DefaultTargetGenerator
@@ -931,7 +937,7 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 			absPath := s.ResolveAssetAbsPath(ctx, refAsset)
 			generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, absPath, charSpec, usedThink)
 			if err != nil {
-				return "", err
+				return "", 0, err
 			}
 		}
 	}
@@ -944,9 +950,11 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 		)
 		generated, err = s.ollama.TextToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, charSpec, usedThink)
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 	}
+
+	durationSec := time.Since(startTime).Seconds()
 
 	if generated != "" {
 		cid := ch.ID
@@ -958,21 +966,23 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 			OutputPrompt:      generated,
 			Provider:          usedProvider,
 			ModelName:         fmt.Sprintf("%s (think:%s)", usedModel, usedThink),
+			DurationSec:       durationSec,
 		})
 	}
 
-	return generated, nil
+	return generated, durationSec, nil
 }
 
 // RunText2Prompt expands or converts a text idea/prompt into a target generator prompt using the configured
 // Ollama or oMLX Text2Prompt model, the selected generator profile's system prompt, any selected model-specific LoRAs, and optional quick model/thinking overrides.
-func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profileSlug string, loraIDs []int64, override domain.PromptExecutionOverride) (string, error) {
+func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profileSlug string, loraIDs []int64, override domain.PromptExecutionOverride) (string, float64, error) {
 	if s.ollama == nil {
-		return "", fmt.Errorf("AI provider is not initialized")
+		return "", 0, fmt.Errorf("AI provider is not initialized")
 	}
+	startTime := time.Now()
 	cfg, err := s.repo.GetSettings(ctx)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if profileSlug == "" {
 		profileSlug = cfg.DefaultTargetGenerator
@@ -1000,8 +1010,9 @@ func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profi
 
 	generated, err := s.ollama.TextToPrompt(ctx, provider, baseURL, apiKey, model, sysPrompt, fullUserPrompt, think)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
+	durationSec := time.Since(startTime).Seconds()
 	if generated != "" {
 		_, _ = s.repo.SaveGeneratedPrompt(ctx, &domain.GeneratedPrompt{
 			TargetProfileSlug: profileSlug,
@@ -1009,9 +1020,10 @@ func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profi
 			OutputPrompt:      generated,
 			Provider:          provider,
 			ModelName:         fmt.Sprintf("%s (think:%s)", model, think),
+			DurationSec:       durationSec,
 		})
 	}
-	return generated, nil
+	return generated, durationSec, nil
 }
 
 // Studio Composition and Pose persistence methods
@@ -1435,10 +1447,11 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 
 // SynthesizeScenePrompt compiles the scene JSON into a spatial manifest and calls ImageToPrompt if a canvas screenshot (file path or in-memory data URL) is provided,
 // falling back to TextToPrompt.
-func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, targetProfileSlug, userHint string, loraIDs []int64, override domain.PromptExecutionOverride, canvasImage string) (manifest string, prompt string, err error) {
+func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, targetProfileSlug, userHint string, loraIDs []int64, override domain.PromptExecutionOverride, canvasImage string) (manifest string, prompt string, durationSec float64, err error) {
+	startTime := time.Now()
 	compiledManifest, err := s.CompileSceneDirectorManifest(ctx, sceneJSON)
 	if err != nil {
-		return "", "", err
+		return "", "", 0, err
 	}
 
 	inputConcept := compiledManifest
@@ -1448,7 +1461,7 @@ func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, t
 
 	cfg, err := s.repo.GetSettings(ctx)
 	if err != nil {
-		return compiledManifest, "", err
+		return compiledManifest, "", 0, err
 	}
 	if targetProfileSlug == "" {
 		targetProfileSlug = cfg.DefaultTargetGenerator
@@ -1477,24 +1490,26 @@ func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, t
 
 		generated, vErr := s.ollama.ImageToPrompt(ctx, provider, baseURL, apiKey, model, sysPrompt, canvasImage, visualHint, think)
 		if vErr == nil && strings.TrimSpace(generated) != "" {
+			durationSec = time.Since(startTime).Seconds()
 			_, _ = s.repo.SaveGeneratedPrompt(ctx, &domain.GeneratedPrompt{
 				TargetProfileSlug: targetProfileSlug,
 				SceneDirection:    strings.TrimSpace(inputConcept),
 				OutputPrompt:      generated,
 				Provider:          provider,
 				ModelName:         fmt.Sprintf("%s (canvas vision, think:%s)", model, think),
+				DurationSec:       durationSec,
 			})
-			return compiledManifest, generated, nil
+			return compiledManifest, generated, durationSec, nil
 		}
 		log.Printf("[SCENE] Vision prompt synthesis with canvas screenshot failed (%v), falling back to TextToPrompt", vErr)
 	}
 
-	generatedPrompt, err := s.RunText2Prompt(ctx, fullUserPrompt, targetProfileSlug, nil, override)
+	generatedPrompt, durationSec, err := s.RunText2Prompt(ctx, fullUserPrompt, targetProfileSlug, nil, override)
 	if err != nil {
-		return compiledManifest, "", err
+		return compiledManifest, "", 0, err
 	}
 
-	return compiledManifest, generatedPrompt, nil
+	return compiledManifest, generatedPrompt, durationSec, nil
 }
 
 // ImageToSceneSystemPrompt provides instructions for multimodal models to deconstruct an image into SceneDirector JSON.

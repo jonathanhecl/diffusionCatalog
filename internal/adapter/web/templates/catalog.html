@@ -1132,15 +1132,16 @@
                 </div>
               {{end}}
 
-              {{if .AIResultPrompt}}
-                <div style="margin-bottom:14px;background:#064e3b;border:1px solid #059669;border-radius:6px;padding:12px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#6ee7b7;">
-                    <span>SYNTHESIZED PROMPT for target <strong>{{.AITargetProfile}}</strong>:</span>
-                    <button type="button" id="btn-copy-prompt" class="btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="copyStudioPrompt()">Copy Prompt</button>
+              <div id="studio-result-card" style="{{if not .AIResultPrompt}}display:none;{{end}}margin-bottom:14px;background:#064e3b;border:1px solid #059669;border-radius:6px;padding:12px;transition:all 0.3s ease;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#6ee7b7;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span>SYNTHESIZED PROMPT for target <strong id="studio-result-target">{{.AITargetProfile}}</strong>:</span>
+                    <span id="studio-result-duration" style="{{if le .AIDurationSec 0.0}}display:none;{{end}}background:#022c22;border:1px solid #10b981;padding:1px 6px;border-radius:3px;color:#34d399;font-size:11px;font-weight:700;">{{if gt .AIDurationSec 0.0}}⏱️ {{printf "%.1fs" .AIDurationSec}}{{end}}</span>
                   </div>
-                  <div id="studio-result-out" class="prompt-box" style="color:#a7f3d0;background:#03281f;border-color:#059669;font-size:12.5px;white-space:pre-wrap;word-break:break-word;">{{.AIResultPrompt}}</div>
+                  <button type="button" id="btn-copy-prompt" class="btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="copyStudioPrompt()">Copy Prompt</button>
                 </div>
-              {{end}}
+                <div id="studio-result-out" class="prompt-box" style="color:#a7f3d0;background:#03281f;border-color:#059669;font-size:12.5px;white-space:pre-wrap;word-break:break-word;">{{.AIResultPrompt}}</div>
+              </div>
 
               <form id="studio-workbench-form" action="/admin/ollama/image2prompt" method="POST" autocomplete="off" enctype="multipart/form-data" onsubmit="prepareStudioSubmission(event, this)" style="display:flex;flex-direction:column;gap:12px;">
                 <input type="hidden" name="asset_id" value="{{if .SelectedAsset}}{{.SelectedAsset.ID}}{{else}}0{{end}}">
@@ -1201,29 +1202,31 @@
                   <div>
                     <label class="kv-label">AI Provider</label>
                     <select name="override_provider" id="remixProviderSelect" class="input-dark" onchange="switchProviderSelect('remix')">
-                      <option value="ollama" {{if eq .Settings.RemixDefaultProvider "ollama"}}selected{{end}}>Ollama</option>
-                      <option value="openai" {{if or (eq .Settings.RemixDefaultProvider "openai") (eq .Settings.RemixDefaultProvider "omlx")}}selected{{end}}>OpenAI Comp.</option>
+                      <option value="ollama" {{if or (eq .AIOverrideProvider "ollama") (and (eq .AIOverrideProvider "") (eq .Settings.RemixDefaultProvider "ollama"))}}selected{{end}}>Ollama</option>
+                      <option value="openai" {{if or (eq .AIOverrideProvider "openai") (eq .AIOverrideProvider "omlx") (and (eq .AIOverrideProvider "") (or (eq .Settings.RemixDefaultProvider "openai") (eq .Settings.RemixDefaultProvider "omlx")))}}selected{{end}}>OpenAI Comp.</option>
                     </select>
                   </div>
                   <div>
                     <label class="kv-label">Model</label>
                     <select name="override_model" id="remixModelSelect" class="input-dark">
                       {{$isVision := or (eq $.AIMode "vision") (and (eq $.AIMode "") $.SelectedAsset)}}
-                      {{if eq .Settings.RemixDefaultProvider "openai"}}
-                        <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (default)</option>
+                      {{$activeProv := or $.AIOverrideProvider $.Settings.RemixDefaultProvider}}
+                      {{$activeMod := or $.AIOverrideModel (or $.Settings.OllamaDefaultModel $.Settings.OpenAIDefaultModel)}}
+                      {{if or (eq $activeProv "openai") (eq $activeProv "omlx")}}
+                        <option value="{{.Settings.OpenAIDefaultModel}}" {{if eq $activeMod .Settings.OpenAIDefaultModel}}selected{{end}}>{{.Settings.OpenAIDefaultModel}} (default)</option>
                         {{range .AIStatus.OMLXModels}}
                           {{if .IsCompletionModel}}
                             {{if or (not $isVision) .HasVision}}
-                              <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                              <option value="{{.Name}}" {{if eq $activeMod .Name}}selected{{end}}>{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
                             {{end}}
                           {{end}}
                         {{end}}
                       {{else}}
-                        <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (default)</option>
+                        <option value="{{.Settings.OllamaDefaultModel}}" {{if eq $activeMod .Settings.OllamaDefaultModel}}selected{{end}}>{{.Settings.OllamaDefaultModel}} (default)</option>
                         {{range .AIStatus.OllamaModels}}
                           {{if .IsCompletionModel}}
                             {{if or (not $isVision) .HasVision}}
-                              <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                              <option value="{{.Name}}" {{if eq $activeMod .Name}}selected{{end}}>{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
                             {{end}}
                           {{end}}
                         {{end}}
@@ -1233,11 +1236,11 @@
                   <div>
                     <label class="kv-label">Thinking Mode</label>
                     <select name="override_think" id="remixThinkSelect" class="input-dark">
-                      <option value="default">Default</option>
-                      <option value="off">Off</option>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
+                      <option value="default" {{if or (eq .AIOverrideThink "") (eq .AIOverrideThink "default")}}selected{{end}}>Default</option>
+                      <option value="off" {{if eq .AIOverrideThink "off"}}selected{{end}}>Off</option>
+                      <option value="low" {{if eq .AIOverrideThink "low"}}selected{{end}}>Low</option>
+                      <option value="medium" {{if eq .AIOverrideThink "medium"}}selected{{end}}>Medium</option>
+                      <option value="high" {{if eq .AIOverrideThink "high"}}selected{{end}}>High</option>
                     </select>
                   </div>
                 </div>
@@ -1287,12 +1290,15 @@
                 <div id="studio-recent-prompts-list" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding-right:4px;">
                   {{if .GeneratedHistory}}
                     {{range .GeneratedHistory}}
-                      <div class="prompt-box recent-prompt-card" data-server="1" data-target="{{.TargetProfileSlug}}" data-provider="{{.Provider}}" data-model="{{.ModelName}}" style="font-size:11px;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;">
+                      <div class="prompt-box recent-prompt-card" data-server="1" data-target="{{.TargetProfileSlug}}" data-provider="{{.Provider}}" data-model="{{.ModelName}}" data-duration="{{.DurationSec}}" style="font-size:11px;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);margin-bottom:6px;flex-wrap:wrap;gap:4px;">
                           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                             <span style="background:#0f172a;border:1px solid #1e3a5f;padding:1px 6px;border-radius:3px;color:#93c5fd;font-size:10.5px;">
                               Target: <strong style="color:#60a5fa;">{{.TargetProfileSlug}}</strong>
                             </span>
+                            {{if gt .DurationSec 0.0}}
+                              <span style="background:#022c22;border:1px solid #10b981;padding:1px 6px;border-radius:3px;color:#34d399;font-size:10.5px;font-weight:700;">⏱️ {{printf "%.1fs" .DurationSec}}</span>
+                            {{end}}
                             {{if .CharacterName}}
                               <span style="color:#6ee7b7;font-size:10.5px;">👤 {{.CharacterName}}</span>
                             {{end}}
@@ -2317,6 +2323,7 @@
                     <span>&#10024; COMPILED DIFFUSION PROMPT</span>
                   </span>
                   <span id="directorPromptTargetBadge" style="font-size:10px;background:#064e3b;border:1px solid #059669;color:#a7f3d0;padding:1px 7px;border-radius:3px;font-weight:600;">{{if .SelectedComposition}}{{.SelectedComposition.TargetProfileSlug}}{{else}}Diffusion Staging Result{{end}}</span>
+                  <span id="directorPromptDurationBadge" style="display:none;background:#022c22;border:1px solid #10b981;padding:1px 6px;border-radius:3px;color:#34d399;font-size:10.5px;font-weight:700;"></span>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;">
                   <button type="button" id="btnCopyPrompt" class="btn-ghost" style="padding:4px 10px;font-size:11px;color:#a7f3d0;border-color:#059669;background:#064e3b;cursor:pointer;" title="Copy to clipboard">&#128203; Copy Prompt</button>
@@ -2324,7 +2331,7 @@
                 </div>
               </div>
               <textarea id="directorPromptOutput" rows="5" readonly 
-                        style="width:100%;min-height:115px;background:#020617;border:1px solid #164e63;border-radius:6px;padding:10px 12px;color:#a7f3d0;font-size:12.5px;font-family:monospace;line-height:1.5;resize:vertical;user-select:all;" 
+                        style="width:100%;min-height:115px;background:#020617;border:1px solid #164e63;border-radius:6px;padding:10px 12px;color:#a7f3d0;font-size:12.5px;font-family:monospace;line-height:1.5;resize:vertical;user-select:all;transition:all 0.3s ease;" 
                         placeholder="Click 'Synthesize Diffusion Prompt' in the right sidebar to compile your visual staging into a high-quality prompt.">{{if .SelectedComposition}}{{.SelectedComposition.PromptOutput}}{{end}}</textarea>
 
               <!-- Collapsible Spatial Manifest Inspector -->
@@ -8573,9 +8580,22 @@
     const charSelect = document.getElementById('directorCharacterSelect');
     const charId = parseInt(charSelect.value) || 0;
 
+    const origBtnBg = btn.style.background;
+    const origBtnBorder = btn.style.borderColor;
+    const origBtnShadow = btn.style.boxShadow;
+
     btn.disabled = true;
     spinner.style.display = 'inline-block';
-    btnText.textContent = "Capturing Canvas & Synthesizing...";
+    btn.style.background = 'linear-gradient(135deg, #9333ea, #db2777)';
+    btn.style.borderColor = '#c026d3';
+    btn.style.boxShadow = '0 0 16px rgba(219,39,119,0.5)';
+    btnText.textContent = "🚀 Synthesizing... (0.0s)";
+
+    const startTime = performance.now();
+    const timerInterval = setInterval(() => {
+      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+      btnText.textContent = `🚀 Synthesizing... (${elapsed}s)`;
+    }, 100);
 
     if (charId > 0) {
       const opt = charSelect.selectedOptions[0];
@@ -8628,25 +8648,33 @@
       const data = await resp.json();
       if (data.status === 'ok') {
         output.value = data.prompt;
+        const duration = Number(data.duration_sec || ((performance.now() - startTime) / 1000));
+        const durationStr = duration.toFixed(1) + 's';
+
         const targetBadge = document.getElementById('directorPromptTargetBadge');
         if (targetBadge && targetProfile) targetBadge.textContent = targetProfile;
+
+        const durBadge = document.getElementById('directorPromptDurationBadge');
+        if (durBadge) {
+          durBadge.textContent = '⏱️ ' + durationStr;
+          durBadge.style.display = 'inline-block';
+        }
+
         const remixBtn = document.getElementById('btnSendToRemix');
         remixBtn.href = `/?tab=studio&concept=${encodeURIComponent(data.prompt)}&target_profile=${encodeURIComponent(targetProfile)}`;
         try {
           output.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          output.style.background = '#03281f';
           output.style.borderColor = '#10b981';
-          output.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.4)';
-          setTimeout(() => {
-            output.style.borderColor = '#164e63';
-            output.style.boxShadow = 'none';
-          }, 2200);
+          output.style.color = '#a7f3d0';
+          output.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.45)';
         } catch(e) {}
         if (data.used_vision) {
-          showToast(`Prompt synthesized via [${data.provider || 'AI'}] ${data.model} with Visual Canvas 👁️`, 'success');
+          showToast(`Prompt synthesized in ${durationStr} via [${data.provider || 'AI'}] ${data.model} with Visual Canvas 👁️`, 'success');
         } else if (data.model) {
-          showToast(`Prompt synthesized via [${data.provider || 'AI'}] ${data.model}`, 'success');
+          showToast(`Prompt synthesized in ${durationStr} via [${data.provider || 'AI'}] ${data.model}`, 'success');
         } else {
-          showToast('Prompt synthesized successfully!', 'success');
+          showToast(`Prompt synthesized in ${durationStr}!`, 'success');
         }
       } else {
         output.value = "Error synthesizing prompt: " + (data.error || "unknown error");
@@ -8656,8 +8684,12 @@
       output.value = "Network error communicating with AI backend: " + err.message;
       showToast("Network error: " + err.message, "error");
     } finally {
+      clearInterval(timerInterval);
       btn.disabled = false;
       spinner.style.display = 'none';
+      btn.style.background = origBtnBg;
+      btn.style.borderColor = origBtnBorder;
+      btn.style.boxShadow = origBtnShadow;
       btnText.textContent = "🚀 Synthesize Diffusion Prompt";
     }
   });
@@ -10752,6 +10784,10 @@
       items.forEach(function(item) {
         var targetSlug = escapeHtml(item.target || 'flux');
         var provInfo = escapeHtml(item.provider ? '[' + item.provider + '] ' + (item.model || '') : (item.model || ''));
+        var durInfo = '';
+        if (item.duration_sec && Number(item.duration_sec) > 0) {
+          durInfo = '<span style="background:#022c22;border:1px solid #10b981;padding:1px 6px;border-radius:3px;color:#34d399;font-size:10.5px;font-weight:700;">⏱️ ' + Number(item.duration_sec).toFixed(1) + 's</span>';
+        }
         var charInfo = item.characterName ? '<span style="color:#6ee7b7;font-size:10.5px;">👤 ' + escapeHtml(item.characterName) + '</span>' : '';
         var assetInfo = item.assetId ? '<a href="/?tab=studio&asset_id=' + escapeHtml(item.assetId) + '" style="color:#38bdf8;text-decoration:underline;font-size:10.5px;">Asset #' + escapeHtml(item.assetId) + '</a>' : '';
 
@@ -10763,10 +10799,11 @@
             '</div>';
         }
 
-        html += '<div class="prompt-box recent-prompt-card" data-target="' + targetSlug + '" data-provider="' + escapeHtml(item.provider || '') + '" data-model="' + escapeHtml(item.model || '') + '" style="font-size:11px;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;">' +
+        html += '<div class="prompt-box recent-prompt-card" data-target="' + targetSlug + '" data-provider="' + escapeHtml(item.provider || '') + '" data-model="' + escapeHtml(item.model || '') + '" data-duration="' + (item.duration_sec || 0) + '" style="font-size:11px;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);margin-bottom:6px;flex-wrap:wrap;gap:4px;">' +
             '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
               '<span style="background:#0f172a;border:1px solid #1e3a5f;padding:1px 6px;border-radius:3px;color:#93c5fd;font-size:10.5px;">Target: <strong style="color:#60a5fa;">' + targetSlug + '</strong></span>' +
+              durInfo +
               charInfo +
               assetInfo +
               '<span style="color:#64748b;font-size:10.5px;">' + provInfo + '</span>' +
@@ -10781,6 +10818,31 @@
         '</div>';
       });
       list.innerHTML = html;
+    }
+
+    function addPromptToHistoryList(item) {
+      var sessionKey = 'dc_session_recent_prompts';
+      var sessionPrompts = [];
+      try {
+        var raw = sessionStorage.getItem(sessionKey);
+        if (raw) sessionPrompts = JSON.parse(raw) || [];
+      } catch(e) {
+        sessionPrompts = [];
+      }
+      sessionPrompts.unshift({
+        target: item.target,
+        provider: item.provider,
+        model: item.model,
+        input: item.input,
+        output: item.output,
+        duration_sec: item.duration_sec,
+        timestamp: Date.now()
+      });
+      if (sessionPrompts.length > 30) sessionPrompts.pop();
+      try {
+        sessionStorage.setItem(sessionKey, JSON.stringify(sessionPrompts));
+      } catch(e) {}
+      renderRecentPromptsList(sessionPrompts);
     }
 
     function initRecentPromptsSession() {
@@ -10802,12 +10864,15 @@
         var activeTarget = targetSel ? targetSel.value : '';
         var provSelect = document.getElementById('remixProviderSelect');
         var activeProv = provSelect ? provSelect.value : '';
+        var durEl = document.getElementById('studio-result-duration');
+        var durText = durEl ? durEl.innerText.replace(/[^\d.]/g, '') : '';
         var isDuplicate = sessionPrompts.length > 0 && sessionPrompts[0].output === activeResult;
         if (!isDuplicate) {
           sessionPrompts.unshift({
             target: activeTarget,
             provider: activeProv,
             model: '',
+            duration_sec: parseFloat(durText) || 0,
             input: activeInput,
             output: activeResult,
             timestamp: Date.now()
@@ -10831,6 +10896,7 @@
             target: card.getAttribute('data-target') || '',
             provider: card.getAttribute('data-provider') || '',
             model: card.getAttribute('data-model') || '',
+            duration_sec: parseFloat(card.getAttribute('data-duration')) || 0,
             input: inEl ? (inEl.innerText || inEl.textContent || '').trim() : '',
             output: outText,
             timestamp: Date.now()
@@ -11040,16 +11106,16 @@
       }
     });
 
-    // Capture exact video frame and prepare studio submission
-    function prepareStudioSubmission(event, form) {
+    // Capture exact video frame and prepare studio submission (with asynchronous fetch & live timer)
+    async function prepareStudioSubmission(event, form) {
+      if (event && event.preventDefault) {
+        event.preventDefault();
+      }
+
       var videoEl = document.getElementById('remix-video-el');
       var frameInput = document.getElementById('video_frame_data');
       var modeSelect = document.getElementById('studio-mode-select');
       var submitBtn = document.getElementById('btn-submit-studio') || document.getElementById('btn-submit-remix');
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerText = 'Analyzing & Generating...';
-      }
 
       var isRemixMode = modeSelect && modeSelect.value === 'remix';
       if (isRemixMode) {
@@ -11065,6 +11131,107 @@
           frameInput.value = dataUrl;
         } catch (err) {
           console.warn('Could not extract video frame from canvas (possibly tainted cross-origin):', err);
+        }
+      }
+
+      var origBtnText = submitBtn ? submitBtn.innerHTML : '&#10024; Generate Prompt';
+      var origBtnBg = submitBtn ? submitBtn.style.background : '';
+      var origBtnBorder = submitBtn ? submitBtn.style.borderColor : '';
+      var origBtnShadow = submitBtn ? submitBtn.style.boxShadow : '';
+
+      var timerInterval = null;
+      var startTime = performance.now();
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.background = 'linear-gradient(135deg, #9333ea, #db2777)';
+        submitBtn.style.borderColor = '#c026d3';
+        submitBtn.style.boxShadow = '0 0 16px rgba(219,39,119,0.5)';
+        submitBtn.innerHTML = '&#10024; Generating... (0.0s)';
+
+        timerInterval = setInterval(function() {
+          var elapsedSec = ((performance.now() - startTime) / 1000).toFixed(1);
+          submitBtn.innerHTML = '&#10024; Generating... (' + elapsedSec + 's)';
+        }, 100);
+      }
+
+      try {
+        var formData = new FormData(form);
+        var resp = await fetch(form.action || '/admin/ollama/image2prompt', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          }
+        });
+
+        var data = await resp.json();
+        if (data.status === 'ok') {
+          var duration = Number(data.duration_sec || ((performance.now() - startTime) / 1000));
+          var durationStr = duration.toFixed(1) + 's';
+
+          // Update studio result box
+          var resultCard = document.getElementById('studio-result-card');
+          var resultOut = document.getElementById('studio-result-out');
+          var resultTarget = document.getElementById('studio-result-target');
+          var resultDuration = document.getElementById('studio-result-duration');
+
+          if (resultTarget && data.target_profile) {
+            resultTarget.textContent = data.target_profile;
+          }
+          if (resultOut) {
+            resultOut.textContent = data.prompt;
+          }
+          if (resultDuration) {
+            resultDuration.textContent = '⏱️ ' + durationStr;
+            resultDuration.style.display = 'inline-block';
+          }
+          if (resultCard) {
+            resultCard.style.display = 'block';
+            resultCard.style.background = '#064e3b';
+            resultCard.style.borderColor = '#10b981';
+            resultCard.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.45)';
+            try {
+              resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } catch(e) {}
+          }
+
+          // Prepend to history list in Studio without wiping page state
+          addPromptToHistoryList({
+            target: data.target_profile || '',
+            duration_sec: duration,
+            provider: data.provider || '',
+            model: data.model || '',
+            output: data.prompt,
+            input: data.input_concept || (form.user_hint ? form.user_hint.value : '')
+          });
+
+          if (typeof showToast === 'function') {
+            showToast('Prompt generated in ' + durationStr + ' via [' + (data.provider || 'AI') + '] ' + (data.model || ''), 'success');
+          }
+        } else {
+          if (typeof showToast === 'function') {
+            showToast('Generation error: ' + (data.error || 'unknown error'), 'error');
+          } else {
+            alert('Generation error: ' + (data.error || 'unknown error'));
+          }
+        }
+      } catch (err) {
+        console.error('Studio prompt generation failed:', err);
+        if (typeof showToast === 'function') {
+          showToast('Network error during prompt generation: ' + err.message, 'error');
+        } else {
+          alert('Network error: ' + err.message);
+        }
+      } finally {
+        if (timerInterval) clearInterval(timerInterval);
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.style.background = origBtnBg;
+          submitBtn.style.borderColor = origBtnBorder;
+          submitBtn.style.boxShadow = origBtnShadow;
+          submitBtn.innerHTML = origBtnText;
         }
       }
     }

@@ -1062,10 +1062,10 @@ func (r *Repository) SaveGeneratedPrompt(ctx context.Context, gp *domain.Generat
 	var id int64
 	err := db.QueryRowContext(ctx, `
 		INSERT INTO generated_prompts (
-			asset_id, character_id, target_profile_slug, scene_direction, output_prompt, provider, model_name
-		) VALUES (?, ?, ?, ?, ?, ?, ?)
+			asset_id, character_id, target_profile_slug, scene_direction, output_prompt, provider, model_name, duration_sec
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING id`,
-		gp.AssetID, gp.CharacterID, gp.TargetProfileSlug, gp.SceneDirection, gp.OutputPrompt, string(gp.Provider), gp.ModelName,
+		gp.AssetID, gp.CharacterID, gp.TargetProfileSlug, gp.SceneDirection, gp.OutputPrompt, string(gp.Provider), gp.ModelName, gp.DurationSec,
 	).Scan(&id)
 	if err != nil {
 		return 0, err
@@ -1099,7 +1099,7 @@ func (r *Repository) ListGeneratedPrompts(ctx context.Context, assetID, characte
 	query := fmt.Sprintf(`
 		SELECT gp.id, gp.asset_id, gp.character_id, COALESCE(c.name, ''),
 		       gp.target_profile_slug, gp.scene_direction, gp.output_prompt,
-		       gp.provider, gp.model_name, gp.created_at
+		       gp.provider, gp.model_name, gp.duration_sec, gp.created_at
 		FROM generated_prompts gp
 		LEFT JOIN characters c ON c.id = gp.character_id
 		%s
@@ -1120,7 +1120,7 @@ func (r *Repository) ListGeneratedPrompts(ctx context.Context, assetID, characte
 		if err := rows.Scan(
 			&item.ID, &aID, &cID, &item.CharacterName,
 			&item.TargetProfileSlug, &item.SceneDirection, &item.OutputPrompt,
-			&prov, &item.ModelName, &item.CreatedAt,
+			&prov, &item.ModelName, &item.DurationSec, &item.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

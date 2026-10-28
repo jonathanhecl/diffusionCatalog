@@ -458,6 +458,12 @@ type viewData struct {
 	AITargetProfile   string
 	AIMode               string
 	AICharacterID        int64
+	AIOverrideProvider   string
+	AIOverrideModel      string
+	AIOverrideThink      string
+	AISelectedLoRAs      []int64
+	AIAttachedData       string
+	AIDurationSec        float64
 	FlashNotice          string
 	StudioCompositions   []domain.StudioComposition
 	StudioPoses          []domain.StudioPose
@@ -1206,7 +1212,37 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		_ = s.catalog.SetDefaultTargetGenerator(ctx, profileSlug)
 	}
 
-	outPrompt, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, override, saveToAsset, frameImagePath)
+	outPrompt, durationSec, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, override, saveToAsset, frameImagePath)
+
+	isAJAX := r.Header.Get("X-Requested-With") == "XMLHttpRequest" || strings.Contains(r.Header.Get("Accept"), "application/json")
+	if isAJAX {
+		w.Header().Set("Content-Type", "application/json")
+		if runErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"status": "error",
+				"error":  runErr.Error(),
+			})
+			return
+		}
+
+		cfg, _ := s.catalog.GetSettings(ctx)
+		defProv, defMod, defThk := cfg.GetRemixDefaults()
+		usedProv, usedMod, _, usedThk := s.catalog.ResolveExecutionRoute(cfg, defProv, defMod, defThk, override)
+
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":         "ok",
+			"prompt":         outPrompt,
+			"duration_sec":   durationSec,
+			"target_profile": profileSlug,
+			"provider":       usedProv,
+			"model":          usedMod,
+			"think":          usedThk,
+			"mode":           mode,
+			"input_concept":  userHint,
+		})
+		return
+	}
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
@@ -1230,30 +1266,36 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := viewData{
-		ActiveTab:        activeTab,
-		MediaDir:         s.mediaDir,
-		CurrentDBPath:    s.catalog.CurrentDBPath(),
-		VisionEngineName: s.visionEngineName,
-		AdminUser:        s.currentAdmin(r),
-		Filter:           filter,
-		FilterQuery:      filter.QueryString(),
-		Page:             page,
-		SelectedAsset:    selectedAsset,
-		PrevAssetID:      prevAssetID,
-		NextAssetID:      nextAssetID,
-		RelatedAssets:    relatedAssets,
-		ScanReport:       s.scanner.LastReport(),
-		ScanStatus:       s.scanner.Status(),
-		Settings:         settings,
-		PromptProfiles:   profiles,
-		ModelLoRAs:       loras,
-		GeneratedHistory: history,
-		AIStatus:         aiStatus,
-		AIResultPrompt:   outPrompt,
-		AIInputConcept:   userHint,
-		AITargetProfile:  profileSlug,
-		AIMode:           mode,
-		AICharacterID:    characterID,
+		ActiveTab:          activeTab,
+		MediaDir:           s.mediaDir,
+		CurrentDBPath:      s.catalog.CurrentDBPath(),
+		VisionEngineName:   s.visionEngineName,
+		AdminUser:          s.currentAdmin(r),
+		Filter:             filter,
+		FilterQuery:        filter.QueryString(),
+		Page:               page,
+		SelectedAsset:      selectedAsset,
+		PrevAssetID:        prevAssetID,
+		NextAssetID:        nextAssetID,
+		RelatedAssets:      relatedAssets,
+		ScanReport:         s.scanner.LastReport(),
+		ScanStatus:         s.scanner.Status(),
+		Settings:           settings,
+		PromptProfiles:     profiles,
+		ModelLoRAs:         loras,
+		GeneratedHistory:   history,
+		AIStatus:           aiStatus,
+		AIResultPrompt:     outPrompt,
+		AIInputConcept:     userHint,
+		AITargetProfile:    profileSlug,
+		AIMode:             mode,
+		AICharacterID:      characterID,
+		AIOverrideProvider: string(override.Provider),
+		AIOverrideModel:    override.Model,
+		AIOverrideThink:    override.ThinkLevel,
+		AISelectedLoRAs:    loraIDs,
+		AIAttachedData:     frameImagePath,
+		AIDurationSec:      durationSec,
 	}
 	if runErr != nil {
 		data.AIResultError = runErr.Error()
@@ -1281,7 +1323,7 @@ func (s *Server) handleCharacter2Prompt(w http.ResponseWriter, r *http.Request) 
 		_ = s.catalog.SetDefaultTargetGenerator(ctx, profileSlug)
 	}
 
-	outPrompt, runErr := s.catalog.RunCharacterPrompt(ctx, characterID, profileSlug, sceneDirection, refAssetID, loraIDs, override)
+	outPrompt, durationSec, runErr := s.catalog.RunCharacterPrompt(ctx, characterID, profileSlug, sceneDirection, refAssetID, loraIDs, override)
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
@@ -1292,23 +1334,28 @@ func (s *Server) handleCharacter2Prompt(w http.ResponseWriter, r *http.Request) 
 	aiStatus := s.catalog.InspectAIBackends(ctx)
 
 	data := viewData{
-		ActiveTab:        returnTab,
-		MediaDir:         s.mediaDir,
-		CurrentDBPath:    s.catalog.CurrentDBPath(),
-		VisionEngineName: s.visionEngineName,
-		AdminUser:        s.currentAdmin(r),
-		Filter:           filter,
-		Page:             page,
-		ScanReport:       s.scanner.LastReport(),
-		Settings:         settings,
-		PromptProfiles:   profiles,
-		ModelLoRAs:       loras,
-		GeneratedHistory: history,
-		AIStatus:         aiStatus,
-		AIResultPrompt:   outPrompt,
-		AIInputConcept:   sceneDirection,
-		AITargetProfile:  profileSlug,
-		AICharacterID:    characterID,
+		ActiveTab:          returnTab,
+		MediaDir:           s.mediaDir,
+		CurrentDBPath:      s.catalog.CurrentDBPath(),
+		VisionEngineName:   s.visionEngineName,
+		AdminUser:          s.currentAdmin(r),
+		Filter:             filter,
+		Page:               page,
+		ScanReport:         s.scanner.LastReport(),
+		Settings:           settings,
+		PromptProfiles:     profiles,
+		ModelLoRAs:         loras,
+		GeneratedHistory:   history,
+		AIStatus:           aiStatus,
+		AIResultPrompt:     outPrompt,
+		AIInputConcept:     sceneDirection,
+		AITargetProfile:    profileSlug,
+		AICharacterID:      characterID,
+		AIOverrideProvider: string(override.Provider),
+		AIOverrideModel:    override.Model,
+		AIOverrideThink:    override.ThinkLevel,
+		AISelectedLoRAs:    loraIDs,
+		AIDurationSec:      durationSec,
 	}
 	if runErr != nil {
 		data.AIResultError = runErr.Error()
@@ -1331,7 +1378,7 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 		_ = s.catalog.SetDefaultTargetGenerator(ctx, profileSlug)
 	}
 
-	outPrompt, runErr := s.catalog.RunText2Prompt(ctx, concept, profileSlug, loraIDs, override)
+	outPrompt, durationSec, runErr := s.catalog.RunText2Prompt(ctx, concept, profileSlug, loraIDs, override)
 
 	filter := parseCatalogFilter(r)
 	page, _ := s.catalog.Query(ctx, filter)
@@ -1353,28 +1400,33 @@ func (s *Server) handleText2Prompt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := viewData{
-		ActiveTab:        activeTab,
-		MediaDir:         s.mediaDir,
-		CurrentDBPath:    s.catalog.CurrentDBPath(),
-		VisionEngineName: s.visionEngineName,
-		AdminUser:        s.currentAdmin(r),
-		Filter:           filter,
-		FilterQuery:      filter.QueryString(),
-		Page:             page,
-		SelectedAsset:    selectedAsset,
-		PrevAssetID:      prevAssetID,
-		NextAssetID:      nextAssetID,
-		RelatedAssets:    relatedAssets,
-		ScanReport:       s.scanner.LastReport(),
-		Settings:         settings,
-		PromptProfiles:   profiles,
-		ModelLoRAs:       loras,
-		GeneratedHistory: history,
-		AIStatus:         aiStatus,
-		AIResultPrompt:   outPrompt,
-		AIInputConcept:   concept,
-		AITargetProfile:  profileSlug,
-		AIMode:           "remix",
+		ActiveTab:          activeTab,
+		MediaDir:           s.mediaDir,
+		CurrentDBPath:      s.catalog.CurrentDBPath(),
+		VisionEngineName:   s.visionEngineName,
+		AdminUser:          s.currentAdmin(r),
+		Filter:             filter,
+		FilterQuery:        filter.QueryString(),
+		Page:               page,
+		SelectedAsset:      selectedAsset,
+		PrevAssetID:        prevAssetID,
+		NextAssetID:        nextAssetID,
+		RelatedAssets:      relatedAssets,
+		ScanReport:         s.scanner.LastReport(),
+		Settings:           settings,
+		PromptProfiles:     profiles,
+		ModelLoRAs:         loras,
+		GeneratedHistory:   history,
+		AIStatus:           aiStatus,
+		AIResultPrompt:     outPrompt,
+		AIInputConcept:     concept,
+		AITargetProfile:    profileSlug,
+		AIMode:             "remix",
+		AIOverrideProvider: string(override.Provider),
+		AIOverrideModel:    override.Model,
+		AIOverrideThink:    override.ThinkLevel,
+		AISelectedLoRAs:    loraIDs,
+		AIDurationSec:      durationSec,
 	}
 	if runErr != nil {
 		data.AIResultError = runErr.Error()
@@ -1845,7 +1897,7 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 		_ = s.catalog.SetDefaultTargetGenerator(ctx, targetProfile)
 	}
 
-	manifest, prompt, err := s.catalog.SynthesizeScenePrompt(ctx, sceneJSON, targetProfile, userHint, loraIDs, override, canvasImage)
+	manifest, prompt, durationSec, err := s.catalog.SynthesizeScenePrompt(ctx, sceneJSON, targetProfile, userHint, loraIDs, override, canvasImage)
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -1862,13 +1914,14 @@ func (s *Server) handleSynthesizeScene(w http.ResponseWriter, r *http.Request) {
 	usedProv, usedMod, _, usedThk := s.catalog.ResolveExecutionRoute(cfg, defProv, defMod, defThk, override)
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":      "ok",
-		"manifest":    manifest,
-		"prompt":      prompt,
-		"provider":    usedProv,
-		"model":       usedMod,
-		"think":       usedThk,
-		"used_vision": canvasImage != "",
+		"status":       "ok",
+		"manifest":     manifest,
+		"prompt":       prompt,
+		"duration_sec": durationSec,
+		"provider":     usedProv,
+		"model":        usedMod,
+		"think":        usedThk,
+		"used_vision":  canvasImage != "",
 	})
 }
 

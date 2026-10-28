@@ -235,5 +235,6 @@ type GeneratedPrompt struct {
 	OutputPrompt      string         `json:"output_prompt"`
 	Provider          AIProviderType `json:"provider"`
 	ModelName         string         `json:"model_name"`
+	DurationSec       float64        `json:"duration_sec"`
 	CreatedAt         time.Time      `json:"created_at"`
 }

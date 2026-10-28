@@ -223,6 +223,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		output_prompt TEXT NOT NULL,
 		provider TEXT NOT NULL DEFAULT 'ollama',
 		model_name TEXT NOT NULL DEFAULT '',
+		duration_sec REAL NOT NULL DEFAULT 0.0,
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
 		FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
@@ -267,6 +268,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN subcategory TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN file_mtime DATETIME`)
+	_, _ = db.ExecContext(ctx, `ALTER TABLE generated_prompts ADD COLUMN duration_sec REAL NOT NULL DEFAULT 0.0`)
 
 	return seedDefaultSettingsAndProfiles(ctx, db)
 }
