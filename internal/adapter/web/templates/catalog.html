@@ -396,45 +396,6 @@
     </div>
   </nav>
 
-  <!-- Hero Banner -->
-  <section class="hero-banner">
-    <div class="container hero-inner">
-      <div>
-        {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}
-          <h1 class="hero-title">&#10024; Prompt <span class="highlight">Studio &amp; Remix</span></h1>
-          <p class="hero-sub">Synthesize new diffusion/video prompts, or remix existing catalog media and attached images using Vision and LLM synthesis.</p>
-        {{else if eq .ActiveTab "director"}}
-          <h1 class="hero-title">&#127916; 2D <span class="highlight">Scene Director &amp; Staging Canvas</span></h1>
-          <p class="hero-sub">Position articulated characters with posing skeletons, furniture, and lighting on an interactive canvas to compile spatial diffusion prompts with AI.</p>
-        {{else if eq .ActiveTab "faces"}}
-          <h1 class="hero-title">Extracted <span class="highlight">Face &amp; Subject</span> Explorer</h1>
-          <p class="hero-sub">Inspect cropped regions, expression tags, and character clusters extracted via the pluggable VisionEngine port.</p>
-        {{else if eq .ActiveTab "characters"}}
-          <h1 class="hero-title">Character &amp; Concept <span class="highlight">Prompt Folders</span></h1>
-          <p class="hero-sub">Reusable character sheets with canonical positive/negative prompts, trigger words, LoRAs, and linked example galleries.</p>
-        {{else if or (eq .ActiveTab "collections") (eq .ActiveTab "groups")}}
-          <h1 class="hero-title">&#128193; <span class="highlight">Collections</span></h1>
-          <p class="hero-sub">Organize and browse your media in curated visual collections.</p>
-        {{else if or (eq .ActiveTab "settings") (eq .ActiveTab "generators")}}
-          <h1 class="hero-title">Application <span class="highlight">Settings &amp; System Prompts</span></h1>
-          <p class="hero-sub">Configure AI server providers, target generator system prompts &amp; LoRAs, media folders, and SQLite databases.</p>
-        {{else}}
-          {{if .ActiveGroup}}
-            <h1 class="hero-title">&#128193; Collection: <span class="highlight">{{.ActiveGroup.Name}}</span></h1>
-            <p class="hero-sub">{{if .ActiveGroup.Description}}{{.ActiveGroup.Description}}{{else}}Browsing media indexed under collection "{{.ActiveGroup.Name}}".{{end}}</p>
-          {{else}}
-            <h1 class="hero-title">AI Diffusion <span class="highlight">Prompt &amp; Asset</span> Database</h1>
-            <p class="hero-sub">Every generation prompt, checkpoint model, LoRA, seed, and character sheet — indexed locally from your media folder.</p>
-          {{end}}
-        {{end}}
-      </div>
-      <div class="hero-callout">
-        <strong>Read-Only Source Folder</strong><br>
-        Extracted PNG chunks (A1111, ComfyUI, Fooocus, SwarmUI, InvokeAI) &amp; EXIF into local SQLite + FTS5.
-      </div>
-    </div>
-  </section>
-
   <!-- Global Search Strip (only for media exploration tabs) -->
   {{if not (or (eq .ActiveTab "director") (eq .ActiveTab "studio") (eq .ActiveTab "remix") (eq .ActiveTab "settings") (eq .ActiveTab "generators") (eq .ActiveTab "login") (eq .ActiveTab "asset_detail"))}}
   <section class="search-strip">
