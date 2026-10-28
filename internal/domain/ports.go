@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // CatalogFilter specifies search, facet, and pagination criteria for querying the catalog.
@@ -311,6 +312,14 @@ type CatalogRepository interface {
 
 	SaveDetectedFace(ctx context.Context, face *DetectedFace) (int64, error)
 	ListDetectedFaces(ctx context.Context, filter CatalogFilter) ([]DetectedFace, int, error)
+	ListFacesWithEmbeddings(ctx context.Context) ([]DetectedFace, error)
+	UpdateFaceCluster(ctx context.Context, faceID int64, clusterLabel string, characterID *int64) error
+	RenameFaceCluster(ctx context.Context, oldLabel, newLabel string, characterID *int64) error
+	DeleteFacesForAsset(ctx context.Context, assetID int64) error
+
+	ListAssetsMissingMetadata(ctx context.Context) ([]MediaAsset, error)
+	UpdateAssetMetadata(ctx context.Context, assetID int64, meta GenerationParams, extractedAt time.Time) error
+	ListImageAssets(ctx context.Context) ([]MediaAsset, error)
 
 	GetSettings(ctx context.Context) (AppSettings, error)
 	SaveSettings(ctx context.Context, settings AppSettings) error

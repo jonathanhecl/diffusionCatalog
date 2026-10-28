@@ -8,8 +8,10 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -626,4 +628,298 @@ func hashFilePrefix(absPath string, size int64) (string, error) {
 	h := sha256.New()
 	_, _ = io.CopyN(h, f, 64*1024)
 	return hex.EncodeToString(h.Sum(nil))[:16], nil
+}
+
+func resolveAssetAbsolutePath(asset domain.MediaAsset, roots []domain.MediaRoot) string {
+	if asset.RootPath != "" {
+		p := filepath.Join(asset.RootPath, filepath.FromSlash(asset.RelPath))
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	for _, r := range roots {
+		if r.ID == asset.RootID {
+			p := filepath.Join(r.Path, filepath.FromSlash(asset.RelPath))
+			if _, err := os.Stat(p); err == nil {
+				return p
+			}
+		}
+	}
+	for _, r := range roots {
+		p := filepath.Join(r.Path, filepath.FromSlash(asset.RelPath))
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+// StartReextractMissingMetadataAsync re-scans media files that have no extracted prompts or metadata.
+func (s *ScannerService) StartReextractMissingMetadataAsync() bool {
+	s.mu.Lock()
+	if s.status.IsScanning {
+		s.mu.Unlock()
+		return false
+	}
+	s.status.IsScanning = true
+	s.status.IsManual = true
+	s.status.Phase = "reextracting"
+	s.status.ProgressPct = 0
+	s.status.ScannedFiles = 0
+	s.status.UnchangedFiles = 0
+	s.status.DeletedFiles = 0
+	s.status.TotalFiles = 0
+	s.status.Speed = 0
+	s.status.EtaSeconds = -1
+	s.status.EtaFormatted = ""
+	s.status.CurrentFile = ""
+	s.status.CurrentRoot = ""
+	s.status.StartedAt = time.Now()
+	s.status.LastError = ""
+	s.mu.Unlock()
+
+	log.Printf("[METADATA_RESCAN] Re-extracting missing metadata started")
+	go func() {
+		ctx := context.Background()
+		roots, _ := s.repo.ListMediaRoots(ctx)
+		missing, err := s.repo.ListAssetsMissingMetadata(ctx)
+		if err != nil {
+			s.mu.Lock()
+			s.status.IsScanning = false
+			s.status.Phase = "error"
+			s.status.LastError = err.Error()
+			s.mu.Unlock()
+			return
+		}
+
+		s.mu.Lock()
+		s.status.TotalFiles = len(missing)
+		s.mu.Unlock()
+
+		startTime := time.Now()
+		updatedCount := 0
+
+		for _, asset := range missing {
+			absPath := resolveAssetAbsolutePath(asset, roots)
+			if absPath == "" {
+				s.recordProgress(asset.FileName, asset.RootLabel, true, startTime)
+				continue
+			}
+
+			meta, _, _, err := s.extractor.Extract(ctx, absPath, asset.MediaType)
+			now := time.Now()
+			if err == nil {
+				_ = s.repo.UpdateAssetMetadata(ctx, asset.ID, meta, now)
+				for _, lora := range meta.LoRAs {
+					if t, tErr := s.repo.UpsertTag(ctx, lora, "lora", "#7c3aed"); tErr == nil {
+						_ = s.repo.AttachTagToAsset(ctx, asset.ID, t.ID)
+					}
+				}
+				updatedCount++
+			} else {
+				_ = s.repo.UpdateAssetMetadata(ctx, asset.ID, asset.Metadata, now)
+			}
+			s.recordProgress(asset.FileName, asset.RootLabel, false, startTime)
+		}
+
+		s.mu.Lock()
+		s.status.IsScanning = false
+		s.status.Phase = "completed"
+		s.status.CompletedAt = time.Now()
+		s.status.ProgressPct = 100
+		s.status.EtaSeconds = 0
+		s.status.EtaFormatted = "0s"
+		s.status.CurrentFile = ""
+		s.mu.Unlock()
+		log.Printf("[METADATA_RESCAN] Completed re-extracting metadata for %d assets (%d updated)", len(missing), updatedCount)
+	}()
+	return true
+}
+
+// StartFaceScanAsync scans image assets to detect faces and compute 128-d embeddings, then clusters them.
+func (s *ScannerService) StartFaceScanAsync() bool {
+	s.mu.Lock()
+	if s.status.IsScanning {
+		s.mu.Unlock()
+		return false
+	}
+	s.status.IsScanning = true
+	s.status.IsManual = true
+	s.status.Phase = "scanning_faces"
+	s.status.ProgressPct = 0
+	s.status.ScannedFiles = 0
+	s.status.UnchangedFiles = 0
+	s.status.DeletedFiles = 0
+	s.status.TotalFiles = 0
+	s.status.Speed = 0
+	s.status.EtaSeconds = -1
+	s.status.EtaFormatted = ""
+	s.status.CurrentFile = ""
+	s.status.CurrentRoot = ""
+	s.status.StartedAt = time.Now()
+	s.status.LastError = ""
+	s.mu.Unlock()
+
+	log.Printf("[FACE_SCAN] Face extraction scan started")
+	go func() {
+		ctx := context.Background()
+		roots, _ := s.repo.ListMediaRoots(ctx)
+		images, err := s.repo.ListImageAssets(ctx)
+		if err != nil {
+			s.mu.Lock()
+			s.status.IsScanning = false
+			s.status.Phase = "error"
+			s.status.LastError = err.Error()
+			s.mu.Unlock()
+			return
+		}
+
+		s.mu.Lock()
+		s.status.TotalFiles = len(images)
+		s.mu.Unlock()
+
+		startTime := time.Now()
+		facesFound := 0
+
+		for _, img := range images {
+			absPath := resolveAssetAbsolutePath(img, roots)
+			if absPath == "" || s.vision == nil {
+				s.recordProgress(img.FileName, img.RootLabel, true, startTime)
+				continue
+			}
+
+			faces, err := s.vision.DetectAndCropFaces(ctx, img.ID, absPath, s.cacheDir)
+			if err == nil && len(faces) > 0 {
+				_ = s.repo.DeleteFacesForAsset(ctx, img.ID)
+				for i := range faces {
+					_, _ = s.repo.SaveDetectedFace(ctx, &faces[i])
+					facesFound++
+				}
+			}
+			s.recordProgress(img.FileName, img.RootLabel, false, startTime)
+		}
+
+		// After extracting all faces, cluster them by similarity >= 50%
+		_, _ = s.ClusterDetectedFaces(ctx, 0.50)
+
+		s.mu.Lock()
+		s.status.IsScanning = false
+		s.status.Phase = "completed"
+		s.status.CompletedAt = time.Now()
+		s.status.ProgressPct = 100
+		s.status.EtaSeconds = 0
+		s.status.EtaFormatted = "0s"
+		s.status.CurrentFile = ""
+		s.mu.Unlock()
+		log.Printf("[FACE_SCAN] Completed face extraction: %d faces found and clustered across %d images", facesFound, len(images))
+	}()
+	return true
+}
+
+// ClusterDetectedFaces groups faces with cosine similarity >= similarityThreshold into clusters.
+func (s *ScannerService) ClusterDetectedFaces(ctx context.Context, similarityThreshold float64) (int, error) {
+	if similarityThreshold <= 0 {
+		similarityThreshold = 0.50
+	}
+	faces, err := s.repo.ListFacesWithEmbeddings(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if len(faces) == 0 {
+		return 0, nil
+	}
+
+	n := len(faces)
+	parent := make([]int, n)
+	for i := 0; i < n; i++ {
+		parent[i] = i
+	}
+	var find func(int) int
+	find = func(i int) int {
+		if parent[i] == i {
+			return i
+		}
+		parent[i] = find(parent[i])
+		return parent[i]
+	}
+	union := func(i, j int) {
+		rootI := find(i)
+		rootJ := find(j)
+		if rootI != rootJ {
+			parent[rootI] = rootJ
+		}
+	}
+
+	for i := 0; i < n; i++ {
+		for j := i + 1; j < n; j++ {
+			sim := cosineSimilarity(faces[i].Embedding, faces[j].Embedding)
+			if sim >= similarityThreshold {
+				union(i, j)
+			}
+		}
+	}
+
+	// Group into clusters by root
+	clusters := make(map[int][]int)
+	for i := 0; i < n; i++ {
+		root := find(i)
+		clusters[root] = append(clusters[root], i)
+	}
+
+	// Sort cluster roots by size (largest cluster gets Person #1)
+	type clusterGroup struct {
+		root    int
+		indices []int
+	}
+	var groups []clusterGroup
+	for r, idxs := range clusters {
+		groups = append(groups, clusterGroup{root: r, indices: idxs})
+	}
+	sort.Slice(groups, func(i, j int) bool {
+		return len(groups[i].indices) > len(groups[j].indices)
+	})
+
+	clusterCount := 0
+	for idx, g := range groups {
+		clusterCount++
+		// Determine label: if any face in the cluster already has a user-defined name, keep it
+		chosenLabel := ""
+		var linkedCharID *int64
+		for _, faceIdx := range g.indices {
+			lbl := strings.TrimSpace(faces[faceIdx].ClusterLabel)
+			if lbl != "" && lbl != "Unassigned" && lbl != "Detected Subject" && !strings.HasPrefix(lbl, "Person #") && !strings.HasPrefix(lbl, "Cluster #") {
+				chosenLabel = lbl
+				if faces[faceIdx].CharacterID != nil {
+					linkedCharID = faces[faceIdx].CharacterID
+				}
+				break
+			}
+		}
+		if chosenLabel == "" {
+			chosenLabel = fmt.Sprintf("Person #%d", idx+1)
+		}
+
+		for _, faceIdx := range g.indices {
+			f := faces[faceIdx]
+			_ = s.repo.UpdateFaceCluster(ctx, f.ID, chosenLabel, linkedCharID)
+		}
+	}
+
+	return clusterCount, nil
+}
+
+func cosineSimilarity(a, b []float32) float64 {
+	if len(a) == 0 || len(a) != len(b) {
+		return 0
+	}
+	var dot, normA, normB float64
+	for i := range a {
+		dot += float64(a[i]) * float64(b[i])
+		normA += float64(a[i]) * float64(a[i])
+		normB += float64(b[i]) * float64(b[i])
+	}
+	if normA == 0 || normB == 0 {
+		return 0
+	}
+	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
 }

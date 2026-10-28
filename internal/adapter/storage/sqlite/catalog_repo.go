@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jonathanhecl/diffusionCatalog/internal/domain"
 )
@@ -285,12 +286,19 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		fileMTimeVal = a.FileMTime.UTC()
 	}
 
+	var metaExtractedVal interface{} = nil
+	if a.MetadataExtractedAt != nil && !a.MetadataExtractedAt.IsZero() {
+		metaExtractedVal = a.MetadataExtractedAt.UTC()
+	} else if a.Metadata.PositivePrompt != "" || a.Metadata.RawMetadata != "" {
+		metaExtractedVal = time.Now().UTC()
+	}
+
 	query := `
 	INSERT INTO assets (
 		root_id, rel_path, file_name, file_hash, media_type, width, height, duration_sec, file_size,
 		view_count, rating, favorite, category, subcategory, engine, positive_prompt, negative_prompt, model_name, model_hash,
-		sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata, file_mtime
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata, file_mtime, metadata_extracted_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(rel_path) DO UPDATE SET
 		root_id = excluded.root_id,
 		file_hash = excluded.file_hash,
@@ -314,7 +322,8 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		cfg_scale = excluded.cfg_scale,
 		seed = excluded.seed,
 		loras_json = excluded.loras_json,
-		raw_metadata = excluded.raw_metadata
+		raw_metadata = excluded.raw_metadata,
+		metadata_extracted_at = CASE WHEN excluded.metadata_extracted_at IS NOT NULL THEN excluded.metadata_extracted_at ELSE assets.metadata_extracted_at END
 	RETURNING id;
 	`
 	var id int64
@@ -322,7 +331,7 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		a.RootID, a.RelPath, a.FileName, a.FileHash, string(a.MediaType), a.Width, a.Height, a.DurationSec, a.FileSize,
 		a.ViewCount, a.Rating, favInt, a.Category, a.Subcategory, string(a.Metadata.Engine), a.Metadata.PositivePrompt, a.Metadata.NegativePrompt,
 		a.Metadata.ModelName, a.Metadata.ModelHash, a.Metadata.Sampler, a.Metadata.Scheduler,
-		a.Metadata.Steps, a.Metadata.CFGScale, a.Metadata.Seed, string(lorasBytes), a.Metadata.RawMetadata, fileMTimeVal,
+		a.Metadata.Steps, a.Metadata.CFGScale, a.Metadata.Seed, string(lorasBytes), a.Metadata.RawMetadata, fileMTimeVal, metaExtractedVal,
 	).Scan(&id)
 	if err != nil {
 		return 0, err
@@ -339,7 +348,7 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
 		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
 		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
-		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at
 		FROM assets a
 		LEFT JOIN media_roots mr ON mr.id = a.root_id
 		WHERE a.id = ?`, id)
@@ -1370,7 +1379,7 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
 		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
 		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
-		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at
 		FROM assets a
 		LEFT JOIN media_roots mr ON mr.id = a.root_id
 		%s
@@ -1873,6 +1882,7 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 	var mediaTypeStr, engineStr, lorasStr string
 	var favInt int
 	var fileMTime sql.NullTime
+	var metaExtracted sql.NullTime
 	err := s.Scan(
 		&a.ID, &a.RootID, &a.RootPath, &a.RootLabel,
 		&a.RelPath, &a.FileName, &a.FileHash, &mediaTypeStr,
@@ -1882,7 +1892,7 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 		&a.Metadata.ModelName, &a.Metadata.ModelHash,
 		&a.Metadata.Sampler, &a.Metadata.Scheduler,
 		&a.Metadata.Steps, &a.Metadata.CFGScale, &a.Metadata.Seed,
-		&lorasStr, &a.Metadata.RawMetadata, &fileMTime, &a.IndexedAt,
+		&lorasStr, &a.Metadata.RawMetadata, &fileMTime, &a.IndexedAt, &metaExtracted,
 	)
 	if err != nil {
 		return nil, err
@@ -1891,6 +1901,10 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 		a.FileMTime = fileMTime.Time
 	} else {
 		a.FileMTime = a.IndexedAt
+	}
+	if metaExtracted.Valid {
+		t := metaExtracted.Time
+		a.MetadataExtractedAt = &t
 	}
 	a.Favorite = favInt == 1
 	a.MediaType = domain.MediaType(mediaTypeStr)
@@ -2168,4 +2182,165 @@ func (r *Repository) FindSimilarAssetIDs(ctx context.Context, queryVec []float32
 		}
 	}
 	return res, nil
+}
+
+// UpdateAssetMetadata updates the extracted generation parameters and metadata timestamp for an asset.
+func (r *Repository) UpdateAssetMetadata(ctx context.Context, assetID int64, meta domain.GenerationParams, extractedAt time.Time) error {
+	db := r.conn()
+	lorasBytes, _ := json.Marshal(meta.LoRAs)
+	if len(lorasBytes) == 0 {
+		lorasBytes = []byte("[]")
+	}
+	_, err := db.ExecContext(ctx, `
+		UPDATE assets SET
+			engine = ?,
+			positive_prompt = ?,
+			negative_prompt = ?,
+			model_name = ?,
+			model_hash = ?,
+			sampler = ?,
+			scheduler = ?,
+			steps = ?,
+			cfg_scale = ?,
+			seed = ?,
+			loras_json = ?,
+			raw_metadata = ?,
+			metadata_extracted_at = ?
+		WHERE id = ?`,
+		string(meta.Engine), meta.PositivePrompt, meta.NegativePrompt,
+		meta.ModelName, meta.ModelHash, meta.Sampler, meta.Scheduler,
+		meta.Steps, meta.CFGScale, meta.Seed, string(lorasBytes), meta.RawMetadata,
+		extractedAt.UTC(), assetID,
+	)
+	return err
+}
+
+// ListAssetsMissingMetadata queries all assets that have no positive prompt and no raw metadata, or null extraction date.
+func (r *Repository) ListAssetsMissingMetadata(ctx context.Context) ([]domain.MediaAsset, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT a.id, a.root_id, COALESCE(mr.path, ''), COALESCE(mr.label, ''),
+		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
+		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
+		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at
+		FROM assets a
+		LEFT JOIN media_roots mr ON mr.id = a.root_id
+		WHERE (a.positive_prompt = '' AND a.raw_metadata = '') OR a.metadata_extracted_at IS NULL
+		ORDER BY a.id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.MediaAsset
+	for rows.Next() {
+		a, err := scanAssetRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *a)
+	}
+	return out, nil
+}
+
+// ListImageAssets returns all cataloged media assets with media_type = 'image'.
+func (r *Repository) ListImageAssets(ctx context.Context) ([]domain.MediaAsset, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT a.id, a.root_id, COALESCE(mr.path, ''), COALESCE(mr.label, ''),
+		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
+		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
+		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at
+		FROM assets a
+		LEFT JOIN media_roots mr ON mr.id = a.root_id
+		WHERE a.media_type = 'image'
+		ORDER BY a.id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.MediaAsset
+	for rows.Next() {
+		a, err := scanAssetRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *a)
+	}
+	return out, nil
+}
+
+// ListFacesWithEmbeddings retrieves all detected faces that have a non-empty embedding vector.
+func (r *Repository) ListFacesWithEmbeddings(ctx context.Context) ([]domain.DetectedFace, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT f.id, f.asset_id, a.root_id, a.rel_path, a.positive_prompt, a.engine, a.model_name,
+		       f.bbox_x, f.bbox_y, f.bbox_w, f.bbox_h, f.crop_rel_path, f.confidence,
+		       f.cluster_label, f.expression_tag, f.character_id, COALESCE(c.name, ''), f.embedding_json, f.created_at
+		FROM faces f
+		JOIN assets a ON a.id = f.asset_id
+		LEFT JOIN characters c ON c.id = f.character_id
+		WHERE f.embedding_json != '' AND f.embedding_json != '[]'
+		ORDER BY f.id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.DetectedFace
+	for rows.Next() {
+		var f domain.DetectedFace
+		var engineStr, embJSON string
+		var charID sql.NullInt64
+		if err := rows.Scan(
+			&f.ID, &f.AssetID, &f.AssetRootID, &f.AssetRelPath, &f.AssetPrompt, &engineStr, &f.AssetModel,
+			&f.Box.X, &f.Box.Y, &f.Box.Width, &f.Box.Height, &f.CropRelPath, &f.Confidence,
+			&f.ClusterLabel, &f.ExpressionTag, &charID, &f.CharacterName, &embJSON, &f.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		f.AssetEngine = domain.EngineType(engineStr)
+		if charID.Valid {
+			v := charID.Int64
+			f.CharacterID = &v
+		}
+		_ = json.Unmarshal([]byte(embJSON), &f.Embedding)
+		out = append(out, f)
+	}
+	return out, nil
+}
+
+// UpdateFaceCluster sets the cluster label and optional linked character for a detected face.
+func (r *Repository) UpdateFaceCluster(ctx context.Context, faceID int64, clusterLabel string, characterID *int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `
+		UPDATE faces SET cluster_label = ?, character_id = ? WHERE id = ?`,
+		clusterLabel, characterID, faceID)
+	return err
+}
+
+// RenameFaceCluster updates all face records sharing an old cluster label to a new label,
+// optionally linking them to a Character record.
+func (r *Repository) RenameFaceCluster(ctx context.Context, oldLabel, newLabel string, characterID *int64) error {
+	db := r.conn()
+	if characterID != nil && *characterID > 0 {
+		_, err := db.ExecContext(ctx, `
+			UPDATE faces SET cluster_label = ?, character_id = ? WHERE cluster_label = ?`,
+			newLabel, *characterID, oldLabel)
+		return err
+	}
+	_, err := db.ExecContext(ctx, `
+		UPDATE faces SET cluster_label = ? WHERE cluster_label = ?`,
+		newLabel, oldLabel)
+	return err
+}
+
+// DeleteFacesForAsset removes all detected face records associated with an asset.
+func (r *Repository) DeleteFacesForAsset(ctx context.Context, assetID int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM faces WHERE asset_id = ?`, assetID)
+	return err
 }

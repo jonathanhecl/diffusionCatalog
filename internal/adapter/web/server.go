@@ -360,6 +360,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/login", s.handleLogin)
 	mux.HandleFunc("POST /admin/logout", s.handleLogout)
 	mux.HandleFunc("POST /admin/scan", s.handleScan)
+	mux.HandleFunc("POST /admin/scan/reextract-missing", s.handleScanReextractMissing)
+	mux.HandleFunc("POST /admin/scan/faces", s.handleScanFaces)
+	mux.HandleFunc("POST /admin/faces/cluster/recluster", s.handleClusterFaces)
+	mux.HandleFunc("POST /admin/faces/cluster/rename", s.handleRenameFaceCluster)
 	mux.HandleFunc("POST /admin/assets/tag", s.handleAddTag)
 	mux.HandleFunc("POST /admin/assets/tag/remove", s.handleRemoveTag)
 	mux.HandleFunc("POST /admin/assets/category", s.handleSetAssetCategory)
@@ -1515,6 +1519,83 @@ func (s *Server) handleScanStatus(w http.ResponseWriter, r *http.Request) {
 	st := s.scanner.Status()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(st)
+}
+
+func (s *Server) handleScanReextractMissing(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[CATALOG] Re-extracting missing metadata triggered")
+	s.scanner.StartReextractMissingMetadataAsync()
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "started"})
+		return
+	}
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		referer = "/?tab=settings"
+	}
+	http.Redirect(w, r, referer, http.StatusSeeOther)
+}
+
+func (s *Server) handleScanFaces(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[CATALOG] Face detection scan triggered")
+	s.scanner.StartFaceScanAsync()
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "started"})
+		return
+	}
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		referer = "/?face_mode=1"
+	}
+	http.Redirect(w, r, referer, http.StatusSeeOther)
+}
+
+func (s *Server) handleClusterFaces(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	threshold := 0.50
+	if thStr := r.FormValue("threshold"); thStr != "" {
+		if val, err := strconv.ParseFloat(thStr, 64); err == nil && val > 0 {
+			threshold = val
+		}
+	}
+	count, err := s.scanner.ClusterDetectedFaces(r.Context(), threshold)
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "clusters": count})
+		return
+	}
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		referer = "/?face_mode=1"
+	}
+	http.Redirect(w, r, referer, http.StatusSeeOther)
+}
+
+func (s *Server) handleRenameFaceCluster(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	oldLabel := r.FormValue("old_label")
+	newLabel := r.FormValue("new_name")
+	createChar := r.FormValue("create_character") == "1" || r.FormValue("create_character") == "true"
+	err := s.catalog.RenameFaceCluster(r.Context(), oldLabel, newLabel, createChar)
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+		return
+	}
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		referer = "/?face_mode=1"
+	}
+	http.Redirect(w, r, referer, http.StatusSeeOther)
 }
 
 func (s *Server) handleAddTag(w http.ResponseWriter, r *http.Request) {

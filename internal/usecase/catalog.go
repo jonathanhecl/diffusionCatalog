@@ -484,6 +484,39 @@ func (s *CatalogService) ListCharacters(ctx context.Context) ([]domain.Character
 	return s.repo.ListCharacters(ctx)
 }
 
+func (s *CatalogService) RenameFaceCluster(ctx context.Context, oldLabel, newLabel string, createCharacter bool) error {
+	oldLabel = strings.TrimSpace(oldLabel)
+	newLabel = strings.TrimSpace(newLabel)
+	if oldLabel == "" || newLabel == "" {
+		return fmt.Errorf("cluster names cannot be empty")
+	}
+
+	var charID *int64
+	if createCharacter {
+		chars, _ := s.repo.ListCharacters(ctx)
+		for _, c := range chars {
+			if strings.EqualFold(c.Name, newLabel) {
+				id := c.ID
+				charID = &id
+				break
+			}
+		}
+		if charID == nil {
+			slug := strings.ToLower(strings.ReplaceAll(newLabel, " ", "-"))
+			id, err := s.repo.CreateCharacter(ctx, &domain.Character{
+				Name:      newLabel,
+				Slug:      slug,
+				Archetype: "Subject",
+			})
+			if err == nil {
+				charID = &id
+			}
+		}
+	}
+
+	return s.repo.RenameFaceCluster(ctx, oldLabel, newLabel, charID)
+}
+
 // GetSettings retrieves application and Ollama model routing settings.
 func (s *CatalogService) GetSettings(ctx context.Context) (domain.AppSettings, error) {
 	return s.repo.GetSettings(ctx)

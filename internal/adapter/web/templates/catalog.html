@@ -9087,6 +9087,20 @@
                 <input type="text" name="path" placeholder="Absolute or relative folder path (e.g. /Volumes/AI_Drive/outputs or ./media_extra)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                 <button type="submit" class="btn-primary">+ Add Media Folder</button>
               </form>
+
+              <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:13px;">Re-extract Missing Prompts &amp; Metadata</div>
+                  <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
+                    Re-scans media files that have no extracted prompts or metadata using the updated extractor formula, recording timestamps.
+                  </div>
+                </div>
+                <form action="/admin/scan/reextract-missing" method="POST" style="margin:0;">
+                  <button type="submit" class="btn-ghost" style="color:#38bdf8;border-color:rgba(56,189,248,0.4);font-size:12px;padding:6px 14px;">
+                    &#128260; Rescan Media Missing Metadata / Prompts
+                  </button>
+                </form>
+              </div>
             </div>
           {{else if eq .SettingsSection "categories"}}
             <!-- Global Default Agnostic Categories & Subcategories -->
@@ -9149,6 +9163,20 @@
                   <div class="kv-label">Last Scan Summary</div>
                   <div class="kv-val">{{.ScanReport.ScannedRoots}} roots ({{.ScanReport.SkippedRoots}} skipped) | {{.ScanReport.ScannedFiles}} files ({{.ScanReport.ImagesFound}} images, {{.ScanReport.VideosFound}} videos)</div>
                 </div>
+              </div>
+
+              <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:13px;">Re-extract Missing Prompts &amp; Metadata</div>
+                  <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
+                    Re-scans media files that have no extracted prompts or metadata using the updated extractor formula, recording timestamps.
+                  </div>
+                </div>
+                <form action="/admin/scan/reextract-missing" method="POST" style="margin:0;">
+                  <button type="submit" class="btn-ghost" style="color:#38bdf8;border-color:rgba(56,189,248,0.4);font-size:12px;padding:6px 14px;">
+                    &#128260; Rescan Media Missing Metadata / Prompts
+                  </button>
+                </form>
               </div>
             </div>
           {{else}}
@@ -10401,6 +10429,32 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
           </div>
 
           {{if .Filter.FaceMode}}
+            <!-- Face Scanning, Vector Weights & Clustering Toolbar -->
+            <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-weight:700;color:#fff;font-size:13px;display:flex;align-items:center;gap:6px;">
+                  <span>&#128101; Facial Recognition &amp; Subject Clustering</span>
+                  <span class="badge-chip" style="font-size:10px;">128-d Cosine Similarity &ge; 50%</span>
+                </div>
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
+                  Scans visible faces, extracts 128-d normalized embeddings, and groups matches with &gt;50% similarity into Person clusters. Click on any cluster badge to rename it.
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <form action="/admin/faces/cluster/recluster" method="POST" style="margin:0;">
+                  <input type="hidden" name="threshold" value="0.50">
+                  <button type="submit" class="btn-ghost" style="font-size:11.5px;padding:5px 10px;">
+                    &#9881; Re-cluster (&gt;50%)
+                  </button>
+                </form>
+                <form action="/admin/scan/faces" method="POST" style="margin:0;">
+                  <button type="submit" class="btn-primary" style="font-size:11.5px;padding:5px 12px;background:#7c3aed;border-color:#6d28d9;">
+                    &#128269; Scan Faces in Images
+                  </button>
+                </form>
+              </div>
+            </div>
+
             <!-- 5-Column Extracted Face / Subject Grid -->
             <div class="asset-grid">
               {{range .Page.Faces}}
@@ -10411,7 +10465,7 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
                   </div>
                   <div class="asset-meta">
                     <div class="badge-row">
-                      <span class="badge-chip character">{{.ClusterLabel}}</span>
+                      <span class="badge-chip character" title="Click to rename this person cluster" style="cursor:pointer;" onclick="renameFaceCluster(event, '{{.ClusterLabel}}')">&#128100; {{.ClusterLabel}} &#9998;</span>
                       {{if .ExpressionTag}}<span class="badge-chip">{{.ExpressionTag}}</span>{{end}}
                       <span class="badge-chip">{{.AssetEngine}}</span>
                     </div>
@@ -11939,6 +11993,14 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
                 filesStat.innerText = data.total_files > 0
                   ? 'Descubriendo: ' + data.total_files + ' archivos...'
                   : 'Descubriendo archivos...';
+              } else if (data.phase === 'reextracting') {
+                filesStat.innerText = data.total_files > 0
+                  ? data.scanned_files + ' / ' + data.total_files + ' metadata re-extraídas'
+                  : data.scanned_files + ' metadata re-extraídas';
+              } else if (data.phase === 'scanning_faces') {
+                filesStat.innerText = data.total_files > 0
+                  ? data.scanned_files + ' / ' + data.total_files + ' imágenes analizadas'
+                  : data.scanned_files + ' imágenes analizadas';
               } else if (data.total_files > 0) {
                 filesStat.innerText = data.scanned_files + ' / ' + data.total_files + ' archivos';
               } else {
@@ -11947,10 +12009,10 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
             }
 
             if (etaStat) {
-              if (data.phase === 'indexing' && data.eta_seconds > 0 && data.eta_formatted) {
+              if ((data.phase === 'indexing' || data.phase === 'reextracting' || data.phase === 'scanning_faces') && data.eta_seconds > 0 && data.eta_formatted) {
                 etaStat.innerText = 'ETA: ' + data.eta_formatted;
                 etaStat.style.display = 'inline-block';
-              } else if (data.phase === 'indexing' && data.eta_seconds === 0 && data.scanned_files > 0) {
+              } else if ((data.phase === 'indexing' || data.phase === 'reextracting' || data.phase === 'scanning_faces') && data.eta_seconds === 0 && data.scanned_files > 0) {
                 etaStat.innerText = 'ETA: < 5s';
                 etaStat.style.display = 'inline-block';
               } else {
@@ -11970,6 +12032,12 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
             if (statusText) {
               if (data.phase === 'discovering') {
                 statusText.innerText = data.current_root ? 'Explorando: ' + data.current_root : 'Explorando carpetas...';
+                statusText.title = statusText.innerText;
+              } else if (data.phase === 'reextracting') {
+                statusText.innerText = data.current_file ? 'Re-extrayendo metadata: ' + data.current_file : 'Re-extrayendo metadata de medios antiguos...';
+                statusText.title = statusText.innerText;
+              } else if (data.phase === 'scanning_faces') {
+                statusText.innerText = data.current_file ? 'Escaneando y recortando rostros: ' + data.current_file : 'Escaneando rostros y extrayendo embeddings...';
                 statusText.title = statusText.innerText;
               } else if (data.current_file) {
                 var prefix = data.current_root ? '[' + data.current_root + '] ' : '';
@@ -12167,6 +12235,44 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
         });
       });
     }
+    function renameFaceCluster(event, currentLabel) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      var newName = prompt('Enter new name for cluster "' + currentLabel + '":', currentLabel);
+      if (!newName || newName.trim() === '' || newName.trim() === currentLabel) return;
+      var createChar = confirm('Also create or link a Character entry named "' + newName.trim() + '"?');
+
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/admin/faces/cluster/rename';
+
+      var oldInp = document.createElement('input');
+      oldInp.type = 'hidden';
+      oldInp.name = 'old_label';
+      oldInp.value = currentLabel;
+      form.appendChild(oldInp);
+
+      var newInp = document.createElement('input');
+      newInp.type = 'hidden';
+      newInp.name = 'new_name';
+      newInp.value = newName.trim();
+      form.appendChild(newInp);
+
+      if (createChar) {
+        var charInp = document.createElement('input');
+        charInp.type = 'hidden';
+        charInp.name = 'create_character';
+        charInp.value = '1';
+        form.appendChild(charInp);
+      }
+
+      document.body.appendChild(form);
+      form.submit();
+    }
+    window.renameFaceCluster = renameFaceCluster;
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initSystemPromptDropzones);
     } else {

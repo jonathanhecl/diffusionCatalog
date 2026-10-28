@@ -63,8 +63,9 @@ type MediaAsset struct {
 	Groups      []Group          `json:"groups"`
 	Characters  []Character      `json:"characters"`
 	Faces       []DetectedFace   `json:"faces"`
-	FileMTime   time.Time        `json:"file_mtime"`
-	IndexedAt   time.Time        `json:"indexed_at"`
+	FileMTime           time.Time        `json:"file_mtime"`
+	IndexedAt           time.Time        `json:"indexed_at"`
+	MetadataExtractedAt *time.Time       `json:"metadata_extracted_at,omitempty"`
 }
 
 // MediaRoot represents a registered source folder on any local directory or external disk/volume.
