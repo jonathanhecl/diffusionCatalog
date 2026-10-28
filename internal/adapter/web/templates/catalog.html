@@ -1208,15 +1208,24 @@
                   <div>
                     <label class="kv-label">Model</label>
                     <select name="override_model" id="remixModelSelect" class="input-dark">
+                      {{$isVision := or (eq $.AIMode "vision") (and (eq $.AIMode "") $.SelectedAsset)}}
                       {{if eq .Settings.RemixDefaultProvider "openai"}}
                         <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (default)</option>
                         {{range .AIStatus.OMLXModels}}
-                          <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                          {{if .IsCompletionModel}}
+                            {{if or (not $isVision) .HasVision}}
+                              <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                            {{end}}
+                          {{end}}
                         {{end}}
                       {{else}}
                         <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (default)</option>
                         {{range .AIStatus.OllamaModels}}
-                          <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                          {{if .IsCompletionModel}}
+                            {{if or (not $isVision) .HasVision}}
+                              <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                            {{end}}
+                          {{end}}
                         {{end}}
                       {{end}}
                     </select>
@@ -1346,12 +1355,16 @@
                 {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}
                   <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (default)</option>
                   {{range .AIStatus.OMLXModels}}
-                    <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                    {{if .IsCompletionModel}}
+                      <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                    {{end}}
                   {{end}}
                 {{else}}
                   <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (default)</option>
                   {{range .AIStatus.OllamaModels}}
-                    <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                    {{if .IsCompletionModel}}
+                      <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                    {{end}}
                   {{end}}
                 {{end}}
               </select>
@@ -2356,12 +2369,16 @@
                   {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}
                     <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (default)</option>
                     {{range .AIStatus.OMLXModels}}
-                      <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                      {{if .IsCompletionModel}}
+                        <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                      {{end}}
                     {{end}}
                   {{else}}
                     <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (default)</option>
                     {{range .AIStatus.OllamaModels}}
-                      <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                      {{if .IsCompletionModel}}
+                        <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                      {{end}}
                     {{end}}
                   {{end}}
                 </select>
@@ -2530,18 +2547,9 @@
                     {{end}}
                     <optgroup label="Vision Models 👁️">
                       {{range .AIStatus.OMLXModels}}
-                        {{if .HasVision}}
+                        {{if and .IsCompletionModel .HasVision}}
                           <option value="{{.Name}}" {{if eq $.Settings.OpenAIDefaultModel .Name}}selected{{end}}>
                             {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️]
-                          </option>
-                        {{end}}
-                      {{end}}
-                    </optgroup>
-                    <optgroup label="Other Discovered Models">
-                      {{range .AIStatus.OMLXModels}}
-                        {{if not .HasVision}}
-                          <option value="{{.Name}}" {{if eq $.Settings.OpenAIDefaultModel .Name}}selected{{end}}>
-                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}
                           </option>
                         {{end}}
                       {{end}}
@@ -2552,18 +2560,9 @@
                     {{end}}
                     <optgroup label="Vision Models 👁️">
                       {{range .AIStatus.OllamaModels}}
-                        {{if .HasVision}}
+                        {{if and .IsCompletionModel .HasVision}}
                           <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
                             {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️]
-                          </option>
-                        {{end}}
-                      {{end}}
-                    </optgroup>
-                    <optgroup label="Other Discovered Models">
-                      {{range .AIStatus.OllamaModels}}
-                        {{if not .HasVision}}
-                          <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
-                            {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}
                           </option>
                         {{end}}
                       {{end}}
@@ -8325,8 +8324,7 @@
     modEl.innerHTML = '';
 
     const models = conf.models || [];
-    const visionModels = models.filter(m => m.vision);
-    const otherModels = models.filter(m => !m.vision);
+    const visionModels = models.filter(m => m.vision && m.completion !== false);
 
     let selectedSet = false;
 
@@ -8346,24 +8344,11 @@
         grp.appendChild(opt);
       });
       modEl.appendChild(grp);
-    }
-
-    if (otherModels.length > 0) {
-      const grp = document.createElement('optgroup');
-      grp.label = "Other Discovered Models";
-      otherModels.forEach(m => {
-        const mName = cleanStr(m.name);
-        if (!mName) return;
-        const opt = document.createElement('option');
-        opt.value = mName;
-        opt.textContent = mName + (m.size ? ' (' + cleanStr(m.size) + ')' : '');
-        if (!selectedSet && (mName === currentVal || mName === defModel)) {
-          opt.selected = true;
-          selectedSet = true;
-        }
-        grp.appendChild(opt);
-      });
-      modEl.appendChild(grp);
+    } else {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No vision models available';
+      modEl.appendChild(opt);
     }
 
     if (!selectedSet && defModel) {
@@ -9174,16 +9159,16 @@
                         {{end}}
                         <optgroup label="Detected Vision Models">
                           {{range .AIStatus.OllamaModels}}
-                            {{if .HasVision}}
+                            {{if and .IsCompletionModel .HasVision}}
                               <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
                                 {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️] {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
                               </option>
                             {{end}}
                           {{end}}
                         </optgroup>
-                        <optgroup label="All Discovered Models">
+                        <optgroup label="Other Discovered Completion Models">
                           {{range .AIStatus.OllamaModels}}
-                            {{if not .HasVision}}
+                            {{if and .IsCompletionModel (not .HasVision)}}
                               <option value="{{.Name}}" {{if eq $.Settings.OllamaDefaultModel .Name}}selected{{end}}>
                                 {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .ContextLength}}[ctx:{{.ContextLength}}]{{end}}
                               </option>
@@ -10131,7 +10116,7 @@
         defaultThink: {{.Settings.OllamaDefaultThink}},
         models: [
           {{range .AIStatus.OllamaModels}}
-            { name: {{.Name}}, vision: {{.HasVision}}, size: {{.ParameterSize}} },
+            { name: {{.Name}}, vision: {{.HasVision}}, completion: {{.IsCompletionModel}}, size: {{.ParameterSize}} },
           {{end}}
         ]
       },
@@ -10141,7 +10126,7 @@
         defaultThink: {{.Settings.OpenAIDefaultThink}},
         models: [
           {{range .AIStatus.OMLXModels}}
-            { name: {{.Name}}, vision: {{.HasVision}}, size: {{.ParameterSize}} },
+            { name: {{.Name}}, vision: {{.HasVision}}, completion: {{.IsCompletionModel}}, size: {{.ParameterSize}} },
           {{end}}
         ]
       }
@@ -10167,12 +10152,29 @@
       var defThink = cleanStr(conf.defaultThink);
       modEl.innerHTML = '';
 
+      var requireVision = false;
+      if (prefix === 'remix') {
+        var modeEl = document.getElementById('studio-mode-select');
+        if (modeEl && modeEl.value === 'vision') {
+          requireVision = true;
+        }
+      } else if (prefix === 'i2s') {
+        requireVision = true;
+      }
+
       if (conf.models && conf.models.length > 0) {
         var foundPrev = false;
         var foundDef = false;
         conf.models.forEach(function(m) {
           var mName = cleanStr(m.name);
           if (!mName) return;
+
+          // RULE: Prompt generation requires completion capability! Never embedding or decision.
+          if (m.completion === false) return;
+
+          // RULE: In Vision Analysis mode, ONLY models with vision capability are allowed!
+          if (requireVision && !m.vision) return;
+
           var opt = document.createElement('option');
           opt.value = mName;
           var label = mName;
@@ -10190,22 +10192,29 @@
         });
 
         if (!foundPrev && !foundDef && defModel) {
-          var opt = document.createElement('option');
-          opt.value = defModel;
-          opt.textContent = defModel + ' (default)';
-          opt.selected = true;
-          modEl.insertBefore(opt, modEl.firstChild);
+          var isDefEligible = conf.models.some(function(m) {
+            return cleanStr(m.name) === defModel && m.completion !== false && (!requireVision || m.vision);
+          });
+          if (isDefEligible) {
+            var opt = document.createElement('option');
+            opt.value = defModel;
+            opt.textContent = defModel + ' (default)';
+            opt.selected = true;
+            modEl.insertBefore(opt, modEl.firstChild);
+          }
         }
-      } else if (defModel) {
+      } else if (defModel && !requireVision) {
         var opt = document.createElement('option');
         opt.value = defModel;
         opt.textContent = defModel + ' (default)';
         opt.selected = true;
         modEl.appendChild(opt);
-      } else {
+      }
+
+      if (modEl.options.length === 0) {
         var opt = document.createElement('option');
         opt.value = '';
-        opt.textContent = 'No models available';
+        opt.textContent = requireVision ? 'No vision models available' : 'No completion models available';
         modEl.appendChild(opt);
       }
 
@@ -10231,6 +10240,7 @@
               return {
                 name: m.name || m.Name || '',
                 vision: (m.has_vision !== undefined) ? m.has_vision : !!m.HasVision,
+                completion: (m.has_completion !== undefined) ? m.has_completion : (m.is_completion !== undefined ? m.is_completion : true),
                 size: m.parameter_size || m.ParameterSize || ''
               };
             });
@@ -10240,6 +10250,7 @@
               return {
                 name: m.name || m.Name || '',
                 vision: (m.has_vision !== undefined) ? m.has_vision : !!m.HasVision,
+                completion: (m.has_completion !== undefined) ? m.has_completion : (m.is_completion !== undefined ? m.is_completion : true),
                 size: m.parameter_size || m.ParameterSize || ''
               };
             });
@@ -10637,6 +10648,9 @@
     function onStudioModeChange(val) {
       if (val) {
         localStorage.setItem('dc_last_studio_mode', val);
+      }
+      if (typeof switchProviderSelect === 'function') {
+        switchProviderSelect('remix');
       }
     }
 
@@ -11105,6 +11119,9 @@
             break;
           }
         }
+        if (typeof onStudioModeChange === 'function') {
+          onStudioModeChange('vision');
+        }
       }
     }
 
@@ -11170,6 +11187,9 @@
             modeSelect.selectedIndex = i;
             break;
           }
+        }
+        if (typeof onStudioModeChange === 'function') {
+          onStudioModeChange('remix');
         }
       }
     }

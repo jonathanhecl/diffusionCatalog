@@ -186,6 +186,7 @@ func TestSynthesizeSceneInMemoryNoTempFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("web.NewServer error: %v", err)
 	}
+	catalogSvc.InspectAIBackendsFresh(ctx)
 	handler := server.Handler()
 
 	payload := `{
@@ -270,6 +271,7 @@ func TestHandleImageToSceneEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("web.NewServer error: %v", err)
 	}
+	catalogSvc.InspectAIBackendsFresh(ctx)
 	handler := server.Handler()
 
 	// 1. Test empty body -> BadRequest
@@ -507,5 +509,153 @@ func TestActiveCollectionBannerAndFilterIndicator(t *testing.T) {
 	}
 	if !strings.Contains(bodyMulti, `href="/?category=Cyberpunk" class="chip-remove"`) {
 		t.Errorf("expected collection chip remove to link to /?category=Cyberpunk")
+	}
+}
+
+type modelFilterTestOllamaMock struct {
+	testWebOllamaMock
+}
+
+func (m *modelFilterTestOllamaMock) CheckStatus(ctx context.Context, baseURL string) (string, bool) {
+	return "0.40.0", true
+}
+
+func (m *modelFilterTestOllamaMock) ListModels(ctx context.Context, baseURL string) ([]domain.OllamaModelInfo, error) {
+	return []domain.OllamaModelInfo{
+		{
+			Provider:      domain.ProviderOllama,
+			Name:          "nemotron-vl:latest",
+			HasCompletion: true,
+			HasVision:     true,
+			Capabilities:  []string{"completion", "vision"},
+		},
+		{
+			Provider:      domain.ProviderOllama,
+			Name:          "mistral-chat:latest",
+			HasCompletion: true,
+			HasVision:     false,
+			Capabilities:  []string{"completion"},
+		},
+		{
+			Provider:      domain.ProviderOllama,
+			Name:          "strands-decider:latest",
+			HasCompletion: false,
+			Capabilities:  []string{"decision"},
+		},
+		{
+			Provider:      domain.ProviderOllama,
+			Name:          "embeddinggemma:latest",
+			HasCompletion: false,
+			HasEmbedding:  true,
+			Capabilities:  []string{"embedding"},
+		},
+		{
+			Provider:      domain.ProviderOllama,
+			Name:          "embeddinggemma-2:latest",
+			HasCompletion: false,
+			HasVision:     true,
+			HasEmbedding:  true,
+			Capabilities:  []string{"embedding", "vision", "audio"},
+		},
+	}, nil
+}
+
+func TestPromptStudioModelFiltering(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, "cache")
+	dbPath := filepath.Join(tmpDir, "test_filter_models.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("sqlite.Open error: %v", err)
+	}
+
+	repo := sqlite.NewRepository(db)
+	_ = repo.SaveSettings(ctx, domain.AppSettings{
+		OllamaEnabled:         true,
+		OllamaBaseURL:         "http://127.0.0.1:11434",
+		OllamaDefaultModel:    "nemotron-vl:latest",
+		RemixDefaultProvider:  domain.ProviderOllama,
+		StudioDefaultProvider: domain.ProviderOllama,
+	})
+
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	extractor := metadata.NewExtractor()
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+	mockOllama := &modelFilterTestOllamaMock{}
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, mockOllama)
+
+	server, err := web.NewServer(mediaDir, cacheDir, "noop", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("web.NewServer error: %v", err)
+	}
+	catalogSvc.InspectAIBackendsFresh(ctx)
+	handler := server.Handler()
+
+	// 1. In Vision mode: Only vision completion models must be present in remixModelSelect
+	reqVision := httptest.NewRequest("GET", "/?tab=studio&mode=vision", nil)
+	wVision := httptest.NewRecorder()
+	handler.ServeHTTP(wVision, reqVision)
+	if wVision.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", wVision.Code)
+	}
+	bodyVision := wVision.Body.String()
+
+	// Locate remixModelSelect
+	remixStart := strings.Index(bodyVision, `id="remixModelSelect"`)
+	if remixStart == -1 {
+		t.Fatalf("remixModelSelect not found in body")
+	}
+	remixEnd := strings.Index(bodyVision[remixStart:], `</select>`)
+	remixBlockVision := bodyVision[remixStart : remixStart+remixEnd]
+
+	if !strings.Contains(remixBlockVision, "nemotron-vl:latest") {
+		t.Errorf("expected nemotron-vl:latest to be in vision options")
+	}
+	if strings.Contains(remixBlockVision, "mistral-chat:latest") {
+		t.Errorf("mistral-chat:latest is text-only and must NOT appear in vision mode")
+	}
+	if strings.Contains(remixBlockVision, "strands-decider:latest") {
+		t.Errorf("strands-decider:latest is decision-only and must NOT appear in prompt generation")
+	}
+	if strings.Contains(remixBlockVision, "embeddinggemma:latest") {
+		t.Errorf("embeddinggemma:latest is embedding-only and must NOT appear in prompt generation")
+	}
+	if strings.Contains(remixBlockVision, "embeddinggemma-2:latest") {
+		t.Errorf("embeddinggemma-2:latest is embedding-only and must NOT appear in prompt generation")
+	}
+
+	// 2. In Text Remix mode: Completion models (both text and vision) must appear, but NOT decision or embedding
+	reqRemix := httptest.NewRequest("GET", "/?tab=studio&mode=remix", nil)
+	wRemix := httptest.NewRecorder()
+	handler.ServeHTTP(wRemix, reqRemix)
+	if wRemix.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", wRemix.Code)
+	}
+	bodyRemix := wRemix.Body.String()
+
+	remixStart = strings.Index(bodyRemix, `id="remixModelSelect"`)
+	if remixStart == -1 {
+		t.Fatalf("remixModelSelect not found in body")
+	}
+	remixEnd = strings.Index(bodyRemix[remixStart:], `</select>`)
+	remixBlockRemix := bodyRemix[remixStart : remixStart+remixEnd]
+
+	if !strings.Contains(remixBlockRemix, "nemotron-vl:latest") {
+		t.Errorf("expected nemotron-vl:latest to be in remix options")
+	}
+	if !strings.Contains(remixBlockRemix, "mistral-chat:latest") {
+		t.Errorf("expected mistral-chat:latest to be in remix options, got:\n%s", remixBlockRemix)
+	}
+	if strings.Contains(remixBlockRemix, "strands-decider:latest") {
+		t.Errorf("strands-decider:latest is decision-only and must NOT appear in prompt generation")
+	}
+	if strings.Contains(remixBlockRemix, "embeddinggemma:latest") {
+		t.Errorf("embeddinggemma:latest is embedding-only and must NOT appear in prompt generation")
+	}
+	if strings.Contains(remixBlockRemix, "embeddinggemma-2:latest") {
+		t.Errorf("embeddinggemma-2:latest is embedding-only and must NOT appear in prompt generation")
 	}
 }

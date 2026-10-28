@@ -151,12 +151,43 @@ type OllamaModelInfo struct {
 	ParameterSize string         `json:"parameter_size"`
 	Family        string         `json:"family"`
 	Capabilities  []string       `json:"capabilities"`
+	HasCompletion bool           `json:"has_completion"`
 	HasVision     bool           `json:"has_vision"`
 	VisionStatus  string         `json:"vision_status"` // "confirmed", "inferred", or "none"
 	HasThinking   bool           `json:"has_thinking"`
 	HasTools      bool           `json:"has_tools"`
 	HasEmbedding  bool           `json:"has_embedding"`
 	ContextLength int            `json:"context_length"`
+}
+
+// HasCapability checks whether a specific capability string is declared for this model.
+func (m OllamaModelInfo) HasCapability(capName string) bool {
+	target := strings.ToLower(strings.TrimSpace(capName))
+	for _, c := range m.Capabilities {
+		if strings.ToLower(strings.TrimSpace(c)) == target {
+			return true
+		}
+	}
+	return false
+}
+
+// IsCompletionModel returns true if the model is capable of generating prompt completions.
+// Models strictly intended for embeddings, decision/classification, or speech/audio are excluded.
+func (m OllamaModelInfo) IsCompletionModel() bool {
+	if m.HasCompletion {
+		return true
+	}
+	if len(m.Capabilities) > 0 {
+		return m.HasCapability("completion")
+	}
+	nameLower := strings.ToLower(m.Name)
+	famLower := strings.ToLower(m.Family)
+	for _, banned := range []string{"embed", "decider", "decision", "rerank", "phonon", "whisper", "tts", "stt"} {
+		if strings.Contains(nameLower, banned) || strings.Contains(famLower, banned) {
+			return false
+		}
+	}
+	return true
 }
 
 // IsEmbeddingVision returns true if the model supports both embedding and vision.
