@@ -1027,3 +1027,149 @@ func buildCapabilitySlice(completion, vision, thinking, tools bool, existing []s
 	}
 	return out
 }
+
+type ollamaEmbedRequest struct {
+	Model string      `json:"model"`
+	Input interface{} `json:"input"`
+}
+
+type ollamaEmbedResponse struct {
+	Model      string      `json:"model"`
+	Embeddings [][]float32 `json:"embeddings"`
+	Error      string      `json:"error,omitempty"`
+}
+
+type legacyEmbeddingsRequest struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+}
+
+type legacyEmbeddingsResponse struct {
+	Embedding []float32 `json:"embedding"`
+	Error     string    `json:"error,omitempty"`
+}
+
+// EmbedText generates a vector embedding for a text query using Ollama's /api/embed (with legacy /api/embeddings fallback).
+func (c *Client) EmbedText(ctx context.Context, baseURL, model, text string) ([]float32, error) {
+	baseURL = strings.TrimRight(baseURL, "/")
+	if baseURL == "" {
+		baseURL = "http://127.0.0.1:11434"
+	}
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return nil, fmt.Errorf("embedding model is not specified")
+	}
+
+	payload, err := json.Marshal(ollamaEmbedRequest{
+		Model: model,
+		Input: []string{text},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/api/embed", bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err == nil && resp.StatusCode == http.StatusOK {
+		defer resp.Body.Close()
+		var out ollamaEmbedResponse
+		if err := json.NewDecoder(resp.Body).Decode(&out); err == nil && len(out.Embeddings) > 0 {
+			return out.Embeddings[0], nil
+		}
+	}
+	if resp != nil {
+		resp.Body.Close()
+	}
+
+	// Fallback to legacy /api/embeddings for older Ollama versions
+	legacyPayload, _ := json.Marshal(legacyEmbeddingsRequest{
+		Model:  model,
+		Prompt: text,
+	})
+	reqLegacy, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/api/embeddings", bytes.NewReader(legacyPayload))
+	if err != nil {
+		return nil, err
+	}
+	reqLegacy.Header.Set("Content-Type", "application/json")
+
+	respLegacy, err := c.httpClient.Do(reqLegacy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call /api/embed or /api/embeddings: %w", err)
+	}
+	defer respLegacy.Body.Close()
+
+	if respLegacy.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(respLegacy.Body)
+		return nil, fmt.Errorf("ollama embeddings returned status %d: %s", respLegacy.StatusCode, string(body))
+	}
+
+	var legacyOut legacyEmbeddingsResponse
+	if err := json.NewDecoder(respLegacy.Body).Decode(&legacyOut); err != nil {
+		return nil, err
+	}
+	if len(legacyOut.Embedding) == 0 {
+		return nil, fmt.Errorf("no embedding returned for model %q", model)
+	}
+	return legacyOut.Embedding, nil
+}
+
+// EmbedImage generates a vector embedding for an image using Ollama's multimodal /api/embed endpoint.
+// Image bytes are passed as base64 in the input array according to the multimodal schema: input: [{"image": "<base64>"}].
+func (c *Client) EmbedImage(ctx context.Context, baseURL, model string, imageBytes []byte) ([]float32, error) {
+	baseURL = strings.TrimRight(baseURL, "/")
+	if baseURL == "" {
+		baseURL = "http://127.0.0.1:11434"
+	}
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return nil, fmt.Errorf("embedding model is not specified")
+	}
+	if len(imageBytes) == 0 {
+		return nil, fmt.Errorf("image bytes are empty")
+	}
+
+	b64Image := base64.StdEncoding.EncodeToString(imageBytes)
+	payload, err := json.Marshal(ollamaEmbedRequest{
+		Model: model,
+		Input: []map[string]string{
+			{"image": b64Image},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/api/embed", bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("ollama /api/embed request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ollama /api/embed returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var out ollamaEmbedResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	if out.Error != "" {
+		return nil, fmt.Errorf("ollama embed error: %s", out.Error)
+	}
+	if len(out.Embeddings) == 0 {
+		return nil, fmt.Errorf("no embeddings returned by model %q", model)
+	}
+	return out.Embeddings[0], nil
+}

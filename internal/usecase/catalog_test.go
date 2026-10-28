@@ -131,6 +131,12 @@ func (m *mockOllamaProvider) AnalyzeImage(ctx context.Context, provider domain.A
 	}
 	return `{"aspectRatio":"16:9","canvasWidth":1024,"canvasHeight":576,"elements":[{"id":"el_1","type":"character","name":"Hero","x":500,"y":300,"poseName":"Standing Idle"}]}`, nil
 }
+func (m *mockOllamaProvider) EmbedText(ctx context.Context, baseURL, model, text string) ([]float32, error) {
+	return nil, nil
+}
+func (m *mockOllamaProvider) EmbedImage(ctx context.Context, baseURL, model string, imageBytes []byte) ([]float32, error) {
+	return nil, nil
+}
 
 func TestRemixAndVisionOperationModeAndTargetGeneratorPersistence(t *testing.T) {
 	ctx := context.Background()
@@ -629,6 +635,12 @@ func (m *countingMockOllamaProvider) TextToPrompt(ctx context.Context, provider 
 
 func (m *countingMockOllamaProvider) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
 	return "", nil
+}
+func (m *countingMockOllamaProvider) EmbedText(ctx context.Context, baseURL, model, text string) ([]float32, error) {
+	return nil, nil
+}
+func (m *countingMockOllamaProvider) EmbedImage(ctx context.Context, baseURL, model string, imageBytes []byte) ([]float32, error) {
+	return nil, nil
 }
 
 func TestInspectAIBackendsCachingAndInvalidation(t *testing.T) {

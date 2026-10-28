@@ -34,6 +34,10 @@ type AppSettings struct {
 	DefaultTargetGenerator string `json:"default_target_generator"`
 	AutoCaptionOnScan      bool   `json:"auto_caption_on_scan"`
 
+	// Multimodal Embedding Settings
+	EmbeddingEnabled bool   `json:"embedding_enabled"`
+	EmbeddingModel   string `json:"embedding_model"`
+
 	// Legacy / Compatibility fields (kept in sync for backwards compatibility)
 	OMLXBaseURL          string         `json:"omlx_base_url,omitempty"`
 	OMLXAPIKey           string         `json:"omlx_api_key,omitempty"`

@@ -1004,6 +1004,15 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		studioDefProv = domain.ProviderOpenAI
 	}
 
+	embeddingEnabled := r.FormValue("embedding_enabled") == "on" || r.FormValue("embedding_enabled") == "true" || r.FormValue("embedding_enabled") == "1"
+	embeddingModel := strings.Trim(strings.TrimSpace(r.FormValue("embedding_model")), "\"' \t\r\n")
+	if embeddingModel == "" && embeddingEnabled {
+		embeddingModel = current.EmbeddingModel
+		if embeddingModel == "" {
+			embeddingModel = "embeddinggemma-2"
+		}
+	}
+
 	cfg := domain.AppSettings{
 		OllamaEnabled:          ollamaEnabled,
 		OllamaBaseURL:          ollamaBaseURL,
@@ -1018,6 +1027,8 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		StudioDefaultProvider:  studioDefProv,
 		DefaultTargetGenerator: defTarget,
 		AutoCaptionOnScan:      r.FormValue("auto_caption_on_scan") == "on" || r.FormValue("auto_caption_on_scan") == "true",
+		EmbeddingEnabled:       embeddingEnabled,
+		EmbeddingModel:         embeddingModel,
 
 		// Compatibility sync
 		OMLXBaseURL:          openaiBaseURL,

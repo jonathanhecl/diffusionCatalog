@@ -2700,6 +2700,7 @@
               <button type="button" class="btn-ghost pose-cat-btn" data-cat="sitting" style="padding:4px 10px;font-size:11px;border-radius:4px;">🧘 Sentadas (<span id="pose-count-sitting">0</span>)</button>
               <button type="button" class="btn-ghost pose-cat-btn" data-cat="lying" style="padding:4px 10px;font-size:11px;border-radius:4px;">🛌 Suelo &amp; Puente (<span id="pose-count-lying">0</span>)</button>
               <button type="button" class="btn-ghost pose-cat-btn" data-cat="sports" style="padding:4px 10px;font-size:11px;border-radius:4px;">⚽ Deportes &amp; Gym (<span id="pose-count-sports">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="couple" style="padding:4px 10px;font-size:11px;border-radius:4px;">👥 Pareja &amp; Interacción (<span id="pose-count-couple">0</span>)</button>
               <button type="button" class="btn-ghost pose-cat-btn" data-cat="action" style="padding:4px 10px;font-size:11px;border-radius:4px;">⚡ Dinámicas (<span id="pose-count-action">0</span>)</button>
             </div>
             <div style="position:relative;min-width:200px;">
@@ -3389,10 +3390,97 @@
       nose:{x:36,y:54},neck:{x:42,y:58},r_shoulder:{x:40,y:60},r_elbow:{x:30,y:52},r_wrist:{x:34,y:52},
       l_shoulder:{x:46,y:60},l_elbow:{x:50,y:52},l_wrist:{x:42,y:52},mid_hip:{x:54,y:74},
       r_hip:{x:52,y:76},r_knee:{x:68,y:54},r_ankle:{x:82,y:76},l_hip:{x:56,y:76},l_knee:{x:72,y:56},l_ankle:{x:86,y:78}
+    },
+
+    // --- Interactive, Social & Couple Presets ---
+    "Couple: Standing Embrace (Hug)": {
+      nose:{x:52,y:15},neck:{x:50,y:24},r_shoulder:{x:40,y:26},r_elbow:{x:48,y:34},r_wrist:{x:62,y:32},
+      l_shoulder:{x:60,y:26},l_elbow:{x:52,y:34},l_wrist:{x:38,y:32},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:43,y:74},r_ankle:{x:42,y:95},l_hip:{x:56,y:56},l_knee:{x:57,y:74},l_ankle:{x:58,y:95}
+    },
+    "Couple: Side Hug (Arm Over Shoulder)": {
+      nose:{x:48,y:15},neck:{x:50,y:24},r_shoulder:{x:40,y:26},r_elbow:{x:36,y:42},r_wrist:{x:34,y:56},
+      l_shoulder:{x:60,y:26},l_elbow:{x:74,y:26},l_wrist:{x:88,y:32},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:43,y:74},r_ankle:{x:42,y:95},l_hip:{x:56,y:56},l_knee:{x:57,y:74},l_ankle:{x:58,y:95}
+    },
+    "Couple: Standing Kiss (Leaning In)": {
+      nose:{x:58,y:16},neck:{x:52,y:24},r_shoulder:{x:42,y:26},r_elbow:{x:52,y:38},r_wrist:{x:64,y:44},
+      l_shoulder:{x:60,y:26},l_elbow:{x:66,y:24},l_wrist:{x:74,y:18},mid_hip:{x:49,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:42,y:74},r_ankle:{x:40,y:95},l_hip:{x:56,y:56},l_knee:{x:58,y:74},l_ankle:{x:60,y:95}
+    },
+    "Couple: Handshake (Greeting)": {
+      nose:{x:50,y:14},neck:{x:50,y:24},r_shoulder:{x:40,y:26},r_elbow:{x:36,y:38},r_wrist:{x:24,y:42},
+      l_shoulder:{x:60,y:26},l_elbow:{x:64,y:42},l_wrist:{x:66,y:57},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:42,y:74},r_ankle:{x:40,y:95},l_hip:{x:56,y:56},l_knee:{x:58,y:74},l_ankle:{x:60,y:95}
+    },
+    "Couple: High Five": {
+      nose:{x:50,y:14},neck:{x:50,y:24},r_shoulder:{x:40,y:26},r_elbow:{x:32,y:14},r_wrist:{x:24,y:2},
+      l_shoulder:{x:60,y:26},l_elbow:{x:68,y:38},l_wrist:{x:66,y:52},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:42,y:74},r_ankle:{x:40,y:95},l_hip:{x:56,y:56},l_knee:{x:58,y:74},l_ankle:{x:60,y:95}
+    },
+    "Couple: Fist Bump": {
+      nose:{x:50,y:14},neck:{x:50,y:24},r_shoulder:{x:40,y:26},r_elbow:{x:32,y:34},r_wrist:{x:22,y:34},
+      l_shoulder:{x:60,y:26},l_elbow:{x:64,y:42},l_wrist:{x:66,y:56},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:43,y:74},r_ankle:{x:42,y:95},l_hip:{x:56,y:56},l_knee:{x:57,y:74},l_ankle:{x:58,y:95}
+    },
+    "Couple: Holding Hands Walking": {
+      nose:{x:52,y:14},neck:{x:51,y:24},r_shoulder:{x:42,y:26},r_elbow:{x:30,y:38},r_wrist:{x:18,y:52},
+      l_shoulder:{x:60,y:26},l_elbow:{x:68,y:38},l_wrist:{x:74,y:48},mid_hip:{x:50,y:54},
+      r_hip:{x:44,y:56},r_knee:{x:36,y:72},r_ankle:{x:28,y:92},l_hip:{x:56,y:56},l_knee:{x:64,y:73},l_ankle:{x:72,y:93}
+    },
+    "Couple: Seated Kiss to Side": {
+      nose:{x:62,y:20},neck:{x:54,y:28},r_shoulder:{x:44,y:30},r_elbow:{x:48,y:44},r_wrist:{x:56,y:48},
+      l_shoulder:{x:62,y:30},l_elbow:{x:72,y:32},l_wrist:{x:82,y:30},mid_hip:{x:50,y:58},
+      r_hip:{x:44,y:60},r_knee:{x:54,y:68},r_ankle:{x:54,y:92},l_hip:{x:56,y:60},l_knee:{x:68,y:68},l_ankle:{x:68,y:92}
+    },
+    "Couple: Seated Hug to Side": {
+      nose:{x:58,y:20},neck:{x:52,y:28},r_shoulder:{x:42,y:30},r_elbow:{x:56,y:38},r_wrist:{x:74,y:36},
+      l_shoulder:{x:60,y:30},l_elbow:{x:72,y:34},l_wrist:{x:84,y:34},mid_hip:{x:50,y:58},
+      r_hip:{x:44,y:60},r_knee:{x:52,y:68},r_ankle:{x:52,y:92},l_hip:{x:56,y:60},l_knee:{x:66,y:68},l_ankle:{x:66,y:92}
+    },
+    "Couple: Resting Head on Lap": {
+      nose:{x:74,y:52},neck:{x:64,y:54},r_shoulder:{x:58,y:50},r_elbow:{x:46,y:56},r_wrist:{x:42,y:68},
+      l_shoulder:{x:58,y:60},l_elbow:{x:48,y:64},l_wrist:{x:44,y:72},mid_hip:{x:36,y:66},
+      r_hip:{x:34,y:64},r_knee:{x:22,y:74},r_ankle:{x:12,y:88},l_hip:{x:36,y:70},l_knee:{x:24,y:78},l_ankle:{x:14,y:92}
+    },
+    "Couple: Lap Partner (Lap Support)": {
+      nose:{x:46,y:18},neck:{x:48,y:27},r_shoulder:{x:38,y:30},r_elbow:{x:32,y:46},r_wrist:{x:26,y:56},
+      l_shoulder:{x:58,y:30},l_elbow:{x:62,y:46},l_wrist:{x:56,y:58},mid_hip:{x:50,y:58},
+      r_hip:{x:44,y:60},r_knee:{x:36,y:68},r_ankle:{x:36,y:92},l_hip:{x:56,y:60},l_knee:{x:64,y:68},l_ankle:{x:64,y:92}
+    },
+    "Couple: Back to Back": {
+      nose:{x:38,y:14},neck:{x:44,y:24},r_shoulder:{x:36,y:26},r_elbow:{x:34,y:40},r_wrist:{x:48,y:40},
+      l_shoulder:{x:52,y:26},l_elbow:{x:54,y:40},l_wrist:{x:42,y:40},mid_hip:{x:48,y:54},
+      r_hip:{x:42,y:56},r_knee:{x:40,y:74},r_ankle:{x:38,y:95},l_hip:{x:54,y:56},l_knee:{x:52,y:74},l_ankle:{x:50,y:95}
+    },
+    "Couple: Whispering in Ear": {
+      nose:{x:64,y:16},neck:{x:56,y:24},r_shoulder:{x:46,y:26},r_elbow:{x:56,y:28},r_wrist:{x:66,y:18},
+      l_shoulder:{x:62,y:26},l_elbow:{x:72,y:34},l_wrist:{x:80,y:40},mid_hip:{x:52,y:54},
+      r_hip:{x:46,y:56},r_knee:{x:44,y:74},r_ankle:{x:42,y:95},l_hip:{x:58,y:56},l_knee:{x:60,y:74},l_ankle:{x:62,y:95}
+    },
+    "Couple: Piggyback Carry": {
+      nose:{x:50,y:22},neck:{x:50,y:30},r_shoulder:{x:40,y:32},r_elbow:{x:28,y:44},r_wrist:{x:34,y:56},
+      l_shoulder:{x:60,y:32},l_elbow:{x:72,y:44},l_wrist:{x:66,y:56},mid_hip:{x:50,y:56},
+      r_hip:{x:44,y:58},r_knee:{x:42,y:76},r_ankle:{x:40,y:95},l_hip:{x:56,y:58},l_knee:{x:58,y:76},l_ankle:{x:60,y:95}
     }
   };
 
   const POSE_METADATA = {
+    // Interactive, Social & Couple Presets
+    "Couple: Standing Embrace (Hug)": { category: "couple", label: "Pareja: Abrazo frontal", desc: "Abrazo de pie con brazos envolviendo a la pareja" },
+    "Couple: Side Hug (Arm Over Shoulder)": { category: "couple", label: "Pareja: Abrazo de lado", desc: "Abrazo lateral con brazo pasando sobre el hombro" },
+    "Couple: Standing Kiss (Leaning In)": { category: "couple", label: "Pareja: Beso de pie", desc: "Inclinándose hacia la pareja para besarla" },
+    "Couple: Handshake (Greeting)": { category: "couple", label: "Social: Saludo de mano", desc: "Mano derecha extendida estrechando la mano" },
+    "Couple: High Five": { category: "couple", label: "Social: Choque de manos (High Five)", desc: "Brazo en alto chocando los cinco con palma abierta" },
+    "Couple: Fist Bump": { category: "couple", label: "Social: Choque de puños", desc: "Puño extendido chocando nudillos" },
+    "Couple: Holding Hands Walking": { category: "couple", label: "Pareja: Caminando de la mano", desc: "Paseo de la mano con brazo lateralmente extendido" },
+    "Couple: Seated Kiss to Side": { category: "couple", label: "Pareja: Beso sentado al lado", desc: "Sentado girando el torso para besar a quien está al lado" },
+    "Couple: Seated Hug to Side": { category: "couple", label: "Pareja: Abrazo sentado al lado", desc: "Sentado pasando los brazos para abrazar al compañero" },
+    "Couple: Resting Head on Lap": { category: "couple", label: "Pareja: Cabeza en la falda", desc: "Reclinado descansando la cabeza en el regazo de la pareja" },
+    "Couple: Lap Partner (Lap Support)": { category: "couple", label: "Pareja: Apoyo en regazo / falda", desc: "Sentado erguido sirviendo de apoyo de regazo con manos afectuosas" },
+    "Couple: Back to Back": { category: "couple", label: "Pareja: Espalda con espalda", desc: "Postura espalda con espalda en complicidad" },
+    "Couple: Whispering in Ear": { category: "couple", label: "Social: Susurrando al oído", desc: "Inclinado hacia el oído cubriéndose la boca para susurrar" },
+    "Couple: Piggyback Carry": { category: "couple", label: "Pareja: A caballito (Piggyback)", desc: "Cargando a alguien en la espalda sosteniendo sus piernas" },
     // Sports & Fitness Presets
     "Soccer: Ball Kick": { category: "sports", label: "Fútbol: Remate / Disparo", desc: "Patada potente con pierna extendida y balance de brazos" },
     "Soccer: Goalkeeper Save": { category: "sports", label: "Fútbol: Atajada de arquero", desc: "Estirada aérea de arquero alcanzando balón en lo alto" },
@@ -3698,11 +3786,11 @@
         subtype: "male",
         skin: "hybrid",
         name: "Protagonist",
-        x: 480,
-        y: 240,
-        width: 150,
-        height: 270,
-        scale: 1.2,
+        x: 440,
+        y: 180,
+        width: 225,
+        height: 405,
+        scale: 1.0,
         rotation: 0,
         flipH: false,
         facing: "front",
@@ -3951,6 +4039,16 @@
     const pose = el.pose || POSE_PRESETS["Standing Idle"];
     const w = el.width;
     const h = el.height;
+
+    // 0. Transparent Full-Body Grab Surface (ensures clicking anywhere inside character bounds selects and moves it)
+    const grabSurface = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    grabSurface.setAttribute('x', '0');
+    grabSurface.setAttribute('y', '0');
+    grabSurface.setAttribute('width', w);
+    grabSurface.setAttribute('height', h);
+    grabSurface.setAttribute('fill', 'rgba(0,0,0,0.001)');
+    grabSurface.style.cursor = 'move';
+    g.appendChild(grabSurface);
 
     // 1. Render Silhouette Body Limbs (Smooth Mannequin Silhouette)
     const silhouetteColor = el.subtype === 'female' ? '#334155' : (el.subtype === 'child' ? '#3b4252' : '#1e293b');
@@ -4608,12 +4706,16 @@
     const selG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     selG.setAttribute('transform', parentTransform);
 
-    // Bounding Box
+    // Bounding Box (also acts as a grab handle for whole-element moving)
     const bbox = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bbox.setAttribute('x', -6); bbox.setAttribute('y', -6);
-    bbox.setAttribute('width', el.width + 12); bbox.setAttribute('height', el.height + 12);
-    bbox.setAttribute('fill', 'none'); bbox.setAttribute('stroke', '#38bdf8');
+    bbox.setAttribute('x', -8); bbox.setAttribute('y', -8);
+    bbox.setAttribute('width', el.width + 16); bbox.setAttribute('height', el.height + 16);
+    bbox.setAttribute('fill', 'rgba(2, 132, 199, 0.04)');
+    bbox.setAttribute('stroke', '#38bdf8');
     bbox.setAttribute('stroke-dasharray', '4,4'); bbox.setAttribute('stroke-width', '1.5');
+    bbox.setAttribute('data-action', 'move');
+    bbox.setAttribute('data-id', el.id);
+    bbox.style.cursor = 'move';
     selG.appendChild(bbox);
 
     // Floating Facing Pill Tag on top of character
@@ -4638,6 +4740,39 @@
       tagTxt.setAttribute('fill', '#fff'); tagTxt.setAttribute('font-size', '9.5'); tagTxt.setAttribute('font-weight', '700'); tagTxt.setAttribute('text-anchor', 'middle');
       tagTxt.textContent = facingLabel;
       selG.appendChild(tagTxt);
+
+      // Dedicated Floating Move Handle Badge (100% reliable drag target)
+      const moveG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      moveG.setAttribute('data-action', 'move');
+      moveG.setAttribute('data-id', el.id);
+      moveG.style.cursor = 'move';
+
+      const moveBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      moveBg.setAttribute('x', el.width / 2 - 45);
+      moveBg.setAttribute('y', el.height + 14);
+      moveBg.setAttribute('width', '90');
+      moveBg.setAttribute('height', '22');
+      moveBg.setAttribute('rx', '11');
+      moveBg.setAttribute('fill', '#0284c7');
+      moveBg.setAttribute('stroke', '#38bdf8');
+      moveBg.setAttribute('stroke-width', '1.5');
+      moveG.appendChild(moveBg);
+
+      const moveTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      moveTxt.setAttribute('x', el.width / 2);
+      moveTxt.setAttribute('y', el.height + 29);
+      moveTxt.setAttribute('fill', '#ffffff');
+      moveTxt.setAttribute('font-size', '10.5');
+      moveTxt.setAttribute('font-weight', '700');
+      moveTxt.setAttribute('text-anchor', 'middle');
+      moveTxt.textContent = "✥ MOVER";
+      moveG.appendChild(moveTxt);
+
+      const moveTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      moveTitle.textContent = "Arrastrá acá para mover todo el personaje en el canvas (o arrastrá con Shift presionado)";
+      moveG.appendChild(moveTitle);
+
+      selG.appendChild(moveG);
     }
 
     // Rotation Handle at Top
@@ -4728,6 +4863,26 @@
   svg.addEventListener('pointerdown', (e) => {
     const pt = getSvgPoint(e);
     const target = e.target;
+
+    // 0. Whole-Element Translation: Clicked explicit [✥ MOVER] handle, bounding box border, or Shift+drag anywhere
+    if (target.getAttribute('data-action') === 'move' || target.closest('[data-action="move"]') || e.shiftKey) {
+      const elId = target.getAttribute('data-id') || target.closest('[data-id]')?.getAttribute('data-id') || state.selectedId;
+      const el = state.elements.find(x => x.id === elId);
+      if (el) {
+        state.selectedId = elId;
+        state.dragTarget = {
+          type: 'element',
+          elId: elId,
+          startX: pt.x,
+          startY: pt.y,
+          origX: el.x,
+          origY: el.y
+        };
+        svg.setPointerCapture(e.pointerId);
+        renderScene();
+        return;
+      }
+    }
 
     // 1. Joint dragging (with Hierarchical Kinematics!)
     if (target.getAttribute('data-action') === 'joint') {
@@ -4928,14 +5083,17 @@
     const id = "el_" + Date.now();
     const cx = (state.width || 1024) / 2;
     const cy = (state.height || 768) / 2;
+    const isChar = type === 'character';
+    const initW = isChar ? 225 : 150;
+    const initH = isChar ? 405 : 270;
     const newEl = {
       id: id,
       type: type,
       subtype: subtype,
-      x: Math.round(cx - 75 + (Math.random() * 60 - 30)),
-      y: Math.round(cy - 135 + (Math.random() * 60 - 30)),
-      width: 150,
-      height: 270,
+      x: Math.round(cx - initW / 2 + (Math.random() * 60 - 30)),
+      y: Math.round(cy - initH / 2 + (Math.random() * 60 - 30)),
+      width: initW,
+      height: initH,
       scale: 1.0,
       rotation: 0,
       flipH: false
@@ -4949,14 +5107,16 @@
       newEl.skin = "hybrid";
       if (subtype === 'female') {
         newEl.name = "Female Figure";
+        newEl.width = 225; newEl.height = 405;
         newEl.pose.r_shoulder.x = 42; newEl.pose.l_shoulder.x = 58;
         newEl.pose.r_hip.x = 42; newEl.pose.l_hip.x = 58;
       } else if (subtype === 'child') {
         newEl.name = "Child Figure";
-        newEl.width = 120; newEl.height = 200;
+        newEl.width = 180; newEl.height = 300;
         newEl.scale = 0.9;
       } else {
         newEl.name = "Male Figure";
+        newEl.width = 225; newEl.height = 405;
         newEl.pose.r_shoulder.x = 36; newEl.pose.l_shoulder.x = 64;
       }
     } else if (type === 'prop') {
@@ -5900,7 +6060,7 @@
   let activePoseGalleryCategory = 'all';
 
   function updatePoseGalleryCounts() {
-    const counts = { all: 0, standing: 0, kneeling: 0, sitting: 0, lying: 0, sports: 0, action: 0 };
+    const counts = { all: 0, standing: 0, kneeling: 0, sitting: 0, lying: 0, sports: 0, couple: 0, action: 0 };
     Object.keys(POSE_PRESETS).forEach(pName => {
       if (pName.endsWith('(Side)')) return;
       const meta = POSE_METADATA[pName] || { category: 'standing' };
@@ -5919,6 +6079,7 @@
     setTxt('pose-count-sitting', counts.sitting);
     setTxt('pose-count-lying', counts.lying);
     setTxt('pose-count-sports', counts.sports);
+    setTxt('pose-count-couple', counts.couple);
     setTxt('pose-count-action', counts.action);
   }
 
@@ -8591,6 +8752,25 @@
                         Auto-run Image2Prompt during folder scan for assets missing embedded prompts
                       </span>
                     </label>
+                  </div>
+
+                  <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-navy);">
+                    <label class="checkbox-item" style="font-size:12px;color:var(--text-main);font-weight:600;">
+                      <span>
+                        <input type="checkbox" name="embedding_enabled" id="setting_embedding_enabled" {{if .Settings.EmbeddingEnabled}}checked{{end}}>
+                        Enable Multimodal Vision &amp; Text Embeddings (Semantic Search)
+                      </span>
+                    </label>
+                    <div style="font-size:11px;color:var(--text-muted);margin:4px 0 10px 22px;">
+                      Directly vectors images using multimodal models (such as <code>embeddinggemma-2</code>) during scan. Allows searching for concepts ("gato", "sunset") even when prompts don't contain those words. If left unconfigured, embeddings are completely bypassed.
+                    </div>
+                    <div style="display:grid;grid-template-columns:180px 1fr;gap:12px;align-items:center;margin-left:22px;">
+                      <label style="font-size:12px;color:var(--text-muted);">Embedding Model:</label>
+                      <input type="text" name="embedding_model" value="{{.Settings.EmbeddingModel}}" placeholder="embeddinggemma-2" class="input-dark" style="max-width:320px;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    </div>
+                    <div style="font-size:11px;color:var(--text-muted);margin:4px 0 0 22px;">
+                      Note: Changing this model invalidates previously generated embeddings and re-embeds assets during the next scan.
+                    </div>
                   </div>
                 </div>
 

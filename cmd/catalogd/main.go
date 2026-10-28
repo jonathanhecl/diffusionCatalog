@@ -55,6 +55,7 @@ func main() {
 	catalogService := usecase.NewCatalogService(cfg.MediaDir, repo, ollamaClient)
 	extractor := metadata.NewExtractor()
 	scannerService := usecase.NewScannerService(cfg.MediaDir, cfg.CacheDir, repo, extractor, visionEngine)
+	scannerService.SetOllamaProvider(ollamaClient)
 
 	authService, err := usecase.NewAuthService(ctx, repo, cfg.AdminUser, cfg.AdminPass)
 	if err != nil {

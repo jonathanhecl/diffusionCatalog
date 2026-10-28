@@ -326,3 +326,66 @@ func TestImageToPromptInMemoryDataURL(t *testing.T) {
 		t.Errorf("expected oMLX image to receive full data URL %q, got %q", dataURL, capturedOMLXImageURL)
 	}
 }
+
+func TestEmbedTextAndImage(t *testing.T) {
+	ctx := context.Background()
+
+	var receivedTextPayload ollamaEmbedRequest
+	var receivedImagePayload ollamaEmbedRequest
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/embed", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+
+		if inputs, ok := body["input"].([]interface{}); ok && len(inputs) > 0 {
+			if _, isMap := inputs[0].(map[string]interface{}); isMap {
+				receivedImagePayload.Model = body["model"].(string)
+				receivedImagePayload.Input = body["input"]
+				_, _ = w.Write([]byte(`{"model": "embeddinggemma-2", "embeddings": [[0.1, 0.2, 0.3]]}`))
+				return
+			}
+			receivedTextPayload.Model = body["model"].(string)
+			receivedTextPayload.Input = body["input"]
+			_, _ = w.Write([]byte(`{"model": "embeddinggemma-2", "embeddings": [[0.4, 0.5, 0.6]]}`))
+			return
+		}
+		http.NotFound(w, r)
+	})
+
+	client := &Client{
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				rec := httptest.NewRecorder()
+				mux.ServeHTTP(rec, req)
+				return rec.Result(), nil
+			}),
+		},
+	}
+
+	// 1. Text embedding
+	textVec, err := client.EmbedText(ctx, "http://127.0.0.1:11434", "embeddinggemma-2", "gato durmiendo")
+	if err != nil {
+		t.Fatalf("EmbedText failed: %v", err)
+	}
+	if len(textVec) != 3 || textVec[0] != 0.4 {
+		t.Errorf("unexpected text vector: %v", textVec)
+	}
+	if receivedTextPayload.Model != "embeddinggemma-2" {
+		t.Errorf("expected model embeddinggemma-2, got %s", receivedTextPayload.Model)
+	}
+
+	// 2. Image embedding
+	fakeImg := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
+	imgVec, err := client.EmbedImage(ctx, "http://127.0.0.1:11434", "embeddinggemma-2", fakeImg)
+	if err != nil {
+		t.Fatalf("EmbedImage failed: %v", err)
+	}
+	if len(imgVec) != 3 || imgVec[0] != 0.1 {
+		t.Errorf("unexpected image vector: %v", imgVec)
+	}
+	if receivedImagePayload.Model != "embeddinggemma-2" {
+		t.Errorf("expected model embeddinggemma-2, got %s", receivedImagePayload.Model)
+	}
+}

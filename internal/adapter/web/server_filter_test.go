@@ -234,6 +234,12 @@ func (m *testWebOllamaMock) AnalyzeImage(ctx context.Context, provider domain.AI
 	m.lastCall = "AnalyzeImage"
 	return `{"aspectRatio":"16:9","canvasWidth":1024,"canvasHeight":576,"environmentType":"outdoor","elements":[{"type":"character","name":"Runner","poseName":"Running / Sprint"}]}`, nil
 }
+func (m *testWebOllamaMock) EmbedText(ctx context.Context, baseURL, model, text string) ([]float32, error) {
+	return nil, nil
+}
+func (m *testWebOllamaMock) EmbedImage(ctx context.Context, baseURL, model string, imageBytes []byte) ([]float32, error) {
+	return nil, nil
+}
 
 func TestHandleImageToSceneEndpoint(t *testing.T) {
 	ctx := context.Background()

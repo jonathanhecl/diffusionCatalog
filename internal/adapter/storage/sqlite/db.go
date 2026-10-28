@@ -239,6 +239,15 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS asset_embeddings (
+		asset_id INTEGER PRIMARY KEY,
+		model TEXT NOT NULL,
+		embedding_json TEXT NOT NULL DEFAULT '[]',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+	);
+	CREATE INDEX IF NOT EXISTS idx_asset_embeddings_model ON asset_embeddings(model);
+
 	CREATE TABLE IF NOT EXISTS studio_poses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL UNIQUE,

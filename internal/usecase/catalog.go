@@ -154,6 +154,21 @@ func (s *CatalogService) ResolveAssetAbsPath(ctx context.Context, asset *domain.
 
 // Query returns a paginated, facet-filtered catalog page.
 func (s *CatalogService) Query(ctx context.Context, filter domain.CatalogFilter) (*domain.CatalogPage, error) {
+	if strings.TrimSpace(filter.Query) != "" && s.ollama != nil {
+		if settings, err := s.repo.GetSettings(ctx); err == nil && settings.EmbeddingEnabled && strings.TrimSpace(settings.EmbeddingModel) != "" {
+			ollamaBase := strings.TrimSpace(settings.OllamaBaseURL)
+			if ollamaBase == "" {
+				ollamaBase = "http://127.0.0.1:11434"
+			}
+			queryVec, err := s.ollama.EmbedText(ctx, ollamaBase, settings.EmbeddingModel, filter.Query)
+			if err == nil && len(queryVec) > 0 {
+				if similarIDs, err := s.repo.FindSimilarAssetIDs(ctx, queryVec, settings.EmbeddingModel, 0.18, 50); err == nil && len(similarIDs) > 0 {
+					filter.EmbeddingAssetIDs = similarIDs
+				}
+			}
+		}
+	}
+
 	page, err := s.repo.QueryCatalog(ctx, filter)
 	if err != nil {
 		return nil, err

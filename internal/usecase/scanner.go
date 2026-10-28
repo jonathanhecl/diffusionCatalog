@@ -79,6 +79,7 @@ type ScannerService struct {
 	repo      domain.CatalogRepository
 	extractor domain.MetadataExtractor
 	vision    domain.VisionEngine
+	ollama    domain.OllamaProvider
 
 	mu     sync.Mutex
 	status ScanStatus
@@ -98,6 +99,13 @@ func NewScannerService(
 		extractor: extractor,
 		vision:    vision,
 	}
+}
+
+// SetOllamaProvider attaches an Ollama provider for optional multimodal vector embeddings.
+func (s *ScannerService) SetOllamaProvider(p domain.OllamaProvider) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ollama = p
 }
 
 // Status returns the current live scan status and progress percentage.
@@ -232,6 +240,21 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 
 	defaultCats, _ := s.repo.ListDefaultCategories(ctx)
 
+	// Check multimodal embedding settings
+	appSettings, _ := s.repo.GetSettings(ctx)
+	s.mu.Lock()
+	hasOllama := s.ollama != nil
+	s.mu.Unlock()
+	embeddingActive := appSettings.EmbeddingEnabled && strings.TrimSpace(appSettings.EmbeddingModel) != "" && hasOllama
+	activeModel := strings.TrimSpace(appSettings.EmbeddingModel)
+	ollamaBase := strings.TrimSpace(appSettings.OllamaBaseURL)
+	if ollamaBase == "" {
+		ollamaBase = "http://127.0.0.1:11434"
+	}
+	if embeddingActive {
+		_ = s.repo.InvalidateEmbeddingsExcept(ctx, activeModel)
+	}
+
 	// Phase 1: Rapid discovery count of candidate files across enabled roots to calculate %
 	totalCandidateFiles := 0
 	for _, root := range roots {
@@ -363,6 +386,9 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				if existing.FileSize == fileSize && (existing.FileMTime.Unix() == mtimeUnix || existing.FileMTime.Equal(fileMTime)) {
 					report.UnchangedFiles++
 					s.recordProgress(d.Name(), root.Label, true, indexStartTime)
+					if embeddingActive {
+						s.processAssetEmbedding(ctx, existing.ID, absPath, mediaType, activeModel, ollamaBase)
+					}
 					return nil
 				}
 			}
@@ -458,6 +484,11 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 				}
 			}
 
+			// Run multimodal embedding if enabled
+			if embeddingActive {
+				s.processAssetEmbedding(ctx, assetID, absPath, mediaType, activeModel, ollamaBase)
+			}
+
 			return nil
 		})
 
@@ -507,6 +538,37 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			duration, report.ImagesFound+report.VideosFound, report.ImagesFound, report.VideosFound, report.DeletedFiles, report.UnchangedFiles, report.ScannedRoots, report.SkippedRoots)
 	}
 	return report, nil
+}
+
+func (s *ScannerService) processAssetEmbedding(ctx context.Context, assetID int64, absPath string, mediaType domain.MediaType, activeModel, ollamaBase string) {
+	if mediaType != domain.MediaTypeImage || activeModel == "" {
+		return
+	}
+	s.mu.Lock()
+	ollama := s.ollama
+	s.mu.Unlock()
+	if ollama == nil {
+		return
+	}
+
+	has, err := s.repo.HasAssetEmbedding(ctx, assetID, activeModel)
+	if err == nil && has {
+		return
+	}
+
+	data, err := os.ReadFile(absPath)
+	if err != nil || len(data) == 0 {
+		return
+	}
+
+	vec, err := ollama.EmbedImage(ctx, ollamaBase, activeModel, data)
+	if err != nil {
+		log.Printf("[SCAN] Note: could not generate embedding for asset %d (%s) with model %s: %v", assetID, filepath.Base(absPath), activeModel, err)
+		return
+	}
+	if len(vec) > 0 {
+		_ = s.repo.SaveAssetEmbedding(ctx, assetID, activeModel, vec)
+	}
 }
 
 func itoa64(v int64) string {

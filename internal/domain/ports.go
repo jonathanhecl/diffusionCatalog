@@ -23,6 +23,7 @@ type CatalogFilter struct {
 	CharacterID   int64
 	TagNames      []string
 	FaceMode      bool
+	EmbeddingAssetIDs []int64
 	SortBy        string // "newest", "rating", "favorites", "popular", "views", "seed"
 	Page          int
 	PerPage       int
@@ -43,6 +44,7 @@ func (f CatalogFilter) HasActiveFilters() bool {
 		f.GroupID > 0 ||
 		f.CharacterID > 0 ||
 		len(f.TagNames) > 0 ||
+		len(f.EmbeddingAssetIDs) > 0 ||
 		f.FaceMode
 }
 
@@ -334,6 +336,12 @@ type CatalogRepository interface {
 	UpsertStudioPose(ctx context.Context, pose *StudioPose) (int64, error)
 	ListStudioPoses(ctx context.Context) ([]StudioPose, error)
 	DeleteStudioPose(ctx context.Context, id int64) error
+
+	// Multimodal Asset Embeddings
+	HasAssetEmbedding(ctx context.Context, assetID int64, model string) (bool, error)
+	SaveAssetEmbedding(ctx context.Context, assetID int64, model string, embedding []float32) error
+	InvalidateEmbeddingsExcept(ctx context.Context, currentModel string) error
+	FindSimilarAssetIDs(ctx context.Context, queryVec []float32, model string, minScore float32, limit int) ([]int64, error)
 }
 
 // MetadataExtractor defines the port for extracting diffusion prompts and technical parameters from media files.
@@ -359,4 +367,7 @@ type OllamaProvider interface {
 	ImageToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error)
 	TextToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error)
 	AnalyzeImage(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error)
+
+	EmbedText(ctx context.Context, baseURL, model, text string) ([]float32, error)
+	EmbedImage(ctx context.Context, baseURL, model string, imageBytes []byte) ([]float32, error)
 }
