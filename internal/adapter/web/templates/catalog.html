@@ -1545,6 +1545,11 @@
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Cross-Legged (Lotus)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado de piernas cruzadas / loto">&#129496; Piernas Cruz</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Forward" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado con ambas piernas adelante">&#129681; Piernas Adel</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Spread (V-Sit)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado con piernas adelante abiertas en V">&#129681; Piernas Abier</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting: Hugging Knees to Chest" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentada abrazando rodillas al pecho">&#129496; Rodillas Pecho</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting: Horseback Riding" style="padding:4px 2px;font-size:10px;color:#facc15;" title="Sentado montando a caballo">&#127943; A Caballo</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting: Driving a Car" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Sentado conduciendo auto">&#128663; En Auto</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Fairy: Floating in Air" style="padding:4px 2px;font-size:10px;color:#ec4899;" title="Hada flotando en el aire">&#129501; Hada Flotando</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Airborne: Hanging from Overhead Bar" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Colgado con dos manos en barra fija">&#129495; Barra Fija</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="High Kick (Martial Arts)" style="padding:4px 2px;font-size:10px;color:#ef4444;" title="Pateando alto (artes marciales)">&#129355; Patada</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Knee Down Reaching Ground" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Una rodilla al suelo agachándose">&#129302; Rodilla Suelo</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Presenter (Pointing Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="De pie con manos señalando a un costado">&#128129; Presentador</button>
@@ -2701,6 +2706,7 @@
               <button type="button" class="btn-ghost pose-cat-btn" data-cat="lying" style="padding:4px 10px;font-size:11px;border-radius:4px;">🛌 Suelo &amp; Puente (<span id="pose-count-lying">0</span>)</button>
               <button type="button" class="btn-ghost pose-cat-btn" data-cat="sports" style="padding:4px 10px;font-size:11px;border-radius:4px;">⚽ Deportes &amp; Gym (<span id="pose-count-sports">0</span>)</button>
               <button type="button" class="btn-ghost pose-cat-btn" data-cat="couple" style="padding:4px 10px;font-size:11px;border-radius:4px;">👥 Pareja &amp; Interacción (<span id="pose-count-couple">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="aerial" style="padding:4px 10px;font-size:11px;border-radius:4px;">🕊️ En el aire &amp; Vuelo (<span id="pose-count-aerial">0</span>)</button>
               <button type="button" class="btn-ghost pose-cat-btn" data-cat="action" style="padding:4px 10px;font-size:11px;border-radius:4px;">⚡ Dinámicas (<span id="pose-count-action">0</span>)</button>
             </div>
             <div style="position:relative;min-width:200px;">
@@ -3462,10 +3468,98 @@
       nose:{x:50,y:22},neck:{x:50,y:30},r_shoulder:{x:40,y:32},r_elbow:{x:28,y:44},r_wrist:{x:34,y:56},
       l_shoulder:{x:60,y:32},l_elbow:{x:72,y:44},l_wrist:{x:66,y:56},mid_hip:{x:50,y:56},
       r_hip:{x:44,y:58},r_knee:{x:42,y:76},r_ankle:{x:40,y:95},l_hip:{x:56,y:58},l_knee:{x:58,y:76},l_ankle:{x:60,y:95}
+    },
+    // --- Airborne, Suspended & Flying Presets ---
+    "Fairy: Floating in Air": {
+      nose:{x:50,y:16},neck:{x:50,y:25},r_shoulder:{x:38,y:28},r_elbow:{x:24,y:36},r_wrist:{x:14,y:46},
+      l_shoulder:{x:62,y:28},l_elbow:{x:76,y:36},l_wrist:{x:86,y:46},mid_hip:{x:50,y:50},
+      r_hip:{x:44,y:52},r_knee:{x:42,y:66},r_ankle:{x:46,y:80},l_hip:{x:56,y:52},l_knee:{x:58,y:66},l_ankle:{x:54,y:80}
+    },
+    "Airborne: Freefall / Skydive": {
+      nose:{x:50,y:36},neck:{x:50,y:44},r_shoulder:{x:36,y:42},r_elbow:{x:22,y:32},r_wrist:{x:16,y:18},
+      l_shoulder:{x:64,y:42},l_elbow:{x:78,y:32},l_wrist:{x:84,y:18},mid_hip:{x:50,y:56},
+      r_hip:{x:42,y:58},r_knee:{x:30,y:46},r_ankle:{x:24,y:34},l_hip:{x:58,y:58},l_knee:{x:70,y:46},l_ankle:{x:76,y:34}
+    },
+    "Airborne: Falling Backwards": {
+      nose:{x:50,y:40},neck:{x:50,y:32},r_shoulder:{x:38,y:32},r_elbow:{x:24,y:22},r_wrist:{x:18,y:12},
+      l_shoulder:{x:62,y:32},l_elbow:{x:76,y:22},l_wrist:{x:82,y:12},mid_hip:{x:50,y:50},
+      r_hip:{x:44,y:52},r_knee:{x:36,y:68},r_ankle:{x:30,y:82},l_hip:{x:56,y:52},l_knee:{x:64,y:68},l_ankle:{x:70,y:82}
+    },
+    "Airborne: Dynamic High Leap": {
+      nose:{x:54,y:14},neck:{x:52,y:22},r_shoulder:{x:40,y:24},r_elbow:{x:30,y:14},r_wrist:{x:26,y:4},
+      l_shoulder:{x:62,y:24},l_elbow:{x:72,y:34},l_wrist:{x:78,y:46},mid_hip:{x:48,y:46},
+      r_hip:{x:42,y:48},r_knee:{x:34,y:60},r_ankle:{x:44,y:72},l_hip:{x:54,y:48},l_knee:{x:68,y:58},l_ankle:{x:76,y:70}
+    },
+    "Airborne: Hanging from Overhead Bar": {
+      nose:{x:50,y:18},neck:{x:50,y:24},r_shoulder:{x:42,y:24},r_elbow:{x:40,y:14},r_wrist:{x:38,y:4},
+      l_shoulder:{x:58,y:24},l_elbow:{x:60,y:14},l_wrist:{x:62,y:4},mid_hip:{x:50,y:52},
+      r_hip:{x:44,y:54},r_knee:{x:42,y:70},r_ankle:{x:44,y:86},l_hip:{x:56,y:54},l_knee:{x:58,y:70},l_ankle:{x:56,y:86}
+    },
+    "Airborne: One-Arm Bar Hang": {
+      nose:{x:46,y:24},neck:{x:48,y:30},r_shoulder:{x:42,y:30},r_elbow:{x:46,y:16},r_wrist:{x:50,y:4},
+      l_shoulder:{x:58,y:32},l_elbow:{x:70,y:42},l_wrist:{x:78,y:54},mid_hip:{x:46,y:56},
+      r_hip:{x:40,y:58},r_knee:{x:36,y:72},r_ankle:{x:34,y:86},l_hip:{x:52,y:58},l_knee:{x:56,y:74},l_ankle:{x:62,y:88}
+    },
+    "Airborne: Superhero Flight": {
+      nose:{x:82,y:38},neck:{x:74,y:40},r_shoulder:{x:70,y:34},r_elbow:{x:84,y:30},r_wrist:{x:96,y:26},
+      l_shoulder:{x:70,y:46},l_elbow:{x:58,y:48},l_wrist:{x:46,y:48},mid_hip:{x:48,y:44},
+      r_hip:{x:46,y:38},r_knee:{x:28,y:38},r_ankle:{x:10,y:38},l_hip:{x:46,y:48},l_knee:{x:28,y:48},l_ankle:{x:10,y:48}
+    },
+    "Airborne: Zero-G Levitation": {
+      nose:{x:50,y:24},neck:{x:50,y:32},r_shoulder:{x:38,y:34},r_elbow:{x:26,y:44},r_wrist:{x:34,y:54},
+      l_shoulder:{x:62,y:34},l_elbow:{x:74,y:44},l_wrist:{x:66,y:54},mid_hip:{x:50,y:56},
+      r_hip:{x:42,y:58},r_knee:{x:28,y:68},r_ankle:{x:44,y:76},l_hip:{x:58,y:58},l_knee:{x:72,y:68},l_ankle:{x:56,y:76}
+    },
+    // --- Additional Seated, Riding & Transit Presets ---
+    "Sitting: Horseback Riding": {
+      nose:{x:50,y:16},neck:{x:50,y:25},r_shoulder:{x:38,y:27},r_elbow:{x:32,y:42},r_wrist:{x:44,y:50},
+      l_shoulder:{x:62,y:27},l_elbow:{x:68,y:42},l_wrist:{x:56,y:50},mid_hip:{x:50,y:56},
+      r_hip:{x:42,y:58},r_knee:{x:28,y:72},r_ankle:{x:32,y:92},l_hip:{x:58,y:58},l_knee:{x:72,y:72},l_ankle:{x:68,y:92}
+    },
+    "Sitting: Riding on Shoulders": {
+      nose:{x:50,y:16},neck:{x:50,y:25},r_shoulder:{x:38,y:27},r_elbow:{x:26,y:20},r_wrist:{x:20,y:10},
+      l_shoulder:{x:62,y:27},l_elbow:{x:74,y:20},l_wrist:{x:80,y:10},mid_hip:{x:50,y:52},
+      r_hip:{x:42,y:54},r_knee:{x:36,y:68},r_ankle:{x:38,y:88},l_hip:{x:58,y:54},l_knee:{x:64,y:68},l_ankle:{x:62,y:88}
+    },
+    "Sitting: Driving a Car": {
+      nose:{x:46,y:18},neck:{x:46,y:28},r_shoulder:{x:36,y:30},r_elbow:{x:34,y:42},r_wrist:{x:42,y:38},
+      l_shoulder:{x:56,y:30},l_elbow:{x:62,y:42},l_wrist:{x:54,y:38},mid_hip:{x:44,y:60},
+      r_hip:{x:40,y:62},r_knee:{x:62,y:68},r_ankle:{x:68,y:90},l_hip:{x:50,y:62},l_knee:{x:72,y:68},l_ankle:{x:78,y:90}
+    },
+    "Sitting: Car Passenger Window": {
+      nose:{x:42,y:18},neck:{x:44,y:28},r_shoulder:{x:36,y:30},r_elbow:{x:32,y:46},r_wrist:{x:42,y:58},
+      l_shoulder:{x:56,y:30},l_elbow:{x:72,y:38},l_wrist:{x:78,y:34},mid_hip:{x:44,y:60},
+      r_hip:{x:40,y:62},r_knee:{x:60,y:68},r_ankle:{x:64,y:92},l_hip:{x:52,y:62},l_knee:{x:70,y:68},l_ankle:{x:74,y:92}
+    },
+    "Sitting: Train Window Commuter": {
+      nose:{x:40,y:18},neck:{x:44,y:28},r_shoulder:{x:36,y:30},r_elbow:{x:28,y:40},r_wrist:{x:36,y:26},
+      l_shoulder:{x:56,y:30},l_elbow:{x:58,y:46},l_wrist:{x:50,y:58},mid_hip:{x:46,y:60},
+      r_hip:{x:40,y:62},r_knee:{x:62,y:66},r_ankle:{x:62,y:92},l_hip:{x:52,y:62},l_knee:{x:70,y:66},l_ankle:{x:70,y:92}
+    },
+    "Sitting: Hugging Knees to Chest": {
+      nose:{x:44,y:32},neck:{x:46,y:40},r_shoulder:{x:38,y:42},r_elbow:{x:30,y:54},r_wrist:{x:50,y:56},
+      l_shoulder:{x:58,y:42},l_elbow:{x:66,y:54},l_wrist:{x:48,y:56},mid_hip:{x:46,y:68},
+      r_hip:{x:40,y:70},r_knee:{x:46,y:50},r_ankle:{x:42,y:78},l_hip:{x:54,y:70},l_knee:{x:56,y:50},l_ankle:{x:54,y:78}
     }
   };
 
   const POSE_METADATA = {
+    // Airborne, Suspended & Flying Presets
+    "Fairy: Floating in Air": { category: "aerial", label: "Hada: Flotando / Volando", desc: "Vuelo etéreo ingrávido con gracia y extremidades suspendidas" },
+    "Airborne: Freefall / Skydive": { category: "aerial", label: "En el aire: Caída libre", desc: "Caída al vacío en picada arqueando brazos y piernas contra el viento" },
+    "Airborne: Falling Backwards": { category: "aerial", label: "En el aire: Cayendo de espaldas", desc: "Descenso de espaldas al vacío con brazos abiertos" },
+    "Airborne: Dynamic High Leap": { category: "aerial", label: "En el aire: Gran salto suspendido", desc: "Salto atlético dinámico suspendido en el aire con rodillas recogidas" },
+    "Airborne: Hanging from Overhead Bar": { category: "aerial", label: "En el aire: Barra con dos manos", desc: "Sujetándose de una barra fija sobre la cabeza con ambas manos" },
+    "Airborne: One-Arm Bar Hang": { category: "aerial", label: "En el aire: Colgado de una mano", desc: "Suspendido de una sola mano de una barra o trapecio" },
+    "Airborne: Superhero Flight": { category: "aerial", label: "En el aire: Vuelo de superhéroe", desc: "Vuelo horizontal dinámico con puño al frente rompiendo el aire" },
+    "Airborne: Zero-G Levitation": { category: "aerial", label: "En el aire: Levitación zen / Gravedad cero", desc: "Flotando suspendido en meditación sin gravedad" },
+    // Seated, Riding & Transit Presets
+    "Sitting: Horseback Riding": { category: "sitting", label: "Sentado: Montando a caballo", desc: "Postura a horcajadas erguida sosteniendo riendas" },
+    "Sitting: Riding on Shoulders": { category: "couple", label: "Sentado: En los hombros", desc: "Sentado en alto a caballito sobre los hombros" },
+    "Sitting: Driving a Car": { category: "sitting", label: "Sentado: Conduciendo auto", desc: "En butaca de automóvil sujetando el volante al frente" },
+    "Sitting: Car Passenger Window": { category: "sitting", label: "Sentado: Copiloto / Ventanilla de auto", desc: "Pasajero en auto con brazo apoyado en la puerta mirando al exterior" },
+    "Sitting: Train Window Commuter": { category: "sitting", label: "Sentado: Pasajero de tren", desc: "Sentado en butaca de tren contemplando por la ventanilla" },
+    "Sitting: Hugging Knees to Chest": { category: "sitting", label: "Sentada: Abrazando rodillas al pecho", desc: "Compacta en el suelo o banco con brazos rodeando las rodillas" },
     // Interactive, Social & Couple Presets
     "Couple: Standing Embrace (Hug)": { category: "couple", label: "Pareja: Abrazo frontal", desc: "Abrazo de pie con brazos envolviendo a la pareja" },
     "Couple: Side Hug (Arm Over Shoulder)": { category: "couple", label: "Pareja: Abrazo de lado", desc: "Abrazo lateral con brazo pasando sobre el hombro" },
@@ -3546,7 +3640,7 @@
     "Kneeling (Both Knees)": { category: "kneeling", label: "Arrodillado (Ambas)", desc: "De rodillas erguido" },
     "Kneeling (One Knee)": { category: "kneeling", label: "Una rodilla al suelo", desc: "Caballero o postura de guardia" },
     "Crawling / All Fours": { category: "kneeling", label: "A cuatro patas", desc: "Gateo en el suelo" },
-    "Hanging / Suspended": { category: "action", label: "Colgando / Suspendido", desc: "Brazos elevados sosteniéndose" },
+    "Hanging / Suspended": { category: "aerial", label: "Colgando / Suspendido", desc: "Brazos elevados sosteniéndose" },
     "Climbing (Ladder / Stairs)": { category: "action", label: "Escalando", desc: "Subiendo escalera o muro" },
     "Hands Up (Surrender / Cheer)": { category: "action", label: "Manos arriba", desc: "Brazos en alto festejo o sorpresa" },
     "Pointing Forward": { category: "standing", label: "Señalando al frente", desc: "Brazo extendido apuntando" },
@@ -6060,7 +6154,7 @@
   let activePoseGalleryCategory = 'all';
 
   function updatePoseGalleryCounts() {
-    const counts = { all: 0, standing: 0, kneeling: 0, sitting: 0, lying: 0, sports: 0, couple: 0, action: 0 };
+    const counts = { all: 0, standing: 0, kneeling: 0, sitting: 0, lying: 0, sports: 0, couple: 0, aerial: 0, action: 0 };
     Object.keys(POSE_PRESETS).forEach(pName => {
       if (pName.endsWith('(Side)')) return;
       const meta = POSE_METADATA[pName] || { category: 'standing' };
@@ -6080,6 +6174,7 @@
     setTxt('pose-count-lying', counts.lying);
     setTxt('pose-count-sports', counts.sports);
     setTxt('pose-count-couple', counts.couple);
+    setTxt('pose-count-aerial', counts.aerial);
     setTxt('pose-count-action', counts.action);
   }
 
