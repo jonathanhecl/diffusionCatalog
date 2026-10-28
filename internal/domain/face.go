@@ -29,3 +29,14 @@ type DetectedFace struct {
 	CharacterName string      `json:"character_name,omitempty"`
 	CreatedAt     time.Time   `json:"created_at"`
 }
+
+// FaceCluster represents an aggregated identity group (e.g. Person #1, Elena) with its best cropped face cover.
+type FaceCluster struct {
+	Label         string         `json:"label"`
+	CharacterID   *int64         `json:"character_id,omitempty"`
+	CharacterName string         `json:"character_name,omitempty"`
+	FaceCount     int            `json:"face_count"`
+	AssetCount    int            `json:"asset_count"`
+	BestCropPath  string         `json:"best_crop_path"`
+	Faces         []DetectedFace `json:"faces,omitempty"`
+}

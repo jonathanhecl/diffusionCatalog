@@ -9127,6 +9127,20 @@
                   </button>
                 </form>
               </div>
+
+              <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:13px;">Scan Missing Faces &amp; Compute Embeddings</div>
+                  <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
+                    Runs facial detection on unscanned images, computes 128-d normalized vector weights, and clusters identities with &ge;50% similarity. Images already scanned are never re-scanned.
+                  </div>
+                </div>
+                <form action="/admin/scan/faces" method="POST" style="margin:0;">
+                  <button type="submit" class="btn-ghost" style="color:#c084fc;border-color:rgba(192,132,252,0.4);font-size:12px;padding:6px 14px;">
+                    &#128101; Scan Unscanned Faces
+                  </button>
+                </form>
+              </div>
             </div>
           {{else if eq .SettingsSection "categories"}}
             <!-- Global Default Agnostic Categories & Subcategories -->
@@ -9201,6 +9215,20 @@
                 <form action="/admin/scan/reextract-missing" method="POST" style="margin:0;">
                   <button type="submit" class="btn-ghost" style="color:#38bdf8;border-color:rgba(56,189,248,0.4);font-size:12px;padding:6px 14px;">
                     &#128260; Rescan Media Missing Metadata / Prompts
+                  </button>
+                </form>
+              </div>
+
+              <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div>
+                  <div style="font-weight:700;color:#fff;font-size:13px;">Scan Missing Faces &amp; Compute Embeddings</div>
+                  <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
+                    Runs facial detection on unscanned images, computes 128-d normalized vector weights, and clusters identities with &ge;50% similarity. Images already scanned are never re-scanned.
+                  </div>
+                </div>
+                <form action="/admin/scan/faces" method="POST" style="margin:0;">
+                  <button type="submit" class="btn-ghost" style="color:#c084fc;border-color:rgba(192,132,252,0.4);font-size:12px;padding:6px 14px;">
+                    &#128101; Scan Unscanned Faces
                   </button>
                 </form>
               </div>
@@ -10424,6 +10452,13 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
                   <a href="{{clearFilterURL $.Filter "media_type"}}" class="chip-remove" title="Remove filter">&times;</a>
                 </span>
               {{end}}
+              {{if .Filter.Cluster}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Identity:</span>
+                  <strong>{{.Filter.Cluster}}</strong>
+                  <a href="{{clearFilterURL $.Filter "cluster"}}" class="chip-remove" title="Back to All Face Groups">&times;</a>
+                </span>
+              {{end}}
               {{range .Filter.TagNames}}
                 <span class="active-filter-chip">
                   <span class="chip-label">Tag:</span>
@@ -10439,6 +10474,10 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
             <div class="results-count">
               {{if .ActiveGroup}}
                 Collection <strong>{{.ActiveGroup.Name}}</strong> &bull; <strong>{{.Page.TotalCount}}</strong> items
+              {{else if and .Filter.FaceMode (not .Filter.Cluster)}}
+                Face Groups &bull; <strong>{{len .Page.FaceClusters}}</strong> identities detected
+              {{else if and .Filter.FaceMode .Filter.Cluster}}
+                Identity <strong>{{.Filter.Cluster}}</strong> &bull; <strong>{{.Page.TotalCount}}</strong> faces detected
               {{else}}
                 Search Results <strong>{{.Page.TotalCount}}</strong> items
               {{end}}
@@ -10459,51 +10498,106 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
             <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
               <div>
                 <div style="font-weight:700;color:#fff;font-size:13px;display:flex;align-items:center;gap:6px;">
-                  <span>&#128101; Facial Recognition &amp; Subject Clustering</span>
+                  <span>&#128101; Facial Recognition &amp; Identity Clusters</span>
                   <span class="badge-chip" style="font-size:10px;">128-d Cosine Similarity &ge; 50%</span>
                 </div>
                 <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
-                  Scans visible faces, extracts 128-d normalized embeddings, and groups matches with &gt;50% similarity into Person clusters. Click on any cluster badge to rename it.
+                  {{if .Filter.Cluster}}
+                    Showing all detected faces matching <strong>{{.Filter.Cluster}}</strong>. Click any card to inspect the full image.
+                  {{else}}
+                    Identities grouped by facial similarity. Click any folder to inspect its images or click Rename to assign a character name.
+                  {{end}}
                 </div>
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                {{if .Filter.Cluster}}
+                  <a href="/?face_mode=1" class="btn-ghost" style="font-size:11.5px;padding:5px 12px;text-decoration:none;">
+                    &larr; All Face Groups
+                  </a>
+                {{end}}
                 <form action="/admin/faces/cluster/recluster" method="POST" style="margin:0;">
                   <input type="hidden" name="threshold" value="0.50">
                   <button type="submit" class="btn-ghost" style="font-size:11.5px;padding:5px 10px;">
                     &#9881; Re-cluster (&gt;50%)
                   </button>
                 </form>
-                <form action="/admin/scan/faces" method="POST" style="margin:0;">
-                  <button type="submit" class="btn-primary" style="font-size:11.5px;padding:5px 12px;background:#7c3aed;border-color:#6d28d9;">
-                    &#128269; Scan Faces in Images
-                  </button>
-                </form>
               </div>
             </div>
 
-            <!-- 5-Column Extracted Face / Subject Grid -->
-            <div class="asset-grid">
-              {{range .Page.Faces}}
-                <a href="{{assetDetailURL $.Filter .AssetID}}" class="asset-card">
-                  <div class="asset-thumb-wrap square">
-                    <img src="/cache/{{.CropRelPath}}" alt="{{.ClusterLabel}}" class="asset-thumb" loading="lazy">
-                    <span class="asset-type-corner">{{printf "%.0f%%" (mul100 .Confidence)}}</span>
-                  </div>
-                  <div class="asset-meta">
-                    <div class="badge-row">
-                      <span class="badge-chip character" title="Click to rename this person cluster" style="cursor:pointer;" onclick="renameFaceCluster(event, '{{.ClusterLabel}}')">&#128100; {{.ClusterLabel}} &#9998;</span>
-                      {{if .ExpressionTag}}<span class="badge-chip">{{.ExpressionTag}}</span>{{end}}
-                      <span class="badge-chip">{{.AssetEngine}}</span>
+            {{if .Filter.Cluster}}
+              <!-- 5-Column Extracted Face / Subject Grid for Selected Cluster -->
+              <div class="asset-grid">
+                {{range .Page.Faces}}
+                  <a href="{{assetDetailURL $.Filter .AssetID}}" class="asset-card">
+                    <div class="asset-thumb-wrap square">
+                      <img src="/cache/{{.CropRelPath}}" alt="{{.ClusterLabel}}" class="asset-thumb" loading="lazy">
+                      <span class="asset-type-corner">{{printf "%.0f%%" (mul100 .Confidence)}}</span>
                     </div>
-                    <div class="asset-caption" title="{{.AssetPrompt}}">{{if .AssetPrompt}}{{.AssetPrompt}}{{else}}{{.AssetRelPath}}{{end}}</div>
+                    <div class="asset-meta">
+                      <div class="badge-row">
+                        <span class="badge-chip character" title="Click to rename this person cluster" style="cursor:pointer;" onclick="renameFaceCluster(event, '{{.ClusterLabel}}')">&#128100; {{.ClusterLabel}} &#9998;</span>
+                        {{if .ExpressionTag}}<span class="badge-chip">{{.ExpressionTag}}</span>{{end}}
+                        <span class="badge-chip">{{.AssetEngine}}</span>
+                      </div>
+                      <div class="asset-caption" title="{{.AssetPrompt}}">{{if .AssetPrompt}}{{.AssetPrompt}}{{else}}{{.AssetRelPath}}{{end}}</div>
+                    </div>
+                  </a>
+                {{else}}
+                  <div style="grid-column:span 5;padding:40px;text-align:center;color:var(--text-muted);">
+                    No extracted face crops match this identity.
                   </div>
-                </a>
-              {{else}}
-                <div style="grid-column:span 5;padding:40px;text-align:center;color:var(--text-muted);">
-                  No extracted face crops match the current filter.
-                </div>
-              {{end}}
-            </div>
+                {{end}}
+              </div>
+            {{else}}
+              <!-- Face Identity Folders / Clusters Grid -->
+              <div class="asset-grid">
+                {{range .Page.FaceClusters}}
+                  <div class="asset-card" style="display:flex;flex-direction:column;position:relative;">
+                    <a href="/?face_mode=1&amp;cluster={{urlquery .Label}}" style="text-decoration:none;display:block;flex:1;">
+                      <div class="asset-thumb-wrap square" style="position:relative;background:#050b14;">
+                        {{if .BestCropPath}}
+                          <img src="/cache/{{.BestCropPath}}" alt="{{.Label}}" class="asset-thumb" loading="lazy" style="object-fit:cover;">
+                        {{else}}
+                          <div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;color:var(--text-muted);">&#128100;</div>
+                        {{end}}
+                        <span class="asset-type-corner" style="background:rgba(124,58,237,0.85);font-size:11px;padding:2px 8px;border-radius:4px;">
+                          &#128100; {{.AssetCount}} {{if eq .AssetCount 1}}photo{{else}}photos{{end}}
+                        </span>
+                      </div>
+                    </a>
+                    <div class="asset-meta" style="padding:10px;">
+                      <div class="badge-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <a href="/?face_mode=1&amp;cluster={{urlquery .Label}}" style="text-decoration:none;font-weight:700;color:#fff;font-size:13px;display:flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                          <span>📁 {{.Label}}</span>
+                        </a>
+                        <button type="button" class="btn-ghost" title="Rename this identity / character" style="font-size:11px;padding:2px 6px;line-height:1;" onclick="renameFaceCluster(event, '{{.Label}}')">&#9998; Rename</button>
+                      </div>
+                      {{if .CharacterName}}
+                        <div style="font-size:11px;color:#93c5fd;display:flex;align-items:center;gap:4px;">
+                          <span>Linked Character:</span>
+                          <strong>{{.CharacterName}}</strong>
+                        </div>
+                      {{else}}
+                        <div style="font-size:10.5px;color:var(--text-muted);">
+                          {{.FaceCount}} detected face crops
+                        </div>
+                      {{end}}
+                    </div>
+                  </div>
+                {{else}}
+                  <div style="grid-column:span 5;padding:40px;text-align:center;color:var(--text-muted);">
+                    <div style="font-size:32px;margin-bottom:12px;">&#128101;</div>
+                    <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:6px;">No Face Identities Found</div>
+                    <div style="font-size:12px;margin-bottom:16px;">
+                      You haven't scanned any faces yet or all images lack visible faces.
+                    </div>
+                    <a href="/?tab=settings&amp;section=folders" class="btn-primary" style="font-size:12px;padding:6px 14px;text-decoration:none;display:inline-block;">
+                      Go to Settings &rarr; Media Folders to Run Face Scan
+                    </a>
+                  </div>
+                {{end}}
+              </div>
+            {{end}}
           {{else}}
             <!-- 5-Column Standard Asset Grid -->
             <div class="asset-grid">

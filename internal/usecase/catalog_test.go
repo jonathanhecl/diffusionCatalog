@@ -89,13 +89,25 @@ func TestEndToEndSeedScanAndCatalogQuery(t *testing.T) {
 		t.Fatalf("expected 3 auto-indexed folder groups, got %d", len(page.Groups))
 	}
 
-	// Verify Face Explorer mode
+	// Verify Face Explorer mode: clusters view when Cluster == ""
 	facePage, err := catalogSvc.Query(ctx, domain.CatalogFilter{FaceMode: true, PerPage: 50})
 	if err != nil {
 		t.Fatalf("failed to query face explorer mode: %v", err)
 	}
-	if facePage.TotalCount != 6 {
-		t.Fatalf("expected 6 extracted face crops, got %d", facePage.TotalCount)
+	if len(facePage.FaceClusters) != 3 {
+		t.Fatalf("expected 3 face identity clusters, got %d", len(facePage.FaceClusters))
+	}
+	if facePage.FaceClusters[0].BestCropPath == "" {
+		t.Fatalf("expected BestCropPath to be populated for face cluster")
+	}
+
+	// Verify specific cluster drilldown
+	clusterDetail, err := catalogSvc.Query(ctx, domain.CatalogFilter{FaceMode: true, Cluster: facePage.FaceClusters[0].Label, PerPage: 50})
+	if err != nil {
+		t.Fatalf("failed to query specific face cluster: %v", err)
+	}
+	if clusterDetail.TotalCount != 2 {
+		t.Fatalf("expected 2 extracted face crops for cluster %s, got %d", facePage.FaceClusters[0].Label, clusterDetail.TotalCount)
 	}
 }
 

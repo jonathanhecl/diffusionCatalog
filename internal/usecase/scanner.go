@@ -497,11 +497,12 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 			// Run pluggable vision engine for images if active
 			if mediaType == domain.MediaTypeImage && s.vision != nil {
 				faces, err := s.vision.DetectAndCropFaces(ctx, assetID, absPath, s.cacheDir)
-				if err == nil && len(faces) > 0 {
+				if err == nil {
 					for i := range faces {
 						_, _ = s.repo.SaveDetectedFace(ctx, &faces[i])
 						report.FacesFound++
 					}
+					_ = s.repo.MarkAssetFacesScanned(ctx, assetID, time.Now())
 				}
 			}
 
@@ -765,7 +766,7 @@ func (s *ScannerService) StartFaceScanAsync() bool {
 	go func() {
 		ctx := context.Background()
 		roots, _ := s.repo.ListMediaRoots(ctx)
-		images, err := s.repo.ListImageAssets(ctx)
+		images, err := s.repo.ListImageAssetsMissingFaces(ctx)
 		if err != nil {
 			s.mu.Lock()
 			s.status.IsScanning = false
@@ -790,12 +791,15 @@ func (s *ScannerService) StartFaceScanAsync() bool {
 			}
 
 			faces, err := s.vision.DetectAndCropFaces(ctx, img.ID, absPath, s.cacheDir)
-			if err == nil && len(faces) > 0 {
-				_ = s.repo.DeleteFacesForAsset(ctx, img.ID)
-				for i := range faces {
-					_, _ = s.repo.SaveDetectedFace(ctx, &faces[i])
-					facesFound++
+			if err == nil {
+				if len(faces) > 0 {
+					_ = s.repo.DeleteFacesForAsset(ctx, img.ID)
+					for i := range faces {
+						_, _ = s.repo.SaveDetectedFace(ctx, &faces[i])
+						facesFound++
+					}
 				}
+				_ = s.repo.MarkAssetFacesScanned(ctx, img.ID, time.Now())
 			}
 			s.recordProgress(img.FileName, img.RootLabel, false, startTime)
 		}
@@ -948,6 +952,7 @@ func (s *ScannerService) ScanAssetFaces(ctx context.Context, assetID int64) (int
 	for i := range faces {
 		_, _ = s.repo.SaveDetectedFace(ctx, &faces[i])
 	}
+	_ = s.repo.MarkAssetFacesScanned(ctx, asset.ID, time.Now())
 	_, _ = s.ClusterDetectedFaces(ctx, 0.50)
 	return len(faces), nil
 }

@@ -24,6 +24,7 @@ type CatalogFilter struct {
 	CharacterID   int64
 	TagNames      []string
 	FaceMode      bool
+	Cluster       string
 	EmbeddingAssetIDs []int64
 	SortBy        string // "newest", "rating", "favorites", "popular", "views", "seed"
 	Page          int
@@ -46,7 +47,8 @@ func (f CatalogFilter) HasActiveFilters() bool {
 		f.CharacterID > 0 ||
 		len(f.TagNames) > 0 ||
 		len(f.EmbeddingAssetIDs) > 0 ||
-		f.FaceMode
+		f.FaceMode ||
+		f.Cluster != ""
 }
 
 // QueryValues converts the filter into url.Values for query string construction.
@@ -96,6 +98,9 @@ func (f CatalogFilter) QueryValues() url.Values {
 	}
 	if f.FaceMode {
 		v.Set("face_mode", "1")
+	}
+	if f.Cluster != "" {
+		v.Set("cluster", f.Cluster)
 	}
 	if f.SortBy != "" {
 		v.Set("sort", f.SortBy)
@@ -173,6 +178,8 @@ func (f CatalogFilter) FilterWithoutField(field string) CatalogFilter {
 		cp.RootID = 0
 	case "face_mode":
 		cp.FaceMode = false
+	case "cluster":
+		cp.Cluster = ""
 	}
 	cp.Page = 1
 	return cp
@@ -246,6 +253,7 @@ func (f CatalogFilter) QueryWithTag(tag string) string {
 type CatalogPage struct {
 	Assets            []MediaAsset
 	Faces             []DetectedFace
+	FaceClusters      []FaceCluster
 	TotalCount        int
 	Page              int
 	PerPage           int
@@ -312,6 +320,7 @@ type CatalogRepository interface {
 
 	SaveDetectedFace(ctx context.Context, face *DetectedFace) (int64, error)
 	ListDetectedFaces(ctx context.Context, filter CatalogFilter) ([]DetectedFace, int, error)
+	ListFaceClusters(ctx context.Context, filter CatalogFilter) ([]FaceCluster, error)
 	ListFacesWithEmbeddings(ctx context.Context) ([]DetectedFace, error)
 	UpdateFaceCluster(ctx context.Context, faceID int64, clusterLabel string, characterID *int64) error
 	RenameFaceCluster(ctx context.Context, oldLabel, newLabel string, characterID *int64) error
@@ -320,6 +329,8 @@ type CatalogRepository interface {
 	ListAssetsMissingMetadata(ctx context.Context) ([]MediaAsset, error)
 	UpdateAssetMetadata(ctx context.Context, assetID int64, meta GenerationParams, extractedAt time.Time) error
 	ListImageAssets(ctx context.Context) ([]MediaAsset, error)
+	ListImageAssetsMissingFaces(ctx context.Context) ([]MediaAsset, error)
+	MarkAssetFacesScanned(ctx context.Context, assetID int64, at time.Time) error
 
 	GetSettings(ctx context.Context) (AppSettings, error)
 	SaveSettings(ctx context.Context, settings AppSettings) error

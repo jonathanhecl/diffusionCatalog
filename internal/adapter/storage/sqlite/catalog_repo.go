@@ -293,12 +293,17 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		metaExtractedVal = time.Now().UTC()
 	}
 
+	var facesScannedVal interface{}
+	if a.FacesScannedAt != nil && !a.FacesScannedAt.IsZero() {
+		facesScannedVal = a.FacesScannedAt.UTC()
+	}
+
 	query := `
 	INSERT INTO assets (
 		root_id, rel_path, file_name, file_hash, media_type, width, height, duration_sec, file_size,
 		view_count, rating, favorite, category, subcategory, engine, positive_prompt, negative_prompt, model_name, model_hash,
-		sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata, file_mtime, metadata_extracted_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata, file_mtime, metadata_extracted_at, faces_scanned_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(rel_path) DO UPDATE SET
 		root_id = excluded.root_id,
 		file_hash = excluded.file_hash,
@@ -323,7 +328,8 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		seed = excluded.seed,
 		loras_json = excluded.loras_json,
 		raw_metadata = excluded.raw_metadata,
-		metadata_extracted_at = CASE WHEN excluded.metadata_extracted_at IS NOT NULL THEN excluded.metadata_extracted_at ELSE assets.metadata_extracted_at END
+		metadata_extracted_at = CASE WHEN excluded.metadata_extracted_at IS NOT NULL THEN excluded.metadata_extracted_at ELSE assets.metadata_extracted_at END,
+		faces_scanned_at = CASE WHEN excluded.faces_scanned_at IS NOT NULL THEN excluded.faces_scanned_at ELSE assets.faces_scanned_at END
 	RETURNING id;
 	`
 	var id int64
@@ -331,7 +337,7 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		a.RootID, a.RelPath, a.FileName, a.FileHash, string(a.MediaType), a.Width, a.Height, a.DurationSec, a.FileSize,
 		a.ViewCount, a.Rating, favInt, a.Category, a.Subcategory, string(a.Metadata.Engine), a.Metadata.PositivePrompt, a.Metadata.NegativePrompt,
 		a.Metadata.ModelName, a.Metadata.ModelHash, a.Metadata.Sampler, a.Metadata.Scheduler,
-		a.Metadata.Steps, a.Metadata.CFGScale, a.Metadata.Seed, string(lorasBytes), a.Metadata.RawMetadata, fileMTimeVal, metaExtractedVal,
+		a.Metadata.Steps, a.Metadata.CFGScale, a.Metadata.Seed, string(lorasBytes), a.Metadata.RawMetadata, fileMTimeVal, metaExtractedVal, facesScannedVal,
 	).Scan(&id)
 	if err != nil {
 		return 0, err
@@ -348,7 +354,7 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
 		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
 		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
-		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at, a.faces_scanned_at
 		FROM assets a
 		LEFT JOIN media_roots mr ON mr.id = a.root_id
 		WHERE a.id = ?`, id)
@@ -1334,6 +1340,18 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 	page.AvailableTriggers = r.collectTriggerWords(ctx, page.Characters)
 
 	if filter.FaceMode {
+		if filter.Cluster == "" {
+			clusters, err := r.ListFaceClusters(ctx, filter)
+			if err != nil {
+				return nil, err
+			}
+			page.FaceClusters = clusters
+			page.TotalCount = len(clusters)
+			page.TotalPages = 1
+			page.Page = 1
+			return page, nil
+		}
+
 		faces, total, err := r.ListDetectedFaces(ctx, filter)
 		if err != nil {
 			return nil, err
@@ -1379,7 +1397,7 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
 		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
 		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
-		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at, a.faces_scanned_at
 		FROM assets a
 		LEFT JOIN media_roots mr ON mr.id = a.root_id
 		%s
@@ -1802,6 +1820,10 @@ func (r *Repository) ListDetectedFaces(ctx context.Context, filter domain.Catalo
 		where = append(where, `f.character_id = ?`)
 		args = append(args, filter.CharacterID)
 	}
+	if filter.Cluster != "" {
+		where = append(where, `f.cluster_label = ?`)
+		args = append(args, filter.Cluster)
+	}
 	if filter.Engine != "" {
 		where = append(where, `a.engine = ?`)
 		args = append(args, filter.Engine)
@@ -1873,6 +1895,99 @@ func (r *Repository) ListDetectedFaces(ctx context.Context, filter domain.Catalo
 	return out, total, nil
 }
 
+// ListFaceClusters groups detected faces by cluster label, picking the best cropped face preview per cluster.
+func (r *Repository) ListFaceClusters(ctx context.Context, filter domain.CatalogFilter) ([]domain.FaceCluster, error) {
+	db := r.conn()
+	var where []string
+	var args []interface{}
+
+	if q := strings.TrimSpace(filter.Query); q != "" {
+		like := "%" + q + "%"
+		where = append(where, `(f.cluster_label LIKE ? OR f.expression_tag LIKE ? OR a.positive_prompt LIKE ?)`)
+		args = append(args, like, like, like)
+	}
+	if filter.RootID > 0 {
+		where = append(where, `a.root_id = ?`)
+		args = append(args, filter.RootID)
+	}
+	if filter.CharacterID > 0 {
+		where = append(where, `f.character_id = ?`)
+		args = append(args, filter.CharacterID)
+	}
+	if filter.Engine != "" {
+		where = append(where, `a.engine = ?`)
+		args = append(args, filter.Engine)
+	}
+
+	whereClause := "WHERE f.cluster_label != ''"
+	if len(where) > 0 {
+		whereClause += " AND " + strings.Join(where, " AND ")
+	}
+
+	query := fmt.Sprintf(`
+		SELECT rf.cluster_label,
+		       rf.crop_rel_path,
+		       rf.character_id,
+		       rf.char_name,
+		       stats.face_count,
+		       stats.asset_count
+		FROM (
+			SELECT f.cluster_label,
+			       f.crop_rel_path,
+			       f.character_id,
+			       COALESCE(c.name, '') AS char_name,
+			       ROW_NUMBER() OVER (
+			           PARTITION BY f.cluster_label
+			           ORDER BY (f.bbox_w * f.bbox_h) DESC, f.confidence DESC, f.id ASC
+			       ) AS rn
+			FROM faces f
+			JOIN assets a ON a.id = f.asset_id
+			LEFT JOIN characters c ON c.id = f.character_id
+			%s
+		) rf
+		JOIN (
+			SELECT f.cluster_label,
+			       COUNT(f.id) AS face_count,
+			       COUNT(DISTINCT f.asset_id) AS asset_count
+			FROM faces f
+			JOIN assets a ON a.id = f.asset_id
+			%s
+			GROUP BY f.cluster_label
+		) stats ON stats.cluster_label = rf.cluster_label
+		WHERE rf.rn = 1
+		ORDER BY stats.face_count DESC, rf.cluster_label ASC
+	`, whereClause, whereClause)
+
+	doubleArgs := append(append([]interface{}{}, args...), args...)
+	rows, err := db.QueryContext(ctx, query, doubleArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var clusters []domain.FaceCluster
+	for rows.Next() {
+		var fc domain.FaceCluster
+		var charID sql.NullInt64
+		if err := rows.Scan(
+			&fc.Label,
+			&fc.BestCropPath,
+			&charID,
+			&fc.CharacterName,
+			&fc.FaceCount,
+			&fc.AssetCount,
+		); err != nil {
+			return nil, err
+		}
+		if charID.Valid {
+			v := charID.Int64
+			fc.CharacterID = &v
+		}
+		clusters = append(clusters, fc)
+	}
+	return clusters, nil
+}
+
 type rowScanner interface {
 	Scan(dest ...interface{}) error
 }
@@ -1883,6 +1998,7 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 	var favInt int
 	var fileMTime sql.NullTime
 	var metaExtracted sql.NullTime
+	var facesScanned sql.NullTime
 	err := s.Scan(
 		&a.ID, &a.RootID, &a.RootPath, &a.RootLabel,
 		&a.RelPath, &a.FileName, &a.FileHash, &mediaTypeStr,
@@ -1892,7 +2008,7 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 		&a.Metadata.ModelName, &a.Metadata.ModelHash,
 		&a.Metadata.Sampler, &a.Metadata.Scheduler,
 		&a.Metadata.Steps, &a.Metadata.CFGScale, &a.Metadata.Seed,
-		&lorasStr, &a.Metadata.RawMetadata, &fileMTime, &a.IndexedAt, &metaExtracted,
+		&lorasStr, &a.Metadata.RawMetadata, &fileMTime, &a.IndexedAt, &metaExtracted, &facesScanned,
 	)
 	if err != nil {
 		return nil, err
@@ -1905,6 +2021,10 @@ func scanAssetRow(s rowScanner) (*domain.MediaAsset, error) {
 	if metaExtracted.Valid {
 		t := metaExtracted.Time
 		a.MetadataExtractedAt = &t
+	}
+	if facesScanned.Valid {
+		t := facesScanned.Time
+		a.FacesScannedAt = &t
 	}
 	a.Favorite = favInt == 1
 	a.MediaType = domain.MediaType(mediaTypeStr)
@@ -2223,7 +2343,7 @@ func (r *Repository) ListAssetsMissingMetadata(ctx context.Context) ([]domain.Me
 		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
 		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
 		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
-		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at, a.faces_scanned_at
 		FROM assets a
 		LEFT JOIN media_roots mr ON mr.id = a.root_id
 		WHERE (a.positive_prompt = '' AND a.raw_metadata = '') OR a.metadata_extracted_at IS NULL
@@ -2252,7 +2372,7 @@ func (r *Repository) ListImageAssets(ctx context.Context) ([]domain.MediaAsset, 
 		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
 		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
 		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
-		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at, a.faces_scanned_at
 		FROM assets a
 		LEFT JOIN media_roots mr ON mr.id = a.root_id
 		WHERE a.media_type = 'image'
@@ -2271,6 +2391,42 @@ func (r *Repository) ListImageAssets(ctx context.Context) ([]domain.MediaAsset, 
 		out = append(out, *a)
 	}
 	return out, nil
+}
+
+// ListImageAssetsMissingFaces returns all image assets that have not yet been scanned for faces.
+func (r *Repository) ListImageAssetsMissingFaces(ctx context.Context) ([]domain.MediaAsset, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT a.id, a.root_id, COALESCE(mr.path, ''), COALESCE(mr.label, ''),
+		       a.rel_path, a.file_name, a.file_hash, a.media_type, a.width, a.height, a.duration_sec, a.file_size,
+		       a.view_count, a.rating, a.favorite, a.category, a.subcategory, a.engine, a.positive_prompt, a.negative_prompt,
+		       a.model_name, a.model_hash, a.sampler, a.scheduler, a.steps, a.cfg_scale, a.seed,
+		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at, a.faces_scanned_at
+		FROM assets a
+		LEFT JOIN media_roots mr ON mr.id = a.root_id
+		WHERE a.media_type = 'image' AND a.faces_scanned_at IS NULL
+		ORDER BY a.id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.MediaAsset
+	for rows.Next() {
+		a, err := scanAssetRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *a)
+	}
+	return out, nil
+}
+
+// MarkAssetFacesScanned updates the timestamp when an asset was processed for facial recognition.
+func (r *Repository) MarkAssetFacesScanned(ctx context.Context, assetID int64, at time.Time) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `UPDATE assets SET faces_scanned_at = ? WHERE id = ?`, at.UTC(), assetID)
+	return err
 }
 
 // ListFacesWithEmbeddings retrieves all detected faces that have a non-empty embedding vector.

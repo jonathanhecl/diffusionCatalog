@@ -570,6 +570,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 			vals, err := url.ParseQuery(c.Value)
 			if err == nil {
 				vals.Del("face_mode")
+				vals.Del("cluster")
 				cleanVal := vals.Encode()
 				if cleanVal != "" {
 					http.Redirect(w, r, "/?"+cleanVal, http.StatusFound)
@@ -586,7 +587,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	// - If active filters or sort are present, persist them (excluding face_mode, which is a view mode).
 	// - If explicit empty filter params were submitted (e.g. user selected "All Categories" and "All Folders"), clear the cookie.
 	if (rawTab == "" || rawTab == "catalog") && r.URL.Query().Get("asset_id") == "" {
-		cookieFilter := filter.FilterWithoutField("face_mode")
+		cookieFilter := filter.FilterWithoutField("face_mode").FilterWithoutField("cluster")
 		if cookieFilter.HasActiveFilters() || cookieFilter.SortBy != "" {
 			http.SetCookie(w, &http.Cookie{
 				Name:     "dc_catalog_filter",
@@ -1593,8 +1594,8 @@ func (s *Server) handleRenameFaceCluster(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	referer := r.Header.Get("Referer")
-	if referer == "" {
-		referer = "/?face_mode=1"
+	if referer == "" || strings.Contains(referer, "cluster=") {
+		referer = "/?face_mode=1&cluster=" + url.QueryEscape(newLabel)
 	}
 	http.Redirect(w, r, referer, http.StatusSeeOther)
 }
@@ -1943,7 +1944,7 @@ func hasExplicitFilterParams(q url.Values) bool {
 		q.Has("favorites") || q.Has("min_rating") || q.Has("trigger") ||
 		q.Has("engine") || q.Has("model") || q.Has("media_type") ||
 		q.Has("group_id") || q.Has("character_id") || q.Has("tag") ||
-		q.Has("q") || q.Has("sort") || q.Has("face_mode")
+		q.Has("q") || q.Has("sort") || q.Has("face_mode") || q.Has("cluster")
 }
 
 func parseCatalogFilterFromValues(q url.Values) domain.CatalogFilter {
@@ -1961,6 +1962,7 @@ func parseCatalogFilterFromValues(q url.Values) domain.CatalogFilter {
 	minRating, _ := strconv.Atoi(q.Get("min_rating"))
 	favoritesOnly := q.Get("favorites") == "1" || q.Get("favorites") == "true" || q.Get("favorites") == "on"
 	faceMode := q.Get("face_mode") == "1" || q.Get("face_mode") == "true"
+	cluster := strings.TrimSpace(q.Get("cluster"))
 
 	return domain.CatalogFilter{
 		Query:         q.Get("q"),
@@ -1977,6 +1979,7 @@ func parseCatalogFilterFromValues(q url.Values) domain.CatalogFilter {
 		CharacterID:   charID,
 		TagNames:      q["tag"],
 		FaceMode:      faceMode,
+		Cluster:       cluster,
 		SortBy:        q.Get("sort"),
 		Page:          page,
 		PerPage:       perPage,
@@ -1989,6 +1992,7 @@ func parseCatalogFilter(r *http.Request) domain.CatalogFilter {
 		if c, err := r.Cookie("dc_catalog_filter"); err == nil && strings.TrimSpace(c.Value) != "" {
 			if cookieVals, err := url.ParseQuery(c.Value); err == nil && len(cookieVals) > 0 {
 				cookieVals.Del("face_mode")
+				cookieVals.Del("cluster")
 				f := parseCatalogFilterFromValues(cookieVals)
 				if q.Has("page") {
 					if p, _ := strconv.Atoi(q.Get("page")); p > 0 {

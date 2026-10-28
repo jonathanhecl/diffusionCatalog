@@ -82,7 +82,8 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		raw_metadata TEXT NOT NULL DEFAULT '',
 		file_mtime DATETIME,
 		indexed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		metadata_extracted_at DATETIME
+		metadata_extracted_at DATETIME,
+		faces_scanned_at DATETIME
 	);
 
 	CREATE VIRTUAL TABLE IF NOT EXISTS assets_fts USING fts5(
@@ -273,6 +274,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	_, _ = db.ExecContext(ctx, `ALTER TABLE generated_prompts ADD COLUMN duration_sec REAL NOT NULL DEFAULT 0.0`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE characters ADD COLUMN reference_images_json TEXT NOT NULL DEFAULT '[]'`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN metadata_extracted_at DATETIME`)
+	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN faces_scanned_at DATETIME`)
 
 	return seedDefaultSettingsAndProfiles(ctx, db)
 }
