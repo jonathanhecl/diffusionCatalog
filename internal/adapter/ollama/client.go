@@ -302,9 +302,6 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 							out[idx].ContextLength = int(f)
 						}
 					}
-					if strings.Contains(k, "embedding_length") {
-						out[idx].HasEmbedding = true
-					}
 				}
 				out[idx].Capabilities = buildCapabilitySlice(true, out[idx].HasVision, out[idx].HasThinking, out[idx].HasTools, out[idx].HasEmbedding, show.Capabilities)
 			}
