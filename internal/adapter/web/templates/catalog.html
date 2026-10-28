@@ -372,7 +372,7 @@
   <!-- Primary Navigation Tabs -->
   <nav class="navbar">
     <div class="container navbar-inner">
-      <a href="/{{if .FilterQuery}}?{{.FilterQuery}}{{end}}" class="nav-tab {{if eq .ActiveTab "catalog"}}active{{end}}">
+      <a href="/{{if .CatalogNavQuery}}?{{.CatalogNavQuery}}{{end}}" class="nav-tab {{if eq .ActiveTab "catalog"}}active{{end}}">
         <span class="tab-icon">&#128444;</span> Catalog
       </a>
       <a href="/?tab=studio" class="nav-tab {{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}active{{end}}" style="{{if or (eq .ActiveTab "studio") (eq .ActiveTab "remix")}}color:#c084fc;border-color:#7c3aed;{{end}}">
@@ -9960,6 +9960,13 @@
           {{if .Filter.HasActiveFilters}}
             <div class="active-filters-bar">
               <span class="active-filters-label">Active Filters:</span>
+              {{if .Filter.FaceMode}}
+                <span class="active-filter-chip" style="background:#1e1b4b;border-color:#4338ca;color:#c7d2fe;">
+                  <span class="chip-label" style="color:#a5b4fc;">&#128269; Mode:</span>
+                  <strong>Face Explorer</strong>
+                  <a href="{{clearFilterURL $.Filter "face_mode"}}" class="chip-remove" title="Exit Face Mode">&times;</a>
+                </span>
+              {{end}}
               {{if and .Filter.GroupID .ActiveGroup}}
                 <span class="active-filter-chip coll-chip">
                   <span class="chip-label">&#128193; Collection:</span>

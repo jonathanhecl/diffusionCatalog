@@ -437,6 +437,7 @@ type viewData struct {
 	AdminUser         string
 	Filter            domain.CatalogFilter
 	FilterQuery       string
+	CatalogNavQuery   string
 	Page              *domain.CatalogPage
 	SelectedAsset     *domain.MediaAsset
 	PrevAssetID       int64
@@ -544,10 +545,18 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 
 	// If opening the catalog grid directly with no query parameters, and a saved filter cookie exists,
 	// redirect to restore the saved filters in the URL so user sees them clearly.
+	// We deliberately ignore face_mode from the cookie so visiting "/" never traps the user in Face Explorer.
 	if (rawTab == "" || rawTab == "catalog") && r.URL.Query().Get("asset_id") == "" && !hasExplicitFilterParams(r.URL.Query()) && !r.URL.Query().Has("page") {
 		if c, err := r.Cookie("dc_catalog_filter"); err == nil && strings.TrimSpace(c.Value) != "" {
-			http.Redirect(w, r, "/?"+c.Value, http.StatusFound)
-			return
+			vals, err := url.ParseQuery(c.Value)
+			if err == nil {
+				vals.Del("face_mode")
+				cleanVal := vals.Encode()
+				if cleanVal != "" {
+					http.Redirect(w, r, "/?"+cleanVal, http.StatusFound)
+					return
+				}
+			}
 		}
 	}
 
@@ -555,13 +564,14 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	filterQuery := filter.QueryString()
 
 	// Update cookie when browsing the catalog grid:
-	// - If active filters or sort are present, persist them.
+	// - If active filters or sort are present, persist them (excluding face_mode, which is a view mode).
 	// - If explicit empty filter params were submitted (e.g. user selected "All Categories" and "All Folders"), clear the cookie.
 	if (rawTab == "" || rawTab == "catalog") && r.URL.Query().Get("asset_id") == "" {
-		if filter.HasActiveFilters() || filter.SortBy != "" {
+		cookieFilter := filter.FilterWithoutField("face_mode")
+		if cookieFilter.HasActiveFilters() || cookieFilter.SortBy != "" {
 			http.SetCookie(w, &http.Cookie{
 				Name:     "dc_catalog_filter",
-				Value:    filterQuery,
+				Value:    cookieFilter.QueryString(),
 				Path:     "/",
 				MaxAge:   86400 * 30, // 30 days
 				HttpOnly: true,
@@ -688,6 +698,12 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	catalogNavFilter := filter.FilterWithoutField("face_mode")
+	catalogNavQuery := catalogNavFilter.QueryString()
+	if !catalogNavFilter.HasActiveFilters() && (catalogNavFilter.SortBy == "" || catalogNavFilter.SortBy == "newest") {
+		catalogNavQuery = ""
+	}
+
 	data := viewData{
 		ActiveTab:        tab,
 		SettingsSection:  settingsSection,
@@ -697,6 +713,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		AdminUser:        s.currentAdmin(r),
 		Filter:           filter,
 		FilterQuery:      filterQuery,
+		CatalogNavQuery:  catalogNavQuery,
 		Page:             page,
 		SelectedAsset:    selectedAsset,
 		PrevAssetID:      prevAssetID,
@@ -1659,6 +1676,7 @@ func parseCatalogFilter(r *http.Request) domain.CatalogFilter {
 	if !hasExplicitFilterParams(q) {
 		if c, err := r.Cookie("dc_catalog_filter"); err == nil && strings.TrimSpace(c.Value) != "" {
 			if cookieVals, err := url.ParseQuery(c.Value); err == nil && len(cookieVals) > 0 {
+				cookieVals.Del("face_mode")
 				f := parseCatalogFilterFromValues(cookieVals)
 				if q.Has("page") {
 					if p, _ := strconv.Atoi(q.Get("page")); p > 0 {
