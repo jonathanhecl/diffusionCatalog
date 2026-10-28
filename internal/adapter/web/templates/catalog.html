@@ -125,6 +125,15 @@
       box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.35) !important;
     }
 
+    .face-chip-card {
+      transition: all 0.15s ease !important;
+    }
+    .face-chip-card:hover {
+      border-color: #38bdf8 !important;
+      background: rgba(56, 189, 248, 0.12) !important;
+      transform: translateY(-1px);
+    }
+
     .preset-pill-btn {
       background: #0f172a;
       border: 1px solid #334155;
@@ -719,13 +728,20 @@
               {{if .SelectedAsset.Faces}}
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
                   {{range .SelectedAsset.Faces}}
-                    <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:4px 6px;display:flex;align-items:center;gap:6px;">
-                      <img src="/cache/{{.CropRelPath}}" alt="{{.ClusterLabel}}" style="width:28px;height:28px;border-radius:4px;object-fit:cover;">
+                    <a href="/?face_mode=1&amp;cluster={{urlquery .ClusterLabel}}" class="face-chip-card" style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:5px 8px;display:inline-flex;align-items:center;gap:8px;text-decoration:none;cursor:pointer;" title="View all photos of {{.ClusterLabel}}">
+                      <img src="/cache/{{.CropRelPath}}" alt="{{.ClusterLabel}}" style="width:30px;height:30px;border-radius:4px;object-fit:cover;border:1px solid rgba(255,255,255,0.1);">
                       <div>
-                        <div style="font-size:11px;font-weight:600;color:#fff;">{{.ClusterLabel}}</div>
-                        <div style="font-size:10px;color:var(--text-muted);">{{printf "%.0f%%" (mul100 .Confidence)}}</div>
+                        <div style="font-size:11.5px;font-weight:600;color:#93c5fd;display:flex;align-items:center;gap:4px;">
+                          <span>{{.ClusterLabel}}</span>
+                          <span style="font-size:10px;color:#38bdf8;">&rarr;</span>
+                        </div>
+                        <div style="font-size:9.5px;color:var(--text-muted);display:flex;gap:4px;">
+                          <span>{{printf "%.0f%%" (mul100 .Confidence)}}</span>
+                          <span>&bull;</span>
+                          <span style="color:#60a5fa;text-decoration:underline;">View Group</span>
+                        </div>
                       </div>
-                    </div>
+                    </a>
                   {{end}}
                 </div>
               {{else}}
