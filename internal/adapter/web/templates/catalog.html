@@ -9862,13 +9862,15 @@
               <div class="facet-title"><span>GENERATOR ENGINE</span></div>
               <div class="checkbox-list">
                 {{range .Page.Engines}}
-                  <label class="checkbox-item">
-                    <span><input type="radio" name="engine" value="{{.}}" {{if eq $.Filter.Engine .}}checked{{end}} onchange="this.form.submit()">{{.}}</span>
+                  <label class="checkbox-item" title="{{.}}">
+                    <input type="radio" name="engine" value="{{.}}" {{if eq $.Filter.Engine .}}checked{{end}} onchange="this.form.submit()">
+                    <span class="checkbox-label">{{.}}</span>
                   </label>
                 {{end}}
                 {{if .Filter.Engine}}
                   <label class="checkbox-item">
-                    <span><input type="radio" name="engine" value="" onchange="this.form.submit()">All Engines</span>
+                    <input type="radio" name="engine" value="" onchange="this.form.submit()">
+                    <span class="checkbox-label">All Engines</span>
                   </label>
                 {{end}}
               </div>
@@ -9899,12 +9901,10 @@
                 <div class="facet-title"><span style="text-transform:uppercase;">FACET: {{$facet}}</span></div>
                 <div class="checkbox-list">
                   {{range $tags}}
-                    <label class="checkbox-item">
-                      <span>
-                        <input type="checkbox" name="tag" value="{{.Name}}" {{if hasTag $.Filter.TagNames .Name}}checked{{end}} onchange="this.form.submit()">
-                        {{.Name}}
-                      </span>
-                      <span style="font-size:11px;color:var(--text-dim);">{{.AssetCount}}</span>
+                    <label class="checkbox-item" title="{{.Name}}">
+                      <input type="checkbox" name="tag" value="{{.Name}}" {{if hasTag $.Filter.TagNames .Name}}checked{{end}} onchange="this.form.submit()">
+                      <span class="checkbox-label">{{.Name}}</span>
+                      <span class="checkbox-count">{{.AssetCount}}</span>
                     </label>
                   {{end}}
                 </div>

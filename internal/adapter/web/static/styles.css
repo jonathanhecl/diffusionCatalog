@@ -316,12 +316,15 @@ a {
   border-radius: 6px;
   padding: 14px;
   align-self: start;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .facet-block {
   padding-bottom: 14px;
   margin-bottom: 14px;
   border-bottom: 1px solid var(--border-navy);
+  min-width: 0;
 }
 
 .facet-block:last-child {
@@ -338,30 +341,98 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .checkbox-list {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-width: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+.checkbox-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.checkbox-list::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 2px;
+}
+
+.checkbox-list::-webkit-scrollbar-thumb:hover {
+  background: #334155;
 }
 
 .checkbox-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
   font-size: 12px;
   color: var(--text-muted);
   cursor: pointer;
+  min-width: 0;
+  width: 100%;
+  padding: 2px 0;
 }
 
 .checkbox-item:hover {
   color: var(--text-main);
 }
 
-.checkbox-item input {
-  margin-right: 7px;
+.checkbox-item input[type="checkbox"],
+.checkbox-item input[type="radio"] {
+  margin: 2px 0 0 0;
+  flex-shrink: 0;
   accent-color: var(--accent-blue);
+  cursor: pointer;
+}
+
+.checkbox-item .checkbox-label {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.checkbox-item:hover .checkbox-label {
+  color: var(--text-main);
+}
+
+.checkbox-item .checkbox-count {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding-left: 6px;
+  line-height: 1.35;
+}
+
+/* Fallback when input and text share a wrapping span */
+.checkbox-item > span:first-child {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.checkbox-item > span:last-child:not(:first-child) {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.35;
 }
 
 .tag-cloud {
