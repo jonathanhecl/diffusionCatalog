@@ -35,8 +35,9 @@ type AppSettings struct {
 	AutoCaptionOnScan      bool   `json:"auto_caption_on_scan"`
 
 	// Multimodal Embedding Settings
-	EmbeddingEnabled bool   `json:"embedding_enabled"`
-	EmbeddingModel   string `json:"embedding_model"`
+	EmbeddingEnabled  bool           `json:"embedding_enabled"`
+	EmbeddingProvider AIProviderType `json:"embedding_provider"`
+	EmbeddingModel    string         `json:"embedding_model"`
 
 	// Legacy / Compatibility fields (kept in sync for backwards compatibility)
 	OMLXBaseURL          string         `json:"omlx_base_url,omitempty"`

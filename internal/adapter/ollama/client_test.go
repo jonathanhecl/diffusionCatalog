@@ -365,7 +365,7 @@ func TestEmbedTextAndImage(t *testing.T) {
 	}
 
 	// 1. Text embedding
-	textVec, err := client.EmbedText(ctx, "http://127.0.0.1:11434", "embeddinggemma-2", "gato durmiendo")
+	textVec, err := client.EmbedText(ctx, domain.ProviderOllama, "http://127.0.0.1:11434", "", "embeddinggemma-2", "gato durmiendo")
 	if err != nil {
 		t.Fatalf("EmbedText failed: %v", err)
 	}
@@ -378,7 +378,7 @@ func TestEmbedTextAndImage(t *testing.T) {
 
 	// 2. Image embedding
 	fakeImg := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
-	imgVec, err := client.EmbedImage(ctx, "http://127.0.0.1:11434", "embeddinggemma-2", fakeImg)
+	imgVec, err := client.EmbedImage(ctx, domain.ProviderOllama, "http://127.0.0.1:11434", "", "embeddinggemma-2", fakeImg)
 	if err != nil {
 		t.Fatalf("EmbedImage failed: %v", err)
 	}

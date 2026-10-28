@@ -640,6 +640,7 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 		RemixDefaultProvider:   domain.ProviderOllama,
 		StudioDefaultProvider:  domain.ProviderOpenAI,
 		DefaultTargetGenerator: "flux",
+		EmbeddingProvider:      domain.ProviderOllama,
 
 		// Compatibility sync
 		OMLXBaseURL:          "http://127.0.0.1:8000",
@@ -741,6 +742,8 @@ func (r *Repository) GetSettings(ctx context.Context) (domain.AppSettings, error
 				s.AutoCaptionOnScan = (v == "true" || v == "1")
 			case "embedding_enabled":
 				s.EmbeddingEnabled = (v == "true" || v == "1")
+			case "embedding_provider":
+				s.EmbeddingProvider = domain.AIProviderType(v)
 			case "embedding_model":
 				s.EmbeddingModel = v
 			}
@@ -777,6 +780,9 @@ func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) err
 	if s.RemixDefaultProvider == "" {
 		s.RemixDefaultProvider = domain.ProviderOllama
 	}
+	if s.EmbeddingProvider == "" {
+		s.EmbeddingProvider = domain.ProviderOllama
+	}
 	if s.StudioDefaultProvider == "" {
 		s.StudioDefaultProvider = domain.ProviderOpenAI
 	}
@@ -805,6 +811,7 @@ func (r *Repository) SaveSettings(ctx context.Context, s domain.AppSettings) err
 		"default_target_generator": strings.TrimSpace(s.DefaultTargetGenerator),
 		"auto_caption_on_scan":     autoCap,
 		"embedding_enabled":        embeddingEnabled,
+		"embedding_provider":       string(s.EmbeddingProvider),
 		"embedding_model":          strings.TrimSpace(s.EmbeddingModel),
 
 		// Compatibility sync

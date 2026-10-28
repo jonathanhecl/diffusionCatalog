@@ -1005,6 +1005,13 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	embeddingEnabled := r.FormValue("embedding_enabled") == "on" || r.FormValue("embedding_enabled") == "true" || r.FormValue("embedding_enabled") == "1"
+	embeddingProvider := domain.AIProviderType(r.FormValue("embedding_provider"))
+	if embeddingProvider == "" {
+		embeddingProvider = current.EmbeddingProvider
+	}
+	if embeddingProvider == "" {
+		embeddingProvider = domain.ProviderOllama
+	}
 	embeddingModel := strings.Trim(strings.TrimSpace(r.FormValue("embedding_model")), "\"' \t\r\n")
 	if embeddingModel == "" && embeddingEnabled {
 		embeddingModel = current.EmbeddingModel
@@ -1028,6 +1035,7 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 		DefaultTargetGenerator: defTarget,
 		AutoCaptionOnScan:      r.FormValue("auto_caption_on_scan") == "on" || r.FormValue("auto_caption_on_scan") == "true",
 		EmbeddingEnabled:       embeddingEnabled,
+		EmbeddingProvider:      embeddingProvider,
 		EmbeddingModel:         embeddingModel,
 
 		// Compatibility sync

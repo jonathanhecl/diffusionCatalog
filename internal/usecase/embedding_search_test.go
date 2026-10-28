@@ -42,7 +42,7 @@ func (m *embeddingMockOllama) AnalyzeImage(ctx context.Context, provider domain.
 	return "", nil
 }
 
-func (m *embeddingMockOllama) EmbedText(ctx context.Context, baseURL, model, text string) ([]float32, error) {
+func (m *embeddingMockOllama) EmbedText(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, text string) ([]float32, error) {
 	m.embedTextCalls++
 	m.lastTextModel = model
 	if text == "gato" {
@@ -51,7 +51,7 @@ func (m *embeddingMockOllama) EmbedText(ctx context.Context, baseURL, model, tex
 	return []float32{0.0, 1.0, 0.0}, nil
 }
 
-func (m *embeddingMockOllama) EmbedImage(ctx context.Context, baseURL, model string, imageBytes []byte) ([]float32, error) {
+func (m *embeddingMockOllama) EmbedImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model string, imageBytes []byte) ([]float32, error) {
 	m.embedImageCalls++
 	m.lastImageModel = model
 	// Mock returns vector pointing to [1.0, 0.0, 0.0]

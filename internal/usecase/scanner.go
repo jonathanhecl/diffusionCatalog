@@ -247,9 +247,28 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	s.mu.Unlock()
 	embeddingActive := appSettings.EmbeddingEnabled && strings.TrimSpace(appSettings.EmbeddingModel) != "" && hasOllama
 	activeModel := strings.TrimSpace(appSettings.EmbeddingModel)
-	ollamaBase := strings.TrimSpace(appSettings.OllamaBaseURL)
-	if ollamaBase == "" {
-		ollamaBase = "http://127.0.0.1:11434"
+	activeProvider := appSettings.EmbeddingProvider
+	if activeProvider == "" {
+		activeProvider = domain.ProviderOllama
+	}
+	embeddingBase := strings.TrimSpace(appSettings.OllamaBaseURL)
+	embeddingKey := ""
+	if activeProvider == domain.ProviderOpenAI || activeProvider == domain.ProviderOMLX {
+		embeddingBase = strings.TrimSpace(appSettings.OpenAIBaseURL)
+		if embeddingBase == "" {
+			embeddingBase = strings.TrimSpace(appSettings.OMLXBaseURL)
+		}
+		if embeddingBase == "" {
+			embeddingBase = "http://127.0.0.1:8000"
+		}
+		embeddingKey = strings.TrimSpace(appSettings.OpenAIAPIKey)
+		if embeddingKey == "" {
+			embeddingKey = strings.TrimSpace(appSettings.OMLXAPIKey)
+		}
+	} else {
+		if embeddingBase == "" {
+			embeddingBase = "http://127.0.0.1:11434"
+		}
 	}
 	if embeddingActive {
 		_ = s.repo.InvalidateEmbeddingsExcept(ctx, activeModel)
@@ -387,7 +406,7 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 					report.UnchangedFiles++
 					s.recordProgress(d.Name(), root.Label, true, indexStartTime)
 					if embeddingActive {
-						s.processAssetEmbedding(ctx, existing.ID, absPath, mediaType, activeModel, ollamaBase)
+						s.processAssetEmbedding(ctx, existing.ID, absPath, mediaType, activeProvider, activeModel, embeddingBase, embeddingKey)
 					}
 					return nil
 				}
@@ -486,7 +505,7 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 
 			// Run multimodal embedding if enabled
 			if embeddingActive {
-				s.processAssetEmbedding(ctx, assetID, absPath, mediaType, activeModel, ollamaBase)
+				s.processAssetEmbedding(ctx, assetID, absPath, mediaType, activeProvider, activeModel, embeddingBase, embeddingKey)
 			}
 
 			return nil
@@ -540,7 +559,7 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	return report, nil
 }
 
-func (s *ScannerService) processAssetEmbedding(ctx context.Context, assetID int64, absPath string, mediaType domain.MediaType, activeModel, ollamaBase string) {
+func (s *ScannerService) processAssetEmbedding(ctx context.Context, assetID int64, absPath string, mediaType domain.MediaType, provider domain.AIProviderType, activeModel, baseURL, apiKey string) {
 	if mediaType != domain.MediaTypeImage || activeModel == "" {
 		return
 	}
@@ -561,7 +580,7 @@ func (s *ScannerService) processAssetEmbedding(ctx context.Context, assetID int6
 		return
 	}
 
-	vec, err := ollama.EmbedImage(ctx, ollamaBase, activeModel, data)
+	vec, err := ollama.EmbedImage(ctx, provider, baseURL, apiKey, activeModel, data)
 	if err != nil {
 		log.Printf("[SCAN] Note: could not generate embedding for asset %d (%s) with model %s: %v", assetID, filepath.Base(absPath), activeModel, err)
 		return

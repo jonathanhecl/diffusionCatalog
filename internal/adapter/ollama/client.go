@@ -1049,8 +1049,70 @@ type legacyEmbeddingsResponse struct {
 	Error     string    `json:"error,omitempty"`
 }
 
-// EmbedText generates a vector embedding for a text query using Ollama's /api/embed (with legacy /api/embeddings fallback).
-func (c *Client) EmbedText(ctx context.Context, baseURL, model, text string) ([]float32, error) {
+type openaiEmbeddingsRequest struct {
+	Model string      `json:"model"`
+	Input interface{} `json:"input"`
+}
+
+type openaiEmbeddingsResponse struct {
+	Data []struct {
+		Embedding []float32 `json:"embedding"`
+		Index     int       `json:"index"`
+	} `json:"data"`
+	Error struct {
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
+}
+
+// EmbedText generates a vector embedding for a text query using Ollama's /api/embed or OpenAI-compatible /v1/embeddings.
+func (c *Client) EmbedText(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, text string) ([]float32, error) {
+	if provider == domain.ProviderOpenAI || provider == domain.ProviderOMLX {
+		baseURL = strings.TrimRight(baseURL, "/")
+		if baseURL == "" {
+			baseURL = "http://127.0.0.1:8000"
+		}
+		model = strings.TrimSpace(model)
+		if model == "" {
+			return nil, fmt.Errorf("embedding model is not specified")
+		}
+		payload, err := json.Marshal(openaiEmbeddingsRequest{
+			Model: model,
+			Input: text,
+		})
+		if err != nil {
+			return nil, err
+		}
+		endpoint := baseURL + "/v1/embeddings"
+		if strings.HasSuffix(baseURL, "/v1") {
+			endpoint = baseURL + "/embeddings"
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if strings.TrimSpace(apiKey) != "" {
+			req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(apiKey))
+		}
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("openai embeddings request failed: %w", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			b, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("openai embeddings returned status %d: %s", resp.StatusCode, string(b))
+		}
+		var out openaiEmbeddingsResponse
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return nil, err
+		}
+		if len(out.Data) == 0 {
+			return nil, fmt.Errorf("no embedding returned by openai model %q", model)
+		}
+		return out.Data[0].Embedding, nil
+	}
+
 	baseURL = strings.TrimRight(baseURL, "/")
 	if baseURL == "" {
 		baseURL = "http://127.0.0.1:11434"
@@ -1118,9 +1180,59 @@ func (c *Client) EmbedText(ctx context.Context, baseURL, model, text string) ([]
 	return legacyOut.Embedding, nil
 }
 
-// EmbedImage generates a vector embedding for an image using Ollama's multimodal /api/embed endpoint.
-// Image bytes are passed as base64 in the input array according to the multimodal schema: input: [{"image": "<base64>"}].
-func (c *Client) EmbedImage(ctx context.Context, baseURL, model string, imageBytes []byte) ([]float32, error) {
+// EmbedImage generates a vector embedding for an image using Ollama's multimodal /api/embed or OpenAI-compatible endpoint.
+func (c *Client) EmbedImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model string, imageBytes []byte) ([]float32, error) {
+	if provider == domain.ProviderOpenAI || provider == domain.ProviderOMLX {
+		baseURL = strings.TrimRight(baseURL, "/")
+		if baseURL == "" {
+			baseURL = "http://127.0.0.1:8000"
+		}
+		model = strings.TrimSpace(model)
+		if model == "" {
+			return nil, fmt.Errorf("embedding model is not specified")
+		}
+		if len(imageBytes) == 0 {
+			return nil, fmt.Errorf("image bytes are empty")
+		}
+		b64Image := base64.StdEncoding.EncodeToString(imageBytes)
+		payload, err := json.Marshal(openaiEmbeddingsRequest{
+			Model: model,
+			Input: []map[string]string{{"image": b64Image}},
+		})
+		if err != nil {
+			return nil, err
+		}
+		endpoint := baseURL + "/v1/embeddings"
+		if strings.HasSuffix(baseURL, "/v1") {
+			endpoint = baseURL + "/embeddings"
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if strings.TrimSpace(apiKey) != "" {
+			req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(apiKey))
+		}
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("openai embeddings request failed: %w", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			b, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("openai embeddings returned status %d: %s", resp.StatusCode, string(b))
+		}
+		var out openaiEmbeddingsResponse
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return nil, err
+		}
+		if len(out.Data) == 0 {
+			return nil, fmt.Errorf("no embedding returned by openai model %q", model)
+		}
+		return out.Data[0].Embedding, nil
+	}
+
 	baseURL = strings.TrimRight(baseURL, "/")
 	if baseURL == "" {
 		baseURL = "http://127.0.0.1:11434"

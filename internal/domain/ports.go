@@ -368,6 +368,6 @@ type OllamaProvider interface {
 	TextToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error)
 	AnalyzeImage(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error)
 
-	EmbedText(ctx context.Context, baseURL, model, text string) ([]float32, error)
-	EmbedImage(ctx context.Context, baseURL, model string, imageBytes []byte) ([]float32, error)
+	EmbedText(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, text string) ([]float32, error)
+	EmbedImage(ctx context.Context, provider AIProviderType, baseURL, apiKey, model string, imageBytes []byte) ([]float32, error)
 }
