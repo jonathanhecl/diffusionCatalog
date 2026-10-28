@@ -822,9 +822,10 @@ func (s *ScannerService) StartFaceScanAsync() bool {
 }
 
 // ClusterDetectedFaces groups faces with cosine similarity >= similarityThreshold into clusters.
+// Uses exemplar-based leader clustering (best face first) to prevent transitive chaining.
 func (s *ScannerService) ClusterDetectedFaces(ctx context.Context, similarityThreshold float64) (int, error) {
 	if similarityThreshold <= 0 {
-		similarityThreshold = 0.50
+		similarityThreshold = 0.45
 	}
 	faces, err := s.repo.ListFacesWithEmbeddings(ctx)
 	if err != nil {
@@ -834,63 +835,60 @@ func (s *ScannerService) ClusterDetectedFaces(ctx context.Context, similarityThr
 		return 0, nil
 	}
 
-	n := len(faces)
-	parent := make([]int, n)
-	for i := 0; i < n; i++ {
-		parent[i] = i
+	// Sort faces by quality (area * confidence descending) so highest quality crops become cluster exemplars
+	type faceWithIdx struct {
+		face domain.DetectedFace
+		idx  int
 	}
-	var find func(int) int
-	find = func(i int) int {
-		if parent[i] == i {
-			return i
-		}
-		parent[i] = find(parent[i])
-		return parent[i]
+	sorted := make([]faceWithIdx, len(faces))
+	for i := range faces {
+		sorted[i] = faceWithIdx{face: faces[i], idx: i}
 	}
-	union := func(i, j int) {
-		rootI := find(i)
-		rootJ := find(j)
-		if rootI != rootJ {
-			parent[rootI] = rootJ
-		}
+	sort.Slice(sorted, func(i, j int) bool {
+		q1 := float64(sorted[i].face.Box.Width*sorted[i].face.Box.Height) * sorted[i].face.Confidence
+		q2 := float64(sorted[j].face.Box.Width*sorted[j].face.Box.Height) * sorted[j].face.Confidence
+		return q1 > q2
+	})
+
+	type cluster struct {
+		exemplarEmbedding []float32
+		faceIndices       []int
 	}
 
-	for i := 0; i < n; i++ {
-		for j := i + 1; j < n; j++ {
-			sim := cosineSimilarity(faces[i].Embedding, faces[j].Embedding)
-			if sim >= similarityThreshold {
-				union(i, j)
+	var clusters []cluster
+	for _, item := range sorted {
+		bestSim := -1.0
+		bestClusterIdx := -1
+		for cIdx, c := range clusters {
+			sim := cosineSimilarity(item.face.Embedding, c.exemplarEmbedding)
+			if sim > bestSim {
+				bestSim = sim
+				bestClusterIdx = cIdx
 			}
 		}
+
+		if bestSim >= similarityThreshold && bestClusterIdx >= 0 {
+			clusters[bestClusterIdx].faceIndices = append(clusters[bestClusterIdx].faceIndices, item.idx)
+		} else {
+			clusters = append(clusters, cluster{
+				exemplarEmbedding: item.face.Embedding,
+				faceIndices:       []int{item.idx},
+			})
+		}
 	}
 
-	// Group into clusters by root
-	clusters := make(map[int][]int)
-	for i := 0; i < n; i++ {
-		root := find(i)
-		clusters[root] = append(clusters[root], i)
-	}
-
-	// Sort cluster roots by size (largest cluster gets Person #1)
-	type clusterGroup struct {
-		root    int
-		indices []int
-	}
-	var groups []clusterGroup
-	for r, idxs := range clusters {
-		groups = append(groups, clusterGroup{root: r, indices: idxs})
-	}
-	sort.Slice(groups, func(i, j int) bool {
-		return len(groups[i].indices) > len(groups[j].indices)
+	// Sort clusters by size (largest cluster gets Person #1)
+	sort.Slice(clusters, func(i, j int) bool {
+		return len(clusters[i].faceIndices) > len(clusters[j].faceIndices)
 	})
 
 	clusterCount := 0
-	for idx, g := range groups {
+	for idx, c := range clusters {
 		clusterCount++
 		// Determine label: if any face in the cluster already has a user-defined name, keep it
 		chosenLabel := ""
 		var linkedCharID *int64
-		for _, faceIdx := range g.indices {
+		for _, faceIdx := range c.faceIndices {
 			lbl := strings.TrimSpace(faces[faceIdx].ClusterLabel)
 			if lbl != "" && lbl != "Unassigned" && lbl != "Detected Subject" && !strings.HasPrefix(lbl, "Person #") && !strings.HasPrefix(lbl, "Cluster #") {
 				chosenLabel = lbl
@@ -904,7 +902,7 @@ func (s *ScannerService) ClusterDetectedFaces(ctx context.Context, similarityThr
 			chosenLabel = fmt.Sprintf("Person #%d", idx+1)
 		}
 
-		for _, faceIdx := range g.indices {
+		for _, faceIdx := range c.faceIndices {
 			f := faces[faceIdx]
 			_ = s.repo.UpdateFaceCluster(ctx, f.ID, chosenLabel, linkedCharID)
 		}
