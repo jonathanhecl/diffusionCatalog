@@ -180,9 +180,14 @@ func (s *CatalogService) Query(ctx context.Context, filter domain.CatalogFilter)
 				}
 			}
 			queryVec, err := s.ollama.EmbedText(ctx, prov, baseURL, apiKey, settings.EmbeddingModel, filter.Query)
-			if err == nil && len(queryVec) > 0 {
-				if similarIDs, err := s.repo.FindSimilarAssetIDs(ctx, queryVec, settings.EmbeddingModel, 0.18, 50); err == nil && len(similarIDs) > 0 {
+			if err != nil {
+				log.Printf("[CATALOG] Embedding query error for %q: %v", filter.Query, err)
+			} else if len(queryVec) > 0 {
+				if similarIDs, err := s.repo.FindSimilarAssetIDs(ctx, queryVec, settings.EmbeddingModel, 0.20, 50); err == nil && len(similarIDs) > 0 {
 					filter.EmbeddingAssetIDs = similarIDs
+					log.Printf("[CATALOG] Semantic search for %q with %s matched %d asset(s)", filter.Query, settings.EmbeddingModel, len(similarIDs))
+				} else if err != nil {
+					log.Printf("[CATALOG] FindSimilarAssetIDs error for %q: %v", filter.Query, err)
 				}
 			}
 		}

@@ -99,4 +99,19 @@ func TestAssetEmbeddingPersistenceAndSimilarity(t *testing.T) {
 	if !hasGemma {
 		t.Errorf("expected embeddinggemma-2 to be kept")
 	}
+
+	// Verify QueryCatalog ranks by EmbeddingAssetIDs order when no explicit sort is chosen
+	page, err := repo.QueryCatalog(ctx, domain.CatalogFilter{
+		Query:             "test",
+		EmbeddingAssetIDs: []int64{asset2ID, asset1ID},
+	})
+	if err != nil {
+		t.Fatalf("QueryCatalog failed: %v", err)
+	}
+	if len(page.Assets) != 2 {
+		t.Fatalf("expected 2 assets, got %d", len(page.Assets))
+	}
+	if page.Assets[0].ID != asset2ID || page.Assets[1].ID != asset1ID {
+		t.Errorf("expected assets in order [%d, %d], got [%d, %d]", asset2ID, asset1ID, page.Assets[0].ID, page.Assets[1].ID)
+	}
 }

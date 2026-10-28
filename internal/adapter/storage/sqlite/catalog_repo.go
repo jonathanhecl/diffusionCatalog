@@ -534,6 +534,14 @@ func buildCatalogFilterWhereAndOrder(filter domain.CatalogFilter) (whereClause s
 		orderBy = "a.view_count DESC, a.id DESC"
 	case "seed":
 		orderBy = "a.seed ASC, a.id DESC"
+	default:
+		if len(filter.EmbeddingAssetIDs) > 0 {
+			var caseClauses []string
+			for idx, id := range filter.EmbeddingAssetIDs {
+				caseClauses = append(caseClauses, fmt.Sprintf("WHEN %d THEN %d", id, idx+1))
+			}
+			orderBy = fmt.Sprintf("(CASE a.id %s ELSE 999999 END) ASC, COALESCE(a.file_mtime, a.indexed_at) DESC, a.id DESC", strings.Join(caseClauses, " "))
+		}
 	}
 
 	return whereClause, args, orderBy
@@ -2095,13 +2103,25 @@ func (r *Repository) FindSimilarAssetIDs(ctx context.Context, queryVec []float32
 		return scored[i].score > scored[j].score
 	})
 
-	if len(scored) > limit {
-		scored = scored[:limit]
+	if len(scored) == 0 {
+		return nil, nil
 	}
 
-	res := make([]int64, len(scored))
-	for i, s := range scored {
-		res[i] = s.id
+	topScore := scored[0].score
+	cutoff := minScore
+	if rel := topScore - 0.08; rel > cutoff {
+		cutoff = rel
+	}
+
+	var res []int64
+	for _, s := range scored {
+		if s.score < cutoff {
+			break
+		}
+		res = append(res, s.id)
+		if len(res) >= limit {
+			break
+		}
 	}
 	return res, nil
 }

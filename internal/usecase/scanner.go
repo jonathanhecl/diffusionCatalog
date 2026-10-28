@@ -587,6 +587,7 @@ func (s *ScannerService) processAssetEmbedding(ctx context.Context, assetID int6
 	}
 	if len(vec) > 0 {
 		_ = s.repo.SaveAssetEmbedding(ctx, assetID, activeModel, vec)
+		log.Printf("[SCAN] Generated embedding for asset %d (%s) with model %s", assetID, filepath.Base(absPath), activeModel)
 	}
 }
 
