@@ -10347,6 +10347,11 @@
             }
           }
 
+          var getMName = function(m) { return m.name || m.Name || ''; };
+          var getMSize = function(m) { return m.parameter_size || m.ParameterSize || ''; };
+          var getMVision = function(m) { return (m.has_vision !== undefined) ? m.has_vision : !!m.HasVision; };
+          var getMCtx = function(m) { return m.context_length || m.ContextLength || 0; };
+
           // Populate Ollama Default Model dropdown in Settings
           var ollamaSel = document.getElementById('ollamaDefaultModelSelect');
           if (ollamaSel && st.ollama_models && st.ollama_models.length > 0) {
@@ -10357,25 +10362,31 @@
             } else {
               html += '<option value="">Select Default Vision Model...</option>';
             }
-            var visModels = st.ollama_models.filter(function(m) { return m.HasVision; });
-            var otherModels = st.ollama_models.filter(function(m) { return !m.HasVision; });
+            var visModels = st.ollama_models.filter(function(m) { return getMVision(m); });
+            var otherModels = st.ollama_models.filter(function(m) { return !getMVision(m); });
             if (visModels.length > 0) {
               html += '<optgroup label="Detected Vision Models">';
               visModels.forEach(function(m) {
-                var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
-                var ctx = m.ContextLength ? ' [ctx:' + m.ContextLength + ']' : '';
-                var sel = (m.Name === curVal) ? ' selected' : '';
-                html += '<option value="' + m.Name + '"' + sel + '>' + m.Name + sz + ' [vision 👁️]' + ctx + '</option>';
+                var mName = getMName(m);
+                var mSz = getMSize(m);
+                var mCtx = getMCtx(m);
+                var sz = mSz ? ' (' + mSz + ')' : '';
+                var ctx = mCtx ? ' [ctx:' + mCtx + ']' : '';
+                var sel = (mName === curVal) ? ' selected' : '';
+                html += '<option value="' + mName + '"' + sel + '>' + mName + sz + ' [vision 👁️]' + ctx + '</option>';
               });
               html += '</optgroup>';
             }
             if (otherModels.length > 0) {
               html += '<optgroup label="All Discovered Models">';
               otherModels.forEach(function(m) {
-                var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
-                var ctx = m.ContextLength ? ' [ctx:' + m.ContextLength + ']' : '';
-                var sel = (m.Name === curVal) ? ' selected' : '';
-                html += '<option value="' + m.Name + '"' + sel + '>' + m.Name + sz + ctx + '</option>';
+                var mName = getMName(m);
+                var mSz = getMSize(m);
+                var mCtx = getMCtx(m);
+                var sz = mSz ? ' (' + mSz + ')' : '';
+                var ctx = mCtx ? ' [ctx:' + mCtx + ']' : '';
+                var sel = (mName === curVal) ? ' selected' : '';
+                html += '<option value="' + mName + '"' + sel + '>' + mName + sz + ctx + '</option>';
               });
               html += '</optgroup>';
             }
@@ -10392,25 +10403,31 @@
             } else {
               html += '<option value="">Select Default Vision Model...</option>';
             }
-            var visModels = st.omlx_models.filter(function(m) { return m.HasVision; });
-            var otherModels = st.omlx_models.filter(function(m) { return !m.HasVision; });
+            var visModels = st.omlx_models.filter(function(m) { return getMVision(m); });
+            var otherModels = st.omlx_models.filter(function(m) { return !getMVision(m); });
             if (visModels.length > 0) {
               html += '<optgroup label="Detected Vision Models">';
               visModels.forEach(function(m) {
-                var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
-                var ctx = m.ContextLength ? ' [ctx:' + m.ContextLength + ']' : '';
-                var sel = (m.Name === curVal) ? ' selected' : '';
-                html += '<option value="' + m.Name + '"' + sel + '>' + m.Name + sz + ' [vision 👁️]' + ctx + '</option>';
+                var mName = getMName(m);
+                var mSz = getMSize(m);
+                var mCtx = getMCtx(m);
+                var sz = mSz ? ' (' + mSz + ')' : '';
+                var ctx = mCtx ? ' [ctx:' + mCtx + ']' : '';
+                var sel = (mName === curVal) ? ' selected' : '';
+                html += '<option value="' + mName + '"' + sel + '>' + mName + sz + ' [vision 👁️]' + ctx + '</option>';
               });
               html += '</optgroup>';
             }
             if (otherModels.length > 0) {
               html += '<optgroup label="All Discovered Models">';
               otherModels.forEach(function(m) {
-                var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
-                var ctx = m.ContextLength ? ' [ctx:' + m.ContextLength + ']' : '';
-                var sel = (m.Name === curVal) ? ' selected' : '';
-                html += '<option value="' + m.Name + '"' + sel + '>' + m.Name + sz + ctx + '</option>';
+                var mName = getMName(m);
+                var mSz = getMSize(m);
+                var mCtx = getMCtx(m);
+                var sz = mSz ? ' (' + mSz + ')' : '';
+                var ctx = mCtx ? ' [ctx:' + mCtx + ']' : '';
+                var sel = (mName === curVal) ? ' selected' : '';
+                html += '<option value="' + mName + '"' + sel + '>' + mName + sz + ctx + '</option>';
               });
               html += '</optgroup>';
             }
@@ -10426,20 +10443,26 @@
             if (grpOllama && st.ollama_models && st.ollama_models.length > 0) {
               var h = '';
               st.ollama_models.forEach(function(m) {
-                var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
-                var vis = m.HasVision ? ' [vision 👁️]' : '';
-                var sel = (m.Name === curEmbVal) ? ' selected' : '';
-                h += '<option value="' + m.Name + '" data-provider="ollama"' + sel + '>' + m.Name + sz + vis + '</option>';
+                var mName = getMName(m);
+                if (!mName) return;
+                var mSz = getMSize(m);
+                var sz = mSz ? ' (' + mSz + ')' : '';
+                var vis = getMVision(m) ? ' [vision 👁️]' : '';
+                var sel = (mName === curEmbVal) ? ' selected' : '';
+                h += '<option value="' + mName + '" data-provider="ollama"' + sel + '>' + mName + sz + vis + '</option>';
               });
               grpOllama.innerHTML = h;
             }
             if (grpOpenAI && st.omlx_models && st.omlx_models.length > 0) {
               var h = '';
               st.omlx_models.forEach(function(m) {
-                var sz = m.ParameterSize ? ' (' + m.ParameterSize + ')' : '';
-                var vis = m.HasVision ? ' [vision 👁️]' : '';
-                var sel = (m.Name === curEmbVal) ? ' selected' : '';
-                h += '<option value="' + m.Name + '" data-provider="openai"' + sel + '>' + m.Name + sz + vis + '</option>';
+                var mName = getMName(m);
+                if (!mName) return;
+                var mSz = getMSize(m);
+                var sz = mSz ? ' (' + mSz + ')' : '';
+                var vis = getMVision(m) ? ' [vision 👁️]' : '';
+                var sel = (mName === curEmbVal) ? ' selected' : '';
+                h += '<option value="' + mName + '" data-provider="openai"' + sel + '>' + mName + sz + vis + '</option>';
               });
               grpOpenAI.innerHTML = h;
             }
