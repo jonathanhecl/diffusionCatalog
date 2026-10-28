@@ -9412,18 +9412,22 @@
                           <option value="embeddinggemma-2" {{if or (eq .Settings.EmbeddingModel "embeddinggemma-2") (eq .Settings.EmbeddingModel "")}}selected{{end}} data-provider="ollama">
                             embeddinggemma-2 (recommended Ollama)
                           </option>
-                          <optgroup label="Discovered Ollama Models" id="embOptgroupOllama">
+                          <optgroup label="Discovered Ollama Vision Embedding Models" id="embOptgroupOllama">
                             {{range .AIStatus.OllamaModels}}
-                              <option value="{{.Name}}" data-provider="ollama" {{if eq $.Settings.EmbeddingModel .Name}}selected{{end}}>
-                                {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .HasVision}}[vision 👁️]{{end}}
-                              </option>
+                              {{if .IsEmbeddingVision}}
+                                <option value="{{.Name}}" data-provider="ollama" {{if eq $.Settings.EmbeddingModel .Name}}selected{{end}}>
+                                  {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️] [embedding]
+                                </option>
+                              {{end}}
                             {{end}}
                           </optgroup>
-                          <optgroup label="Discovered OpenAI / oMLX Models" id="embOptgroupOpenAI">
+                          <optgroup label="Discovered OpenAI / oMLX Vision Embedding Models" id="embOptgroupOpenAI">
                             {{range .AIStatus.OMLXModels}}
-                              <option value="{{.Name}}" data-provider="openai" {{if eq $.Settings.EmbeddingModel .Name}}selected{{end}}>
-                                {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} {{if .HasVision}}[vision 👁️]{{end}}
-                              </option>
+                              {{if .IsEmbeddingVision}}
+                                <option value="{{.Name}}" data-provider="openai" {{if eq $.Settings.EmbeddingModel .Name}}selected{{end}}>
+                                  {{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}} [vision 👁️] [embedding]
+                                </option>
+                              {{end}}
                             {{end}}
                           </optgroup>
                         </select>
@@ -10472,35 +10476,54 @@
             openaiSel.innerHTML = html;
           }
 
-          // Populate Embedding Model dropdown in Settings
+          // Populate Embedding Model dropdown in Settings - strictly Vision + Embedding models ONLY
           var embModSel = document.getElementById('embeddingModelSelect');
           if (embModSel) {
             var curEmbVal = embModSel.value;
+            var isEmbVis = function(m) {
+              var vis = (m.has_vision !== undefined) ? m.has_vision : !!m.HasVision;
+              var emb = (m.has_embedding !== undefined) ? m.has_embedding : !!m.HasEmbedding;
+              var caps = (m.capabilities || m.Capabilities || []).map(function(c) { return String(c).toLowerCase(); });
+              if (caps.indexOf('vision') !== -1) vis = true;
+              if (caps.indexOf('embedding') !== -1) emb = true;
+              var nm = (m.name || m.Name || '').toLowerCase();
+              var fam = (m.family || m.Family || '').toLowerCase();
+              if (nm.indexOf('embed') !== -1 || fam.indexOf('embed') !== -1 ||
+                  nm.indexOf('clip') !== -1 || fam.indexOf('clip') !== -1 ||
+                  nm.indexOf('siglip') !== -1 || fam.indexOf('siglip') !== -1) {
+                emb = true;
+              }
+              if (nm.indexOf('vision') !== -1 || nm.indexOf('-vl') !== -1 || nm.indexOf('_vl') !== -1) {
+                vis = true;
+              }
+              return vis && emb;
+            };
+
             var grpOllama = document.getElementById('embOptgroupOllama');
             var grpOpenAI = document.getElementById('embOptgroupOpenAI');
-            if (grpOllama && st.ollama_models && st.ollama_models.length > 0) {
+            if (grpOllama && st.ollama_models) {
+              var visEmbOllama = st.ollama_models.filter(function(m) { return isEmbVis(m); });
               var h = '';
-              st.ollama_models.forEach(function(m) {
+              visEmbOllama.forEach(function(m) {
                 var mName = getMName(m);
                 if (!mName) return;
                 var mSz = getMSize(m);
                 var sz = mSz ? ' (' + mSz + ')' : '';
-                var vis = getMVision(m) ? ' [vision 👁️]' : '';
                 var sel = (mName === curEmbVal) ? ' selected' : '';
-                h += '<option value="' + mName + '" data-provider="ollama"' + sel + '>' + mName + sz + vis + '</option>';
+                h += '<option value="' + mName + '" data-provider="ollama"' + sel + '>' + mName + sz + ' [vision 👁️] [embedding]</option>';
               });
               grpOllama.innerHTML = h;
             }
-            if (grpOpenAI && st.omlx_models && st.omlx_models.length > 0) {
+            if (grpOpenAI && st.omlx_models) {
+              var visEmbOpenAI = st.omlx_models.filter(function(m) { return isEmbVis(m); });
               var h = '';
-              st.omlx_models.forEach(function(m) {
+              visEmbOpenAI.forEach(function(m) {
                 var mName = getMName(m);
                 if (!mName) return;
                 var mSz = getMSize(m);
                 var sz = mSz ? ' (' + mSz + ')' : '';
-                var vis = getMVision(m) ? ' [vision 👁️]' : '';
                 var sel = (mName === curEmbVal) ? ' selected' : '';
-                h += '<option value="' + mName + '" data-provider="openai"' + sel + '>' + mName + sz + vis + '</option>';
+                h += '<option value="' + mName + '" data-provider="openai"' + sel + '>' + mName + sz + ' [vision 👁️] [embedding]</option>';
               });
               grpOpenAI.innerHTML = h;
             }

@@ -39,12 +39,13 @@ type versionResponse struct {
 
 type tagsResponse struct {
 	Models []struct {
-		Name    string `json:"name"`
-		Details struct {
+		Name         string       `json:"name"`
+		Details      struct {
 			Family        string   `json:"family"`
 			Families      []string `json:"families"`
 			ParameterSize string   `json:"parameter_size"`
 		} `json:"details"`
+		Capabilities []string     `json:"capabilities"`
 	} `json:"models"`
 }
 
@@ -196,14 +197,31 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 		hasVis := inferVisionFromName(m.Name)
 		hasThink := inferThinkingFromName(m.Name)
 		hasTools := inferToolsFromName(m.Name)
+		hasEmb := inferEmbeddingFromName(m.Name)
 		visStatus := "none"
 		for _, fam := range m.Details.Families {
 			fl := strings.ToLower(fam)
 			if fl == "clip" || fl == "mllama" || strings.Contains(fl, "vl") || strings.Contains(fl, "vision") {
 				hasVis = true
 			}
+			if strings.Contains(fl, "embed") || fl == "clip" || fl == "siglip" {
+				hasEmb = true
+			}
 		}
-		if hasVis {
+		for _, capName := range m.Capabilities {
+			switch strings.ToLower(capName) {
+			case "vision":
+				hasVis = true
+				visStatus = "confirmed"
+			case "embedding":
+				hasEmb = true
+			case "thinking":
+				hasThink = true
+			case "tools":
+				hasTools = true
+			}
+		}
+		if hasVis && visStatus == "none" {
 			visStatus = "inferred"
 		}
 		out[i] = domain.OllamaModelInfo{
@@ -211,11 +229,12 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 			Name:          m.Name,
 			ParameterSize: m.Details.ParameterSize,
 			Family:        m.Details.Family,
-			Capabilities:  buildCapabilitySlice(true, hasVis, hasThink, hasTools, nil),
+			Capabilities:  buildCapabilitySlice(true, hasVis, hasThink, hasTools, hasEmb, m.Capabilities),
 			HasVision:     hasVis,
 			VisionStatus:  visStatus,
 			HasThinking:   hasThink,
 			HasTools:      hasTools,
+			HasEmbedding:  hasEmb,
 		}
 	}
 
@@ -241,6 +260,8 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 					case "vision":
 						out[idx].HasVision = true
 						out[idx].VisionStatus = "confirmed"
+					case "embedding":
+						out[idx].HasEmbedding = true
 					case "thinking":
 						out[idx].HasThinking = true
 					case "tools":
@@ -265,8 +286,11 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 							out[idx].ContextLength = int(f)
 						}
 					}
+					if strings.Contains(k, "embedding_length") {
+						out[idx].HasEmbedding = true
+					}
 				}
-				out[idx].Capabilities = buildCapabilitySlice(true, out[idx].HasVision, out[idx].HasThinking, out[idx].HasTools, show.Capabilities)
+				out[idx].Capabilities = buildCapabilitySlice(true, out[idx].HasVision, out[idx].HasThinking, out[idx].HasTools, out[idx].HasEmbedding, show.Capabilities)
 			}
 		}(i)
 	}
@@ -336,6 +360,7 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 
 		hasThink := m.Thinking || m.SupportsThinking || inferThinkingFromName(m.ID)
 		hasTools := m.Tools || m.SupportsTools || inferToolsFromName(m.ID)
+		hasEmb := inferEmbeddingFromName(m.ID)
 
 		for _, mod := range append(m.Modalities, m.InputModalities...) {
 			ml := strings.ToLower(mod)
@@ -343,12 +368,17 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 				hasVis = true
 				visStatus = "confirmed"
 			}
+			if strings.Contains(ml, "embed") {
+				hasEmb = true
+			}
 		}
 		for _, capName := range m.Capabilities {
 			switch strings.ToLower(capName) {
 			case "vision", "image":
 				hasVis = true
 				visStatus = "confirmed"
+			case "embedding":
+				hasEmb = true
 			case "thinking", "reasoning":
 				hasThink = true
 			case "tools", "function_calling":
@@ -356,7 +386,7 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 			}
 		}
 
-		caps := buildCapabilitySlice(true, hasVis, hasThink, hasTools, m.Capabilities)
+		caps := buildCapabilitySlice(true, hasVis, hasThink, hasTools, hasEmb, m.Capabilities)
 
 		out = append(out, domain.OllamaModelInfo{
 			Provider:      domain.ProviderOpenAI,
@@ -368,6 +398,7 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 			VisionStatus:  visStatus,
 			HasThinking:   hasThink,
 			HasTools:      hasTools,
+			HasEmbedding:  hasEmb,
 			ContextLength: ctxLen,
 		})
 	}
@@ -987,6 +1018,18 @@ func inferToolsFromName(modelID string) bool {
 	return false
 }
 
+func inferEmbeddingFromName(modelID string) bool {
+	lower := strings.ToLower(modelID)
+	for _, kw := range []string{
+		"embed", "embedding", "clip", "siglip", "bge-visual",
+	} {
+		if strings.Contains(lower, kw) {
+			return true
+		}
+	}
+	return false
+}
+
 func inferParameterSizeFromName(modelID string) string {
 	parts := strings.FieldsFunc(modelID, func(r rune) bool {
 		return r == '-' || r == '_' || r == ':'
@@ -1000,7 +1043,7 @@ func inferParameterSizeFromName(modelID string) string {
 	return ""
 }
 
-func buildCapabilitySlice(completion, vision, thinking, tools bool, existing []string) []string {
+func buildCapabilitySlice(completion, vision, thinking, tools, embedding bool, existing []string) []string {
 	seen := make(map[string]bool)
 	var out []string
 	add := func(c string) {
@@ -1024,6 +1067,9 @@ func buildCapabilitySlice(completion, vision, thinking, tools bool, existing []s
 	}
 	if tools {
 		add("tools")
+	}
+	if embedding {
+		add("embedding")
 	}
 	return out
 }

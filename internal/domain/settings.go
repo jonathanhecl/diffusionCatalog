@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // AIProviderType identifies which inference server handles a task ("ollama" or "openai" / "omlx").
 type AIProviderType string
@@ -152,7 +155,34 @@ type OllamaModelInfo struct {
 	VisionStatus  string         `json:"vision_status"` // "confirmed", "inferred", or "none"
 	HasThinking   bool           `json:"has_thinking"`
 	HasTools      bool           `json:"has_tools"`
+	HasEmbedding  bool           `json:"has_embedding"`
 	ContextLength int            `json:"context_length"`
+}
+
+// IsEmbeddingVision returns true if the model supports both embedding and vision.
+func (m OllamaModelInfo) IsEmbeddingVision() bool {
+	hasVis := m.HasVision
+	hasEmb := m.HasEmbedding
+	for _, c := range m.Capabilities {
+		cl := strings.ToLower(c)
+		if cl == "vision" {
+			hasVis = true
+		}
+		if cl == "embedding" {
+			hasEmb = true
+		}
+	}
+	nameLower := strings.ToLower(m.Name)
+	famLower := strings.ToLower(m.Family)
+	if strings.Contains(nameLower, "embed") || strings.Contains(famLower, "embed") ||
+		strings.Contains(nameLower, "clip") || strings.Contains(famLower, "clip") ||
+		strings.Contains(nameLower, "siglip") || strings.Contains(famLower, "siglip") {
+		hasEmb = true
+	}
+	if strings.Contains(nameLower, "vision") || strings.Contains(nameLower, "-vl") || strings.Contains(nameLower, "_vl") {
+		hasVis = true
+	}
+	return hasVis && hasEmb
 }
 
 // PromptExecutionOverride allows overriding the default Settings AI backend/model and thinking level
