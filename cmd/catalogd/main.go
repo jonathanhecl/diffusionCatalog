@@ -57,12 +57,10 @@ func main() {
 	scannerService := usecase.NewScannerService(cfg.MediaDir, cfg.CacheDir, repo, extractor, visionEngine)
 	scannerService.SetOllamaProvider(ollamaClient)
 
-	// Warm up AI backend status cache in background on startup
-	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		_ = catalogService.InspectAIBackendsFresh(bgCtx)
-	}()
+	// Warm up AI backend status cache on startup so the very first request immediately sees online backends
+	warmCtx, warmCancel := context.WithTimeout(ctx, 2*time.Second)
+	_ = catalogService.InspectAIBackendsFresh(warmCtx)
+	warmCancel()
 
 	authService, err := usecase.NewAuthService(ctx, repo, cfg.AdminUser, cfg.AdminPass)
 	if err != nil {

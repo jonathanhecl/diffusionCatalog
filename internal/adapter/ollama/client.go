@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,9 +27,24 @@ type Client struct {
 
 // NewClient constructs a dual Ollama / oMLX REST API adapter.
 func NewClient() *Client {
+	dialer := &net.Dialer{
+		Timeout:   5 * time.Second,
+		KeepAlive: 30 * time.Second,
+		Resolver:  &net.Resolver{PreferGo: true},
+	}
+	transport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           dialer.DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
 	return &Client{
 		httpClient: &http.Client{
-			Timeout: 90 * time.Second,
+			Transport: transport,
+			Timeout:   90 * time.Second,
 		},
 	}
 }
@@ -143,7 +159,7 @@ type openAIChatResponse struct {
 // CheckStatus queries GET /api/version to determine if Ollama is online and its version string.
 func (c *Client) CheckStatus(ctx context.Context, baseURL string) (string, bool) {
 	baseURL = NormalizeOllamaURL(baseURL)
-	shortCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	shortCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(shortCtx, http.MethodGet, baseURL+"/api/version", nil)
@@ -314,7 +330,7 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 	if baseURL == "" {
 		return nil, fmt.Errorf("empty oMLX URL")
 	}
-	shortCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	shortCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(shortCtx, http.MethodGet, baseURL+"/v1/models", nil)
