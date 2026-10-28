@@ -35,10 +35,16 @@ func (m *embeddingMockOllama) ListOMLXModels(ctx context.Context, baseURL, apiKe
 func (m *embeddingMockOllama) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error) {
 	return "", nil
 }
+func (m *embeddingMockOllama) ImagesToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userHint, thinkLevel string) (string, error) {
+	return "", nil
+}
 func (m *embeddingMockOllama) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
 	return "", nil
 }
 func (m *embeddingMockOllama) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
+	return "", nil
+}
+func (m *embeddingMockOllama) AnalyzeImages(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userPrompt, thinkLevel string) (string, error) {
 	return "", nil
 }
 

@@ -1594,13 +1594,18 @@ func (r *Repository) CreateCharacter(ctx context.Context, c *domain.Character) (
 	if len(lorasJSON) == 0 {
 		lorasJSON = []byte("[]")
 	}
+	refImagesJSON, _ := json.Marshal(c.ReferenceImages)
+	if len(refImagesJSON) == 0 {
+		refImagesJSON = []byte("[]")
+	}
 
 	var id int64
 	err := db.QueryRowContext(ctx, `
 		INSERT INTO characters (
 			name, slug, archetype, description, trigger_words,
-			base_positive_prompt, base_negative_prompt, recommended_checkpoint, loras_json, avatar_asset_id
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			base_positive_prompt, base_negative_prompt, recommended_checkpoint, loras_json, avatar_asset_id,
+			reference_images_json
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(name) DO UPDATE SET
 			archetype = excluded.archetype,
 			description = excluded.description,
@@ -1609,10 +1614,12 @@ func (r *Repository) CreateCharacter(ctx context.Context, c *domain.Character) (
 			base_negative_prompt = excluded.base_negative_prompt,
 			recommended_checkpoint = excluded.recommended_checkpoint,
 			loras_json = excluded.loras_json,
-			avatar_asset_id = COALESCE(excluded.avatar_asset_id, characters.avatar_asset_id)
+			avatar_asset_id = COALESCE(excluded.avatar_asset_id, characters.avatar_asset_id),
+			reference_images_json = excluded.reference_images_json
 		RETURNING id`,
 		c.Name, slug, c.Archetype, c.Description, c.TriggerWords,
 		c.BasePositivePrompt, c.BaseNegativePrompt, c.RecommendedCheckpoint, string(lorasJSON), c.AvatarAssetID,
+		string(refImagesJSON),
 	).Scan(&id)
 	if err != nil {
 		return 0, err
@@ -1622,25 +1629,60 @@ func (r *Repository) CreateCharacter(ctx context.Context, c *domain.Character) (
 	return id, nil
 }
 
+// UpdateCharacter updates an existing character sheet details and reference images.
+func (r *Repository) UpdateCharacter(ctx context.Context, c *domain.Character) error {
+	db := r.conn()
+	slug := c.Slug
+	if slug == "" {
+		slug = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(c.Name), " ", "-"))
+	}
+	refImagesJSON, err := json.Marshal(c.ReferenceImages)
+	if err != nil || len(refImagesJSON) == 0 {
+		refImagesJSON = []byte("[]")
+	}
+
+	_, err = db.ExecContext(ctx, `
+		UPDATE characters SET
+			name = ?,
+			slug = ?,
+			description = ?,
+			reference_images_json = ?
+		WHERE id = ?`,
+		c.Name, slug, c.Description, string(refImagesJSON), c.ID,
+	)
+	return err
+}
+
+// DeleteCharacter removes a character sheet by ID and cascades references.
+func (r *Repository) DeleteCharacter(ctx context.Context, id int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM characters WHERE id = ?`, id)
+	return err
+}
+
 // GetCharacterByID returns a character profile along with its linked example assets.
 func (r *Repository) GetCharacterByID(ctx context.Context, id int64) (*domain.Character, error) {
 	db := r.conn()
 	var c domain.Character
 	var lorasStr string
+	var refImagesStr string
 	var avatarID sql.NullInt64
 
 	err := db.QueryRowContext(ctx, `
 		SELECT id, name, slug, archetype, description, trigger_words,
-		       base_positive_prompt, base_negative_prompt, recommended_checkpoint, loras_json, avatar_asset_id, created_at
+		       base_positive_prompt, base_negative_prompt, recommended_checkpoint, loras_json, avatar_asset_id,
+		       reference_images_json, created_at
 		FROM characters WHERE id = ?`, id,
 	).Scan(
 		&c.ID, &c.Name, &c.Slug, &c.Archetype, &c.Description, &c.TriggerWords,
-		&c.BasePositivePrompt, &c.BaseNegativePrompt, &c.RecommendedCheckpoint, &lorasStr, &avatarID, &c.CreatedAt,
+		&c.BasePositivePrompt, &c.BaseNegativePrompt, &c.RecommendedCheckpoint, &lorasStr, &avatarID,
+		&refImagesStr, &c.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	_ = json.Unmarshal([]byte(lorasStr), &c.LoRAs)
+	_ = json.Unmarshal([]byte(refImagesStr), &c.ReferenceImages)
 	if avatarID.Valid {
 		v := avatarID.Int64
 		c.AvatarAssetID = &v
@@ -1668,13 +1710,13 @@ func (r *Repository) DetachAssetFromCharacter(ctx context.Context, characterID, 
 	return err
 }
 
-// ListCharacters returns all character profiles with their example counts.
+// ListCharacters returns all character profiles with their example counts and reference images.
 func (r *Repository) ListCharacters(ctx context.Context) ([]domain.Character, error) {
 	db := r.conn()
 	rows, err := db.QueryContext(ctx, `
 		SELECT c.id, c.name, c.slug, c.archetype, c.description, c.trigger_words,
 		       c.base_positive_prompt, c.base_negative_prompt, c.recommended_checkpoint, c.loras_json,
-		       c.avatar_asset_id, c.created_at, COUNT(ce.asset_id)
+		       c.avatar_asset_id, COALESCE(c.reference_images_json, '[]'), c.created_at, COUNT(ce.asset_id)
 		FROM characters c
 		LEFT JOIN character_examples ce ON ce.character_id = c.id
 		GROUP BY c.id
@@ -1688,15 +1730,17 @@ func (r *Repository) ListCharacters(ctx context.Context) ([]domain.Character, er
 	for rows.Next() {
 		var c domain.Character
 		var lorasStr string
+		var refImagesStr string
 		var avatarID sql.NullInt64
 		if err := rows.Scan(
 			&c.ID, &c.Name, &c.Slug, &c.Archetype, &c.Description, &c.TriggerWords,
 			&c.BasePositivePrompt, &c.BaseNegativePrompt, &c.RecommendedCheckpoint, &lorasStr,
-			&avatarID, &c.CreatedAt, &c.ExampleCount,
+			&avatarID, &refImagesStr, &c.CreatedAt, &c.ExampleCount,
 		); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal([]byte(lorasStr), &c.LoRAs)
+		_ = json.Unmarshal([]byte(refImagesStr), &c.ReferenceImages)
 		if avatarID.Valid {
 			v := avatarID.Int64
 			c.AvatarAssetID = &v

@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -320,6 +321,11 @@ func NewServer(
 		return nil, err
 	}
 
+	if catalog != nil {
+		catalog.SetCacheDir(cacheDir)
+	}
+	_ = os.MkdirAll(filepath.Join(cacheDir, "characters"), 0755)
+
 	return &Server{
 		mediaDir:         mediaDir,
 		cacheDir:         cacheDir,
@@ -365,6 +371,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/groups/attach", s.handleAttachGroup)
 	mux.HandleFunc("POST /admin/groups/detach", s.handleDetachGroup)
 	mux.HandleFunc("POST /admin/characters/create", s.handleCreateCharacter)
+	mux.HandleFunc("POST /admin/characters/update", s.handleUpdateCharacter)
+	mux.HandleFunc("POST /admin/characters/delete", s.handleDeleteCharacter)
 	mux.HandleFunc("POST /admin/characters/attach", s.handleAttachCharacter)
 	mux.HandleFunc("POST /admin/characters/detach", s.handleDetachCharacter)
 
@@ -1630,21 +1638,169 @@ func (s *Server) handleDetachGroup(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/?asset_id="+strconv.FormatInt(assetID, 10)+"&notice=Removed+from+collection", http.StatusSeeOther)
 }
 
+func (s *Server) saveCharacterImage(rawData string, fileBytes []byte, filenameHint string) (string, error) {
+	charsDir := filepath.Join(s.cacheDir, "characters")
+	if err := os.MkdirAll(charsDir, 0755); err != nil {
+		return "", err
+	}
+
+	var data []byte
+	ext := ".png"
+
+	if len(fileBytes) > 0 {
+		data = fileBytes
+		lower := strings.ToLower(filenameHint)
+		if strings.HasSuffix(lower, ".jpg") || strings.HasSuffix(lower, ".jpeg") {
+			ext = ".jpg"
+		} else if strings.HasSuffix(lower, ".webp") {
+			ext = ".webp"
+		}
+	} else if strings.TrimSpace(rawData) != "" {
+		trimmed := strings.TrimSpace(rawData)
+		if strings.HasPrefix(trimmed, "data:image/") {
+			idx := strings.Index(trimmed, ";base64,")
+			if idx != -1 {
+				mime := trimmed[len("data:image/"):idx]
+				if mime == "jpeg" || mime == "jpg" {
+					ext = ".jpg"
+				} else if mime == "webp" {
+					ext = ".webp"
+				}
+				b64 := trimmed[idx+len(";base64,"):]
+				decoded, err := base64.StdEncoding.DecodeString(b64)
+				if err != nil {
+					return "", err
+				}
+				data = decoded
+			}
+		} else {
+			decoded, err := base64.StdEncoding.DecodeString(trimmed)
+			if err != nil {
+				return "", err
+			}
+			data = decoded
+		}
+	}
+
+	if len(data) == 0 {
+		return "", nil
+	}
+
+	fn := fmt.Sprintf("ref_%d_%d%s", time.Now().UnixNano(), os.Getpid(), ext)
+	diskPath := filepath.Join(charsDir, fn)
+	if err := os.WriteFile(diskPath, data, 0644); err != nil {
+		return "", err
+	}
+	return "/cache/characters/" + fn, nil
+}
+
 func (s *Server) handleCreateCharacter(w http.ResponseWriter, r *http.Request) {
-	_ = r.ParseForm()
+	_ = r.ParseMultipartForm(32 << 20)
+	name := strings.TrimSpace(r.FormValue("name"))
+	desc := strings.TrimSpace(r.FormValue("description"))
+	if name == "" {
+		http.Redirect(w, r, "/?tab=characters&error=Name+is+required", http.StatusSeeOther)
+		return
+	}
+
+	var refImages []string
+	for i := 0; i < 4; i++ {
+		slotKey := fmt.Sprintf("ref_image_data_%d", i)
+		dataURL := r.FormValue(slotKey)
+		var fileBytes []byte
+		var filenameHint string
+		if r.MultipartForm != nil {
+			fileKey := fmt.Sprintf("ref_file_%d", i)
+			if file, hdr, err := r.FormFile(fileKey); err == nil && file != nil {
+				fileBytes, _ = io.ReadAll(file)
+				filenameHint = hdr.Filename
+				_ = file.Close()
+			}
+		}
+		if dataURL != "" || len(fileBytes) > 0 {
+			if savedPath, err := s.saveCharacterImage(dataURL, fileBytes, filenameHint); err == nil && savedPath != "" {
+				refImages = append(refImages, savedPath)
+			}
+		}
+	}
+
 	c := &domain.Character{
-		Name:                  r.FormValue("name"),
-		Archetype:             r.FormValue("archetype"),
-		Description:           r.FormValue("description"),
-		TriggerWords:          r.FormValue("trigger_words"),
-		BasePositivePrompt:    r.FormValue("base_positive_prompt"),
-		BaseNegativePrompt:    r.FormValue("base_negative_prompt"),
-		RecommendedCheckpoint: r.FormValue("recommended_checkpoint"),
+		Name:            name,
+		Description:     desc,
+		ReferenceImages: refImages,
 	}
-	if c.Name != "" {
-		_, _ = s.catalog.CreateCharacter(r.Context(), c, 0)
+	_, _ = s.catalog.CreateCharacter(r.Context(), c, 0)
+	http.Redirect(w, r, "/?tab=characters&notice=Character+created+successfully", http.StatusSeeOther)
+}
+
+func (s *Server) handleUpdateCharacter(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseMultipartForm(32 << 20)
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if id <= 0 {
+		http.Redirect(w, r, "/?tab=characters&error=Invalid+character+ID", http.StatusSeeOther)
+		return
 	}
-	http.Redirect(w, r, "/?tab=characters", http.StatusSeeOther)
+
+	ch, err := s.catalog.GetCharacter(r.Context(), id)
+	if err != nil || ch == nil {
+		http.Redirect(w, r, "/?tab=characters&error=Character+not+found", http.StatusSeeOther)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	desc := strings.TrimSpace(r.FormValue("description"))
+	if name != "" {
+		ch.Name = name
+	}
+	ch.Description = desc
+
+	var newRefImages []string
+	for i := 0; i < 4; i++ {
+		slotKey := fmt.Sprintf("ref_image_data_%d", i)
+		existingKey := fmt.Sprintf("existing_ref_image_%d", i)
+		dataURL := r.FormValue(slotKey)
+		existingURL := strings.TrimSpace(r.FormValue(existingKey))
+
+		var fileBytes []byte
+		var filenameHint string
+		if r.MultipartForm != nil {
+			fileKey := fmt.Sprintf("ref_file_%d", i)
+			if file, hdr, err := r.FormFile(fileKey); err == nil && file != nil {
+				fileBytes, _ = io.ReadAll(file)
+				filenameHint = hdr.Filename
+				_ = file.Close()
+			}
+		}
+
+		if dataURL != "" || len(fileBytes) > 0 {
+			if savedPath, err := s.saveCharacterImage(dataURL, fileBytes, filenameHint); err == nil && savedPath != "" {
+				newRefImages = append(newRefImages, savedPath)
+			}
+		} else if existingURL != "" {
+			newRefImages = append(newRefImages, existingURL)
+		}
+	}
+	ch.ReferenceImages = newRefImages
+
+	_ = s.catalog.UpdateCharacter(r.Context(), ch)
+	http.Redirect(w, r, "/?tab=characters&notice=Character+updated+successfully", http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteCharacter(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if id > 0 {
+		if ch, err := s.catalog.GetCharacter(r.Context(), id); err == nil && ch != nil {
+			for _, imgPath := range ch.ReferenceImages {
+				if strings.HasPrefix(imgPath, "/cache/characters/") {
+					diskFile := filepath.Join(s.cacheDir, "characters", strings.TrimPrefix(imgPath, "/cache/characters/"))
+					_ = os.Remove(diskFile)
+				}
+			}
+			_ = s.catalog.DeleteCharacter(r.Context(), id)
+		}
+	}
+	http.Redirect(w, r, "/?tab=characters&notice=Character+deleted", http.StatusSeeOther)
 }
 
 func (s *Server) handleAttachCharacter(w http.ResponseWriter, r *http.Request) {

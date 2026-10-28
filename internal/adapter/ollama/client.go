@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -482,32 +483,70 @@ func (c *Client) inspectModel(ctx context.Context, baseURL, modelName string) (*
 // and sends it to either Ollama (/api/chat) or oMLX (/v1/chat/completions) using a custom system prompt,
 // user prompt, and optional thinking level.
 func (c *Client) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
+	return c.AnalyzeImages(ctx, provider, baseURL, apiKey, model, systemPrompt, []string{imageSource}, userPrompt, thinkLevel)
+}
+
+// AnalyzeImages encodes multiple images (local file paths or in-memory data URLs/base64)
+// and sends them to either Ollama (/api/chat) or oMLX (/v1/chat/completions) using a custom system prompt,
+// user prompt, and optional thinking level.
+func (c *Client) AnalyzeImages(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userPrompt, thinkLevel string) (string, error) {
 	if strings.TrimSpace(model) == "" {
 		return "", fmt.Errorf("no vision / image model configured in Settings")
 	}
 
-	var b64 string
-	trimmedSource := strings.TrimSpace(imageSource)
-	if strings.HasPrefix(trimmedSource, "data:image/") {
-		idx := strings.Index(trimmedSource, ";base64,")
-		if idx != -1 {
-			b64 = trimmedSource[idx+8:]
-		} else {
-			b64 = trimmedSource
-		}
-	} else if strings.HasPrefix(trimmedSource, "base64:") {
-		b64 = strings.TrimPrefix(trimmedSource, "base64:")
-	} else {
-		imgBytes, err := os.ReadFile(trimmedSource)
-		if err != nil {
-			return "", fmt.Errorf("failed to read image file: %w", err)
-		}
-		b64 = base64.StdEncoding.EncodeToString(imgBytes)
+	type preparedImage struct {
+		b64    string
+		urlStr string
 	}
-	b64 = strings.TrimSpace(b64)
+	var prepImages []preparedImage
+	for _, src := range imageSources {
+		trimmedSource := strings.TrimSpace(src)
+		if trimmedSource == "" {
+			continue
+		}
+		var b64 string
+		var urlStr string
+		if strings.HasPrefix(trimmedSource, "data:image/") {
+			urlStr = trimmedSource
+			idx := strings.Index(trimmedSource, ";base64,")
+			if idx != -1 {
+				b64 = trimmedSource[idx+8:]
+			} else {
+				b64 = trimmedSource
+			}
+		} else if strings.HasPrefix(trimmedSource, "base64:") {
+			b64 = strings.TrimPrefix(trimmedSource, "base64:")
+			urlStr = "data:image/png;base64," + b64
+		} else {
+			imgBytes, err := os.ReadFile(trimmedSource)
+			if err != nil {
+				log.Printf("[VISION] warning: failed to read image file %q: %v", trimmedSource, err)
+				continue
+			}
+			b64 = base64.StdEncoding.EncodeToString(imgBytes)
+			urlStr = "data:image/png;base64," + b64
+		}
+		b64 = strings.TrimSpace(b64)
+		if b64 != "" {
+			prepImages = append(prepImages, preparedImage{b64: b64, urlStr: urlStr})
+		}
+	}
+
+	if len(prepImages) == 0 {
+		return c.TextToPrompt(ctx, provider, baseURL, apiKey, model, systemPrompt, userPrompt, thinkLevel)
+	}
 
 	if provider == domain.ProviderOMLX || provider == domain.ProviderOpenAI {
-		return c.executeOMLXVisionChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, userPrompt, b64, thinkLevel)
+		var imgURLs []string
+		for _, pi := range prepImages {
+			imgURLs = append(imgURLs, pi.urlStr)
+		}
+		return c.executeOMLXMultiVisionChat(ctx, NormalizeOMLXURL(baseURL), apiKey, model, systemPrompt, userPrompt, imgURLs, thinkLevel)
+	}
+
+	var b64Images []string
+	for _, pi := range prepImages {
+		b64Images = append(b64Images, pi.b64)
 	}
 
 	var messages []ollamaChatMessage
@@ -520,7 +559,7 @@ func (c *Client) AnalyzeImage(ctx context.Context, provider domain.AIProviderTyp
 	messages = append(messages, ollamaChatMessage{
 		Role:    "user",
 		Content: userPrompt,
-		Images:  []string{b64},
+		Images:  b64Images,
 	})
 
 	return c.executeOllamaChat(ctx, NormalizeOllamaURL(baseURL), model, messages, thinkLevel)
@@ -530,12 +569,18 @@ func (c *Client) AnalyzeImage(ctx context.Context, provider domain.AIProviderTyp
 // and sends it to either Ollama (/api/chat) or oMLX (/v1/chat/completions) using the target
 // generator's system prompt and optional thinking level.
 func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error) {
-	userContent := "Analyze this image and generate a complete, production-ready generation prompt following your system instructions. Output only the final prompt without conversational filler."
+	return c.ImagesToPrompt(ctx, provider, baseURL, apiKey, model, systemPrompt, []string{imageSource}, userHint, thinkLevel)
+}
+
+// ImagesToPrompt encodes multiple images (e.g. scene image + character reference images)
+// and sends them to the multimodal vision model with system instructions and user hints.
+func (c *Client) ImagesToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userHint, thinkLevel string) (string, error) {
+	userContent := "Analyze the provided image(s) and generate a complete, production-ready generation prompt following your system instructions. Output only the final prompt without conversational filler."
 	if strings.TrimSpace(userHint) != "" {
 		userContent += "\nAdditional context/hint: " + strings.TrimSpace(userHint)
 	}
 
-	return c.AnalyzeImage(ctx, provider, baseURL, apiKey, model, systemPrompt, imageSource, userContent, thinkLevel)
+	return c.AnalyzeImages(ctx, provider, baseURL, apiKey, model, systemPrompt, imageSources, userContent, thinkLevel)
 }
 
 // TextToPrompt expands or converts an input concept or existing prompt into a target generator prompt
@@ -673,17 +718,31 @@ func (c *Client) executeOMLXTextChat(ctx context.Context, baseURL, apiKey, model
 }
 
 func (c *Client) executeOMLXVisionChat(ctx context.Context, baseURL, apiKey, model, systemPrompt, userPrompt, b64Image, thinkLevel string) (string, error) {
+	return c.executeOMLXMultiVisionChat(ctx, baseURL, apiKey, model, systemPrompt, userPrompt, []string{b64Image}, thinkLevel)
+}
+
+func (c *Client) executeOMLXMultiVisionChat(ctx context.Context, baseURL, apiKey, model, systemPrompt, userPrompt string, imgURLs []string, thinkLevel string) (string, error) {
 	adjPrompt, effort, kwargs := applyOMLXThinkingDirective(userPrompt, thinkLevel)
 	var messages []interface{}
 	if strings.TrimSpace(systemPrompt) != "" {
 		messages = append(messages, openAITextMessage{Role: "system", Content: systemPrompt})
 	}
+	contentBlocks := []openAIVisionBlock{
+		{Type: "text", Text: adjPrompt},
+	}
+	for _, u := range imgURLs {
+		targetURL := u
+		if !strings.HasPrefix(targetURL, "data:image/") {
+			targetURL = "data:image/png;base64," + targetURL
+		}
+		contentBlocks = append(contentBlocks, openAIVisionBlock{
+			Type:     "image_url",
+			ImageURL: &openAIImageURL{URL: targetURL},
+		})
+	}
 	messages = append(messages, openAIVisionMessage{
-		Role: "user",
-		Content: []openAIVisionBlock{
-			{Type: "text", Text: adjPrompt},
-			{Type: "image_url", ImageURL: &openAIImageURL{URL: "data:image/png;base64," + b64Image}},
-		},
+		Role:    "user",
+		Content: contentBlocks,
 	})
 	return c.doOMLXChat(ctx, baseURL, apiKey, model, messages, effort, kwargs)
 }

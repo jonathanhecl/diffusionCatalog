@@ -120,6 +120,10 @@ func (m *mockOllamaProvider) ImageToPrompt(ctx context.Context, provider domain.
 	m.lastCall = "ImageToPrompt"
 	return "vision prompt", nil
 }
+func (m *mockOllamaProvider) ImagesToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userHint, thinkLevel string) (string, error) {
+	m.lastCall = "ImageToPrompt"
+	return "vision prompt", nil
+}
 func (m *mockOllamaProvider) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
 	m.lastCall = "TextToPrompt"
 	return "remix text prompt", nil
@@ -130,6 +134,10 @@ func (m *mockOllamaProvider) AnalyzeImage(ctx context.Context, provider domain.A
 		return m.analyzeResponse, nil
 	}
 	return `{"aspectRatio":"16:9","canvasWidth":1024,"canvasHeight":576,"elements":[{"id":"el_1","type":"character","name":"Hero","x":500,"y":300,"poseName":"Standing Idle"}]}`, nil
+}
+func (m *mockOllamaProvider) AnalyzeImages(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userPrompt, thinkLevel string) (string, error) {
+	m.lastCall = "AnalyzeImages"
+	return "", nil
 }
 func (m *mockOllamaProvider) EmbedText(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, text string) ([]float32, error) {
 	return nil, nil
@@ -628,12 +636,18 @@ func (m *countingMockOllamaProvider) ListOMLXModels(ctx context.Context, baseURL
 func (m *countingMockOllamaProvider) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, absImagePath, userHint, thinkLevel string) (string, error) {
 	return "", nil
 }
+func (m *countingMockOllamaProvider) ImagesToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userHint, thinkLevel string) (string, error) {
+	return "", nil
+}
 
 func (m *countingMockOllamaProvider) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
 	return "", nil
 }
 
 func (m *countingMockOllamaProvider) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
+	return "", nil
+}
+func (m *countingMockOllamaProvider) AnalyzeImages(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userPrompt, thinkLevel string) (string, error) {
 	return "", nil
 }
 func (m *countingMockOllamaProvider) EmbedText(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, text string) ([]float32, error) {

@@ -9481,8 +9481,11 @@
       </div>
 
     {{else if eq .ActiveTab "characters"}}
-      <div class="results-bar" style="margin-top:18px;">
-        <div class="results-count">Character &amp; Subject Folders: <strong>{{len .Page.Characters}}</strong> profiles</div>
+      <div class="results-bar" style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;">
+        <div class="results-count">Fichas de Personaje: <strong>{{len .Page.Characters}}</strong></div>
+        <button type="button" class="btn-primary" onclick="openCharacterModal(null)" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:6px 14px;cursor:pointer;">
+          <span>&#43;</span> Nueva Ficha de Personaje
+        </button>
       </div>
 
       {{if .AIResultError}}
@@ -9493,8 +9496,8 @@
       {{if .AIResultPrompt}}
         <div style="background:#061a2e;border:1px solid #10b981;border-radius:6px;padding:14px;margin-bottom:18px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="color:#6ee7b7;font-weight:700;font-size:13px;">Synthesized Character Prompt for Target Model '{{.AITargetProfile}}'</span>
-            <button type="button" class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="copyToClipboard(document.getElementById('char-ai-out').innerText, this, 'Character prompt copied!')">Copy Prompt</button>
+            <span style="color:#6ee7b7;font-weight:700;font-size:13px;">Prompt Sintetizado con Personaje para '{{.AITargetProfile}}'</span>
+            <button type="button" class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="copyToClipboard(document.getElementById('char-ai-out').innerText, this, 'Prompt copiado!')">Copiar Prompt</button>
           </div>
           <div id="char-ai-out" class="prompt-box" style="color:#a7f3d0;font-size:12.5px;">{{.AIResultPrompt}}</div>
         </div>
@@ -9502,90 +9505,394 @@
 
       <div class="character-grid" style="margin-bottom:28px;">
         {{range .Page.Characters}}
-          <div class="char-card">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div class="char-card" id="char-card-{{.ID}}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
               <div>
-                <h3 style="font-size:16px;color:#fff;">{{.Name}}</h3>
-                <span class="badge-chip character">{{.Archetype}}</span>
+                <h3 style="font-size:16px;color:#fff;margin:0 0 4px 0;display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:15px;color:#93c5fd;">👤</span> {{.Name}}
+                </h3>
               </div>
-              <a href="/?character_id={{.ID}}" class="btn-primary" style="padding:5px 12px;font-size:12px;">View {{.ExampleCount}} Examples</a>
-            </div>
-            <p style="color:var(--text-muted);font-size:12px;">{{.Description}}</p>
-            <div>
-              <div class="kv-label">Trigger Words</div>
-              <div class="prompt-box" style="color:#6ee7b7;">{{.TriggerWords}}</div>
-            </div>
-            <div>
-              <div class="kv-label">Base Generation Prompt</div>
-              <div class="prompt-box">{{.BasePositivePrompt}}</div>
-            </div>
-            {{if .BaseNegativePrompt}}
-            <div>
-              <div class="kv-label">Negative Prompt</div>
-              <div class="prompt-box" style="color:#fca5a5;">{{.BaseNegativePrompt}}</div>
-            </div>
-            {{end}}
-            <div style="font-size:11px;color:var(--text-muted);">
-              <strong>Recommended Checkpoint:</strong> {{.RecommendedCheckpoint}}
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="btn-ghost" style="padding:3px 8px;font-size:11.5px;cursor:pointer;" onclick="editCharacterById({{.ID}})">
+                  ✎ Editar
+                </button>
+                <form action="/admin/characters/delete" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar la ficha de {{.Name}}?')" style="margin:0;">
+                  <input type="hidden" name="id" value="{{.ID}}">
+                  <button type="submit" class="btn-ghost" style="padding:3px 8px;font-size:11.5px;color:#f87171;border-color:#7f1d1d;cursor:pointer;">
+                    ✕
+                  </button>
+                </form>
+              </div>
             </div>
 
-            <!-- Generate New Prompt for Model X / Movie / Scene with this Character -->
+            <!-- Reference Images Strip (1 to 4 images) -->
+            <div>
+              <div class="kv-label" style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span>Imágenes de Referencia ({{len .ReferenceImages}}/4)</span>
+                {{if gt (len .ReferenceImages) 0}}
+                  <span style="font-size:10.5px;color:#38bdf8;">Visión Multimodal</span>
+                {{end}}
+              </div>
+              {{if gt (len .ReferenceImages) 0}}
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  {{range .ReferenceImages}}
+                    <div style="position:relative;width:76px;height:76px;border-radius:6px;overflow:hidden;border:1px solid #1e3a8a;background:#030712;cursor:pointer;transition:transform 0.15s, border-color 0.15s;" onmouseover="this.style.borderColor='#38bdf8';this.style.transform='scale(1.04)';" onmouseout="this.style.borderColor='#1e3a8a';this.style.transform='scale(1)';" onclick="viewFullImage('{{.}}')">
+                      <img src="{{.}}" alt="Referencia" style="width:100%;height:100%;object-fit:cover;display:block;">
+                    </div>
+                  {{end}}
+                </div>
+              {{else}}
+                <div style="padding:10px;background:#030712;border:1px dashed var(--border-navy);border-radius:4px;font-size:11px;color:var(--text-muted);text-align:center;">
+                  Sin imágenes de referencia (Ficha de texto puro)
+                </div>
+              {{end}}
+            </div>
+
+            <!-- Physical Description Sheet -->
+            <div style="flex:1;">
+              <div class="kv-label" style="margin-bottom:4px;">Descripción de Fisonomía y Rasgos</div>
+              <div class="prompt-box" style="white-space:pre-wrap;font-size:11.5px;color:#cbd5e1;line-height:1.45;max-height:140px;overflow-y:auto;">{{if .Description}}{{.Description}}{{else}}<span style="color:var(--text-muted);font-style:italic;">(Sin descripción física)</span>{{end}}</div>
+            </div>
+
+            <!-- Testing / Synthesis with this Character -->
             <div style="margin-top:auto;padding-top:10px;border-top:1px solid var(--border-navy);">
-              <div class="kv-label" style="color:#93c5fd;margin-bottom:6px;">GENERATE PROMPT WITH THIS CHARACTER (OLLAMA / OMLX)</div>
+              <div class="kv-label" style="color:#93c5fd;margin-bottom:6px;">PROBAR PROMPT CON ESTE PERSONAJE</div>
               <form action="/admin/ollama/character2prompt" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:6px;">
                 <input type="hidden" name="character_id" value="{{.ID}}">
                 <input type="hidden" name="return_tab" value="characters">
-                <select name="profile_slug" class="input-dark" style="font-size:12px;padding:6px 8px;" onchange="filterLoRAsByModel(this.form, this.value)">
+                <select name="profile_slug" class="input-dark" style="font-size:11.5px;padding:5px 7px;">
                   {{range $.PromptProfiles}}
-                    <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>Target: {{.Name}} ({{.Slug}} - {{.TargetModality}})</option>
+                    <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>Target: {{.Name}} ({{.Slug}})</option>
                   {{end}}
                 </select>
                 <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;">
-                  <select name="override_route" class="input-dark" style="font-size:11.5px;padding:5px 7px;">
+                  <select name="override_route" class="input-dark" style="font-size:11px;padding:4px 6px;">
                     <option value="">LLM: Default ([{{$.Settings.Text2PromptProvider}}] {{$.Settings.Text2PromptModel}})</option>
                     {{range $.AIStatus.AllModels}}
-                      <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}} {{range .Capabilities}}[{{.}}] {{end}}</option>
+                      <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}}</option>
                     {{end}}
                   </select>
-                  <select name="override_think" class="input-dark" style="font-size:11.5px;padding:5px 7px;">
+                  <select name="override_think" class="input-dark" style="font-size:11px;padding:4px 6px;">
                     <option value="">Think: {{$.Settings.Text2PromptThink}}</option>
                     <option value="off">Think: Off</option>
                     <option value="low">Think: Low</option>
                     <option value="medium">Think: Medium</option>
                     <option value="high">Think: High</option>
-                    <option value="default">Think: Default</option>
                   </select>
                 </div>
-                {{if $.ModelLoRAs}}
-                  <div style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 0;">
-                    {{range $.ModelLoRAs}}
-                      <label class="checkbox-item lora-chip-item" data-model="{{.ProfileSlug}}" title="{{.Description}}" style="background:#060d1b;border:1px solid var(--border-navy);padding:2px 6px;border-radius:3px;font-size:10.5px;">
-                        <span><input type="checkbox" name="lora_id" value="{{.ID}}"> [{{.ProfileSlug}}] {{.Name}}</span>
-                      </label>
-                    {{end}}
-                  </div>
-                {{end}}
-                <input type="text" name="scene_direction" placeholder="Scene, movie aesthetic, action, or camera movement..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-size:12px;padding:6px 8px;" required>
-                <button type="submit" class="btn-primary" style="padding:6px 12px;font-size:12px;">Generate Prompt for Model</button>
+                <input type="text" name="scene_direction" placeholder="Describí la escena o reemplazo (ej: caminando bajo la lluvia en Shibuya, manteniendo la ropa...)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-size:11.5px;padding:5px 7px;" required>
+                <button type="submit" class="btn-primary" style="padding:5px 10px;font-size:11.5px;">Generar Prompt con Personaje</button>
               </form>
             </div>
           </div>
         {{end}}
       </div>
 
-      <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:18px;margin-bottom:40px;">
-        <h3 style="margin-bottom:12px;font-size:15px;">Create New Character / Concept Folder</h3>
-        <form action="/admin/characters/create" method="POST" autocomplete="off" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <input type="text" name="name" placeholder="Character Name (e.g. Vesper-9)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
-          <input type="text" name="archetype" placeholder="Archetype / Category (e.g. Sci-Fi Android)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          <input type="text" name="trigger_words" placeholder="Trigger Words (e.g. vesper9, chrome plating)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          <input type="text" name="recommended_checkpoint" placeholder="Recommended Checkpoint (e.g. flux1-dev)" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          <textarea name="base_positive_prompt" placeholder="Canonical Positive Prompt used to generate this character..." class="input-dark" rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="grid-column:span 2;" required></textarea>
-          <textarea name="base_negative_prompt" placeholder="Canonical Negative Prompt..." class="input-dark" rows="2" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="grid-column:span 2;"></textarea>
-          <input type="text" name="description" placeholder="Notes / Lore / Usage guidelines..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="grid-column:span 2;">
-          <div><button type="submit" class="btn-primary">Create Character Folder</button></div>
-        </form>
+      <!-- Character Modal (Create & Edit) -->
+      <div id="characterModal" class="modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px;">
+        <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:10px;padding:22px;width:100%;max-width:760px;box-shadow:0 16px 48px rgba(0,0,0,0.85);max-height:92vh;overflow-y:auto;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid var(--border-navy);padding-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:18px;">👤</span>
+              <strong id="charModalTitle" style="font-size:16px;color:#fff;">Nueva Ficha de Personaje</strong>
+            </div>
+            <button type="button" class="btn-ghost" onclick="closeCharacterModal()" style="padding:4px 8px;font-size:16px;line-height:1;cursor:pointer;">&times;</button>
+          </div>
+
+          <form id="characterModalForm" action="/admin/characters/create" method="POST" enctype="multipart/form-data" autocomplete="off" style="display:flex;flex-direction:column;gap:14px;">
+            <input type="hidden" name="id" id="charModalId" value="0">
+
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:600;">Nombre del Personaje</label>
+              <input type="text" name="name" id="charModalName" class="input-dark" style="width:100%;font-size:13px;" placeholder="ej: Elena Rostova, Marcus Vane" required>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:600;">Ficha Descriptiva de Fisonomía y Rasgos Físicos</label>
+              <textarea name="description" id="charModalDesc" class="input-dark" rows="4" style="width:100%;font-size:12.5px;line-height:1.45;" placeholder="Describí cómo se ve el personaje: estructura facial, pómulos, forma y color de ojos, cejas, estilo y color de pelo, complexión corporal, tono de piel, edad aparente, cicatrices o marcas distintivas.
+Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a la ropa de la escena original sin sobreescribirla."></textarea>
+            </div>
+
+            <!-- 4 Slots de Imágenes de Referencia -->
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <label style="font-size:12px;color:var(--text-muted);font-weight:600;">Imágenes de Referencia (1 a 4 fotos - Opcional)</label>
+                <span style="font-size:11px;color:#38bdf8;">Podés arrastrar, explorar o pegar con Ctrl+V</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;">
+                <!-- Slot 0 -->
+                <div class="char-ref-slot" id="char-slot-0" ondragover="handleCharSlotDragOver(event, 0)" ondragleave="handleCharSlotDragLeave(event, 0)" ondrop="handleCharSlotDrop(event, 0)">
+                  <input type="hidden" name="ref_image_data_0" id="char_ref_data_0" value="">
+                  <input type="hidden" name="existing_ref_image_0" id="char_existing_ref_0" value="">
+                  <input type="file" id="char_ref_file_0" name="ref_file_0" accept="image/*" style="display:none;" onchange="handleCharSlotFileSelect(this, 0)">
+                  <div class="char-slot-drop" id="char_slot_drop_0" onclick="document.getElementById('char_ref_file_0').click()">
+                    <span style="font-size:22px;">📷</span>
+                    <span style="font-size:11px;font-weight:600;color:#94a3b8;">Foto 1</span>
+                    <span style="font-size:9.5px;color:var(--text-muted);">Arrastrar o Clic</span>
+                  </div>
+                  <div class="char-slot-preview" id="char_slot_prev_0" style="display:none;">
+                    <img id="char_slot_img_0" src="" alt="Ref 1">
+                    <button type="button" class="char-slot-del" onclick="clearCharSlot(0)" title="Quitar imagen">&times;</button>
+                  </div>
+                </div>
+
+                <!-- Slot 1 -->
+                <div class="char-ref-slot" id="char-slot-1" ondragover="handleCharSlotDragOver(event, 1)" ondragleave="handleCharSlotDragLeave(event, 1)" ondrop="handleCharSlotDrop(event, 1)">
+                  <input type="hidden" name="ref_image_data_1" id="char_ref_data_1" value="">
+                  <input type="hidden" name="existing_ref_image_1" id="char_existing_ref_1" value="">
+                  <input type="file" id="char_ref_file_1" name="ref_file_1" accept="image/*" style="display:none;" onchange="handleCharSlotFileSelect(this, 1)">
+                  <div class="char-slot-drop" id="char_slot_drop_1" onclick="document.getElementById('char_ref_file_1').click()">
+                    <span style="font-size:22px;">📷</span>
+                    <span style="font-size:11px;font-weight:600;color:#94a3b8;">Foto 2</span>
+                    <span style="font-size:9.5px;color:var(--text-muted);">Arrastrar o Clic</span>
+                  </div>
+                  <div class="char-slot-preview" id="char_slot_prev_1" style="display:none;">
+                    <img id="char_slot_img_1" src="" alt="Ref 2">
+                    <button type="button" class="char-slot-del" onclick="clearCharSlot(1)" title="Quitar imagen">&times;</button>
+                  </div>
+                </div>
+
+                <!-- Slot 2 -->
+                <div class="char-ref-slot" id="char-slot-2" ondragover="handleCharSlotDragOver(event, 2)" ondragleave="handleCharSlotDragLeave(event, 2)" ondrop="handleCharSlotDrop(event, 2)">
+                  <input type="hidden" name="ref_image_data_2" id="char_ref_data_2" value="">
+                  <input type="hidden" name="existing_ref_image_2" id="char_existing_ref_2" value="">
+                  <input type="file" id="char_ref_file_2" name="ref_file_2" accept="image/*" style="display:none;" onchange="handleCharSlotFileSelect(this, 2)">
+                  <div class="char-slot-drop" id="char_slot_drop_2" onclick="document.getElementById('char_ref_file_2').click()">
+                    <span style="font-size:22px;">📷</span>
+                    <span style="font-size:11px;font-weight:600;color:#94a3b8;">Foto 3</span>
+                    <span style="font-size:9.5px;color:var(--text-muted);">Arrastrar o Clic</span>
+                  </div>
+                  <div class="char-slot-preview" id="char_slot_prev_2" style="display:none;">
+                    <img id="char_slot_img_2" src="" alt="Ref 3">
+                    <button type="button" class="char-slot-del" onclick="clearCharSlot(2)" title="Quitar imagen">&times;</button>
+                  </div>
+                </div>
+
+                <!-- Slot 3 -->
+                <div class="char-ref-slot" id="char-slot-3" ondragover="handleCharSlotDragOver(event, 3)" ondragleave="handleCharSlotDragLeave(event, 3)" ondrop="handleCharSlotDrop(event, 3)">
+                  <input type="hidden" name="ref_image_data_3" id="char_ref_data_3" value="">
+                  <input type="hidden" name="existing_ref_image_3" id="char_existing_ref_3" value="">
+                  <input type="file" id="char_ref_file_3" name="ref_file_3" accept="image/*" style="display:none;" onchange="handleCharSlotFileSelect(this, 3)">
+                  <div class="char-slot-drop" id="char_slot_drop_3" onclick="document.getElementById('char_ref_file_3').click()">
+                    <span style="font-size:22px;">📷</span>
+                    <span style="font-size:11px;font-weight:600;color:#94a3b8;">Foto 4</span>
+                    <span style="font-size:9.5px;color:var(--text-muted);">Arrastrar o Clic</span>
+                  </div>
+                  <div class="char-slot-preview" id="char_slot_prev_3" style="display:none;">
+                    <img id="char_slot_img_3" src="" alt="Ref 4">
+                    <button type="button" class="char-slot-del" onclick="clearCharSlot(3)" title="Quitar imagen">&times;</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;padding-top:12px;border-top:1px solid var(--border-navy);">
+              <button type="button" class="btn-ghost" onclick="closeCharacterModal()" style="cursor:pointer;">Cancelar</button>
+              <button type="submit" id="charModalSubmitBtn" class="btn-primary" style="cursor:pointer;">Guardar Ficha</button>
+            </div>
+          </form>
+        </div>
       </div>
+
+      <!-- Simple Image Lightbox Modal for Character Full Preview -->
+      <div id="charImagePreviewModal" class="modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:10001;backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px;" onclick="closeCharImagePreview()">
+        <div style="position:relative;max-width:90vw;max-height:90vh;" onclick="event.stopPropagation()">
+          <img id="charPreviewImg" src="" alt="Preview" style="max-width:90vw;max-height:85vh;border-radius:6px;box-shadow:0 12px 40px rgba(0,0,0,0.9);display:block;">
+          <button type="button" class="btn-ghost" onclick="closeCharImagePreview()" style="position:absolute;top:-12px;right:-12px;background:#1e293b;border:1px solid #475569;border-radius:50%;width:32px;height:32px;padding:0;font-size:16px;color:#fff;cursor:pointer;">&times;</button>
+        </div>
+      </div>
+
+      <script>
+        var characterDataMap = {
+          {{range .Page.Characters}}
+            "{{.ID}}": {
+              id: {{.ID}},
+              name: {{printf "%q" .Name}},
+              description: {{printf "%q" .Description}},
+              referenceImages: [
+                {{range .ReferenceImages}}{{printf "%q" .}},{{end}}
+              ]
+            },
+          {{end}}
+        };
+
+        var lastActiveCharSlot = 0;
+
+        function openCharacterModal(charData) {
+          var modal = document.getElementById('characterModal');
+          var form = document.getElementById('characterModalForm');
+          var titleEl = document.getElementById('charModalTitle');
+          var submitBtn = document.getElementById('charModalSubmitBtn');
+          var idInput = document.getElementById('charModalId');
+          var nameInput = document.getElementById('charModalName');
+          var descInput = document.getElementById('charModalDesc');
+
+          // Reset all 4 slots
+          for (var i = 0; i < 4; i++) {
+            clearCharSlot(i);
+          }
+
+          if (charData) {
+            titleEl.innerText = "Editar Ficha de Personaje";
+            submitBtn.innerText = "Actualizar Ficha";
+            form.action = "/admin/characters/update";
+            idInput.value = charData.id;
+            nameInput.value = charData.name || '';
+            descInput.value = charData.description || '';
+
+            if (charData.referenceImages && charData.referenceImages.length > 0) {
+              for (var j = 0; j < charData.referenceImages.length && j < 4; j++) {
+                setCharSlotExisting(j, charData.referenceImages[j]);
+              }
+            }
+          } else {
+            titleEl.innerText = "Nueva Ficha de Personaje";
+            submitBtn.innerText = "Guardar Ficha";
+            form.action = "/admin/characters/create";
+            idInput.value = "0";
+            nameInput.value = '';
+            descInput.value = '';
+          }
+
+          modal.style.display = 'flex';
+          nameInput.focus();
+        }
+
+        function editCharacterById(id) {
+          var data = characterDataMap[String(id)];
+          if (data) {
+            openCharacterModal(data);
+          }
+        }
+
+        function closeCharacterModal() {
+          var modal = document.getElementById('characterModal');
+          if (modal) modal.style.display = 'none';
+        }
+
+        function setCharSlotExisting(slotIdx, imgUrl) {
+          var existInput = document.getElementById('char_existing_ref_' + slotIdx);
+          var dataInput = document.getElementById('char_ref_data_' + slotIdx);
+          var dropEl = document.getElementById('char_slot_drop_' + slotIdx);
+          var prevEl = document.getElementById('char_slot_prev_' + slotIdx);
+          var imgEl = document.getElementById('char_slot_img_' + slotIdx);
+
+          if (existInput) existInput.value = imgUrl;
+          if (dataInput) dataInput.value = '';
+          if (imgEl) imgEl.src = imgUrl;
+          if (prevEl) prevEl.style.display = 'block';
+          if (dropEl) dropEl.style.display = 'none';
+        }
+
+        function setCharSlotData(slotIdx, dataUrl) {
+          var existInput = document.getElementById('char_existing_ref_' + slotIdx);
+          var dataInput = document.getElementById('char_ref_data_' + slotIdx);
+          var dropEl = document.getElementById('char_slot_drop_' + slotIdx);
+          var prevEl = document.getElementById('char_slot_prev_' + slotIdx);
+          var imgEl = document.getElementById('char_slot_img_' + slotIdx);
+
+          if (existInput) existInput.value = '';
+          if (dataInput) dataInput.value = dataUrl;
+          if (imgEl) imgEl.src = dataUrl;
+          if (prevEl) prevEl.style.display = 'block';
+          if (dropEl) dropEl.style.display = 'none';
+        }
+
+        function clearCharSlot(slotIdx) {
+          var existInput = document.getElementById('char_existing_ref_' + slotIdx);
+          var dataInput = document.getElementById('char_ref_data_' + slotIdx);
+          var fileInput = document.getElementById('char_ref_file_' + slotIdx);
+          var dropEl = document.getElementById('char_slot_drop_' + slotIdx);
+          var prevEl = document.getElementById('char_slot_prev_' + slotIdx);
+          var imgEl = document.getElementById('char_slot_img_' + slotIdx);
+
+          if (existInput) existInput.value = '';
+          if (dataInput) dataInput.value = '';
+          if (fileInput) fileInput.value = '';
+          if (imgEl) imgEl.src = '';
+          if (prevEl) prevEl.style.display = 'none';
+          if (dropEl) dropEl.style.display = 'flex';
+        }
+
+        function handleCharSlotFileSelect(input, slotIdx) {
+          if (input.files && input.files[0]) {
+            loadCharSlotFile(slotIdx, input.files[0]);
+          }
+        }
+
+        function loadCharSlotFile(slotIdx, file) {
+          if (!file || !file.type.startsWith('image/')) return;
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            setCharSlotData(slotIdx, e.target.result);
+          };
+          reader.readAsDataURL(file);
+        }
+
+        function handleCharSlotDragOver(e, slotIdx) {
+          e.preventDefault();
+          lastActiveCharSlot = slotIdx;
+          var slot = document.getElementById('char-slot-' + slotIdx);
+          if (slot) slot.classList.add('dragover');
+        }
+
+        function handleCharSlotDragLeave(e, slotIdx) {
+          e.preventDefault();
+          var slot = document.getElementById('char-slot-' + slotIdx);
+          if (slot) slot.classList.remove('dragover');
+        }
+
+        function handleCharSlotDrop(e, slotIdx) {
+          e.preventDefault();
+          var slot = document.getElementById('char-slot-' + slotIdx);
+          if (slot) slot.classList.remove('dragover');
+          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+            loadCharSlotFile(slotIdx, e.dataTransfer.files[0]);
+          }
+        }
+
+        // Global Paste (Ctrl+V) handler for Character Modal
+        window.addEventListener('paste', function(e) {
+          var modal = document.getElementById('characterModal');
+          if (!modal || modal.style.display === 'none') return;
+          if (e.clipboardData && e.clipboardData.items) {
+            for (var i = 0; i < e.clipboardData.items.length; i++) {
+              var item = e.clipboardData.items[i];
+              if (item.type.indexOf('image') !== -1) {
+                var blob = item.getAsFile();
+                if (blob) {
+                  // Find first empty slot, or use lastActiveCharSlot
+                  var targetSlot = lastActiveCharSlot;
+                  for (var s = 0; s < 4; s++) {
+                    var dataInput = document.getElementById('char_ref_data_' + s);
+                    var existInput = document.getElementById('char_existing_ref_' + s);
+                    if ((!dataInput || !dataInput.value) && (!existInput || !existInput.value)) {
+                      targetSlot = s;
+                      break;
+                    }
+                  }
+                  loadCharSlotFile(targetSlot, blob);
+                  break;
+                }
+              }
+            }
+          }
+        });
+
+        function viewFullImage(imgSrc) {
+          var modal = document.getElementById('charImagePreviewModal');
+          var img = document.getElementById('charPreviewImg');
+          if (modal && img) {
+            img.src = imgSrc;
+            modal.style.display = 'flex';
+          }
+        }
+
+        function closeCharImagePreview() {
+          var modal = document.getElementById('charImagePreviewModal');
+          if (modal) modal.style.display = 'none';
+        }
+      </script>
 
     {{else if or (eq .ActiveTab "collections") (eq .ActiveTab "groups")}}
       <div class="results-bar" style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;">

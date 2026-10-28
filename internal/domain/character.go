@@ -2,8 +2,8 @@ package domain
 
 import "time"
 
-// Character represents a reusable subject/persona folder containing the canonical generation prompts,
-// trigger words, model recommendations, and curated example assets.
+// Character represents a reusable subject/persona sheet ("ficha de personaje") containing
+// physical appearance descriptions, facial/body traits, and optional reference images (0-4).
 type Character struct {
 	ID                    int64        `json:"id"`
 	Name                  string       `json:"name"`
@@ -16,6 +16,7 @@ type Character struct {
 	RecommendedCheckpoint string       `json:"recommended_checkpoint"`
 	LoRAs                 []string     `json:"loras"`
 	AvatarAssetID         *int64       `json:"avatar_asset_id,omitempty"`
+	ReferenceImages       []string     `json:"reference_images"`
 	ExampleCount          int          `json:"example_count"`
 	Examples              []MediaAsset `json:"examples,omitempty"`
 	CreatedAt             time.Time    `json:"created_at"`

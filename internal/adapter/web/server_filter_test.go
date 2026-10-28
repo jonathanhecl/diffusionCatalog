@@ -228,12 +228,19 @@ func (m *testWebOllamaMock) ListOMLXModels(ctx context.Context, baseURL, apiKey 
 func (m *testWebOllamaMock) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error) {
 	return "", nil
 }
+func (m *testWebOllamaMock) ImagesToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userHint, thinkLevel string) (string, error) {
+	return "", nil
+}
 func (m *testWebOllamaMock) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
 	return "", nil
 }
 func (m *testWebOllamaMock) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
 	m.lastCall = "AnalyzeImage"
 	return `{"aspectRatio":"16:9","canvasWidth":1024,"canvasHeight":576,"environmentType":"outdoor","elements":[{"type":"character","name":"Runner","poseName":"Running / Sprint"}]}`, nil
+}
+func (m *testWebOllamaMock) AnalyzeImages(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userPrompt, thinkLevel string) (string, error) {
+	m.lastCall = "AnalyzeImages"
+	return "", nil
 }
 func (m *testWebOllamaMock) EmbedText(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, text string) ([]float32, error) {
 	return nil, nil

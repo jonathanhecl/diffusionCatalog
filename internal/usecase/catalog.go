@@ -27,6 +27,7 @@ import (
 // and Ollama / oMLX prompt generation (Vision, Image2Prompt, Text2Prompt).
 type CatalogService struct {
 	mediaDir string
+	cacheDir string
 	repo     domain.CatalogRepository
 	ollama   domain.OllamaProvider
 
@@ -51,6 +52,33 @@ func NewCatalogService(mediaDir string, repo domain.CatalogRepository, ollama do
 		}()
 	}
 	return s
+}
+
+// SetCacheDir sets the runtime cache directory for resolving stored crops and character reference assets.
+func (s *CatalogService) SetCacheDir(cacheDir string) {
+	s.cacheDir = cacheDir
+}
+
+// ResolveRefImageAbsPath converts a web URL like /cache/characters/xxx.png or relative path to a local absolute disk path.
+func (s *CatalogService) ResolveRefImageAbsPath(refPath string) string {
+	refPath = strings.TrimSpace(refPath)
+	if strings.HasPrefix(refPath, "data:image/") || strings.HasPrefix(refPath, "base64:") {
+		return refPath
+	}
+	if strings.HasPrefix(refPath, "/cache/") {
+		rel := strings.TrimPrefix(refPath, "/cache/")
+		if s.cacheDir != "" {
+			return filepath.Join(s.cacheDir, filepath.FromSlash(rel))
+		}
+		return filepath.Join(".cache", filepath.FromSlash(rel))
+	}
+	if filepath.IsAbs(refPath) {
+		return refPath
+	}
+	if s.cacheDir != "" {
+		return filepath.Join(s.cacheDir, filepath.FromSlash(refPath))
+	}
+	return filepath.Join(".cache", filepath.FromSlash(refPath))
 }
 
 // CurrentDBPath returns the active global SQLite database path.
@@ -426,6 +454,16 @@ func (s *CatalogService) CreateCharacter(ctx context.Context, c *domain.Characte
 	return cid, nil
 }
 
+// UpdateCharacter updates an existing character sheet details and reference images.
+func (s *CatalogService) UpdateCharacter(ctx context.Context, c *domain.Character) error {
+	return s.repo.UpdateCharacter(ctx, c)
+}
+
+// DeleteCharacter removes a character sheet by ID and unlinks its media references.
+func (s *CatalogService) DeleteCharacter(ctx context.Context, id int64) error {
+	return s.repo.DeleteCharacter(ctx, id)
+}
+
 // AssignAssetToCharacter links an asset as a reference example for a character.
 func (s *CatalogService) AssignAssetToCharacter(ctx context.Context, characterID, assetID int64) error {
 	return s.repo.AttachAssetToCharacter(ctx, characterID, assetID)
@@ -750,8 +788,8 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		}
 	}
 
-	// If no asset and no attached image or video frame, delegate to Text2Prompt
-	if asset == nil && frameImagePath == "" {
+	// If no asset, no attached image or video frame, and no character specified, delegate to Text2Prompt
+	if asset == nil && frameImagePath == "" && characterID <= 0 {
 		return s.RunText2Prompt(ctx, userHint, profileSlug, loraIDs, override)
 	}
 
@@ -774,14 +812,33 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		contextParts = append(contextParts, "Reference Asset Original Prompt: "+asset.Metadata.PositivePrompt)
 	}
 	var charPtr *int64
+	var charRefImages []string
 	if characterID > 0 {
 		if ch, err := s.repo.GetCharacterByID(ctx, characterID); err == nil && ch != nil {
 			cid := ch.ID
 			charPtr = &cid
-			contextParts = append(contextParts, fmt.Sprintf(
-				"Character Identity to Preserve: %s | Mandatory Trigger Words: %s | Base Character Prompt: %s",
-				ch.Name, ch.TriggerWords, ch.BasePositivePrompt,
-			))
+			var charBlock strings.Builder
+			charBlock.WriteString(fmt.Sprintf("Target Character Sheet: %s\n", ch.Name))
+			if strings.TrimSpace(ch.Description) != "" {
+				charBlock.WriteString(fmt.Sprintf("Physical & Facial Description: %s\n", strings.TrimSpace(ch.Description)))
+			}
+			if strings.TrimSpace(ch.TriggerWords) != "" {
+				charBlock.WriteString(fmt.Sprintf("Trigger Words: %s\n", strings.TrimSpace(ch.TriggerWords)))
+			}
+			charBlock.WriteString("\nCHARACTER REPLACEMENT DIRECTIVE:\n")
+			charBlock.WriteString("1. If modifying an existing scene image or prompt, replace the primary subject/person with this character.\n")
+			charBlock.WriteString("2. Transfer their physical features, facial structure, hair, build, and identity traits.\n")
+			charBlock.WriteString("3. PRESERVE THE SCENE: Strictly maintain the scene's composition, environment, camera perspective, lighting, and action/pose from the original scene.\n")
+			charBlock.WriteString("4. PRESERVE WARDROBE: Maintain the original clothing/wardrobe from the scene image/prompt unless explicitly requested otherwise.\n")
+			if len(ch.ReferenceImages) > 0 {
+				charBlock.WriteString(fmt.Sprintf("5. %d visual reference portrait(s) of this character are attached. Image 1 is the base scene. Subsequent images are character references.\n", len(ch.ReferenceImages)))
+				for _, rImg := range ch.ReferenceImages {
+					if abs := s.ResolveRefImageAbsPath(rImg); abs != "" {
+						charRefImages = append(charRefImages, abs)
+					}
+				}
+			}
+			contextParts = append(contextParts, charBlock.String())
 		}
 	}
 	if loraDoc := s.buildLoRAContextBlock(ctx, profileSlug, loraIDs); loraDoc != "" {
@@ -842,7 +899,17 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 			return "", 0, fmt.Errorf("no media asset or image provided for vision analysis")
 		}
 
-		generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, absPath, combinedHint, usedThink)
+		var images []string
+		images = append(images, absPath)
+		if len(charRefImages) > 0 {
+			images = append(images, charRefImages...)
+		}
+
+		if len(images) > 1 {
+			generated, err = s.ollama.ImagesToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, images, combinedHint, usedThink)
+		} else {
+			generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, absPath, combinedHint, usedThink)
+		}
 		if err != nil {
 			return "", 0, err
 		}
@@ -903,18 +970,28 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 
 	loraBlock := s.buildLoRAContextBlock(ctx, profileSlug, loraIDs)
 
-	charSpec := fmt.Sprintf(
-		"Character Sheet:\n- Name: %s (%s)\n- Visual Description: %s\n- Mandatory Trigger Words: %s\n- Canonical Base Prompt: %s\n- Character Default LoRAs: %s\n\n%s\nRequested Scene / Movie / Shot Direction:\n%s\n\nWrite a complete, cohesive generation prompt for '%s' that places this exact character into the requested scene/movie context while preserving their trigger words, visual identity, and any selected target-model LoRA syntax/triggers. Output only the final prompt.",
-		ch.Name,
-		ch.Archetype,
-		ch.Description,
-		ch.TriggerWords,
-		ch.BasePositivePrompt,
-		strings.Join(ch.LoRAs, ", "),
-		loraBlock,
-		strings.TrimSpace(sceneDirection),
-		profileSlug,
-	)
+	var specBuilder strings.Builder
+	specBuilder.WriteString(fmt.Sprintf("Character Sheet: %s\n", ch.Name))
+	if strings.TrimSpace(ch.Description) != "" {
+		specBuilder.WriteString(fmt.Sprintf("- Physical & Facial Description: %s\n", strings.TrimSpace(ch.Description)))
+	}
+	if strings.TrimSpace(ch.TriggerWords) != "" {
+		specBuilder.WriteString(fmt.Sprintf("- Trigger Words: %s\n", strings.TrimSpace(ch.TriggerWords)))
+	}
+	if loraBlock != "" {
+		specBuilder.WriteString("\n" + loraBlock + "\n")
+	}
+	specBuilder.WriteString(fmt.Sprintf("\nRequested Scene / Movie / Action Direction:\n%s\n", strings.TrimSpace(sceneDirection)))
+	specBuilder.WriteString(fmt.Sprintf("\nCRITICAL PROMPT SYNTHESIS INSTRUCTIONS:\n- Write a complete, production-ready generation prompt for '%s'.\n- Transfer this character's facial features and physical traits.\n- PRESERVE SCENE & WARDROBE: If replacing or modifying an existing scene/subject, strictly preserve the original scene's environment, composition, camera perspective, lighting, and clothing/wardrobe unless explicitly instructed otherwise.\n- Output only the final prompt.", profileSlug))
+
+	charSpec := specBuilder.String()
+
+	var charRefImages []string
+	for _, rImg := range ch.ReferenceImages {
+		if abs := s.ResolveRefImageAbsPath(rImg); abs != "" {
+			charRefImages = append(charRefImages, abs)
+		}
+	}
 
 	var generated string
 	var usedProvider domain.AIProviderType
@@ -935,10 +1012,27 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 			var baseURL string
 			usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
 			absPath := s.ResolveAssetAbsPath(ctx, refAsset)
-			generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, absPath, charSpec, usedThink)
+
+			var images []string
+			images = append(images, absPath)
+			images = append(images, charRefImages...)
+
+			if len(images) > 1 {
+				generated, err = s.ollama.ImagesToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, images, charSpec, usedThink)
+			} else {
+				generated, err = s.ollama.ImageToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, absPath, charSpec, usedThink)
+			}
 			if err != nil {
 				return "", 0, err
 			}
+		}
+	} else if len(charRefImages) > 0 && (override.Provider != "" || cfg.VisionProvider != "") {
+		// No reference scene asset, but character has reference photos and vision model is available
+		defProv, defMod, defThink := cfg.GetRemixDefaults()
+		var baseURL string
+		usedProvider, usedModel, baseURL, usedThink = resolveExecutionRoute(cfg, defProv, defMod, defThink, override)
+		if strings.Contains(strings.ToLower(usedModel), "vl") || strings.Contains(strings.ToLower(usedModel), "vision") || strings.Contains(strings.ToLower(usedModel), "llava") {
+			generated, _ = s.ollama.ImagesToPrompt(ctx, usedProvider, baseURL, apiKey, usedModel, sysPrompt, charRefImages, charSpec, usedThink)
 		}
 	}
 

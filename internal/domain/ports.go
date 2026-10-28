@@ -302,6 +302,8 @@ type CatalogRepository interface {
 	ListGroups(ctx context.Context) ([]Group, error)
 
 	CreateCharacter(ctx context.Context, char *Character) (int64, error)
+	UpdateCharacter(ctx context.Context, char *Character) error
+	DeleteCharacter(ctx context.Context, id int64) error
 	GetCharacterByID(ctx context.Context, id int64) (*Character, error)
 	AttachAssetToCharacter(ctx context.Context, characterID, assetID int64) error
 	DetachAssetFromCharacter(ctx context.Context, characterID, assetID int64) error
@@ -365,8 +367,10 @@ type OllamaProvider interface {
 	ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]OllamaModelInfo, error)
 
 	ImageToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error)
+	ImagesToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userHint, thinkLevel string) (string, error)
 	TextToPrompt(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error)
 	AnalyzeImage(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error)
+	AnalyzeImages(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userPrompt, thinkLevel string) (string, error)
 
 	EmbedText(ctx context.Context, provider AIProviderType, baseURL, apiKey, model, text string) ([]float32, error)
 	EmbedImage(ctx context.Context, provider AIProviderType, baseURL, apiKey, model string, imageBytes []byte) ([]float32, error)

@@ -156,6 +156,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		recommended_checkpoint TEXT NOT NULL DEFAULT '',
 		loras_json TEXT NOT NULL DEFAULT '[]',
 		avatar_asset_id INTEGER,
+		reference_images_json TEXT NOT NULL DEFAULT '[]',
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (avatar_asset_id) REFERENCES assets(id) ON DELETE SET NULL
 	);
@@ -269,6 +270,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN file_mtime DATETIME`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE generated_prompts ADD COLUMN duration_sec REAL NOT NULL DEFAULT 0.0`)
+	_, _ = db.ExecContext(ctx, `ALTER TABLE characters ADD COLUMN reference_images_json TEXT NOT NULL DEFAULT '[]'`)
 
 	return seedDefaultSettingsAndProfiles(ctx, db)
 }
