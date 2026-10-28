@@ -389,3 +389,76 @@ func TestEmbedTextAndImage(t *testing.T) {
 		t.Errorf("expected model embeddinggemma-2, got %s", receivedImagePayload.Model)
 	}
 }
+
+func TestOllamaShowCapabilityEnrichment(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/tags", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"models": [
+				{
+					"name": "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M",
+					"details": {"family": "llama", "parameter_size": "2.52B"}
+				},
+				{
+					"name": "llava:latest",
+					"details": {"family": "llama", "parameter_size": "7B"}
+				}
+			]
+		}`))
+	})
+	mux.HandleFunc("/api/show", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Model string `json:"model"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(req.Model, "MiniCPM5") {
+			// Plain GGUF without mmproj
+			_, _ = w.Write([]byte(`{
+				"capabilities": ["tools", "thinking", "completion"],
+				"details": {"family": "llama", "parameter_size": "2.52B"},
+				"model_info": {"llama.context_length": 131072}
+			}`))
+		} else {
+			// Vision model with confirmed capability
+			_, _ = w.Write([]byte(`{
+				"capabilities": ["vision", "completion"],
+				"projector_info": {"clip.has_vision_encoder": true},
+				"details": {"family": "llama", "parameter_size": "7B"},
+				"model_info": {"llama.context_length": 4096}
+			}`))
+		}
+	})
+
+	client := &Client{
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				rec := httptest.NewRecorder()
+				mux.ServeHTTP(rec, req)
+				return rec.Result(), nil
+			}),
+		},
+	}
+
+	models, err := client.ListModels(context.Background(), "http://127.0.0.1:11434")
+	if err != nil {
+		t.Fatalf("ListOllamaModels failed: %v", err)
+	}
+	if len(models) != 2 {
+		t.Fatalf("expected 2 models, got %d", len(models))
+	}
+
+	// Model 0: MiniCPM5 without mmproj MUST NOT have vision
+	if models[0].HasVision {
+		t.Errorf("expected MiniCPM5 without mmproj to have HasVision=false, got true")
+	}
+	if !models[0].HasCompletion || !models[0].HasThinking || !models[0].HasTools {
+		t.Errorf("expected MiniCPM5 to have completion, thinking, and tools, got %+v", models[0].Capabilities)
+	}
+
+	// Model 1: llava MUST have vision
+	if !models[1].HasVision {
+		t.Errorf("expected llava to have HasVision=true, got false")
+	}
+}

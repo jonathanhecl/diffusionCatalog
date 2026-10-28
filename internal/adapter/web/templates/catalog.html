@@ -1272,9 +1272,14 @@
                       </label>
                     {{end}}
                   </div>
-                  <button type="submit" id="btn-submit-studio" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;padding:9px 22px;font-weight:700;font-size:13px;">
-                    &#10024; Generate Prompt
-                  </button>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <button type="button" id="btn-stop-studio" class="btn-ghost" style="display:none;background:#7f1d1d;border:1px solid #ef4444;color:#fca5a5;padding:8px 16px;font-weight:700;font-size:13px;border-radius:5px;cursor:pointer;" onclick="stopStudioGeneration()">
+                      &#9209; Stop
+                    </button>
+                    <button type="submit" id="btn-submit-studio" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;padding:9px 22px;font-weight:700;font-size:13px;">
+                      &#10024; Generate Prompt
+                    </button>
+                  </div>
                 </div>
               </form>
 
@@ -1290,7 +1295,7 @@
                 <div id="studio-recent-prompts-list" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding-right:4px;">
                   {{if .GeneratedHistory}}
                     {{range .GeneratedHistory}}
-                      <div class="prompt-box recent-prompt-card" data-server="1" data-target="{{.TargetProfileSlug}}" data-provider="{{.Provider}}" data-model="{{.ModelName}}" data-duration="{{.DurationSec}}" style="font-size:11px;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;">
+                      <div class="prompt-box recent-prompt-card" data-server="1" data-target="{{.TargetProfileSlug}}" data-provider="{{.Provider}}" data-model="{{.ModelName}}" data-duration="{{.DurationSec}}" data-created="{{if not .CreatedAt.IsZero}}{{.CreatedAt.Format "2006-01-02 15:04:05"}}{{end}}" style="font-size:11px;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);margin-bottom:6px;flex-wrap:wrap;gap:4px;">
                           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                             <span style="background:#0f172a;border:1px solid #1e3a5f;padding:1px 6px;border-radius:3px;color:#93c5fd;font-size:10.5px;">
@@ -1298,6 +1303,9 @@
                             </span>
                             {{if gt .DurationSec 0.0}}
                               <span style="background:#022c22;border:1px solid #10b981;padding:1px 6px;border-radius:3px;color:#34d399;font-size:10.5px;font-weight:700;">⏱️ {{printf "%.1fs" .DurationSec}}</span>
+                            {{end}}
+                            {{if not .CreatedAt.IsZero}}
+                              <span style="color:#94a3b8;font-size:10px;">📅 {{.CreatedAt.Format "2006-01-02 15:04"}}</span>
                             {{end}}
                             {{if .CharacterName}}
                               <span style="color:#6ee7b7;font-size:10.5px;">👤 {{.CharacterName}}</span>
@@ -2417,11 +2425,15 @@
                         style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;resize:vertical;"></textarea>
             </div>
 
-            <!-- Synthesize Prompt Button -->
+            <!-- Synthesize Prompt Button & Stop Button -->
             <button type="button" id="btnSynthesizePrompt" class="btn-primary" 
                     style="width:100%;padding:9px;font-size:12.5px;background:linear-gradient(135deg,#0284c7,#2563eb);border-color:#1d4ed8;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(2,132,199,0.35);">
               <span id="synthSpinner" style="display:none;" class="spinner"></span>
               <span id="synthBtnText">&#128640; Synthesize Diffusion Prompt</span>
+            </button>
+            <button type="button" id="btnStopSynthesizePrompt" class="btn-ghost" 
+                    style="display:none;width:100%;padding:8px;font-size:12px;background:#7f1d1d;border:1px solid #ef4444;color:#fca5a5;font-weight:700;align-items:center;justify-content:center;gap:6px;border-radius:5px;cursor:pointer;">
+              &#9209; Stop Synthesizing
             </button>
 
             <!-- Output Notice in Sidebar -->
@@ -8570,6 +8582,16 @@
   });
 
   // --- AI Prompt Synthesis ---
+  let currentDirectorAbortController = null;
+  const btnStopDirector = document.getElementById('btnStopSynthesizePrompt');
+  if (btnStopDirector) {
+    btnStopDirector.addEventListener('click', () => {
+      if (currentDirectorAbortController) {
+        currentDirectorAbortController.abort();
+      }
+    });
+  }
+
   document.getElementById('btnSynthesizePrompt').addEventListener('click', async () => {
     const btn = document.getElementById('btnSynthesizePrompt');
     const spinner = document.getElementById('synthSpinner');
@@ -8584,12 +8606,23 @@
     const origBtnBorder = btn.style.borderColor;
     const origBtnShadow = btn.style.boxShadow;
 
+    currentDirectorAbortController = new AbortController();
+    if (btnStopDirector) btnStopDirector.style.display = 'flex';
+
     btn.disabled = true;
     spinner.style.display = 'inline-block';
     btn.style.background = 'linear-gradient(135deg, #9333ea, #db2777)';
     btn.style.borderColor = '#c026d3';
     btn.style.boxShadow = '0 0 16px rgba(219,39,119,0.5)';
     btnText.textContent = "🚀 Synthesizing... (0.0s)";
+
+    // Set violet background while generating
+    output.style.background = '#2e1065';
+    output.style.borderColor = '#9333ea';
+    output.style.color = '#e9d5ff';
+    output.style.boxShadow = '0 0 24px rgba(147, 51, 234, 0.55)';
+    const durBadge = document.getElementById('directorPromptDurationBadge');
+    if (durBadge) durBadge.style.display = 'none';
 
     const startTime = performance.now();
     const timerInterval = setInterval(() => {
@@ -8635,6 +8668,7 @@
       const resp = await fetch('/admin/compositions/synthesize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: currentDirectorAbortController.signal,
         body: JSON.stringify({
           scene_json: sceneJSON,
           canvas_image_data: canvasImageData,
@@ -8654,7 +8688,6 @@
         const targetBadge = document.getElementById('directorPromptTargetBadge');
         if (targetBadge && targetProfile) targetBadge.textContent = targetProfile;
 
-        const durBadge = document.getElementById('directorPromptDurationBadge');
         if (durBadge) {
           durBadge.textContent = '⏱️ ' + durationStr;
           durBadge.style.display = 'inline-block';
@@ -8664,6 +8697,7 @@
         remixBtn.href = `/?tab=studio&concept=${encodeURIComponent(data.prompt)}&target_profile=${encodeURIComponent(targetProfile)}`;
         try {
           output.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          // Transition to green background upon delivery
           output.style.background = '#03281f';
           output.style.borderColor = '#10b981';
           output.style.color = '#a7f3d0';
@@ -8678,13 +8712,28 @@
         }
       } else {
         output.value = "Error synthesizing prompt: " + (data.error || "unknown error");
+        output.style.background = '#020617';
+        output.style.borderColor = '#164e63';
+        output.style.boxShadow = 'none';
         showToast("Error synthesizing prompt: " + (data.error || "unknown error"), "error");
       }
     } catch(err) {
-      output.value = "Network error communicating with AI backend: " + err.message;
-      showToast("Network error: " + err.message, "error");
+      if (err.name === 'AbortError') {
+        showToast("Scene synthesis stopped.", "info");
+        output.style.background = '#020617';
+        output.style.borderColor = '#164e63';
+        output.style.boxShadow = 'none';
+      } else {
+        output.value = "Network error communicating with AI backend: " + err.message;
+        output.style.background = '#020617';
+        output.style.borderColor = '#164e63';
+        output.style.boxShadow = 'none';
+        showToast("Network error: " + err.message, "error");
+      }
     } finally {
       clearInterval(timerInterval);
+      currentDirectorAbortController = null;
+      if (btnStopDirector) btnStopDirector.style.display = 'none';
       btn.disabled = false;
       spinner.style.display = 'none';
       btn.style.background = origBtnBg;
@@ -10788,6 +10837,7 @@
         if (item.duration_sec && Number(item.duration_sec) > 0) {
           durInfo = '<span style="background:#022c22;border:1px solid #10b981;padding:1px 6px;border-radius:3px;color:#34d399;font-size:10.5px;font-weight:700;">⏱️ ' + Number(item.duration_sec).toFixed(1) + 's</span>';
         }
+        var timeInfo = item.dateStr ? '<span style="color:#94a3b8;font-size:10px;">📅 ' + escapeHtml(item.dateStr) + '</span>' : '';
         var charInfo = item.characterName ? '<span style="color:#6ee7b7;font-size:10.5px;">👤 ' + escapeHtml(item.characterName) + '</span>' : '';
         var assetInfo = item.assetId ? '<a href="/?tab=studio&asset_id=' + escapeHtml(item.assetId) + '" style="color:#38bdf8;text-decoration:underline;font-size:10.5px;">Asset #' + escapeHtml(item.assetId) + '</a>' : '';
 
@@ -10799,11 +10849,12 @@
             '</div>';
         }
 
-        html += '<div class="prompt-box recent-prompt-card" data-target="' + targetSlug + '" data-provider="' + escapeHtml(item.provider || '') + '" data-model="' + escapeHtml(item.model || '') + '" data-duration="' + (item.duration_sec || 0) + '" style="font-size:11px;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;">' +
+        html += '<div class="prompt-box recent-prompt-card" data-target="' + targetSlug + '" data-provider="' + escapeHtml(item.provider || '') + '" data-model="' + escapeHtml(item.model || '') + '" data-duration="' + (item.duration_sec || 0) + '" data-created="' + escapeHtml(item.dateStr || '') + '" style="font-size:11px;background:#060d1b;border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);margin-bottom:6px;flex-wrap:wrap;gap:4px;">' +
             '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
               '<span style="background:#0f172a;border:1px solid #1e3a5f;padding:1px 6px;border-radius:3px;color:#93c5fd;font-size:10.5px;">Target: <strong style="color:#60a5fa;">' + targetSlug + '</strong></span>' +
               durInfo +
+              timeInfo +
               charInfo +
               assetInfo +
               '<span style="color:#64748b;font-size:10.5px;">' + provInfo + '</span>' +
@@ -10829,6 +10880,13 @@
       } catch(e) {
         sessionPrompts = [];
       }
+      var now = new Date();
+      var dateStr = now.getFullYear() + '-' +
+        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0') + ' ' +
+        String(now.getHours()).padStart(2, '0') + ':' +
+        String(now.getMinutes()).padStart(2, '0');
+
       sessionPrompts.unshift({
         target: item.target,
         provider: item.provider,
@@ -10836,6 +10894,7 @@
         input: item.input,
         output: item.output,
         duration_sec: item.duration_sec,
+        dateStr: dateStr,
         timestamp: Date.now()
       });
       if (sessionPrompts.length > 30) sessionPrompts.pop();
@@ -10868,11 +10927,19 @@
         var durText = durEl ? durEl.innerText.replace(/[^\d.]/g, '') : '';
         var isDuplicate = sessionPrompts.length > 0 && sessionPrompts[0].output === activeResult;
         if (!isDuplicate) {
+          var now = new Date();
+          var dateStr = now.getFullYear() + '-' +
+            String(now.getMonth() + 1).padStart(2, '0') + '-' +
+            String(now.getDate()).padStart(2, '0') + ' ' +
+            String(now.getHours()).padStart(2, '0') + ':' +
+            String(now.getMinutes()).padStart(2, '0');
+
           sessionPrompts.unshift({
             target: activeTarget,
             provider: activeProv,
             model: '',
             duration_sec: parseFloat(durText) || 0,
+            dateStr: dateStr,
             input: activeInput,
             output: activeResult,
             timestamp: Date.now()
@@ -10897,6 +10964,7 @@
             provider: card.getAttribute('data-provider') || '',
             model: card.getAttribute('data-model') || '',
             duration_sec: parseFloat(card.getAttribute('data-duration')) || 0,
+            dateStr: card.getAttribute('data-created') || '',
             input: inEl ? (inEl.innerText || inEl.textContent || '').trim() : '',
             output: outText,
             timestamp: Date.now()
@@ -11107,6 +11175,13 @@
     });
 
     // Capture exact video frame and prepare studio submission (with asynchronous fetch & live timer)
+    var currentStudioAbortController = null;
+    function stopStudioGeneration() {
+      if (currentStudioAbortController) {
+        currentStudioAbortController.abort();
+      }
+    }
+
     async function prepareStudioSubmission(event, form) {
       if (event && event.preventDefault) {
         event.preventDefault();
@@ -11116,6 +11191,7 @@
       var frameInput = document.getElementById('video_frame_data');
       var modeSelect = document.getElementById('studio-mode-select');
       var submitBtn = document.getElementById('btn-submit-studio') || document.getElementById('btn-submit-remix');
+      var stopBtn = document.getElementById('btn-stop-studio');
 
       var isRemixMode = modeSelect && modeSelect.value === 'remix';
       if (isRemixMode) {
@@ -11142,6 +11218,34 @@
       var timerInterval = null;
       var startTime = performance.now();
 
+      currentStudioAbortController = new AbortController();
+      if (stopBtn) stopBtn.style.display = 'inline-flex';
+
+      // Set prompt result box to violet while generating
+      var resultCard = document.getElementById('studio-result-card');
+      var resultOut = document.getElementById('studio-result-out');
+      var resultTarget = document.getElementById('studio-result-target');
+      var resultDuration = document.getElementById('studio-result-duration');
+      var profileSelect = document.getElementById('studio-profile-select');
+
+      if (resultCard) {
+        resultCard.style.display = 'block';
+        resultCard.style.background = '#2e1065'; // violet generating background
+        resultCard.style.borderColor = '#9333ea';
+        resultCard.style.boxShadow = '0 0 24px rgba(147, 51, 234, 0.55)';
+      }
+      if (resultOut) {
+        resultOut.style.background = '#1e1138';
+        resultOut.style.borderColor = '#7e22ce';
+        resultOut.style.color = '#e9d5ff';
+      }
+      if (resultTarget && profileSelect) {
+        resultTarget.textContent = profileSelect.value;
+      }
+      if (resultDuration) {
+        resultDuration.style.display = 'none';
+      }
+
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.style.background = 'linear-gradient(135deg, #9333ea, #db2777)';
@@ -11160,6 +11264,7 @@
         var resp = await fetch(form.action || '/admin/ollama/image2prompt', {
           method: 'POST',
           body: formData,
+          signal: currentStudioAbortController.signal,
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
@@ -11171,17 +11276,14 @@
           var duration = Number(data.duration_sec || ((performance.now() - startTime) / 1000));
           var durationStr = duration.toFixed(1) + 's';
 
-          // Update studio result box
-          var resultCard = document.getElementById('studio-result-card');
-          var resultOut = document.getElementById('studio-result-out');
-          var resultTarget = document.getElementById('studio-result-target');
-          var resultDuration = document.getElementById('studio-result-duration');
-
           if (resultTarget && data.target_profile) {
             resultTarget.textContent = data.target_profile;
           }
           if (resultOut) {
             resultOut.textContent = data.prompt;
+            resultOut.style.background = '#03281f';
+            resultOut.style.borderColor = '#059669';
+            resultOut.style.color = '#a7f3d0';
           }
           if (resultDuration) {
             resultDuration.textContent = '⏱️ ' + durationStr;
@@ -11189,6 +11291,7 @@
           }
           if (resultCard) {
             resultCard.style.display = 'block';
+            // Transition to green background upon delivery
             resultCard.style.background = '#064e3b';
             resultCard.style.borderColor = '#10b981';
             resultCard.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.45)';
@@ -11211,6 +11314,11 @@
             showToast('Prompt generated in ' + durationStr + ' via [' + (data.provider || 'AI') + '] ' + (data.model || ''), 'success');
           }
         } else {
+          if (resultCard) {
+            resultCard.style.background = '#1e1b4b';
+            resultCard.style.borderColor = '#4338ca';
+            resultCard.style.boxShadow = 'none';
+          }
           if (typeof showToast === 'function') {
             showToast('Generation error: ' + (data.error || 'unknown error'), 'error');
           } else {
@@ -11218,14 +11326,32 @@
           }
         }
       } catch (err) {
-        console.error('Studio prompt generation failed:', err);
-        if (typeof showToast === 'function') {
-          showToast('Network error during prompt generation: ' + err.message, 'error');
+        if (err.name === 'AbortError') {
+          if (typeof showToast === 'function') {
+            showToast('Prompt generation stopped.', 'info');
+          }
+          if (resultCard) {
+            resultCard.style.background = '#1e1b4b';
+            resultCard.style.borderColor = '#4338ca';
+            resultCard.style.boxShadow = 'none';
+          }
         } else {
-          alert('Network error: ' + err.message);
+          console.error('Studio prompt generation failed:', err);
+          if (resultCard) {
+            resultCard.style.background = '#1e1b4b';
+            resultCard.style.borderColor = '#4338ca';
+            resultCard.style.boxShadow = 'none';
+          }
+          if (typeof showToast === 'function') {
+            showToast('Network error during prompt generation: ' + err.message, 'error');
+          } else {
+            alert('Network error: ' + err.message);
+          }
         }
       } finally {
         if (timerInterval) clearInterval(timerInterval);
+        currentStudioAbortController = null;
+        if (stopBtn) stopBtn.style.display = 'none';
         if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.style.background = origBtnBg;

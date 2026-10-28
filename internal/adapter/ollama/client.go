@@ -279,6 +279,12 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 			}
 			if show, err := c.inspectModel(showCtx, baseURL, out[idx].Name); err == nil {
 				hasComp := inferCompletionFromName(out[idx].Name)
+				hasVis := false
+				visStatus := "none"
+				hasEmb := false
+				hasThink := false
+				hasTools := false
+
 				if len(show.Capabilities) > 0 {
 					hasComp = false
 					for _, capName := range show.Capabilities {
@@ -286,30 +292,41 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 						case "completion":
 							hasComp = true
 						case "vision":
-							out[idx].HasVision = true
-							out[idx].VisionStatus = "confirmed"
+							hasVis = true
+							visStatus = "confirmed"
 						case "embedding":
-							out[idx].HasEmbedding = true
+							hasEmb = true
 						case "thinking":
-							out[idx].HasThinking = true
+							hasThink = true
 						case "tools":
-							out[idx].HasTools = true
+							hasTools = true
 						}
 					}
 				}
-				out[idx].HasCompletion = hasComp
-				if !out[idx].HasVision && show.ProjectorInfo != nil {
-					if hasVis, ok := show.ProjectorInfo["clip.has_vision_encoder"].(bool); ok && hasVis {
-						out[idx].HasVision = true
-						out[idx].VisionStatus = "inferred"
+
+				if !hasVis && show.ProjectorInfo != nil {
+					if hasEnc, ok := show.ProjectorInfo["clip.has_vision_encoder"].(bool); ok && hasEnc {
+						hasVis = true
+						visStatus = "confirmed"
+					} else if len(show.ProjectorInfo) > 0 {
+						hasVis = true
+						visStatus = "confirmed"
 					}
 				}
-				if !out[idx].HasVision && show.ModelInfo != nil {
+				if !hasVis && show.ModelInfo != nil {
 					if vb, ok := show.ModelInfo["vision.block_count"].(float64); ok && vb > 0 {
-						out[idx].HasVision = true
-						out[idx].VisionStatus = "inferred"
+						hasVis = true
+						visStatus = "confirmed"
 					}
 				}
+
+				out[idx].HasCompletion = hasComp
+				out[idx].HasVision = hasVis
+				out[idx].VisionStatus = visStatus
+				out[idx].HasThinking = hasThink
+				out[idx].HasTools = hasTools
+				out[idx].HasEmbedding = hasEmb
+
 				for k, v := range show.ModelInfo {
 					if strings.HasSuffix(k, ".context_length") {
 						if f, ok := v.(float64); ok {
@@ -1009,15 +1026,13 @@ func normalizeEndpoint(raw, fallback, defaultPort string) string {
 
 func inferVisionFromName(modelID string) bool {
 	lower := strings.ToLower(modelID)
-	// Modern multimodal & MLX VLM architectures (Bonsai, Qwen3.5/3.8/SuperQwen, Qwen-VL, Gemma-3/4, Pixtral, LLaVA, MiniCPM-V, InternVL, Molmo, GLM-4V)
+	// Genuine multimodal vision architectures with vision encoder (e.g. -vl, vision, vlm, pixtral, llava, minicpm-v, etc.)
 	for _, kw := range []string{
-		"vl", "vision", "vlm", "pixtral", "llava", "minicpm-v", "minicpm",
-		"bonsai", "bonsai2", "bonsai-2",
-		"gemma-3", "gemma3", "gemma-4", "gemma4", "paligemma",
-		"qwen2.5-vl", "qwen3-vl", "qwen3.5", "qwen3.8", "superqwen",
-		"internvl", "molmo", "glm-4v", "qvq", "mllama", "mistral-small3.1", "mistral-small3.2",
-		"florence", "omni", "deepseek-vl", "idefics", "smolvlm", "phi-3.5-vision", "phi-3-vision",
+		"-vl", "_vl", "/vl", "vision", "vlm", "pixtral", "llava", "minicpm-v",
+		"paligemma", "internvl", "molmo", "glm-4v", "qvq", "mllama",
+		"florence", "deepseek-vl", "idefics", "smolvlm", "phi-3.5-vision", "phi-3-vision",
 		"janus", "chameleon", "aria", "cogvlm",
+		"qwen3.8", "superqwen", "bonsai",
 	} {
 		if strings.Contains(lower, kw) {
 			return true
