@@ -10515,10 +10515,15 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
                     &larr; All Face Groups
                   </a>
                 {{end}}
-                <form action="/admin/faces/cluster/recluster" method="POST" style="margin:0;">
-                  <input type="hidden" name="threshold" value="0.50">
-                  <button type="submit" class="btn-ghost" style="font-size:11.5px;padding:5px 10px;">
-                    &#9881; Re-cluster (&gt;50%)
+                <form action="/admin/faces/cluster/recluster" method="POST" style="display:flex;align-items:center;gap:6px;margin:0;">
+                  <select name="threshold" class="input-dark" style="font-size:11.5px;padding:4px 8px;border-radius:4px;width:auto;cursor:pointer;">
+                    <option value="0.65">Strict (65% — High Precision)</option>
+                    <option value="0.60" selected>Balanced (60% — Recommended)</option>
+                    <option value="0.58">Broad (58%)</option>
+                    <option value="0.54">Loose (54%)</option>
+                  </select>
+                  <button type="submit" class="btn-ghost" style="font-size:11.5px;padding:5px 12px;">
+                    &#9881; Re-cluster
                   </button>
                 </form>
               </div>
@@ -10528,20 +10533,32 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
               <!-- 5-Column Extracted Face / Subject Grid for Selected Cluster -->
               <div class="asset-grid">
                 {{range .Page.Faces}}
-                  <a href="{{assetDetailURL $.Filter .AssetID}}" class="asset-card">
-                    <div class="asset-thumb-wrap square">
-                      <img src="/cache/{{.CropRelPath}}" alt="{{.ClusterLabel}}" class="asset-thumb" loading="lazy">
-                      <span class="asset-type-corner">{{printf "%.0f%%" (mul100 .Confidence)}}</span>
-                    </div>
-                    <div class="asset-meta">
-                      <div class="badge-row">
-                        <span class="badge-chip character" title="Click to rename this person cluster" style="cursor:pointer;" onclick="renameFaceCluster(event, '{{.ClusterLabel}}')">&#128100; {{.ClusterLabel}} &#9998;</span>
-                        {{if .ExpressionTag}}<span class="badge-chip">{{.ExpressionTag}}</span>{{end}}
-                        <span class="badge-chip">{{.AssetEngine}}</span>
+                  <div class="asset-card" style="display:flex;flex-direction:column;position:relative;">
+                    <a href="{{assetDetailURL $.Filter .AssetID}}" style="text-decoration:none;display:block;">
+                      <div class="asset-thumb-wrap square">
+                        <img src="/cache/{{.CropRelPath}}" alt="{{.ClusterLabel}}" class="asset-thumb" loading="lazy">
+                        <span class="asset-type-corner">{{printf "%.0f%%" (mul100 .Confidence)}}</span>
                       </div>
-                      <div class="asset-caption" title="{{.AssetPrompt}}">{{if .AssetPrompt}}{{.AssetPrompt}}{{else}}{{.AssetRelPath}}{{end}}</div>
+                    </a>
+                    <div class="asset-meta" style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
+                      <div>
+                        <div class="badge-row" style="display:flex;justify-content:space-between;align-items:center;">
+                          <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+                            <span class="badge-chip character" title="Click to rename this person cluster" style="cursor:pointer;" onclick="renameFaceCluster(event, '{{.ClusterLabel}}')">&#128100; {{.ClusterLabel}} &#9998;</span>
+                            {{if .ExpressionTag}}<span class="badge-chip">{{.ExpressionTag}}</span>{{end}}
+                            <span class="badge-chip">{{.AssetEngine}}</span>
+                          </div>
+                          <form action="/admin/faces/detach" method="POST" style="margin:0;" onsubmit="return confirm('Detach this face from {{$.Filter.Cluster}} into its own separate identity?');">
+                            <input type="hidden" name="face_id" value="{{.ID}}">
+                            <button type="submit" class="btn-ghost" style="font-size:10.5px;padding:2px 6px;color:#f87171;border-color:rgba(248,113,113,0.3);line-height:1;" title="Detach from this group into its own identity">&#10005; Detach</button>
+                          </form>
+                        </div>
+                        <a href="{{assetDetailURL $.Filter .AssetID}}" style="text-decoration:none;">
+                          <div class="asset-caption" title="{{.AssetPrompt}}">{{if .AssetPrompt}}{{.AssetPrompt}}{{else}}{{.AssetRelPath}}{{end}}</div>
+                        </a>
+                      </div>
                     </div>
-                  </a>
+                  </div>
                 {{else}}
                   <div style="grid-column:span 5;padding:40px;text-align:center;color:var(--text-muted);">
                     No extracted face crops match this identity.

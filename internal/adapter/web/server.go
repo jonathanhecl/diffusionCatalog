@@ -364,6 +364,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/scan/faces", s.handleScanFaces)
 	mux.HandleFunc("POST /admin/faces/cluster/recluster", s.handleClusterFaces)
 	mux.HandleFunc("POST /admin/faces/cluster/rename", s.handleRenameFaceCluster)
+	mux.HandleFunc("POST /admin/faces/detach", s.handleDetachFace)
 	mux.HandleFunc("POST /admin/assets/tag", s.handleAddTag)
 	mux.HandleFunc("POST /admin/assets/tag/remove", s.handleRemoveTag)
 	mux.HandleFunc("POST /admin/assets/category", s.handleSetAssetCategory)
@@ -1596,6 +1597,24 @@ func (s *Server) handleRenameFaceCluster(w http.ResponseWriter, r *http.Request)
 	referer := r.Header.Get("Referer")
 	if referer == "" || strings.Contains(referer, "cluster=") {
 		referer = "/?face_mode=1&cluster=" + url.QueryEscape(newLabel)
+	}
+	http.Redirect(w, r, referer, http.StatusSeeOther)
+}
+
+func (s *Server) handleDetachFace(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	faceID, _ := strconv.ParseInt(r.FormValue("face_id"), 10, 64)
+	if faceID > 0 {
+		_ = s.catalog.DetachFaceFromCluster(r.Context(), faceID)
+	}
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+		return
+	}
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		referer = "/?face_mode=1"
 	}
 	http.Redirect(w, r, referer, http.StatusSeeOther)
 }

@@ -517,6 +517,12 @@ func (s *CatalogService) RenameFaceCluster(ctx context.Context, oldLabel, newLab
 	return s.repo.RenameFaceCluster(ctx, oldLabel, newLabel, charID)
 }
 
+// DetachFaceFromCluster moves a single face out of its current group into a new standalone identity.
+func (s *CatalogService) DetachFaceFromCluster(ctx context.Context, faceID int64) error {
+	newLabel := fmt.Sprintf("Identity #%d", faceID)
+	return s.repo.UpdateFaceCluster(ctx, faceID, newLabel, nil)
+}
+
 // GetSettings retrieves application and Ollama model routing settings.
 func (s *CatalogService) GetSettings(ctx context.Context) (domain.AppSettings, error) {
 	return s.repo.GetSettings(ctx)

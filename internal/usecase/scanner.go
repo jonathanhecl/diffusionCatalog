@@ -822,10 +822,10 @@ func (s *ScannerService) StartFaceScanAsync() bool {
 }
 
 // ClusterDetectedFaces groups faces with cosine similarity >= similarityThreshold into clusters.
-// Uses exemplar-based leader clustering (best face first) to prevent transitive chaining.
+// Uses centroid-based leader clustering with normalized vector sums to prevent drift and transitive chaining.
 func (s *ScannerService) ClusterDetectedFaces(ctx context.Context, similarityThreshold float64) (int, error) {
 	if similarityThreshold <= 0 {
-		similarityThreshold = 0.45
+		similarityThreshold = 0.60
 	}
 	faces, err := s.repo.ListFacesWithEmbeddings(ctx)
 	if err != nil {
@@ -835,7 +835,7 @@ func (s *ScannerService) ClusterDetectedFaces(ctx context.Context, similarityThr
 		return 0, nil
 	}
 
-	// Sort faces by quality (area * confidence descending) so highest quality crops become cluster exemplars
+	// Sort faces by quality (area * confidence descending) so highest quality crops become initial cluster centroids
 	type faceWithIdx struct {
 		face domain.DetectedFace
 		idx  int
@@ -851,16 +851,22 @@ func (s *ScannerService) ClusterDetectedFaces(ctx context.Context, similarityThr
 	})
 
 	type cluster struct {
-		exemplarEmbedding []float32
-		faceIndices       []int
+		centroid    []float32
+		sum         []float32
+		faceIndices []int
 	}
 
 	var clusters []cluster
 	for _, item := range sorted {
+		emb := item.face.Embedding
+		if len(emb) == 0 {
+			continue
+		}
+
 		bestSim := -1.0
 		bestClusterIdx := -1
 		for cIdx, c := range clusters {
-			sim := cosineSimilarity(item.face.Embedding, c.exemplarEmbedding)
+			sim := cosineSimilarity(emb, c.centroid)
 			if sim > bestSim {
 				bestSim = sim
 				bestClusterIdx = cIdx
@@ -868,11 +874,33 @@ func (s *ScannerService) ClusterDetectedFaces(ctx context.Context, similarityThr
 		}
 
 		if bestSim >= similarityThreshold && bestClusterIdx >= 0 {
-			clusters[bestClusterIdx].faceIndices = append(clusters[bestClusterIdx].faceIndices, item.idx)
+			// Add to best matching cluster and update centroid
+			c := &clusters[bestClusterIdx]
+			c.faceIndices = append(c.faceIndices, item.idx)
+			for d := range c.sum {
+				c.sum[d] += emb[d]
+			}
+			// Re-normalize centroid
+			var norm float64
+			for d := range c.sum {
+				norm += float64(c.sum[d]) * float64(c.sum[d])
+			}
+			norm = math.Sqrt(norm)
+			if norm > 1e-6 {
+				for d := range c.sum {
+					c.centroid[d] = float32(float64(c.sum[d]) / norm)
+				}
+			}
 		} else {
+			// Start new cluster with this face
+			sumCopy := make([]float32, len(emb))
+			centroidCopy := make([]float32, len(emb))
+			copy(sumCopy, emb)
+			copy(centroidCopy, emb)
 			clusters = append(clusters, cluster{
-				exemplarEmbedding: item.face.Embedding,
-				faceIndices:       []int{item.idx},
+				centroid:    centroidCopy,
+				sum:         sumCopy,
+				faceIndices: []int{item.idx},
 			})
 		}
 	}
