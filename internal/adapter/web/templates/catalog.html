@@ -10533,10 +10533,11 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
                 {{end}}
                 <form action="/admin/faces/cluster/recluster" method="POST" style="display:flex;align-items:center;gap:6px;margin:0;">
                   <select name="threshold" class="input-dark" style="font-size:11.5px;padding:4px 8px;border-radius:4px;width:auto;cursor:pointer;">
-                    <option value="0.65">Strict (65% — High Precision)</option>
-                    <option value="0.60" selected>Balanced (60% — Recommended)</option>
-                    <option value="0.58">Broad (58%)</option>
-                    <option value="0.54">Loose (54%)</option>
+                    <option value="0.65">Strict (65% — Ultra-Precise)</option>
+                    <option value="0.60">Balanced (60% — Default)</option>
+                    <option value="0.55" selected>Moderate (55% — Recommended)</option>
+                    <option value="0.50">Broad (50% — Poses &amp; Expressions)</option>
+                    <option value="0.45">Loose (45% — Occluded / Extreme Bites)</option>
                   </select>
                   <button type="submit" class="btn-ghost" style="font-size:11.5px;padding:5px 12px;">
                     &#9881; Re-cluster

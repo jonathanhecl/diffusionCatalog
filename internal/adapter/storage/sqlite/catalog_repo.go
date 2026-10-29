@@ -2393,7 +2393,8 @@ func (r *Repository) ListImageAssets(ctx context.Context) ([]domain.MediaAsset, 
 	return out, nil
 }
 
-// ListImageAssetsMissingFaces returns all image assets that have not yet been scanned for faces.
+// ListImageAssetsMissingFaces returns image assets that either haven't been scanned for faces
+// or were processed previously with 0 faces found.
 func (r *Repository) ListImageAssetsMissingFaces(ctx context.Context) ([]domain.MediaAsset, error) {
 	db := r.conn()
 	rows, err := db.QueryContext(ctx, `
@@ -2404,7 +2405,9 @@ func (r *Repository) ListImageAssetsMissingFaces(ctx context.Context) ([]domain.
 		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at, a.faces_scanned_at
 		FROM assets a
 		LEFT JOIN media_roots mr ON mr.id = a.root_id
-		WHERE a.media_type = 'image' AND a.faces_scanned_at IS NULL
+		LEFT JOIN faces f ON f.asset_id = a.id
+		WHERE a.media_type = 'image' AND (a.faces_scanned_at IS NULL OR f.id IS NULL)
+		GROUP BY a.id
 		ORDER BY a.id ASC`)
 	if err != nil {
 		return nil, err

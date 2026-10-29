@@ -100,7 +100,7 @@ def get_models():
     if yunet_path and hasattr(cv2, "FaceDetectorYN"):
         try:
             _yunet_detector = cv2.FaceDetectorYN.create(
-                yunet_path, "", (320, 320), score_threshold=0.82, nms_threshold=0.3, top_k=5000
+                yunet_path, "", (320, 320), score_threshold=0.60, nms_threshold=0.3, top_k=5000
             )
         except Exception as e:
             sys.stderr.write(f"[vision_worker] warning: could not load YuNet: {e}\n")
@@ -143,10 +143,10 @@ def detect_faces(req: DetectRequest):
 
         if detector is not None and recognizer is not None:
             # Neural network detection with YuNet
-            # Downscale giant images (> 1600px) for speed, then map boxes back
+            # Optimal YuNet scale is max dimension ~960px to match its anchor receptive field.
             scale = 1.0
-            if max(img_h, img_w) > 1600:
-                scale = 1600.0 / float(max(img_h, img_w))
+            if max(img_h, img_w) > 960:
+                scale = 960.0 / float(max(img_h, img_w))
                 det_w = int(img_w * scale)
                 det_h = int(img_h * scale)
                 det_img = cv2.resize(img_cv, (det_w, det_h))
@@ -157,12 +157,24 @@ def detect_faces(req: DetectRequest):
             detector.setInputSize((det_w, det_h))
             _, detections = detector.detect(det_img)
 
+            # Secondary pass: if no faces found and image was large, check at higher resolution (1440px)
+            if (detections is None or len(detections) == 0) and scale != 1.0 and max(img_h, img_w) > 960:
+                scale2 = min(1.0, 1440.0 / float(max(img_h, img_w)))
+                det_w2 = int(img_w * scale2)
+                det_h2 = int(img_h * scale2)
+                det_img2 = cv2.resize(img_cv, (det_w2, det_h2))
+                detector.setInputSize((det_w2, det_h2))
+                _, dets2 = detector.detect(det_img2)
+                if dets2 is not None and len(dets2) > 0:
+                    scale = scale2
+                    detections = dets2
+
             if detections is not None and len(detections) > 0:
                 pil_img = Image.open(req.image_path).convert("RGB")
                 count = 0
                 for d in detections:
                     conf = float(d[14])
-                    if conf < 0.80:
+                    if conf < 0.60:
                         continue
 
                     # Unscale detection back to original image
