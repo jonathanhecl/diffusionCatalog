@@ -1554,8 +1554,8 @@
           </div>
         </div>
 
-        <!-- Main Workspace Layout: Palette | Canvas | Synthesizer -->
-        <div id="directorWorkspaceGrid" style="display:grid;grid-template-columns: 240px 1fr 340px; gap: 14px; align-items: start;">
+        <!-- Main Workspace Layout: Palette | Canvas | Character Inspector -->
+        <div id="directorWorkspaceGrid" style="display:grid;grid-template-columns: 230px 1fr 380px; gap: 14px; align-items: start;">
           
           <!-- LEFT SIDEBAR: Figures, Props, Direction Palette -->
           <aside id="paletteSidebar" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:14px;">
@@ -2004,246 +2004,334 @@
               </svg>
             </div>
 
-            <!-- Floating / Bottom Properties Bar (Active when an element is selected) -->
-            <div id="elementPropertiesBar" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-              <div id="noSelectionMsg" style="color:var(--text-muted);font-size:12px;">
-                Select any figure on the canvas to inspect, pose, scale (up to 6.0x), rotate, or set facing direction.
+            <!-- PROMPT SYNTHESIZER (Matching Prompt Studio: directly below Canvas, above Compiled Prompt) -->
+            <div id="directorSynthesizerCard" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
+              <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-navy);padding-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:13px;font-weight:700;color:#c084fc;">✨ PROMPT SYNTHESIZER</span>
+                  <span class="badge-chip" style="font-size:10px;background:#1e1b4b;color:#c084fc;border-color:#7c3aed;">Spatial Director</span>
+                </div>
+                <span id="directorLLMCurrentHint" style="font-size:10.5px;color:#38bdf8;font-family:monospace;"></span>
               </div>
 
-              <div id="selectionControls" style="display:none;width:100%;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-                <!-- Facing Direction (Front, Back, Left, Right, 3/4) -->
-                <div id="facingControlGroup" style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Facing:</span>
-                  <div style="display:flex;gap:3px;background:var(--bg-input);padding:2px;border-radius:4px;border:1px solid var(--border-navy);">
-                    <button type="button" class="btn-ghost facing-btn" data-facing="front" style="padding:2px 7px;font-size:11px;" title="Frontal view (looking directly at camera)">👁️ Front</button>
-                    <button type="button" class="btn-ghost facing-btn" data-facing="three_quarter_left" style="padding:2px 7px;font-size:11px;" title="Three-quarter facing Left">↖️ 3/4 L</button>
-                    <button type="button" class="btn-ghost facing-btn" data-facing="left" style="padding:2px 7px;font-size:11px;" title="Profile Left (90 deg)">◀️ Left</button>
-                    <button type="button" class="btn-ghost facing-btn" data-facing="three_quarter_right" style="padding:2px 7px;font-size:11px;" title="Three-quarter facing Right">↗️ 3/4 R</button>
-                    <button type="button" class="btn-ghost facing-btn" data-facing="right" style="padding:2px 7px;font-size:11px;" title="Profile Right (90 deg)">▶️ Right</button>
-                    <button type="button" class="btn-ghost facing-btn" data-facing="back" style="padding:2px 7px;font-size:11px;" title="Back view (turned away from camera)">🔙 Back</button>
+              <!-- Row 1: Target Generator Profile & Attach Character Sheet -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                  <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:4px;">Target Generator Profile:</label>
+                  <select id="directorTargetProfile" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;">
+                    {{range .PromptProfiles}}
+                      <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}})</option>
+                    {{end}}
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:4px;">Attach Character Sheet (Optional):</label>
+                  <select id="directorCharacterSelect" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;">
+                    <option value="0">-- No Character Linked --</option>
+                    {{range .Page.Characters}}
+                      <option value="{{.ID}}" data-trigger="{{.TriggerWords}}">{{.Name}} [{{.Archetype}}]</option>
+                    {{end}}
+                  </select>
+                </div>
+              </div>
+
+              <!-- Row 2: AI Provider & Model & Thinking Mode -->
+              <div>
+                <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:4px;">AI Provider, Model &amp; Reasoning:</label>
+                <div style="display:grid;grid-template-columns:120px 1fr 105px;gap:8px;">
+                  <select id="directorProvider" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;" onchange="switchProviderSelect('director')">
+                    <option value="ollama" {{if eq .Settings.StudioDefaultProvider "ollama"}}selected{{end}}>Ollama</option>
+                    <option value="openai" {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}selected{{end}}>OpenAI Comp.</option>
+                  </select>
+                  <select id="directorModel" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;" onchange="updateDirectorActiveIndicator()">
+                    {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}
+                      <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (default)</option>
+                      {{range .AIStatus.OMLXModels}}
+                        {{if .IsCompletionModel}}
+                          <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                        {{end}}
+                      {{end}}
+                    {{else}}
+                      <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (default)</option>
+                      {{range .AIStatus.OllamaModels}}
+                        {{if .IsCompletionModel}}
+                          <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
+                        {{end}}
+                      {{end}}
+                    {{end}}
+                  </select>
+                  <select id="directorThink" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;" onchange="updateDirectorActiveIndicator()">
+                    <option value="default">Think: Def</option>
+                    <option value="off">Think: Off</option>
+                    <option value="low">Think: Low</option>
+                    <option value="medium">Think: Med</option>
+                    <option value="high">Think: High</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Row 3: Director's Notes & Style Directives (Multiline Textarea with spacious room) -->
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                  <label style="font-size:11px;font-weight:600;color:var(--text-main);">🎬 Director's Notes &amp; Style Directives:</label>
+                  <span style="font-size:10.5px;color:var(--text-muted);">Multiline instructions, lighting cues, aesthetics &amp; composition hints</span>
+                </div>
+                <textarea id="directorUserHint" rows="4" placeholder="e.g. Cinematic lighting, octane 8k, moody cyberpunk rain, Kodak Portra 35mm photograph, anamorphic lens flare, framing cues..." 
+                          style="width:100%;min-height:92px;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:8px 10px;color:#fff;font-size:12px;font-family:monospace;resize:vertical;line-height:1.45;"></textarea>
+              </div>
+
+              <!-- Row 4: Action Button Row -->
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;">
+                <button type="button" id="btnStopSynthesizePrompt" class="btn-ghost" 
+                        style="display:none;padding:9px 18px;font-size:12.5px;background:#7f1d1d;border:1px solid #ef4444;color:#fca5a5;font-weight:700;align-items:center;gap:6px;border-radius:5px;cursor:pointer;">
+                  ⏹️ Stop Synthesizing
+                </button>
+                <button type="button" id="btnSynthesizePrompt" class="btn-primary" 
+                        style="padding:10px 24px;font-size:13px;background:linear-gradient(135deg,#0284c7,#2563eb);border-color:#1d4ed8;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(2,132,199,0.35);cursor:pointer;">
+                  <span id="synthSpinner" style="display:none;" class="spinner"></span>
+                  <span id="synthBtnText">🚀 Synthesize Diffusion Prompt</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Generated Prompt Output Area (Spacious, underneath Canvas) -->
+            <div id="directorOutputContainer" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:12px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:12px;font-weight:700;color:#6ee7b7;display:flex;align-items:center;gap:6px;">
+                    <span>&#10024; COMPILED DIFFUSION PROMPT</span>
+                  </span>
+                  <span id="directorPromptTargetBadge" style="font-size:10px;background:#064e3b;border:1px solid #059669;color:#a7f3d0;padding:1px 7px;border-radius:3px;font-weight:600;">{{if .SelectedComposition}}{{.SelectedComposition.TargetProfileSlug}}{{else}}Diffusion Staging Result{{end}}</span>
+                  <span id="directorPromptDurationBadge" style="display:none;background:#022c22;border:1px solid #10b981;padding:1px 6px;border-radius:3px;color:#34d399;font-size:10.5px;font-weight:700;"></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <button type="button" id="btnCopyPrompt" class="btn-ghost" style="padding:4px 10px;font-size:11px;color:#a7f3d0;border-color:#059669;background:#064e3b;cursor:pointer;" title="Copy to clipboard">&#128203; Copy Prompt</button>
+                  <a id="btnSendToRemix" href="/?tab=studio{{if .SelectedComposition}}&concept={{.SelectedComposition.PromptOutput}}&target_profile={{.SelectedComposition.TargetProfileSlug}}{{end}}" class="btn-ghost" style="padding:4px 10px;font-size:11px;color:#c084fc;border-color:#7c3aed;background:#1e1b4b;" title="Open in Prompt Studio &amp; Remix">&#10024; Send to Prompt Studio</a>
+                </div>
+              </div>
+              <textarea id="directorPromptOutput" rows="5" readonly 
+                        style="width:100%;min-height:115px;background:#020617;border:1px solid #164e63;border-radius:6px;padding:10px 12px;color:#a7f3d0;font-size:12.5px;font-family:monospace;line-height:1.5;resize:vertical;user-select:all;transition:all 0.3s ease;" 
+                        placeholder="Click 'Synthesize Diffusion Prompt' above to compile your visual staging into a high-quality prompt.">{{if .SelectedComposition}}{{.SelectedComposition.PromptOutput}}{{end}}</textarea>
+
+              <!-- Collapsible Spatial Manifest Inspector -->
+              <details style="background:rgba(15,23,42,0.6);border:1px solid var(--border-navy);border-radius:5px;padding:6px 10px;font-size:11px;">
+                <summary style="cursor:pointer;color:var(--text-muted);font-weight:600;display:flex;align-items:center;gap:6px;">
+                  <span>&#128065; Inspect Real-Time Spatial Composition Manifest</span>
+                </summary>
+                <pre id="manifestViewer" style="margin-top:6px;color:#93c5fd;font-family:monospace;font-size:11px;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow-y:auto;background:#030712;padding:8px 10px;border-radius:4px;border:1px solid #111827;">(Compiles in real-time as you arrange elements)</pre>
+              </details>
+            </div>
+          </div>
+
+          <!-- RIGHT SIDEBAR: Element & Character Inspector (Properties, Facing, Posing, Styling) -->
+          <aside id="elementPropertiesBar" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:12px;position:sticky;top:10px;max-height:calc(100vh - 40px);overflow-y:auto;">
+            <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-navy);padding-bottom:8px;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:11.5px;font-weight:700;color:#38bdf8;">CHARACTER &amp; INSPECTOR</span>
+                <span id="charSelectedBadge" style="font-size:10px;color:#94a3b8;font-weight:normal;background:#1e293b;border:1px solid #334155;padding:1px 6px;border-radius:3px;"></span>
+              </div>
+              <button type="button" id="btnRandomizeChar" class="preset-pill-btn" style="color:#fbbf24;border-color:#d97706;background:rgba(217,119,6,0.18);font-weight:700;padding:2px 8px;font-size:10.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Randomly generate appearance, outfit, hairstyle, anatomy and accessories for this character">
+                <span>🎲 Random Look</span>
+              </button>
+            </div>
+
+            <!-- No Selection State -->
+            <div id="noSelectionMsg" style="color:var(--text-muted);font-size:11.5px;padding:24px 8px;text-align:center;line-height:1.5;">
+              Select any figure or object on the canvas to inspect, pose, scale, rotate, or customize character attributes.
+            </div>
+
+            <!-- Active Selection Controls Container -->
+            <div id="selectionControls" style="display:none;width:100%;flex-direction:column;gap:12px;">
+
+              <!-- Transform & Staging Box -->
+              <div style="display:flex;flex-direction:column;gap:8px;background:rgba(15,23,42,0.4);border:1px solid var(--border-navy);border-radius:6px;padding:8px 10px;">
+                <!-- Distance / Scale Slider -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <span style="font-size:11px;color:var(--text-muted);font-weight:600;" title="Camera distance / Optical framing in scene">Distance / Scale:</span>
+                    <div style="display:flex;align-items:center;gap:4px;">
+                      <span id="propScaleVal" style="font-size:11px;font-weight:700;color:#38bdf8;">1.00x</span>
+                      <span id="propFramingBadge" style="font-size:9.5px;padding:1px 5px;border-radius:3px;background:#0f172a;border:1px solid #334155;color:#94a3b8;font-weight:600;" title="Camera framing / Depth tier">Midground</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <button type="button" id="btnScaleDown" class="btn-ghost" style="padding:1px 6px;font-size:11px;">-</button>
+                    <input type="range" id="propScaleSlider" min="0.2" max="6.0" step="0.05" value="1.0" style="flex:1;accent-color:#0284c7;" />
+                    <button type="button" id="btnScaleUp" class="btn-ghost" style="padding:1px 6px;font-size:11px;">+</button>
                   </div>
                 </div>
 
-                <!-- Looking At Gaze Target (Character, Prop, or Custom target) -->
-                <div id="lookingAtControlGroup" style="display:none;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:#38bdf8;font-weight:600;" title="Object or character this figure is looking at">👀 Looking At:</span>
-                  <select id="charLookingAtSelect" class="director-select" style="max-width:180px;">
-                    <option value="">-- Camera / Neutral --</option>
-                  </select>
-                </div>
-
-                <!-- Note Editing Control Group (Visible when a note is selected) -->
-                <div id="noteControlGroup" style="display:none;align-items:flex-start;gap:6px;">
-                  <span style="font-size:11px;color:#34d399;font-weight:600;margin-top:3px;">📝 Note:</span>
-                  <textarea id="noteTextInput" rows="2" placeholder="Directive note on canvas (supports multiline instructions)..." 
-                         style="width:280px;min-height:44px;background:var(--bg-input);border:1px solid #10b981;border-radius:4px;padding:3px 8px;color:#a7f3d0;font-size:11.5px;resize:vertical;font-family:inherit;"></textarea>
-                </div>
-
-                <!-- Prop Type & View Control Group (Visible when a prop is selected) -->
-                <div id="propControlGroup" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
-                  <span style="font-size:11px;color:#a78bfa;font-weight:600;">🛋️ Prop:</span>
-                  <select id="propSubtypeSelect" class="director-select" style="max-width:170px;">
-                    <option value="marker">&#127919; Body Feature Marker</option>
-                    <option value="circle">&#9898; Generic Circle / Custom</option>
-                    <option value="bed">&#128716; Bed</option>
-                    <option value="sofa">&#128715; Sofa</option>
-                    <option value="chair">&#129681; Chair</option>
-                    <option value="table">&#129701; Table / Desk</option>
-                    <option value="car">&#128663; Car</option>
-                    <option value="tree">&#127795; Tree</option>
-                    <option value="ladder">&#129692; Ladder</option>
-                    <option value="stairs">&#129692; Stairs</option>
-                    <option value="window">&#129687; Window</option>
-                    <option value="door">&#128682; Doorway</option>
-                  </select>
-                  <select id="propRoleSelect" class="director-select" style="max-width:150px;background:#1e1b4b;border-color:#6366f1;color:#c7d2fe;" title="Define whether this is an environment object or a character detail marker">
-                    <option value="environment">🛋️ Environment Object</option>
-                    <option value="character_feature">🎯 Character Detail / Marker</option>
-                  </select>
-                  <div id="propFeatureControls" style="display:none;align-items:center;gap:5px;">
-                    <select id="propTargetCharSelect" class="director-select" style="max-width:140px;" title="Character associated with this detail (or Auto-detect by position)">
-                      <option value="">🎯 [Auto-detect]</option>
-                    </select>
-                    <input type="text" id="propBodyPartInput" placeholder="Body part (e.g. Left arm, Eye)..." 
-                           style="width:145px;background:var(--bg-input);border:1px solid #06b6d4;border-radius:4px;padding:3px 6px;color:#67e8f9;font-size:11px;" title="Anatomical body part" />
+                <!-- Rotation Slider -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                    <span style="font-size:11px;color:var(--text-muted);">Rotation:</span>
+                    <span id="propRotateVal" style="font-size:11px;color:#93c5fd;font-weight:600;">0&deg;</span>
                   </div>
-                  <input type="text" id="propLabelInput" placeholder="Name (e.g. Sofa, Magic Portal)..." 
-                         style="width:130px;background:var(--bg-input);border:1px solid #7c3aed;border-radius:4px;padding:3px 6px;color:#ddd6fe;font-size:11px;" title="Prop name / label" />
-                  <input type="text" id="propDescInput" placeholder="Details (e.g. worn leather, glowing cyan)..." 
-                         style="width:190px;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 6px;color:#fff;font-size:11px;" title="Prop details, color, material or style" />
-                  <button type="button" id="btnPropToggleView" class="btn-ghost" style="padding:2px 7px;font-size:11px;color:#38bdf8;" title="Toggle prop design between top-down layout and side profile">&#128257; Top-Down &#8596; Side</button>
+                  <input type="range" id="propRotateSlider" min="-180" max="180" step="5" value="0" style="width:100%;accent-color:#0284c7;" />
                 </div>
 
-                <!-- Scale / Camera Distance Slider (0.2x to 6.0x) -->
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:var(--text-muted);font-weight:600;" title="Camera distance / Optical framing in scene (does not alter biological height)">Distance / Scale:</span>
-                  <button type="button" id="btnScaleDown" class="btn-ghost" style="padding:1px 6px;font-size:11px;">-</button>
-                  <input type="range" id="propScaleSlider" min="0.2" max="6.0" step="0.05" value="1.0" style="width:90px;accent-color:#0284c7;" />
-                  <button type="button" id="btnScaleUp" class="btn-ghost" style="padding:1px 6px;font-size:11px;">+</button>
-                  <span id="propScaleVal" style="font-size:11px;font-weight:700;color:#38bdf8;min-width:32px;">1.00x</span>
-                  <span id="propFramingBadge" style="font-size:9.5px;padding:1px 6px;border-radius:3px;background:#0f172a;border:1px solid #334155;color:#94a3b8;font-weight:600;" title="Camera framing / Depth tier">Midground</span>
+                <!-- Layer Ordering & Quick Actions -->
+                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px;margin-top:2px;flex-wrap:wrap;gap:4px;">
+                  <div style="display:flex;align-items:center;gap:2px;background:var(--bg-input);padding:2px 4px;border-radius:4px;border:1px solid var(--border-navy);">
+                    <span id="layerBadge" style="font-size:10px;color:#38bdf8;font-weight:600;margin-right:2px;">Layer 1/3</span>
+                    <button type="button" id="btnBringToFront" class="btn-ghost" style="padding:1px 4px;font-size:10px;font-weight:700;" title="Bring to Front">&#8607; Front</button>
+                    <button type="button" id="btnLayerUp" class="btn-ghost" style="padding:1px 4px;font-size:10px;" title="Bring Forward">&#9650; Up</button>
+                    <button type="button" id="btnLayerDown" class="btn-ghost" style="padding:1px 4px;font-size:10px;" title="Send Backward">&#9660; Down</button>
+                    <button type="button" id="btnSendToBack" class="btn-ghost" style="padding:1px 4px;font-size:10px;font-weight:700;" title="Send to Back">&#8609; Back</button>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:3px;">
+                    <button type="button" id="btnFlipH" class="btn-ghost" style="padding:2px 6px;font-size:10.5px;" title="Flip Horizontal">&#8644; Flip</button>
+                    <button type="button" id="btnDuplicateEl" class="btn-ghost" style="padding:2px 6px;font-size:10.5px;" title="Duplicate">&#10064; Copy</button>
+                    <button type="button" id="btnDeleteEl" class="btn-ghost" style="padding:2px 6px;font-size:10.5px;color:#fca5a5;border-color:#b91c1c;" title="Delete">&#128465;</button>
+                  </div>
                 </div>
+              </div>
 
-                <!-- Rotate Slider -->
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:var(--text-muted);">Rot:</span>
-                  <input type="range" id="propRotateSlider" min="-180" max="180" step="5" value="0" style="width:70px;accent-color:#0284c7;" />
-                  <span id="propRotateVal" style="font-size:11px;min-width:28px;">0&deg;</span>
+              <!-- Facing Direction Group -->
+              <div id="facingControlGroup" style="display:flex;flex-direction:column;gap:4px;">
+                <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Facing Direction:</span>
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:4px;background:var(--bg-input);padding:3px;border-radius:4px;border:1px solid var(--border-navy);">
+                  <button type="button" class="btn-ghost facing-btn" data-facing="front" style="padding:3px 4px;font-size:10.5px;" title="Frontal view (looking directly at camera)">👁️ Front</button>
+                  <button type="button" class="btn-ghost facing-btn" data-facing="three_quarter_left" style="padding:3px 4px;font-size:10.5px;" title="Three-quarter facing Left">↖️ 3/4 L</button>
+                  <button type="button" class="btn-ghost facing-btn" data-facing="left" style="padding:3px 4px;font-size:10.5px;" title="Profile Left (90 deg)">◀️ Left</button>
+                  <button type="button" class="btn-ghost facing-btn" data-facing="three_quarter_right" style="padding:3px 4px;font-size:10.5px;" title="Three-quarter facing Right">↗️ 3/4 R</button>
+                  <button type="button" class="btn-ghost facing-btn" data-facing="right" style="padding:3px 4px;font-size:10.5px;" title="Profile Right (90 deg)">▶️ Right</button>
+                  <button type="button" class="btn-ghost facing-btn" data-facing="back" style="padding:3px 4px;font-size:10.5px;" title="Back view (turned away from camera)">🔙 Back</button>
                 </div>
+              </div>
 
-                <!-- Pose Dropdown + Save Pose Preset -->
-                <div id="poseControlGroup" style="display:flex;align-items:center;gap:5px;">
-                  <button type="button" id="btnOpenPoseGallery" class="btn-primary" style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;font-size:11px;background:#0284c7;border-color:#0369a1;color:#fff;font-weight:600;cursor:pointer;" title="Open Visual Pose Gallery &amp; Album">
+              <!-- Looking At Gaze Target -->
+              <div id="lookingAtControlGroup" style="display:none;flex-direction:column;gap:3px;">
+                <span style="font-size:11px;color:#38bdf8;font-weight:600;" title="Object or character this figure is looking at">👀 Looking At:</span>
+                <select id="charLookingAtSelect" class="director-select" style="width:100%;">
+                  <option value="">-- Camera / Neutral --</option>
+                </select>
+              </div>
+
+              <!-- Pose & Stance Group -->
+              <div id="poseControlGroup" style="display:flex;flex-direction:column;gap:5px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Pose &amp; Stance:</span>
+                  <button type="button" id="btnCharToggleSideView" class="btn-ghost" style="padding:2px 6px;font-size:10.5px;color:#a78bfa;font-weight:600;" title="Toggle character pose between Front and Side Profile">&#128257; Front &#8596; Side</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <button type="button" id="btnOpenPoseGallery" class="btn-primary" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:11px;background:#0284c7;border-color:#0369a1;color:#fff;font-weight:600;cursor:pointer;" title="Open Visual Pose Gallery &amp; Album">
                     <span>🧍</span>
-                    <span>Pose Gallery</span>
+                    <span>Gallery</span>
                   </button>
-                  <select id="posePresetSelect" class="director-select" style="max-width:140px;">
+                  <select id="posePresetSelect" class="director-select" style="flex:1;min-width:0;">
                     <option value="">-- Quick Pose --</option>
                     {{range .StudioPoses}}
                       <option value="{{.Name}}" data-pose="{{.PoseJSON}}">{{.Name}}</option>
                     {{end}}
                   </select>
-                  <button type="button" id="btnSavePoseModal" class="btn-ghost" style="padding:3px 7px;font-size:11px;color:#67e8f9;border-color:#0891b2;" title="Save current pose to DB">&#128190; Save</button>
-                  <button type="button" id="btnResetPose" class="btn-ghost" style="padding:3px 5px;font-size:11px;" title="Reset pose to default standing">&#8635;</button>
-                  <button type="button" id="btnCharToggleSideView" class="btn-ghost" style="padding:3px 7px;font-size:11px;color:#a78bfa;font-weight:600;" title="Toggle character pose between Front and Side Profile">&#128257; Front &#8596; Side</button>
+                  <button type="button" id="btnSavePoseModal" class="btn-ghost" style="padding:3px 6px;font-size:11px;color:#67e8f9;border-color:#0891b2;" title="Save current pose to DB">&#128190;</button>
+                  <button type="button" id="btnResetPose" class="btn-ghost" style="padding:3px 6px;font-size:11px;" title="Reset pose to default standing">&#8635;</button>
+                </div>
+              </div>
+
+              <!-- Dedicated Character Customization Panel -->
+              <div id="charCustomizationPanel" style="display:none;width:100%;margin-top:2px;padding-top:10px;border-top:1px solid rgba(30,58,138,0.4);flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <span style="font-size:11px;font-weight:700;color:#38bdf8;">CHARACTER ATTRIBUTES</span>
+                  <span style="font-size:10px;color:var(--text-muted);font-style:italic;">Compiled into AI prompt</span>
                 </div>
 
-                <!-- Layer Ordering (Front, Up, Down, Back) with explicit Layer Badge -->
-                <div style="display:flex;align-items:center;gap:3px;background:var(--bg-input);padding:2px 4px;border-radius:4px;border:1px solid var(--border-navy);">
-                  <span id="layerBadge" style="font-size:10.5px;color:#38bdf8;font-weight:600;margin-right:2px;">Layer 1/3</span>
-                  <button type="button" id="btnBringToFront" class="btn-ghost" style="padding:2px 6px;font-size:11px;font-weight:700;" title="Bring to Front">&#8607; Front</button>
-                  <button type="button" id="btnLayerUp" class="btn-ghost" style="padding:2px 6px;font-size:11px;" title="Bring Forward">&#9650; Up</button>
-                  <button type="button" id="btnLayerDown" class="btn-ghost" style="padding:2px 6px;font-size:11px;" title="Send Backward">&#9660; Down</button>
-                  <button type="button" id="btnSendToBack" class="btn-ghost" style="padding:2px 6px;font-size:11px;font-weight:700;" title="Send to Back">&#8609; Back</button>
+                <!-- Demographics: Name & Age (2 Columns) -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                  <div>
+                    <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;margin-bottom:2px;">Name / Label:</label>
+                    <input type="text" id="charNameInput" placeholder="e.g. Protagonist" 
+                           style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#60a5fa;font-size:11px;font-weight:700;" />
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;margin-bottom:2px;">Age:</label>
+                    <input type="text" id="charAgeInput" list="charAgeDatalist" placeholder="e.g. 28yo, 8yo..." 
+                           style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#38bdf8;font-size:11px;font-weight:600;" />
+                    <datalist id="charAgeDatalist">
+                      <option value="child (around 8yo)"></option>
+                      <option value="early teens (around 13yo)"></option>
+                      <option value="young adult (around 22yo)"></option>
+                      <option value="adult in prime (around 32yo)"></option>
+                      <option value="mature adult (around 48yo)"></option>
+                      <option value="elderly veteran (around 68yo)"></option>
+                    </datalist>
+                  </div>
                 </div>
 
-                <!-- Actions (Flip, Duplicate, Delete) -->
-                <div style="display:flex;align-items:center;gap:3px;">
-                  <button type="button" id="btnFlipH" class="btn-ghost" style="padding:3px 7px;font-size:11px;" title="Flip Horizontal">&#8644; Flip</button>
-                  <button type="button" id="btnDuplicateEl" class="btn-ghost" style="padding:3px 7px;font-size:11px;" title="Duplicate">&#10064; Copy</button>
-                  <button type="button" id="btnDeleteEl" class="btn-ghost" style="padding:3px 7px;font-size:11px;color:#fca5a5;border-color:#b91c1c;" title="Delete">&#128465;</button>
+                <!-- Stature & Build: Height & Structure (2 Columns) -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                  <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                      <label style="font-size:10.5px;font-weight:600;color:#93c5fd;" title="Real physical stature in cm">Height (Real):</label>
+                      <div style="display:flex;align-items:center;gap:2px;">
+                        <button type="button" id="btnHeightDown" class="btn-ghost" style="padding:0 5px;font-size:10px;line-height:1.2;border-color:#38bdf8;color:#38bdf8;" title="Decrease physical height (-5 cm)">-</button>
+                        <button type="button" id="btnHeightUp" class="btn-ghost" style="padding:0 5px;font-size:10px;line-height:1.2;border-color:#38bdf8;color:#38bdf8;" title="Increase physical height (+5 cm)">+</button>
+                      </div>
+                    </div>
+                    <input type="text" id="charHeightInput" list="charHeightDatalist" placeholder="e.g. 180 cm, 230 cm, 75 cm..." 
+                           style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#38bdf8;font-size:11px;font-weight:600;" />
+                    <datalist id="charHeightDatalist">
+                      <option value="35 cm domestic cat stature"></option>
+                      <option value="75 cm medium dog stature"></option>
+                      <option value="100 cm large dog / wolf stature"></option>
+                      <option value="120 cm child / dwarf stature"></option>
+                      <option value="155 cm petite human stature"></option>
+                      <option value="165 cm average female height"></option>
+                      <option value="180 cm average male height"></option>
+                      <option value="195 cm tall athletic stature"></option>
+                      <option value="215 cm towering giant stature"></option>
+                      <option value="230 cm horse / equine stature"></option>
+                      <option value="250 cm large warhorse stature"></option>
+                    </datalist>
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;margin-bottom:2px;">Structure / Build:</label>
+                    <input type="text" id="charPhysiqueInput" list="charPhysiqueDatalist" placeholder="e.g. muscular, lean..." 
+                           style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#38bdf8;font-size:11px;font-weight:600;" />
+                    <datalist id="charPhysiqueDatalist">
+                      <option value="athletic muscular build with broad defined shoulders"></option>
+                      <option value="lean slender agile athletic runner build"></option>
+                      <option value="burly stocky broad-shouldered powerhouse build"></option>
+                      <option value="curvy hourglass feminine silhouette with graceful poise"></option>
+                      <option value="tall slender elegant fashion model stature"></option>
+                      <option value="youthful slender child frame with lively posture"></option>
+                      <option value="healthy athletic quadruped canine build, balanced proportion"></option>
+                      <option value="tall majestic equine build, arched muscular neck, powerful hindquarters"></option>
+                      <option value="graceful lithe feline build with flexible spine, slender agile limbs"></option>
+                    </datalist>
+                  </div>
                 </div>
 
-                <!-- Dedicated Character Customization Panel (Visible when a character is selected) -->
-                <div id="charCustomizationPanel" style="display:none;width:100%;margin-top:4px;padding-top:10px;border-top:1px solid rgba(30,58,138,0.4);background:rgba(15,23,42,0.6);border-radius:6px;padding:10px 12px;flex-direction:column;gap:8px;">
-                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-                    <span style="font-size:11px;font-weight:700;color:#38bdf8;display:flex;align-items:center;gap:6px;">
-                      <span>&#128100; CHARACTER ATTRIBUTES &amp; STYLING</span>
-                      <span id="charSelectedBadge" style="font-size:10px;color:#94a3b8;font-weight:normal;background:#1e293b;border:1px solid #334155;padding:1px 6px;border-radius:3px;"></span>
-                    </span>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                      <button type="button" id="btnRandomizeChar" class="preset-pill-btn" style="color:#fbbf24;border-color:#d97706;background:rgba(217,119,6,0.18);font-weight:700;padding:3px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;" title="Randomly generate appearance, outfit, hairstyle, anatomy and accessories for this character">
-                        <span>&#127922; Random Look</span>
+                <!-- Pose / Stance Description -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Pose / Stance:</label>
+                    <div style="display:flex;align-items:center;gap:3px;">
+                      <button type="button" class="field-random-btn btn-ghost" data-random-target="pose" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random pose">🎲</button>
+                      <button type="button" class="preset-pill-btn" data-preset-target="pose" title="Open pose visual selector">
+                        <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
                       </button>
-                      <span style="font-size:10.5px;color:var(--text-muted);font-style:italic;">Traits are compiled into AI prompt</span>
                     </div>
                   </div>
+                  <input type="text" id="charPoseInput" placeholder="e.g. Standing Idle, Sitting..." 
+                         style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#fff;font-size:11px;" />
+                </div>
 
-                  <div style="display:flex;flex-direction:column;gap:10px;">
-                    <!-- Row 1: Demographics, Height & Physical Structure (Independent of Camera Distance) -->
-                    <div style="display:grid;grid-template-columns: 130px 130px 140px 1fr;gap:10px;align-items:flex-start;">
-                      <!-- Name & Label -->
-                      <div>
-                        <div style="margin-bottom:3px;">
-                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;">Name / Label:</label>
-                        </div>
-                        <input type="text" id="charNameInput" placeholder="e.g. Protagonist" 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#60a5fa;font-size:11.5px;font-weight:700;" />
-                      </div>
-
-                      <!-- Age -->
-                      <div>
-                        <div style="margin-bottom:3px;">
-                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Chronological age of character (guides generation independently of screen size)">Age:</label>
-                        </div>
-                        <input type="text" id="charAgeInput" list="charAgeDatalist" placeholder="e.g. 28yo, 8yo..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#38bdf8;font-size:11px;font-weight:600;" />
-                        <datalist id="charAgeDatalist">
-                          <option value="young child (8 years old)"></option>
-                          <option value="youthful teenager (16 years old)"></option>
-                          <option value="young adult (25 years old)"></option>
-                          <option value="mature adult (42 years old)"></option>
-                          <option value="elderly senior (68 years old)"></option>
-                        </datalist>
-                      </div>
-
-                      <!-- Physical Height (Real) -->
-                      <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;" title="Real physical stature in cm or anatomical scale (scales character visually on canvas, independent of camera distance)">Height (Real):</label>
-                          <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" id="btnHeightDown" class="btn-ghost" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Decrease physical height (-5 cm)">-</button>
-                            <button type="button" id="btnHeightUp" class="btn-ghost" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Increase physical height (+5 cm)">+</button>
-                          </div>
-                        </div>
-                        <input type="text" id="charHeightInput" list="charHeightDatalist" placeholder="e.g. 180 cm, 230 cm, 75 cm..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#38bdf8;font-size:11px;font-weight:600;" />
-                        <datalist id="charHeightDatalist">
-                          <option value="35 cm domestic cat stature"></option>
-                          <option value="75 cm medium dog stature"></option>
-                          <option value="100 cm large dog / wolf stature"></option>
-                          <option value="120 cm child / dwarf stature"></option>
-                          <option value="155 cm petite human stature"></option>
-                          <option value="165 cm average female height"></option>
-                          <option value="180 cm average male height"></option>
-                          <option value="195 cm tall athletic stature"></option>
-                          <option value="215 cm towering giant stature"></option>
-                          <option value="230 cm horse / equine stature"></option>
-                          <option value="250 cm large warhorse stature"></option>
-                        </datalist>
-                      </div>
-
-                      <!-- Physical Structure & Build -->
-                      <div>
-                        <div style="margin-bottom:3px;">
-                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Physical structure and anatomical build">Structure / Build:</label>
-                        </div>
-                        <input type="text" id="charPhysiqueInput" list="charPhysiqueDatalist" placeholder="e.g. athletic muscular build, lean slender, stocky burly, petite frame..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
-                        <datalist id="charPhysiqueDatalist">
-                          <option value="athletic muscular defined build"></option>
-                          <option value="lean slender agile build"></option>
-                          <option value="stocky burly broad-shouldered build"></option>
-                          <option value="curvy hourglass feminine silhouette"></option>
-                          <option value="petite compact short frame"></option>
-                          <option value="towering imposing massive giant build"></option>
-                          <option value="chubby soft rounded build"></option>
-                        </datalist>
-                      </div>
+                <!-- Anatomy & Body Features -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Anatomy &amp; Body:</label>
+                    <div style="display:flex;align-items:center;gap:3px;">
+                      <button type="button" class="field-random-btn btn-ghost" data-random-target="anatomy" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random anatomy">🎲</button>
+                      <button type="button" class="preset-pill-btn" data-preset-target="anatomy" title="Open anatomy &amp; physique selector">
+                        <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                      </button>
                     </div>
-
-                    <!-- Row 2: Pose, Heritage/Anatomy & Expression -->
-                    <div style="display:grid;grid-template-columns: 1.15fr 1.35fr 1.35fr;gap:10px;align-items:flex-start;">
-                      <!-- Pose / Posture (Editable, synchronized with active pose) -->
-                      <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Pose / Stance:</label>
-                          <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="pose" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random pose">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="pose" title="Open pose visual selector">
-                              <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
-                            </button>
-                          </div>
-                        </div>
-                        <input type="text" id="charPoseInput" placeholder="e.g. Standing Idle, leaning back..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#38bdf8;font-size:11px;font-weight:600;" />
-                      </div>
-
-                      <!-- Anatomy & Physique (Presets dropdown + Free editing) -->
-                      <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Anatomy &amp; Body:</label>
-                          <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="anatomy" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random anatomy and ethnicity">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="anatomy" title="Open anatomy visual selector">
-                              <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
-                            </button>
-                          </div>
-                        </div>
-                        <input type="text" id="charAnatomyInput" placeholder="e.g. 28yo athletic muscular build, scar over eye..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
-                        <!-- Compatibility select retained for tests and data structure -->
-                        <select id="charAnatomySelect" style="display:none;">
+                  </div>
+                  <input type="text" id="charAnatomyInput" placeholder="e.g. athletic muscular build, scar over eye..." 
+                         style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#fff;font-size:11px;" />
+                  <select id="charAnatomySelect" style="display:none;">
                           <option value="">Presets...</option>
                           <optgroup label="Ethnicity, Heritage &amp; Complexion">
                             <option value="East Asian heritage, smooth porcelain skin, dark almond eyes">East Asian Heritage</option>
@@ -2282,24 +2370,24 @@
                             <option value="fierce war paint markings across bridge of nose">War Paint Markings</option>
                           </optgroup>
                         </select>
-                        <select id="charFeaturesSelect" style="display:none;"></select>
-                        <input type="hidden" id="charFeaturesInput" />
-                      </div>
+                  <select id="charFeaturesSelect" style="display:none;"></select>
+                  <input type="hidden" id="charFeaturesInput" />
+                </div>
 
-                      <!-- Expression & Emotion (Presets dropdown + Free editing) -->
-                      <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Expression &amp; Mood:</label>
-                          <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="expression" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random expression">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="expression" title="Open expression visual selector">
-                              <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
-                            </button>
-                          </div>
-                        </div>
-                        <input type="text" id="charExpressionInput" placeholder="e.g. confident smirk, warm smile, intense glare..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
-                        <select id="charExpressionSelect" style="display:none;">
+                <!-- Expression & Mood -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Expression &amp; Mood:</label>
+                    <div style="display:flex;align-items:center;gap:3px;">
+                      <button type="button" class="field-random-btn btn-ghost" data-random-target="expression" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random expression">🎲</button>
+                      <button type="button" class="preset-pill-btn" data-preset-target="expression" title="Open facial expressions selector">
+                        <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                      </button>
+                    </div>
+                  </div>
+                  <input type="text" id="charExpressionInput" placeholder="e.g. confident smirk, warm smile..." 
+                         style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#fff;font-size:11px;" />
+                  <select id="charExpressionSelect" style="display:none;">
                           <option value="">Presets...</option>
                           <optgroup label="Positive &amp; Warm">
                             <option value="warm gentle welcoming smile and kind eyes">Warm &amp; Smiling</option>
@@ -2322,25 +2410,22 @@
                             <option value="nervous anxious sweating expression with darting eyes">Nervous &amp; Anxious</option>
                           </optgroup>
                         </select>
-                      </div>
-                    </div>
+                </div>
 
-                    <!-- Row 2: Styling, Outfit & Gear -->
-                    <div style="display:grid;grid-template-columns: 1fr 1.35fr 1.35fr;gap:10px;align-items:flex-start;">
-                      <!-- Hairstyle (Presets dropdown + Free editing) -->
-                      <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Hairstyle &amp; Color:</label>
-                          <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="hair" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random hairstyle and color">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="hair" title="Open hairstyle visual selector">
-                              <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
-                            </button>
-                          </div>
-                        </div>
-                        <input type="text" id="charHairInput" placeholder="e.g. messy high ponytail, dark brown..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
-                        <select id="charHairSelect" style="display:none;">
+                <!-- Hairstyle & Color -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Hairstyle &amp; Color:</label>
+                    <div style="display:flex;align-items:center;gap:3px;">
+                      <button type="button" class="field-random-btn btn-ghost" data-random-target="hair" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random hairstyle">🎲</button>
+                      <button type="button" class="preset-pill-btn" data-preset-target="hair" title="Open hairstyle visual selector">
+                        <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                      </button>
+                    </div>
+                  </div>
+                  <input type="text" id="charHairInput" placeholder="e.g. messy high ponytail, dark brown..." 
+                         style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#fff;font-size:11px;" />
+                  <select id="charHairSelect" style="display:none;">
                           <option value="">Presets...</option>
                           <optgroup label="Buns &amp; Updos">
                             <option value="messy high bun with loose framing face tendrils">Messy High Bun</option>
@@ -2385,22 +2470,22 @@
                             <option value="fiery red asymmetric undercut bob">Vibrant Fiery Red</option>
                           </optgroup>
                         </select>
-                      </div>
+                </div>
 
-                      <!-- Clothing & Outfit (Presets dropdown + Free editing) -->
-                      <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Clothing &amp; Outfit:</label>
-                          <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="clothing" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random outfit">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="clothing" title="Open outfit visual selector">
-                              <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
-                            </button>
-                          </div>
-                        </div>
-                        <input type="text" id="charClothingInput" placeholder="e.g. black leather jacket, dark jeans, boots..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
-                        <select id="charClothingSelect" style="display:none;">
+                <!-- Clothing & Outfit -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Clothing &amp; Outfit:</label>
+                    <div style="display:flex;align-items:center;gap:3px;">
+                      <button type="button" class="field-random-btn btn-ghost" data-random-target="clothing" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random clothing">🎲</button>
+                      <button type="button" class="preset-pill-btn" data-preset-target="clothing" title="Open clothing selector">
+                        <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                      </button>
+                    </div>
+                  </div>
+                  <input type="text" id="charClothingInput" placeholder="e.g. black leather jacket, dark jeans, boots..." 
+                         style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#fff;font-size:11px;" />
+                  <select id="charClothingSelect" style="display:none;">
                           <option value="">Presets...</option>
                           <optgroup label="Professions &amp; Uniforms">
                             <option value="heavy turnout firefighter jacket with reflective yellow-silver safety stripes, bunker pants, and suspenders">Firefighter Gear</option>
@@ -2469,22 +2554,22 @@
                             <option value="post-apocalyptic wasteland scavenger gear with salvaged leather and gas mask">Wasteland Scavenger</option>
                           </optgroup>
                         </select>
-                      </div>
+                </div>
 
-                      <!-- Accessories & Details (Presets dropdown + Free editing) -->
-                      <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Accessories &amp; Gear:</label>
-                          <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="details" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random accessories">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="details" title="Open accessories visual selector">
-                              <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
-                            </button>
-                          </div>
-                        </div>
-                        <input type="text" id="charDetailsInput" placeholder="e.g. glasses, sword, necklace..." 
-                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
-                        <select id="charDetailsSelect" style="display:none;">
+                <!-- Accessories & Gear -->
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Accessories &amp; Gear:</label>
+                    <div style="display:flex;align-items:center;gap:3px;">
+                      <button type="button" class="field-random-btn btn-ghost" data-random-target="details" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random accessories">🎲</button>
+                      <button type="button" class="preset-pill-btn" data-preset-target="details" title="Open accessories visual selector">
+                        <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
+                      </button>
+                    </div>
+                  </div>
+                  <input type="text" id="charDetailsInput" placeholder="e.g. glasses, sword, necklace..." 
+                         style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#fff;font-size:11px;" />
+                  <select id="charDetailsSelect" style="display:none;">
                           <option value="">Presets...</option>
                           <optgroup label="Eyewear &amp; Face">
                             <option value="classic black-rimmed eyeglasses">Classic Glasses</option>
@@ -2516,129 +2601,50 @@
                             <option value="heavy reinforced riot tower shield">Tower Shield</option>
                           </optgroup>
                         </select>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Generated Prompt Output Area (Spacious, underneath Canvas) -->
-            <div id="directorOutputContainer" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:12px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
-              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span style="font-size:12px;font-weight:700;color:#6ee7b7;display:flex;align-items:center;gap:6px;">
-                    <span>&#10024; COMPILED DIFFUSION PROMPT</span>
-                  </span>
-                  <span id="directorPromptTargetBadge" style="font-size:10px;background:#064e3b;border:1px solid #059669;color:#a7f3d0;padding:1px 7px;border-radius:3px;font-weight:600;">{{if .SelectedComposition}}{{.SelectedComposition.TargetProfileSlug}}{{else}}Diffusion Staging Result{{end}}</span>
-                  <span id="directorPromptDurationBadge" style="display:none;background:#022c22;border:1px solid #10b981;padding:1px 6px;border-radius:3px;color:#34d399;font-size:10.5px;font-weight:700;"></span>
+              <!-- Prop Type & View Control Group -->
+              <div id="propControlGroup" style="display:none;flex-direction:column;gap:6px;">
+                <span style="font-size:11px;color:#a78bfa;font-weight:600;">🛋️ Prop Configuration:</span>
+                <select id="propSubtypeSelect" class="director-select" style="width:100%;">
+                  <option value="marker">&#127919; Body Feature Marker</option>
+                  <option value="circle">&#9898; Generic Circle / Custom</option>
+                  <option value="bed">&#128716; Bed</option>
+                  <option value="sofa">&#128715; Sofa</option>
+                  <option value="chair">&#129681; Chair</option>
+                  <option value="table">&#129701; Table / Desk</option>
+                  <option value="car">&#128663; Car</option>
+                  <option value="tree">&#127795; Tree</option>
+                  <option value="ladder">&#129692; Ladder</option>
+                  <option value="stairs">&#129692; Stairs</option>
+                  <option value="window">&#129687; Window</option>
+                  <option value="door">&#128682; Doorway</option>
+                </select>
+                <select id="propRoleSelect" class="director-select" style="width:100%;background:#1e1b4b;border-color:#6366f1;color:#c7d2fe;" title="Define whether this is an environment object or a character detail marker">
+                  <option value="environment">🛋️ Environment Object</option>
+                  <option value="character_feature">🎯 Character Detail / Marker</option>
+                </select>
+                <div id="propFeatureControls" style="display:none;flex-direction:column;gap:4px;">
+                  <select id="propTargetCharSelect" class="director-select" style="width:100%;" title="Character associated with this detail">
+                    <option value="">🎯 [Auto-detect]</option>
+                  </select>
+                  <input type="text" id="propBodyPartInput" placeholder="Body part (e.g. Left arm, Eye)..." 
+                         style="width:100%;background:var(--bg-input);border:1px solid #06b6d4;border-radius:4px;padding:4px 6px;color:#67e8f9;font-size:11px;" />
                 </div>
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <button type="button" id="btnCopyPrompt" class="btn-ghost" style="padding:4px 10px;font-size:11px;color:#a7f3d0;border-color:#059669;background:#064e3b;cursor:pointer;" title="Copy to clipboard">&#128203; Copy Prompt</button>
-                  <a id="btnSendToRemix" href="/?tab=studio{{if .SelectedComposition}}&concept={{.SelectedComposition.PromptOutput}}&target_profile={{.SelectedComposition.TargetProfileSlug}}{{end}}" class="btn-ghost" style="padding:4px 10px;font-size:11px;color:#c084fc;border-color:#7c3aed;background:#1e1b4b;" title="Open in Prompt Studio &amp; Remix">&#10024; Send to Prompt Studio</a>
-                </div>
+                <input type="text" id="propLabelInput" placeholder="Name (e.g. Sofa, Magic Portal)..." 
+                       style="width:100%;background:var(--bg-input);border:1px solid #7c3aed;border-radius:4px;padding:4px 6px;color:#ddd6fe;font-size:11px;" />
+                <input type="text" id="propDescInput" placeholder="Details (e.g. worn leather, glowing cyan)..." 
+                       style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:4px 6px;color:#fff;font-size:11px;" />
+                <button type="button" id="btnPropToggleView" class="btn-ghost" style="padding:3px 8px;font-size:11px;color:#38bdf8;" title="Toggle prop design between top-down layout and side profile">&#128257; Top-Down &#8596; Side</button>
               </div>
-              <textarea id="directorPromptOutput" rows="5" readonly 
-                        style="width:100%;min-height:115px;background:#020617;border:1px solid #164e63;border-radius:6px;padding:10px 12px;color:#a7f3d0;font-size:12.5px;font-family:monospace;line-height:1.5;resize:vertical;user-select:all;transition:all 0.3s ease;" 
-                        placeholder="Click 'Synthesize Diffusion Prompt' in the right sidebar to compile your visual staging into a high-quality prompt.">{{if .SelectedComposition}}{{.SelectedComposition.PromptOutput}}{{end}}</textarea>
 
-              <!-- Collapsible Spatial Manifest Inspector -->
-              <details style="background:rgba(15,23,42,0.6);border:1px solid var(--border-navy);border-radius:5px;padding:6px 10px;font-size:11px;">
-                <summary style="cursor:pointer;color:var(--text-muted);font-weight:600;display:flex;align-items:center;gap:6px;">
-                  <span>&#128065; Inspect Real-Time Spatial Composition Manifest</span>
-                </summary>
-                <pre id="manifestViewer" style="margin-top:6px;color:#93c5fd;font-family:monospace;font-size:11px;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow-y:auto;background:#030712;padding:8px 10px;border-radius:4px;border:1px solid #111827;">(Compiles in real-time as you arrange elements)</pre>
-              </details>
-            </div>
-          </div>
-
-          <!-- RIGHT SIDEBAR: Real-Time Spatial Manifest & AI Prompt Synthesis -->
-          <aside id="synthesizerSidebar" style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:12px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <span class="facet-title" style="font-size:11px;color:#38bdf8;">PROMPT SYNTHESIZER</span>
-              <span class="badge-chip" style="font-size:10px;background:#1e1b4b;color:#c084fc;border-color:#7c3aed;">Spatial Director</span>
-            </div>
-
-            <!-- Target Generator Profile -->
-            <div>
-              <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:3px;">Target Generator:</label>
-              <select id="directorTargetProfile" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;">
-                {{range .PromptProfiles}}
-                  <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}})</option>
-                {{end}}
-              </select>
-            </div>
-
-            <!-- LLM Synthesis Model Route & Thinking Mode -->
-            <div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                <label style="font-size:11px;font-weight:600;color:var(--text-main);">AI Provider &amp; Model:</label>
-                <span id="directorLLMCurrentHint" style="font-size:10px;color:#38bdf8;font-family:monospace;"></span>
+              <!-- Note Editing Control Group -->
+              <div id="noteControlGroup" style="display:none;flex-direction:column;gap:4px;">
+                <span style="font-size:11px;color:#34d399;font-weight:600;">📝 Note Directive:</span>
+                <textarea id="noteTextInput" rows="3" placeholder="Directive note on canvas (supports multiline instructions)..." 
+                       style="width:100%;min-height:55px;background:var(--bg-input);border:1px solid #10b981;border-radius:4px;padding:6px 8px;color:#a7f3d0;font-size:11.5px;resize:vertical;font-family:inherit;"></textarea>
               </div>
-              <div style="display:grid;grid-template-columns:85px 1fr 75px;gap:5px;">
-                <select id="directorProvider" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 6px;color:#fff;font-size:11px;" onchange="switchProviderSelect('director')">
-                  <option value="ollama" {{if eq .Settings.StudioDefaultProvider "ollama"}}selected{{end}}>Ollama</option>
-                  <option value="openai" {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}selected{{end}}>OpenAI</option>
-                </select>
-                <select id="directorModel" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 6px;color:#fff;font-size:11px;" onchange="updateDirectorActiveIndicator()">
-                  {{if or (eq .Settings.StudioDefaultProvider "openai") (eq .Settings.StudioDefaultProvider "omlx")}}
-                    <option value="{{.Settings.OpenAIDefaultModel}}" selected>{{.Settings.OpenAIDefaultModel}} (default)</option>
-                    {{range .AIStatus.OMLXModels}}
-                      {{if .IsCompletionModel}}
-                        <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
-                      {{end}}
-                    {{end}}
-                  {{else}}
-                    <option value="{{.Settings.OllamaDefaultModel}}" selected>{{.Settings.OllamaDefaultModel}} (default)</option>
-                    {{range .AIStatus.OllamaModels}}
-                      {{if .IsCompletionModel}}
-                        <option value="{{.Name}}">{{.Name}} {{if .ParameterSize}}({{.ParameterSize}}){{end}}{{if .HasVision}} [vision 👁️]{{end}}</option>
-                      {{end}}
-                    {{end}}
-                  {{end}}
-                </select>
-                <select id="directorThink" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 6px;color:#fff;font-size:11px;" onchange="updateDirectorActiveIndicator()">
-                  <option value="default">Def</option>
-                  <option value="off">Off</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Med</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Optional Linked Character Sheet -->
-            <div>
-              <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:3px;">Attach Character Sheet (Optional):</label>
-              <select id="directorCharacterSelect" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 8px;color:#fff;font-size:11.5px;">
-                <option value="0">-- No Character Linked --</option>
-                {{range .Page.Characters}}
-                  <option value="{{.ID}}" data-trigger="{{.TriggerWords}}">{{.Name}} [{{.Archetype}}]</option>
-                {{end}}
-              </select>
-            </div>
-
-            <!-- Style, Mood & Atmosphere Directive Input -->
-            <div>
-              <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:3px;">🎬 Director's Notes &amp; Style Directives:</label>
-              <textarea id="directorUserHint" rows="5" placeholder="e.g. Cinematic lighting, octane 8k, moody cyberpunk rain, Kodak Portra 35mm photograph, anamorphic lens flare, framing cues..." 
-                        style="width:100%;min-height:88px;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;resize:vertical;"></textarea>
-            </div>
-
-            <!-- Synthesize Prompt Button & Stop Button -->
-            <button type="button" id="btnSynthesizePrompt" class="btn-primary" 
-                    style="width:100%;padding:9px;font-size:12.5px;background:linear-gradient(135deg,#0284c7,#2563eb);border-color:#1d4ed8;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(2,132,199,0.35);">
-              <span id="synthSpinner" style="display:none;" class="spinner"></span>
-              <span id="synthBtnText">&#128640; Synthesize Diffusion Prompt</span>
-            </button>
-            <button type="button" id="btnStopSynthesizePrompt" class="btn-ghost" 
-                    style="display:none;width:100%;padding:8px;font-size:12px;background:#7f1d1d;border:1px solid #ef4444;color:#fca5a5;font-weight:700;align-items:center;justify-content:center;gap:6px;border-radius:5px;cursor:pointer;">
-              &#9209; Stop Synthesizing
-            </button>
-
-            <!-- Output Notice in Sidebar -->
-            <div style="font-size:10.5px;color:var(--text-muted);text-align:center;padding:6px 8px;background:rgba(15,23,42,0.4);border-radius:4px;border:1px dashed var(--border-navy);line-height:1.4;">
-              &#128071; Compiled prompt will appear in the wide panel below the canvas
             </div>
           </aside>
         </div>
@@ -9057,13 +9063,13 @@
 
     if (state.theaterMode) {
       container.style.maxWidth = '100vw';
-      grid.style.gridTemplateColumns = '200px 1fr 300px';
+      grid.style.gridTemplateColumns = '200px 1fr 340px';
       btn.style.color = '#38bdf8';
       btn.style.borderColor = '#0284c7';
       btn.textContent = 'Standard Mode';
     } else {
       container.style.maxWidth = '100%';
-      grid.style.gridTemplateColumns = '240px 1fr 340px';
+      grid.style.gridTemplateColumns = '230px 1fr 380px';
       btn.style.color = '';
       btn.style.borderColor = '';
       btn.textContent = 'Theater Mode';
