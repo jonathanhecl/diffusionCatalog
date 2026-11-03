@@ -11977,7 +11977,11 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
         resultOut.style.background = '#1e1138';
         resultOut.style.borderColor = '#7e22ce';
         resultOut.style.color = '#e9d5ff';
-        resultOut.textContent = 'Synthesizing prompt with target profile instructions...';
+        // Do NOT wipe or replace the previous prompt text while generating;
+        // only show placeholder if the box was completely empty
+        if (!resultOut.textContent.trim()) {
+          resultOut.textContent = 'Generating prompt...';
+        }
       }
       if (resultTarget && profileSelect) {
         resultTarget.textContent = profileSelect.value;
