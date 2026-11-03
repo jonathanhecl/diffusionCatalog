@@ -371,7 +371,7 @@ func seedDefaultPoses(ctx context.Context, db *sql.DB) error {
 			name:     "Lying Down",
 			category: "Lying",
 			desc:     "Horizontal recline resting flat",
-			poseJSON: `{"nose":{"x":15,"y":52},"neck":{"x":25,"y":54},"r_shoulder":{"x":27,"y":46},"r_elbow":{"x":40,"y":44},"r_wrist":{"x":52,"y":46},"l_shoulder":{"x":27,"y":62},"l_elbow":{"x":40,"y":64},"l_wrist":{"x":52,"y":62},"mid_hip":{"x":55,"y":55},"r_hip":{"x":56,"y":48},"r_knee":{"x":75,"y":49},"r_ankle":{"x":94,"y":50},"l_hip":{"x":56,"y":62},"l_knee":{"x":75,"y":61},"l_ankle":{"x":94,"y":60}}`,
+			poseJSON: `{"nose":{"x":85,"y":52},"neck":{"x":75,"y":54},"r_shoulder":{"x":73,"y":62},"r_elbow":{"x":60,"y":64},"r_wrist":{"x":48,"y":62},"l_shoulder":{"x":73,"y":46},"l_elbow":{"x":60,"y":44},"l_wrist":{"x":48,"y":46},"mid_hip":{"x":45,"y":55},"r_hip":{"x":44,"y":62},"r_knee":{"x":25,"y":61},"r_ankle":{"x":6,"y":60},"l_hip":{"x":44,"y":48},"l_knee":{"x":25,"y":49},"l_ankle":{"x":6,"y":50}}`,
 		},
 		{
 			name:     "Kneeling (Both Knees)",
@@ -455,7 +455,7 @@ func seedDefaultPoses(ctx context.Context, db *sql.DB) error {
 			name:     "Lying Down (Side / Lateral)",
 			category: "Lying",
 			desc:     "Lateral side-sleeping / fetal rest in profile view",
-			poseJSON: `{"nose":{"x":18,"y":42},"neck":{"x":28,"y":48},"r_shoulder":{"x":32,"y":46},"r_elbow":{"x":42,"y":54},"r_wrist":{"x":48,"y":46},"l_shoulder":{"x":30,"y":50},"l_elbow":{"x":38,"y":58},"l_wrist":{"x":46,"y":52},"mid_hip":{"x":56,"y":50},"r_hip":{"x":58,"y":49},"r_knee":{"x":76,"y":62},"r_ankle":{"x":92,"y":72},"l_hip":{"x":56,"y":51},"l_knee":{"x":72,"y":65},"l_ankle":{"x":88,"y":76}}`,
+			poseJSON: `{"nose":{"x":82,"y":42},"neck":{"x":72,"y":48},"r_shoulder":{"x":70,"y":50},"r_elbow":{"x":62,"y":58},"r_wrist":{"x":54,"y":52},"l_shoulder":{"x":68,"y":46},"l_elbow":{"x":58,"y":54},"l_wrist":{"x":52,"y":46},"mid_hip":{"x":44,"y":50},"r_hip":{"x":44,"y":51},"r_knee":{"x":28,"y":65},"r_ankle":{"x":12,"y":76},"l_hip":{"x":42,"y":49},"l_knee":{"x":24,"y":62},"l_ankle":{"x":8,"y":72}}`,
 		},
 		{
 			name:     "Kneeling Both (Side)",
