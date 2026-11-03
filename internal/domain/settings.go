@@ -129,6 +129,11 @@ type PromptProfile struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
+// TokenCount returns the estimated LLM token count of the system prompt.
+func (p *PromptProfile) TokenCount() int {
+	return EstimateTokens(p.SystemPrompt)
+}
+
 // ModelLoRA stores documentation, trigger words, weight syntax, and few-shot usage examples
 // for a LoRA scoped to a specific target generator model (e.g. flux, krea2, qwen-image, minimaxh3).
 type ModelLoRA struct {
@@ -141,6 +146,12 @@ type ModelLoRA struct {
 	Description       string    `json:"description"`        // What the LoRA is for and how it behaves on this engine
 	UsageExamples     string    `json:"usage_examples"`     // Concrete example prompts showing proper usage
 	CreatedAt         time.Time `json:"created_at"`
+}
+
+// TokenCount returns the estimated LLM token count of the LoRA documentation and usage examples.
+func (l *ModelLoRA) TokenCount() int {
+	combined := strings.TrimSpace(l.SyntaxTag + " " + l.TriggerWords + " " + l.Description + " " + l.UsageExamples)
+	return EstimateTokens(combined)
 }
 
 // OllamaModelInfo represents a model discovered from either an Ollama server (/api/tags + /api/show)

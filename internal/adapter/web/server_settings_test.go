@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -335,5 +336,114 @@ func TestDirectorNewPosesPresetsRendering(t *testing.T) {
 	// Ensure no duplicate closing block or syntax error around updateSpatialManifest
 	if strings.Contains(body, "viewer.textContent = manifest.trim();\n  }\n    if (lights.length)") {
 		t.Errorf("found duplicate corrupted updateSpatialManifest closure")
+	}
+}
+
+func TestKnowledgeBaseSettingsAndTokenBudgetLifecycle(t *testing.T) {
+	server, repo, _, _ := setupTestServer(t)
+	handler := server.Handler()
+	ctx := context.Background()
+
+	// 1. GET /?tab=settings renders KNOWLEDGE BASE in vertical sidebar
+	reqSettings := httptest.NewRequest("GET", "/?tab=settings", nil)
+	wSettings := httptest.NewRecorder()
+	handler.ServeHTTP(wSettings, reqSettings)
+	if wSettings.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for settings, got %d", wSettings.Code)
+	}
+	settingsBody := wSettings.Body.String()
+	if !strings.Contains(settingsBody, "KNOWLEDGE BASE") {
+		t.Errorf("expected 'KNOWLEDGE BASE' in settings vertical navbar")
+	}
+	if !strings.Contains(settingsBody, "+ Add New Knowledge") {
+		t.Errorf("expected '+ Add New Knowledge' in settings vertical navbar")
+	}
+
+	// 2. Upsert a new knowledge snippet
+	formKnowledge := url.Values{
+		"slug":        {"anamorphic-optics"},
+		"title":       {"Anamorphic Optics & Flares"},
+		"description": {"Oval bokeh and streak flare rules"},
+		"content":     {"Ensure subtle horizontal cyan streaks and oval bokeh across all specular highlights."},
+	}
+	reqUpsert := httptest.NewRequest("POST", "/admin/knowledge/upsert", strings.NewReader(formKnowledge.Encode()))
+	reqUpsert.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	wUpsert := httptest.NewRecorder()
+	handler.ServeHTTP(wUpsert, reqUpsert)
+	if wUpsert.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect after knowledge upsert, got %d", wUpsert.Code)
+	}
+	upsertLoc := wUpsert.Header().Get("Location")
+	if !strings.Contains(upsertLoc, "section=knowledge") || !strings.Contains(upsertLoc, "slug=anamorphic-optics") {
+		t.Errorf("expected upsert redirect to knowledge section, got %q", upsertLoc)
+	}
+
+	// 3. Verify in DB
+	snippets, err := repo.ListKnowledgeSnippets(ctx)
+	if err != nil {
+		t.Fatalf("failed to list knowledge snippets: %v", err)
+	}
+	var found *domain.KnowledgeSnippet
+	for i := range snippets {
+		if snippets[i].Slug == "anamorphic-optics" {
+			found = &snippets[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("expected anamorphic-optics to be saved in DB")
+	}
+	if found.Title != "Anamorphic Optics & Flares" {
+		t.Errorf("expected title 'Anamorphic Optics & Flares', got %q", found.Title)
+	}
+
+	// 4. GET /?tab=settings&section=knowledge&slug=anamorphic-optics renders knowledge content & token count badge
+	reqView := httptest.NewRequest("GET", "/?tab=settings&section=knowledge&slug=anamorphic-optics", nil)
+	wView := httptest.NewRecorder()
+	handler.ServeHTTP(wView, reqView)
+	if wView.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for knowledge view, got %d", wView.Code)
+	}
+	viewBody := wView.Body.String()
+	if !strings.Contains(viewBody, "Anamorphic Optics &amp; Flares") && !strings.Contains(viewBody, "Anamorphic Optics & Flares") {
+		t.Errorf("expected knowledge title in view body")
+	}
+	if !strings.Contains(viewBody, "Ensure subtle horizontal cyan streaks and oval bokeh") {
+		t.Errorf("expected knowledge content in textarea")
+	}
+	if !strings.Contains(viewBody, "Load from .txt / .md") {
+		t.Errorf("expected 'Load from .txt / .md' file picker button")
+	}
+
+	// 5. GET /?tab=studio renders knowledge chips and Context Weight budget bar
+	reqStudio := httptest.NewRequest("GET", "/?tab=studio", nil)
+	wStudio := httptest.NewRecorder()
+	handler.ServeHTTP(wStudio, reqStudio)
+	if wStudio.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for studio, got %d", wStudio.Code)
+	}
+	studioBody := wStudio.Body.String()
+	if !strings.Contains(studioBody, "Contextual Knowledge &amp; Directives") && !strings.Contains(studioBody, "Incorporate Contextual Knowledge") {
+		t.Errorf("expected contextual knowledge section in studio")
+	}
+	if !strings.Contains(studioBody, "Anamorphic Optics &amp; Flares") && !strings.Contains(studioBody, "Anamorphic Optics & Flares") {
+		t.Errorf("expected knowledge chip in studio")
+	}
+	if !strings.Contains(studioBody, "studio-context-budget-bar") {
+		t.Errorf("expected studio context budget bar")
+	}
+
+	// 6. Delete knowledge snippet
+	formDel := url.Values{"id": {strconv.FormatInt(found.ID, 10)}}
+	reqDel := httptest.NewRequest("POST", "/admin/knowledge/delete", strings.NewReader(formDel.Encode()))
+	reqDel.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	wDel := httptest.NewRecorder()
+	handler.ServeHTTP(wDel, reqDel)
+	if wDel.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect after delete, got %d", wDel.Code)
+	}
+	delSnippet, _ := repo.GetKnowledgeSnippetByID(ctx, found.ID)
+	if delSnippet != nil {
+		t.Errorf("expected deleted snippet to be nil")
 	}
 }

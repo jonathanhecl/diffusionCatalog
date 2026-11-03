@@ -568,6 +568,26 @@ func (s *CatalogService) DeleteModelLoRA(ctx context.Context, id int64) error {
 	return s.repo.DeleteModelLoRA(ctx, id)
 }
 
+// ListKnowledgeSnippets lists all modular contextual knowledge snippets.
+func (s *CatalogService) ListKnowledgeSnippets(ctx context.Context) ([]domain.KnowledgeSnippet, error) {
+	return s.repo.ListKnowledgeSnippets(ctx)
+}
+
+// UpsertKnowledgeSnippet creates or updates a modular contextual knowledge snippet.
+func (s *CatalogService) UpsertKnowledgeSnippet(ctx context.Context, k *domain.KnowledgeSnippet) (int64, error) {
+	return s.repo.UpsertKnowledgeSnippet(ctx, k)
+}
+
+// DeleteKnowledgeSnippet deletes a knowledge snippet by ID.
+func (s *CatalogService) DeleteKnowledgeSnippet(ctx context.Context, id int64) error {
+	return s.repo.DeleteKnowledgeSnippet(ctx, id)
+}
+
+// GetKnowledgeSnippetByID fetches a knowledge snippet by ID.
+func (s *CatalogService) GetKnowledgeSnippetByID(ctx context.Context, id int64) (*domain.KnowledgeSnippet, error) {
+	return s.repo.GetKnowledgeSnippetByID(ctx, id)
+}
+
 func (s *CatalogService) buildLoRAContextBlock(ctx context.Context, targetSlug string, loraIDs []int64) string {
 	if len(loraIDs) == 0 {
 		return ""
@@ -590,6 +610,30 @@ func (s *CatalogService) buildLoRAContextBlock(ctx context.Context, targetSlug s
 		))
 	}
 	return b.String()
+}
+
+func (s *CatalogService) buildKnowledgeContextBlock(ctx context.Context, knowledgeIDs []int64) string {
+	if len(knowledgeIDs) == 0 {
+		return ""
+	}
+	snippets, err := s.repo.GetKnowledgeSnippetsByIDs(ctx, knowledgeIDs)
+	if err != nil || len(snippets) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("Contextual Knowledge & Domain Directives (MUST be incorporated and respected across prompts):\n")
+	for i, snip := range snippets {
+		desc := ""
+		if strings.TrimSpace(snip.Description) != "" {
+			desc = " - " + strings.TrimSpace(snip.Description)
+		}
+		b.WriteString(fmt.Sprintf(
+			"%d) [%s]%s:\n%s\n\n",
+			i+1, snip.Title, desc, strings.TrimSpace(snip.Content),
+		))
+	}
+	return strings.TrimSpace(b.String())
 }
 
 // AIBackendStatus summarizes the live connectivity and discovered models of both Ollama and oMLX.
@@ -810,8 +854,8 @@ func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProv
 
 // RunImage2Prompt runs the configured Ollama or oMLX Image2Prompt (or Remix Text2Prompt) on an asset
 // using the selected generator profile's system prompt (e.g., flux, krea2, moss, minimaxh3), selected model LoRAs,
-// optional character/scene direction, and optional quick model/thinking overrides.
-func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, loraIDs []int64, override domain.PromptExecutionOverride, saveToAsset bool, frameImagePath string) (string, float64, error) {
+// optional contextual knowledge snippets, optional character/scene direction, and optional quick model/thinking overrides.
+func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, loraIDs []int64, knowledgeIDs []int64, override domain.PromptExecutionOverride, saveToAsset bool, frameImagePath string) (string, float64, error) {
 	if s.ollama == nil {
 		return "", 0, fmt.Errorf("AI provider is not initialized")
 	}
@@ -829,7 +873,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 
 	// If no asset, no attached image or video frame, and no character specified, delegate to Text2Prompt
 	if asset == nil && frameImagePath == "" && characterID <= 0 {
-		return s.RunText2Prompt(ctx, userHint, profileSlug, loraIDs, override)
+		return s.RunText2Prompt(ctx, userHint, profileSlug, loraIDs, knowledgeIDs, override)
 	}
 
 	cfg, err := s.repo.GetSettings(ctx)
@@ -845,7 +889,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		sysPrompt = prof.SystemPrompt
 	}
 
-	// Build rich context combining existing asset metadata, optional character sheet, selected LoRA docs, and user scene direction
+	// Build rich context combining existing asset metadata, optional character sheet, selected LoRA docs, knowledge directives, and user scene direction
 	var contextParts []string
 	if asset != nil && asset.Metadata.PositivePrompt != "" {
 		contextParts = append(contextParts, "Reference Asset Original Prompt: "+asset.Metadata.PositivePrompt)
@@ -882,6 +926,9 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 	}
 	if loraDoc := s.buildLoRAContextBlock(ctx, profileSlug, loraIDs); loraDoc != "" {
 		contextParts = append(contextParts, loraDoc)
+	}
+	if knowledgeDoc := s.buildKnowledgeContextBlock(ctx, knowledgeIDs); knowledgeDoc != "" {
+		contextParts = append(contextParts, knowledgeDoc)
 	}
 	if strings.TrimSpace(userHint) != "" {
 		contextParts = append(contextParts, "New Scene / Movie / Style Direction: "+strings.TrimSpace(userHint))
@@ -984,8 +1031,8 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 }
 
 // RunCharacterPrompt synthesizes a new prompt for a specific Character in a given scene, movie style, or action
-// tailored to a target generator profile (e.g., flux, krea2, qwen-image, moss, minimaxh3 video), optional model-specific LoRAs, and optional quick model/thinking overrides.
-func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int64, profileSlug, sceneDirection string, refAssetID int64, loraIDs []int64, override domain.PromptExecutionOverride) (string, float64, error) {
+// tailored to a target generator profile (e.g., flux, krea2, qwen-image, moss, minimaxh3 video), optional model-specific LoRAs, optional contextual knowledge snippets, and optional quick model/thinking overrides.
+func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int64, profileSlug, sceneDirection string, refAssetID int64, loraIDs []int64, knowledgeIDs []int64, override domain.PromptExecutionOverride) (string, float64, error) {
 	if s.ollama == nil {
 		return "", 0, fmt.Errorf("AI provider is not initialized")
 	}
@@ -1008,6 +1055,7 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 	}
 
 	loraBlock := s.buildLoRAContextBlock(ctx, profileSlug, loraIDs)
+	knowledgeBlock := s.buildKnowledgeContextBlock(ctx, knowledgeIDs)
 
 	var specBuilder strings.Builder
 	specBuilder.WriteString(fmt.Sprintf("Character Sheet: %s\n", ch.Name))
@@ -1019,6 +1067,9 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 	}
 	if loraBlock != "" {
 		specBuilder.WriteString("\n" + loraBlock + "\n")
+	}
+	if knowledgeBlock != "" {
+		specBuilder.WriteString("\n" + knowledgeBlock + "\n")
 	}
 	specBuilder.WriteString(fmt.Sprintf("\nRequested Scene / Movie / Action Direction:\n%s\n", strings.TrimSpace(sceneDirection)))
 	specBuilder.WriteString(fmt.Sprintf("\nCRITICAL PROMPT SYNTHESIS INSTRUCTIONS:\n- Write a complete, production-ready generation prompt for '%s'.\n- Transfer this character's facial features and physical traits.\n- PRESERVE SCENE & WARDROBE: If replacing or modifying an existing scene/subject, strictly preserve the original scene's environment, composition, camera perspective, lighting, and clothing/wardrobe unless explicitly instructed otherwise.\n- Output only the final prompt.", profileSlug))
@@ -1107,8 +1158,8 @@ func (s *CatalogService) RunCharacterPrompt(ctx context.Context, characterID int
 }
 
 // RunText2Prompt expands or converts a text idea/prompt into a target generator prompt using the configured
-// Ollama or oMLX Text2Prompt model, the selected generator profile's system prompt, any selected model-specific LoRAs, and optional quick model/thinking overrides.
-func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profileSlug string, loraIDs []int64, override domain.PromptExecutionOverride) (string, float64, error) {
+// Ollama or oMLX Text2Prompt model, the selected generator profile's system prompt, any selected model-specific LoRAs, optional contextual knowledge snippets, and optional quick model/thinking overrides.
+func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profileSlug string, loraIDs []int64, knowledgeIDs []int64, override domain.PromptExecutionOverride) (string, float64, error) {
 	if s.ollama == nil {
 		return "", 0, fmt.Errorf("AI provider is not initialized")
 	}
@@ -1126,10 +1177,17 @@ func (s *CatalogService) RunText2Prompt(ctx context.Context, inputConcept, profi
 		sysPrompt = prof.SystemPrompt
 	}
 
-	fullUserPrompt := inputConcept
-	if loraDoc := s.buildLoRAContextBlock(ctx, profileSlug, loraIDs); loraDoc != "" {
-		fullUserPrompt = fmt.Sprintf("Concept / Scene Request:\n%s\n\n%s\nIncorporate the selected LoRA trigger words, stylistic guidance, and syntax tag into the final prompt.", inputConcept, loraDoc)
+	var promptBlocks []string
+	if strings.TrimSpace(inputConcept) != "" {
+		promptBlocks = append(promptBlocks, "Concept / Scene Request:\n"+strings.TrimSpace(inputConcept))
 	}
+	if loraDoc := s.buildLoRAContextBlock(ctx, profileSlug, loraIDs); loraDoc != "" {
+		promptBlocks = append(promptBlocks, loraDoc+"\nIncorporate the selected LoRA trigger words, stylistic guidance, and syntax tag into the final prompt.")
+	}
+	if knowledgeDoc := s.buildKnowledgeContextBlock(ctx, knowledgeIDs); knowledgeDoc != "" {
+		promptBlocks = append(promptBlocks, knowledgeDoc)
+	}
+	fullUserPrompt := strings.Join(promptBlocks, "\n\n")
 
 	apiKey := cfg.OpenAIAPIKey
 	if apiKey == "" {
@@ -1580,7 +1638,7 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 
 // SynthesizeScenePrompt compiles the scene JSON into a spatial manifest and calls ImageToPrompt if a canvas screenshot (file path or in-memory data URL) is provided,
 // falling back to TextToPrompt.
-func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, targetProfileSlug, userHint string, loraIDs []int64, override domain.PromptExecutionOverride, canvasImage string) (manifest string, prompt string, durationSec float64, err error) {
+func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, targetProfileSlug, userHint string, loraIDs []int64, knowledgeIDs []int64, override domain.PromptExecutionOverride, canvasImage string) (manifest string, prompt string, durationSec float64, err error) {
 	startTime := time.Now()
 	compiledManifest, err := s.CompileSceneDirectorManifest(ctx, sceneJSON)
 	if err != nil {
@@ -1605,10 +1663,15 @@ func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, t
 		sysPrompt = prof.SystemPrompt
 	}
 
-	fullUserPrompt := inputConcept
+	var promptBlocks []string
+	promptBlocks = append(promptBlocks, inputConcept)
 	if loraDoc := s.buildLoRAContextBlock(ctx, targetProfileSlug, loraIDs); loraDoc != "" {
-		fullUserPrompt = fmt.Sprintf("%s\n\n%s\nIncorporate the selected LoRA trigger words, stylistic guidance, and syntax tag into the final prompt.", inputConcept, loraDoc)
+		promptBlocks = append(promptBlocks, loraDoc+"\nIncorporate the selected LoRA trigger words, stylistic guidance, and syntax tag into the final prompt.")
 	}
+	if knowledgeDoc := s.buildKnowledgeContextBlock(ctx, knowledgeIDs); knowledgeDoc != "" {
+		promptBlocks = append(promptBlocks, knowledgeDoc)
+	}
+	fullUserPrompt := strings.Join(promptBlocks, "\n\n")
 
 	// If a canvas screenshot is provided, attempt multimodal vision synthesis so the LLM visually sees the layout
 	if strings.TrimSpace(canvasImage) != "" && s.ollama != nil {
@@ -1637,7 +1700,7 @@ func (s *CatalogService) SynthesizeScenePrompt(ctx context.Context, sceneJSON, t
 		log.Printf("[SCENE] Vision prompt synthesis with canvas screenshot failed (%v), falling back to TextToPrompt", vErr)
 	}
 
-	generatedPrompt, durationSec, err := s.RunText2Prompt(ctx, fullUserPrompt, targetProfileSlug, nil, override)
+	generatedPrompt, durationSec, err := s.RunText2Prompt(ctx, fullUserPrompt, targetProfileSlug, nil, nil, override)
 	if err != nil {
 		return compiledManifest, "", 0, err
 	}

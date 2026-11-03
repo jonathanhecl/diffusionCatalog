@@ -223,7 +223,7 @@ func TestCharacterPromptReplacementDirective(t *testing.T) {
 	sceneFile := filepath.Join(tmpDir, "base_scene.jpg")
 	_ = os.WriteFile(sceneFile, []byte("fake scene"), 0644)
 
-	out, _, err := catalogSvc.RunImage2Prompt(ctx, 0, "flux", "vision", "cyberpunk rain street", charID, nil, domain.PromptExecutionOverride{}, false, sceneFile)
+	out, _, err := catalogSvc.RunImage2Prompt(ctx, 0, "flux", "vision", "cyberpunk rain street", charID, nil, nil, domain.PromptExecutionOverride{}, false, sceneFile)
 	if err != nil {
 		t.Fatalf("RunImage2Prompt failed: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestCharacterPromptReplacementDirective(t *testing.T) {
 	}
 
 	// 2. Test Text-only remix mode: calls TextToPrompt with character sheet and directives
-	outText, _, err := catalogSvc.RunImage2Prompt(ctx, 0, "flux", "remix", "cyberpunk rain street", charID, nil, domain.PromptExecutionOverride{}, false, "")
+	outText, _, err := catalogSvc.RunImage2Prompt(ctx, 0, "flux", "remix", "cyberpunk rain street", charID, nil, nil, domain.PromptExecutionOverride{}, false, "")
 	if err != nil {
 		t.Fatalf("RunImage2Prompt (remix) failed: %v", err)
 	}

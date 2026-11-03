@@ -1098,6 +1098,123 @@ func (r *Repository) ListModelLoRAs(ctx context.Context, profileSlug string) ([]
 	return out, nil
 }
 
+// UpsertKnowledgeSnippet creates or updates a global contextual knowledge snippet.
+func (r *Repository) UpsertKnowledgeSnippet(ctx context.Context, k *domain.KnowledgeSnippet) (int64, error) {
+	db := r.conn()
+	slug := strings.TrimSpace(k.Slug)
+	if slug == "" {
+		slug = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(k.Title), " ", "-"))
+	}
+	var id int64
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO knowledge_snippets (
+			slug, title, description, content, updated_at
+		) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(slug) DO UPDATE SET
+			title = excluded.title,
+			description = excluded.description,
+			content = excluded.content,
+			updated_at = CURRENT_TIMESTAMP
+		RETURNING id`,
+		slug,
+		strings.TrimSpace(k.Title),
+		strings.TrimSpace(k.Description),
+		k.Content,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	k.ID = id
+	k.Slug = slug
+	return id, nil
+}
+
+// DeleteKnowledgeSnippet deletes a knowledge snippet by ID.
+func (r *Repository) DeleteKnowledgeSnippet(ctx context.Context, id int64) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM knowledge_snippets WHERE id = ?`, id)
+	return err
+}
+
+// ListKnowledgeSnippets lists all knowledge snippets ordered by title ASC.
+func (r *Repository) ListKnowledgeSnippets(ctx context.Context) ([]domain.KnowledgeSnippet, error) {
+	db := r.conn()
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, slug, title, description, content, created_at, updated_at
+		FROM knowledge_snippets
+		ORDER BY title ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.KnowledgeSnippet
+	for rows.Next() {
+		var k domain.KnowledgeSnippet
+		if err := rows.Scan(&k.ID, &k.Slug, &k.Title, &k.Description, &k.Content, &k.CreatedAt, &k.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, k)
+	}
+	return out, nil
+}
+
+// GetKnowledgeSnippetByID fetches a single knowledge snippet by ID.
+func (r *Repository) GetKnowledgeSnippetByID(ctx context.Context, id int64) (*domain.KnowledgeSnippet, error) {
+	db := r.conn()
+	var k domain.KnowledgeSnippet
+	err := db.QueryRowContext(ctx, `
+		SELECT id, slug, title, description, content, created_at, updated_at
+		FROM knowledge_snippets
+		WHERE id = ?`, id).Scan(&k.ID, &k.Slug, &k.Title, &k.Description, &k.Content, &k.CreatedAt, &k.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &k, nil
+}
+
+// GetKnowledgeSnippetsByIDs fetches specific KnowledgeSnippet entries by their IDs.
+func (r *Repository) GetKnowledgeSnippetsByIDs(ctx context.Context, ids []int64) ([]domain.KnowledgeSnippet, error) {
+	db := r.conn()
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var placeholders []string
+	var args []interface{}
+	for _, id := range ids {
+		if id > 0 {
+			placeholders = append(placeholders, "?")
+			args = append(args, id)
+		}
+	}
+	if len(placeholders) == 0 {
+		return nil, nil
+	}
+	query := fmt.Sprintf(`
+		SELECT id, slug, title, description, content, created_at, updated_at
+		FROM knowledge_snippets
+		WHERE id IN (%s)
+		ORDER BY title ASC`, strings.Join(placeholders, ","))
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.KnowledgeSnippet
+	for rows.Next() {
+		var k domain.KnowledgeSnippet
+		if err := rows.Scan(&k.ID, &k.Slug, &k.Title, &k.Description, &k.Content, &k.CreatedAt, &k.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, k)
+	}
+	return out, nil
+}
+
 // GetModelLoRAsByIDs fetches specific ModelLoRA entries by their IDs.
 func (r *Repository) GetModelLoRAsByIDs(ctx context.Context, ids []int64) ([]domain.ModelLoRA, error) {
 	db := r.conn()

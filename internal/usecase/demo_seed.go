@@ -526,6 +526,30 @@ func seedDemoProfilesAndCategories(ctx context.Context, repo domain.CatalogRepos
 		_, _ = repo.UpsertModelLoRA(ctx, &l)
 	}
 
+	seedKnowledge := []domain.KnowledgeSnippet{
+		{
+			Slug:        "cinematography-optics",
+			Title:       "Cinematography & Optical Lenses",
+			Description: "Focal length aesthetics, depth of field, anamorphic squeeze, chromatic aberrations, and optical glass rules.",
+			Content:     "OPTICAL & CAMERA DIRECTIVES:\n- Specify precise lens focal lengths (e.g., 35mm wide-environmental, 50mm natural perspective, 85mm f/1.4 intimate portrait, 105mm macro).\n- Anamorphic Characteristics: Render subtle horizontal streak flares, elliptical out-of-focus specular bokeh, and slight edge barrel distortion.\n- Depth of Field: Calibrate shallow depth of field with sharp focal separation on subject's near eye; midground transitions into creamy blur.\n- Shutter & Motion: Crisp micro-textures with 180-degree cinema shutter cadence, zero artificial smear or synthetic plastic sheen.",
+		},
+		{
+			Slug:        "lighting-volumetrics",
+			Title:       "Lighting & Volumetric Atmosphere",
+			Description: "Three-point studio lighting, chiaroscuro contrast, volumetric haze, rim highlights, and color harmony.",
+			Content:     "LIGHTING & ATMOSPHERE DIRECTIVES:\n- Three-Point Lighting: Strong key light placed 45-degrees off-axis, gentle fill bouncing subtle detail into shadows, and crisp razor-thin rim light separating subject from background.\n- Volumetrics & Haze: Natural particulate dust, atmospheric mist, or subtle humidity catching directional light beams with Tyndall scattering.\n- Color Grading: Split-toning with warm amber/tungsten skin highlights balanced against cool cyan or slate shadows. Avoid blown-out clip whites or crushed pitch blacks.",
+		},
+		{
+			Slug:        "anatomy-hands-fixes",
+			Title:       "Anatomy, Hands & Micro-Texture Fixes",
+			Description: "Anatomical integrity rules: five distinct digits, proper joint articulations, natural relaxed grips, and realistic skin pores.",
+			Content:     "ANATOMICAL INTEGRITY DIRECTIVES:\n- Hand Geometry: Exactly five distinct fingers per hand with articulated proximal, middle, and distal phalanges. Nails clearly defined and properly oriented.\n- Natural Grip: Hands should interact realistically with props or rest in relaxed natural curls; avoid clawed, fused, or redundant digits.\n- Skin Micro-Detail: Subsurface scattering across cartilage (ears, nostrils, fingertips). Natural epidermis micro-creases, fine pores, and texture without airbrushed or wax doll artifacts.",
+		},
+	}
+	for _, k := range seedKnowledge {
+		_, _ = repo.UpsertKnowledgeSnippet(ctx, &k)
+	}
+
 	seedCats := []domain.DefaultCategory{
 		{
 			Name:          "Characters & Portraits",

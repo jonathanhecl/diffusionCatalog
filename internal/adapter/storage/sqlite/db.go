@@ -217,6 +217,16 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		UNIQUE(profile_slug, name)
 	);
 
+	CREATE TABLE IF NOT EXISTS knowledge_snippets (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		slug TEXT NOT NULL UNIQUE,
+		title TEXT NOT NULL,
+		description TEXT NOT NULL DEFAULT '',
+		content TEXT NOT NULL DEFAULT '',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
 	CREATE TABLE IF NOT EXISTS generated_prompts (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		asset_id INTEGER,

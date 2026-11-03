@@ -1206,7 +1206,7 @@
                     <label class="kv-label">Target Generator Model Family (System Prompt)</label>
                     <select name="profile_slug" id="studio-profile-select" class="input-dark" onchange="onStudioProfileChange(this)">
                       {{range .PromptProfiles}}
-                        <option value="{{.Slug}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} &mdash; {{.TargetModality}})</option>
+                        <option value="{{.Slug}}" data-tokens="{{.TokenCount}}" {{if eq $.AITargetProfile .Slug}}selected{{end}}>{{.Name}} ({{.Slug}} &mdash; ~{{.TokenCount}} tok)</option>
                       {{end}}
                     </select>
                   </div>
@@ -1304,9 +1304,31 @@
                       {{range .ModelLoRAs}}
                         <label class="checkbox-item lora-chip-item" data-model="{{.ProfileSlug}}" title="{{.Description}} | Examples: {{.UsageExamples}}" style="background:#0b172e;border:1px solid #1e3a6d;padding:3px 8px;border-radius:4px;">
                           <span>
-                            <input type="checkbox" name="lora_id" value="{{.ID}}">
+                            <input type="checkbox" name="lora_id" value="{{.ID}}" data-tokens="{{.TokenCount}}" onchange="updateStudioTokenBudget()" {{if inInt64Slice $.AISelectedLoRAs .ID}}checked{{end}}>
                             <strong style="color:#60a5fa;">[{{.ProfileSlug}}]</strong> {{.Name}}
                             {{if .TriggerWords}}<span style="color:#6ee7b7;font-size:10px;">({{ .TriggerWords }})</span>{{end}}
+                            <span class="badge-chip" style="font-size:10px;padding:1px 5px;background:#1e293b;color:#94a3b8;margin-left:4px;">~{{.TokenCount}} tok</span>
+                          </span>
+                        </label>
+                      {{end}}
+                    </div>
+                  </div>
+                {{end}}
+
+                <!-- Cross-Cutting Contextual Knowledge Snippets -->
+                {{if .KnowledgeSnippets}}
+                  <div style="background:#040914;border:1px solid var(--border-navy);border-radius:4px;padding:8px 10px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                      <div class="kv-label" style="margin-bottom:0;">Incorporate Contextual Knowledge &amp; Directives (Cross-Engine)</div>
+                      <span style="font-size:11px;color:var(--text-muted);">Agnostic to model &amp; modality</span>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                      {{range .KnowledgeSnippets}}
+                        <label class="checkbox-item knowledge-chip-item" title="{{.Description}}&#10;&#10;{{.Content}}" style="background:#0a192f;border:1px solid #1e40af;padding:3px 8px;border-radius:4px;cursor:pointer;">
+                          <span style="display:inline-flex;align-items:center;gap:5px;">
+                            <input type="checkbox" name="knowledge_id" value="{{.ID}}" data-tokens="{{.TokenCount}}" onchange="updateStudioTokenBudget()" {{if inInt64Slice $.AISelectedKnowledge .ID}}checked{{end}}>
+                            <strong style="color:#93c5fd;">&#128218; {{.Title}}</strong>
+                            <span class="badge-chip" style="font-size:10px;padding:1px 5px;background:#1e3a8a;color:#bfdbfe;">~{{.TokenCount}} tok</span>
                           </span>
                         </label>
                       {{end}}
@@ -1315,13 +1337,19 @@
                 {{end}}
 
                 <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;flex-wrap:wrap;gap:8px;">
-                  <div>
+                  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                     {{if .SelectedAsset}}
                       <label style="font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:6px;cursor:pointer;">
                         <input type="checkbox" name="save_to_asset" value="1">
                         <span>Overwrite asset's primary prompt in database &amp; sidecar .txt</span>
                       </label>
                     {{end}}
+                    <!-- Live Context Budget Bar -->
+                    <div id="studio-context-budget-bar" style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-muted);background:rgba(15,23,42,0.7);padding:4px 10px;border-radius:4px;border:1px solid var(--border-navy);">
+                      <span>&#9889; Context Weight:</span>
+                      <strong id="studio-total-tokens-badge" style="color:#a78bfa;">~0 tokens</strong>
+                      <span id="studio-tokens-breakdown" style="font-size:10.5px;color:#64748b;">(Sys: 0 | LoRAs: 0 | Knowledge: 0)</span>
+                    </div>
                   </div>
                   <div style="display:flex;align-items:center;gap:8px;">
                     <button type="button" id="btn-stop-studio" class="btn-ghost" style="display:none;background:#7f1d1d;border:1px solid #ef4444;color:#fca5a5;padding:8px 16px;font-weight:700;font-size:13px;border-radius:5px;cursor:pointer;" onclick="stopStudioGeneration()">
@@ -8882,7 +8910,29 @@
             </a>
           </div>
 
-          <!-- 3. Storage & System Data -->
+          <!-- 3. Contextual Knowledge Base -->
+          <div>
+            <div class="facet-title" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+              <span>KNOWLEDGE BASE</span>
+              <span class="badge-chip" style="font-size:10px;">{{len .KnowledgeSnippets}}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px;">
+              {{range .KnowledgeSnippets}}
+                <a href="/?tab=settings&amp;section=knowledge&amp;slug={{.Slug}}" style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:5px;text-decoration:none;border:1px solid {{if and (eq $.SettingsSection "knowledge") (eq $.SelectedKnowledgeSlug .Slug)}}#257bf0{{else}}var(--border-navy){{end}};background:{{if and (eq $.SettingsSection "knowledge") (eq $.SelectedKnowledgeSlug .Slug)}}rgba(22,104,220,0.22){{else}}#060d1b{{end}};">
+                  <div>
+                    <div style="font-weight:600;color:#fff;font-size:12.5px;">{{.Title}}</div>
+                    <div style="font-size:10.5px;color:var(--text-muted);">Slug: <code>{{.Slug}}</code></div>
+                  </div>
+                  <span class="badge-chip" style="font-size:10px;padding:1px 6px;background:#1e3a8a;color:#bfdbfe;">~{{.TokenCount}} tok</span>
+                </a>
+              {{end}}
+            </div>
+            <a href="/?tab=settings&amp;section=knowledge&amp;slug=__new__" class="btn-primary" style="display:block;text-align:center;width:100%;font-size:12px;padding:6px 10px;text-decoration:none;{{if and (eq .SettingsSection "knowledge") (eq .SelectedKnowledgeSlug "__new__")}}box-shadow:0 0 0 2px #38bdf8;{{end}}">
+              + Add New Knowledge
+            </a>
+          </div>
+
+          <!-- 4. Storage & System Data -->
           <div>
             <div class="facet-title" style="margin-bottom:8px;">
               <span>STORAGE &amp; DATA</span>
@@ -8937,7 +8987,7 @@
                   </div>
                   <div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                      <label class="kv-label" style="margin-bottom:0;">Generation / Context System Prompt</label>
+                      <label class="kv-label" style="margin-bottom:0;">Generation / Context System Prompt <span class="badge-chip" id="syspromptTokenCountNew" style="margin-left:6px;font-size:10px;background:#1e293b;color:#94a3b8;">~0 tokens</span></label>
                       <div style="display:flex;align-items:center;gap:6px;">
                         <input type="file" class="sysprompt-file-picker" accept=".txt,.md,text/plain,text/markdown" style="display:none;" onchange="loadSystemPromptFile(this)">
                         <button type="button" class="btn-ghost" style="font-size:11.5px;padding:3px 9px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" onclick="this.previousElementSibling.click()" title="Load system prompt text from a local .txt or .md file">
@@ -8993,7 +9043,7 @@
                   </div>
                   <div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                      <label class="kv-label" style="margin-bottom:0;">Generation / Context System Prompt (Sent to Ollama / oMLX)</label>
+                      <label class="kv-label" style="margin-bottom:0;">Generation / Context System Prompt (Sent to Ollama / oMLX) <span class="badge-chip" id="syspromptTokenCount" style="margin-left:6px;font-size:10px;background:#1e3a8a;color:#bfdbfe;">~{{estimateTokens .SelectedProfile.SystemPrompt}} tokens</span></label>
                       <div style="display:flex;align-items:center;gap:6px;">
                         <input type="file" class="sysprompt-file-picker" accept=".txt,.md,text/plain,text/markdown" style="display:none;" onchange="loadSystemPromptFile(this)">
                         <button type="button" class="btn-ghost" style="font-size:11.5px;padding:3px 9px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" onclick="this.previousElementSibling.click()" title="Load system prompt text from a local .txt or .md file">
@@ -9027,7 +9077,7 @@
                           <input type="hidden" name="profile_slug" value="{{.ProfileSlug}}">
                           <div style="display:grid;grid-template-columns:1fr 240px 110px;gap:10px;">
                             <div>
-                              <label class="kv-label">LoRA Name</label>
+                              <label class="kv-label">LoRA Name <span class="badge-chip" style="margin-left:6px;font-size:10px;background:#1e293b;color:#94a3b8;">~{{.TokenCount}} tokens</span></label>
                               <input type="text" name="name" value="{{.Name}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
                             </div>
                             <div>
@@ -9087,6 +9137,100 @@
                     </div>
                   </form>
                 </div>
+              </div>
+            {{end}}
+          {{else if eq .SettingsSection "knowledge"}}
+            {{if or (eq .SelectedKnowledgeSlug "__new__") (not .SelectedKnowledge)}}
+              <!-- Create New Knowledge Snippet -->
+              <div style="background:var(--bg-panel);border:1px solid var(--border-highlight);border-radius:6px;padding:20px;">
+                <h2 style="font-size:18px;margin-bottom:6px;">Create New Contextual Knowledge Snippet</h2>
+                <p style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">
+                  Define cross-cutting knowledge (optics, camera angles, cinematic lighting, anatomy rules, composition techniques) that can be injected into any prompt generation (Image2Prompt, Text2Prompt, Character, or Scene Director) regardless of the target engine.
+                </p>
+
+                <form action="/admin/knowledge/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;">
+                  <div style="display:grid;grid-template-columns:180px 1fr 1fr;gap:10px;">
+                    <div>
+                      <label class="kv-label">Slug ID</label>
+                      <input type="text" name="slug" placeholder="e.g. cinematography-optics" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Title / Name</label>
+                      <input type="text" name="title" placeholder="e.g. Cinematography &amp; Optical Lenses" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Short Description</label>
+                      <input type="text" name="description" placeholder="Summary of what this knowledge guides..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    </div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                      <label class="kv-label" style="margin-bottom:0;">Knowledge Content &amp; Directives <span class="badge-chip" id="knowledgeTokenCount" style="margin-left:6px;font-size:10px;background:#1e3a8a;color:#bfdbfe;">~0 tokens</span></label>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <input type="file" class="knowledge-file-picker" accept=".txt,.md,text/plain,text/markdown" style="display:none;" onchange="loadKnowledgeFile(this)">
+                        <button type="button" class="btn-ghost" style="font-size:11.5px;padding:3px 9px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" onclick="this.previousElementSibling.click()" title="Load knowledge text from a local .txt or .md file">
+                          &#128194; Load from .txt / .md
+                        </button>
+                      </div>
+                    </div>
+                    <textarea name="content" rows="10" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:12.5px;line-height:1.45;" placeholder="Enter guidelines, rules, camera optics, or lighting directives that the LLM must follow when synthesizing prompts..." required></textarea>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                      Tip: You can also drag and drop a <code>.txt</code> or <code>.md</code> file directly onto this textarea.
+                    </div>
+                  </div>
+                  <div>
+                    <button type="submit" class="btn-primary">Create Knowledge Snippet</button>
+                  </div>
+                </form>
+              </div>
+            {{else}}
+              <!-- Selected Knowledge Snippet Editor -->
+              <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <div>
+                    <h2 style="font-size:19px;color:#fff;">{{.SelectedKnowledge.Title}} <span class="badge-chip" style="margin-left:6px;background:#1e3a8a;color:#bfdbfe;">~{{.SelectedKnowledge.TokenCount}} tokens</span></h2>
+                    <p style="color:var(--text-muted);font-size:12px;">Engine-agnostic contextual directives: <strong>{{.SelectedKnowledge.Description}}</strong></p>
+                  </div>
+                  <form action="/admin/knowledge/delete" method="POST" autocomplete="off">
+                    <input type="hidden" name="id" value="{{.SelectedKnowledge.ID}}">
+                    <button type="submit" class="btn-ghost" style="color:#fca5a5;border-color:#7f1d1d;">Delete Snippet</button>
+                  </form>
+                </div>
+
+                <form action="/admin/knowledge/upsert" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:12px;">
+                  <div style="display:grid;grid-template-columns:180px 1fr 1fr;gap:10px;">
+                    <div>
+                      <label class="kv-label">Slug ID</label>
+                      <input type="text" name="slug" value="{{.SelectedKnowledge.Slug}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Title / Name</label>
+                      <input type="text" name="title" value="{{.SelectedKnowledge.Title}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" required>
+                    </div>
+                    <div>
+                      <label class="kv-label">Short Description</label>
+                      <input type="text" name="description" value="{{.SelectedKnowledge.Description}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    </div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                      <label class="kv-label" style="margin-bottom:0;">Knowledge Content &amp; Directives <span class="badge-chip" id="knowledgeTokenCount" style="margin-left:6px;font-size:10px;background:#1e3a8a;color:#bfdbfe;">~{{.SelectedKnowledge.TokenCount}} tokens</span></label>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <input type="file" class="knowledge-file-picker" accept=".txt,.md,text/plain,text/markdown" style="display:none;" onchange="loadKnowledgeFile(this)">
+                        <button type="button" class="btn-ghost" style="font-size:11.5px;padding:3px 9px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" onclick="this.previousElementSibling.click()" title="Load knowledge text from a local .txt or .md file">
+                          &#128194; Load from .txt / .md
+                        </button>
+                      </div>
+                    </div>
+                    <textarea name="content" rows="10" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-family:monospace;font-size:12.5px;line-height:1.45;" required>{{.SelectedKnowledge.Content}}</textarea>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                      Tip: You can also drag and drop a <code>.txt</code> or <code>.md</code> file directly onto this textarea.
+                    </div>
+                  </div>
+                  <div>
+                    <button type="submit" class="btn-primary">Save '{{.SelectedKnowledge.Title}}' Knowledge</button>
+                  </div>
+                </form>
               </div>
             {{end}}
           {{else if eq .SettingsSection "folders"}}
@@ -11280,6 +11424,35 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
         localStorage.setItem('dc_last_target_generator', sel.value);
         filterLoRAsByModel(sel.form, sel.value);
       }
+      if (typeof updateStudioTokenBudget === 'function') {
+        updateStudioTokenBudget();
+      }
+    }
+
+    function updateStudioTokenBudget() {
+      var sel = document.getElementById('studio-profile-select');
+      var sysTokens = 0;
+      if (sel && sel.selectedIndex >= 0) {
+        var opt = sel.options[sel.selectedIndex];
+        sysTokens = parseInt(opt.getAttribute('data-tokens') || '0', 10) || 0;
+      }
+      var loraTokens = 0;
+      document.querySelectorAll('input[name="lora_id"]:checked').forEach(function(cb) {
+        loraTokens += parseInt(cb.getAttribute('data-tokens') || '0', 10) || 0;
+      });
+      var knowledgeTokens = 0;
+      document.querySelectorAll('input[name="knowledge_id"]:checked').forEach(function(cb) {
+        knowledgeTokens += parseInt(cb.getAttribute('data-tokens') || '0', 10) || 0;
+      });
+      var total = sysTokens + loraTokens + knowledgeTokens;
+      var badge = document.getElementById('studio-total-tokens-badge');
+      if (badge) {
+        badge.textContent = '~' + total + ' tokens';
+      }
+      var breakdown = document.getElementById('studio-tokens-breakdown');
+      if (breakdown) {
+        breakdown.textContent = '(Sys: ' + sysTokens + ' | LoRAs: ' + loraTokens + ' | Knowledge: ' + knowledgeTokens + ')';
+      }
     }
 
     function onStudioModeChange(val) {
@@ -12430,6 +12603,110 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
         });
       });
     }
+
+    // Load Knowledge from local .txt / .md file
+    window.loadKnowledgeFile = function(input) {
+      if (!input.files || input.files.length === 0) return;
+      var file = input.files[0];
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var content = e.target.result;
+        var form = input.closest('form');
+        var textarea = form ? form.querySelector('textarea[name="content"]') : document.querySelector('textarea[name="content"]');
+        if (textarea) {
+          textarea.value = content;
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.focus();
+        }
+        if (form) {
+          var titleInput = form.querySelector('input[name="title"]');
+          if (titleInput && !titleInput.value.trim()) {
+            var raw = file.name.replace(/\.[^/.]+$/, "");
+            titleInput.value = raw.charAt(0).toUpperCase() + raw.slice(1).replace(/[-_]/g, " ");
+          }
+          var slugInput = form.querySelector('input[name="slug"]');
+          if (slugInput && !slugInput.value.trim()) {
+            slugInput.value = file.name.replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+          }
+        }
+        if (window.showToast) {
+          window.showToast('Loaded knowledge snippet from ' + file.name + ' (' + content.length + ' chars)', 'success');
+        }
+      };
+      reader.readAsText(file);
+      input.value = '';
+    };
+
+    // Drag-and-drop listener for knowledge textareas
+    function initKnowledgeDropzones() {
+      document.querySelectorAll('textarea[name="content"]').forEach(function(ta) {
+        ta.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          ta.style.borderColor = '#38bdf8';
+          ta.style.boxShadow = '0 0 10px rgba(56,189,248,0.25)';
+        });
+        ta.addEventListener('dragleave', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          ta.style.borderColor = '';
+          ta.style.boxShadow = '';
+        });
+        ta.addEventListener('drop', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          ta.style.borderColor = '';
+          ta.style.boxShadow = '';
+          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            var file = e.dataTransfer.files[0];
+            if (file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+              var reader = new FileReader();
+              reader.onload = function(ev) {
+                ta.value = ev.target.result;
+                ta.dispatchEvent(new Event('input', { bubbles: true }));
+                ta.focus();
+                if (window.showToast) {
+                  window.showToast('Loaded knowledge snippet from ' + file.name + ' (' + ev.target.result.length + ' chars)', 'success');
+                }
+              };
+              reader.readAsText(file);
+            } else {
+              if (window.showToast) {
+                window.showToast("Please drop a .txt or .md file", "error");
+              }
+            }
+          }
+        });
+      });
+    }
+
+    // Live token counters for system prompt and knowledge textareas
+    function initTokenCounters() {
+      document.querySelectorAll('textarea[name="system_prompt"]').forEach(function(ta) {
+        ta.addEventListener('input', function() {
+          var count = ta.value.trim() ? Math.ceil(ta.value.trim().length / 3.8) : 0;
+          var badge = ta.closest('div').querySelector('#syspromptTokenCount, #syspromptTokenCountNew');
+          if (badge) badge.textContent = '~' + count + ' tokens';
+        });
+      });
+      document.querySelectorAll('textarea[name="content"]').forEach(function(ta) {
+        ta.addEventListener('input', function() {
+          var count = ta.value.trim() ? Math.ceil(ta.value.trim().length / 3.8) : 0;
+          var badge = ta.closest('div').querySelector('#knowledgeTokenCount');
+          if (badge) badge.textContent = '~' + count + ' tokens';
+        });
+      });
+    }
+
+    function initAllDropzonesAndBudgets() {
+      initSystemPromptDropzones();
+      initKnowledgeDropzones();
+      initTokenCounters();
+      if (typeof updateStudioTokenBudget === 'function') {
+        updateStudioTokenBudget();
+      }
+    }
+
     function renameFaceCluster(event, currentLabel) {
       if (event) {
         event.preventDefault();
@@ -12469,9 +12746,9 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
     window.renameFaceCluster = renameFaceCluster;
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initSystemPromptDropzones);
+      document.addEventListener('DOMContentLoaded', initAllDropzonesAndBudgets);
     } else {
-      initSystemPromptDropzones();
+      initAllDropzonesAndBudgets();
     }
   </script>
 </body>

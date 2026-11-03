@@ -75,6 +75,18 @@ func TestEndToEndSeedScanAndCatalogQuery(t *testing.T) {
 		t.Errorf("expected non-empty LoRA context block for prompt synthesis")
 	}
 
+	knowledgeSnippets, err := catalogSvc.ListKnowledgeSnippets(ctx)
+	if err != nil {
+		t.Fatalf("failed to list knowledge snippets: %v", err)
+	}
+	if len(knowledgeSnippets) < 3 {
+		t.Fatalf("expected at least 3 seeded knowledge snippets, got %d", len(knowledgeSnippets))
+	}
+	kBlock := catalogSvc.buildKnowledgeContextBlock(ctx, []int64{knowledgeSnippets[0].ID})
+	if kBlock == "" {
+		t.Errorf("expected non-empty knowledge context block")
+	}
+
 	page, err := catalogSvc.Query(ctx, domain.CatalogFilter{PerPage: 50})
 	if err != nil {
 		t.Fatalf("failed to query catalog: %v", err)
@@ -112,8 +124,10 @@ func TestEndToEndSeedScanAndCatalogQuery(t *testing.T) {
 }
 
 type mockOllamaProvider struct {
-	lastCall        string
-	analyzeResponse string
+	lastCall         string
+	analyzeResponse  string
+	lastSystemPrompt string
+	lastUserPrompt   string
 }
 
 func (m *mockOllamaProvider) CheckStatus(ctx context.Context, baseURL string) (string, bool) {
@@ -130,14 +144,20 @@ func (m *mockOllamaProvider) ListOMLXModels(ctx context.Context, baseURL, apiKey
 }
 func (m *mockOllamaProvider) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, absImagePath, userHint, thinkLevel string) (string, error) {
 	m.lastCall = "ImageToPrompt"
+	m.lastSystemPrompt = systemPrompt
+	m.lastUserPrompt = userHint
 	return "vision prompt", nil
 }
 func (m *mockOllamaProvider) ImagesToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userHint, thinkLevel string) (string, error) {
 	m.lastCall = "ImageToPrompt"
+	m.lastSystemPrompt = systemPrompt
+	m.lastUserPrompt = userHint
 	return "vision prompt", nil
 }
 func (m *mockOllamaProvider) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
 	m.lastCall = "TextToPrompt"
+	m.lastSystemPrompt = systemPrompt
+	m.lastUserPrompt = inputConcept
 	return "remix text prompt", nil
 }
 func (m *mockOllamaProvider) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
@@ -203,7 +223,7 @@ func TestRemixAndVisionOperationModeAndTargetGeneratorPersistence(t *testing.T) 
 	}
 
 	// 3. Test mode == "remix" on a video asset: MUST use TextToPrompt, NOT ImageToPrompt
-	out, _, err := catalogSvc.RunImage2Prompt(ctx, assetID, "flux", "remix", "make it neon", 0, nil, domain.PromptExecutionOverride{}, false, "")
+	out, _, err := catalogSvc.RunImage2Prompt(ctx, assetID, "flux", "remix", "make it neon", 0, nil, nil, domain.PromptExecutionOverride{}, false, "")
 	if err != nil {
 		t.Fatalf("RunImage2Prompt remix mode failed: %v", err)
 	}
@@ -215,7 +235,7 @@ func TestRemixAndVisionOperationModeAndTargetGeneratorPersistence(t *testing.T) 
 	}
 
 	// 4. Test mode == "vision" on an attached frame: MUST use ImageToPrompt
-	outVision, _, err := catalogSvc.RunImage2Prompt(ctx, assetID, "flux", "vision", "inspect visual details", 0, nil, domain.PromptExecutionOverride{}, false, filepath.Join(cacheDir, "fake_frame.jpg"))
+	outVision, _, err := catalogSvc.RunImage2Prompt(ctx, assetID, "flux", "vision", "inspect visual details", 0, nil, nil, domain.PromptExecutionOverride{}, false, filepath.Join(cacheDir, "fake_frame.jpg"))
 	if err != nil {
 		t.Fatalf("RunImage2Prompt vision mode failed: %v", err)
 	}
@@ -439,7 +459,7 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 	}
 
 	// 4. Test SynthesizeScenePrompt (without canvas capture -> TextToPrompt)
-	compiledManifest, generatedPrompt, _, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, "")
+	compiledManifest, generatedPrompt, _, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, nil, domain.PromptExecutionOverride{}, "")
 	if err != nil {
 		t.Fatalf("SynthesizeScenePrompt failed: %v", err)
 	}
@@ -455,7 +475,7 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 	if err := os.WriteFile(dummyCanvasPath, []byte("fake png content"), 0644); err != nil {
 		t.Fatalf("failed to write dummy canvas: %v", err)
 	}
-	_, visionPrompt, _, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, dummyCanvasPath)
+	_, visionPrompt, _, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, nil, domain.PromptExecutionOverride{}, dummyCanvasPath)
 	if err != nil {
 		t.Fatalf("SynthesizeScenePrompt with canvas image failed: %v", err)
 	}
@@ -469,7 +489,7 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 	// 4c. Test SynthesizeScenePrompt with in-memory canvas data URL (no disk temporary files)
 	mockOllama.lastCall = ""
 	inMemoryDataURL := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-	_, inMemoryVisionPrompt, _, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, domain.PromptExecutionOverride{}, inMemoryDataURL)
+	_, inMemoryVisionPrompt, _, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, nil, domain.PromptExecutionOverride{}, inMemoryDataURL)
 	if err != nil {
 		t.Fatalf("SynthesizeScenePrompt with in-memory data URL failed: %v", err)
 	}
@@ -836,6 +856,68 @@ func TestImageToScene(t *testing.T) {
 
 	if !strings.Contains(sceneJSON, "Detective") {
 		t.Errorf("expected sceneJSON to contain 'Detective', got %s", sceneJSON)
+	}
+}
+
+func TestKnowledgeSnippetCRUDAndPromptInjection(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	dbPath := filepath.Join(tmpDir, "test_knowledge.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite db: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	mockOllama := &mockOllamaProvider{}
+	catalogSvc := NewCatalogService(mediaDir, repo, mockOllama)
+
+	// 1. Create a knowledge snippet
+	snip := &domain.KnowledgeSnippet{
+		Slug:        "custom-lighting",
+		Title:       "Custom Neon Lighting",
+		Description: "Atmospheric neon rim lighting guide",
+		Content:     "CRITICAL LIGHTING DIRECTIVE: Always inject neon magenta and cyan rim light with deep shadows.",
+	}
+	id, err := catalogSvc.UpsertKnowledgeSnippet(ctx, snip)
+	if err != nil {
+		t.Fatalf("failed to upsert knowledge snippet: %v", err)
+	}
+	if id <= 0 {
+		t.Fatalf("expected positive ID, got %d", id)
+	}
+
+	// 2. Fetch by ID
+	fetched, err := catalogSvc.GetKnowledgeSnippetByID(ctx, id)
+	if err != nil || fetched == nil {
+		t.Fatalf("failed to get knowledge snippet: %v", err)
+	}
+	if fetched.Title != snip.Title {
+		t.Errorf("expected title %q, got %q", snip.Title, fetched.Title)
+	}
+
+	// 3. Test prompt injection in Text2Prompt
+	_, _, err = catalogSvc.RunText2Prompt(ctx, "a lone netrunner in an alley", "flux", nil, []int64{id}, domain.PromptExecutionOverride{})
+	if err != nil {
+		t.Fatalf("RunText2Prompt with knowledge failed: %v", err)
+	}
+	if !strings.Contains(mockOllama.lastUserPrompt, "Custom Neon Lighting") {
+		t.Errorf("expected knowledge title in user prompt, got: %s", mockOllama.lastUserPrompt)
+	}
+	if !strings.Contains(mockOllama.lastUserPrompt, "CRITICAL LIGHTING DIRECTIVE") {
+		t.Errorf("expected knowledge content in user prompt, got: %s", mockOllama.lastUserPrompt)
+	}
+
+	// 4. Delete snippet
+	if err := catalogSvc.DeleteKnowledgeSnippet(ctx, id); err != nil {
+		t.Fatalf("failed to delete knowledge snippet: %v", err)
+	}
+	postDel, _ := catalogSvc.GetKnowledgeSnippetByID(ctx, id)
+	if postDel != nil {
+		t.Errorf("expected nil after delete, got %+v", postDel)
 	}
 }
 

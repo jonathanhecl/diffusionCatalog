@@ -461,6 +461,12 @@ type CatalogRepository interface {
 	ListModelLoRAs(ctx context.Context, profileSlug string) ([]ModelLoRA, error)
 	GetModelLoRAsByIDs(ctx context.Context, ids []int64) ([]ModelLoRA, error)
 
+	UpsertKnowledgeSnippet(ctx context.Context, k *KnowledgeSnippet) (int64, error)
+	DeleteKnowledgeSnippet(ctx context.Context, id int64) error
+	ListKnowledgeSnippets(ctx context.Context) ([]KnowledgeSnippet, error)
+	GetKnowledgeSnippetsByIDs(ctx context.Context, ids []int64) ([]KnowledgeSnippet, error)
+	GetKnowledgeSnippetByID(ctx context.Context, id int64) (*KnowledgeSnippet, error)
+
 	SaveGeneratedPrompt(ctx context.Context, gp *GeneratedPrompt) (int64, error)
 	ListGeneratedPrompts(ctx context.Context, assetID, characterID int64, limit int) ([]GeneratedPrompt, error)
 	ClearGeneratedPrompts(ctx context.Context, assetID, characterID int64) error
