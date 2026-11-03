@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -38,6 +39,27 @@ type Config struct {
 	ForceSetup       bool          `json:"-"`
 	NonInteractive   bool          `json:"-"`
 	ConfigFile       string        `json:"config_file"`
+}
+
+// HTTPAddr returns a host:port string suitable for display in URLs.
+// If Addr has an empty host or binds to all interfaces (e.g. ":1080", "0.0.0.0:1080", "[::]:1080"),
+// it resolves the host to "127.0.0.1" so terminals can render a clickable link.
+func (c Config) HTTPAddr() string {
+	addr := strings.TrimSpace(c.Addr)
+	if addr == "" {
+		return "127.0.0.1:80"
+	}
+	if strings.HasPrefix(addr, ":") {
+		return "127.0.0.1" + addr
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err == nil {
+		if host == "" || host == "0.0.0.0" || host == "::" || host == "[::]" {
+			return "127.0.0.1:" + port
+		}
+		return addr
+	}
+	return addr
 }
 
 // FileConfig models the JSON file structure for config.json.

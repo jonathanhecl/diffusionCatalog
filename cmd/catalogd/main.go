@@ -114,7 +114,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("DiffusionCatalog server running on http://%s (config: %s, media: %s, db: %s)", cfg.Addr, cfg.ConfigFile, cfg.MediaDir, cfg.DBPath)
+		log.Printf("DiffusionCatalog server running on http://%s (config: %s, media: %s, db: %s)", cfg.HTTPAddr(), cfg.ConfigFile, cfg.MediaDir, cfg.DBPath)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			if strings.Contains(err.Error(), "permission denied") {
 				log.Printf("\n[!] Error: Unable to bind to %s (permission denied).\n"+

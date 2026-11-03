@@ -114,3 +114,25 @@ func TestAutoScanIntervalConfig(t *testing.T) {
 		t.Fatalf("expected auto_scan_interval 0 when auto_scan=false, got %v", cfg3.AutoScanInterval)
 	}
 }
+
+func TestConfigHTTPAddr(t *testing.T) {
+	tests := []struct {
+		addr string
+		want string
+	}{
+		{addr: ":1080", want: "127.0.0.1:1080"},
+		{addr: "0.0.0.0:1080", want: "127.0.0.1:1080"},
+		{addr: "[::]:1080", want: "127.0.0.1:1080"},
+		{addr: "127.0.0.1:1080", want: "127.0.0.1:1080"},
+		{addr: "192.168.1.50:1080", want: "192.168.1.50:1080"},
+		{addr: "localhost:1080", want: "localhost:1080"},
+		{addr: "", want: "127.0.0.1:80"},
+	}
+
+	for _, tc := range tests {
+		cfg := Config{Addr: tc.addr}
+		if got := cfg.HTTPAddr(); got != tc.want {
+			t.Errorf("HTTPAddr() for addr %q = %q, want %q", tc.addr, got, tc.want)
+		}
+	}
+}
