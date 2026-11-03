@@ -1264,9 +1264,12 @@ type SceneElementDTO struct {
 	Rotation    float64                `json:"rotation,omitempty"`
 	FlipH       bool                   `json:"flipH,omitempty"`
 	Facing      string                 `json:"facing,omitempty"`
-	PoseName    string                 `json:"poseName,omitempty"`
-	Pose        map[string]interface{} `json:"pose,omitempty"`
-	Anatomy     string                 `json:"anatomy,omitempty"`
+	PoseName       string                 `json:"poseName,omitempty"`
+	Pose           map[string]interface{} `json:"pose,omitempty"`
+	Age            string                 `json:"age,omitempty"`
+	PhysicalHeight string                 `json:"physicalHeight,omitempty"`
+	Physique       string                 `json:"physique,omitempty"`
+	Anatomy        string                 `json:"anatomy,omitempty"`
 	Expression  string                 `json:"expression,omitempty"`
 	Features    string                 `json:"features,omitempty"`
 	Hair        string                 `json:"hair,omitempty"`
@@ -1482,17 +1485,28 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 			}
 
 			scaleDesc := ""
-			if el.Scale > 1.3 {
-				scaleDesc = ", prominent close scale"
-			} else if el.Scale < 0.7 && el.Scale > 0 {
-				scaleDesc = ", smaller distant scale"
+			if el.Scale > 1.25 {
+				scaleDesc = fmt.Sprintf(", camera distance: close foreground / close-up framing (%.1fx optical scale)", el.Scale)
+			} else if el.Scale < 0.75 && el.Scale > 0 {
+				scaleDesc = fmt.Sprintf(", camera distance: distant background framing (%.1fx optical scale)", el.Scale)
+			} else if el.Scale > 0 && el.Scale != 1.0 {
+				scaleDesc = fmt.Sprintf(", camera distance: midground framing (%.1fx optical scale)", el.Scale)
 			}
 
 			var charTraits []string
+			if strings.TrimSpace(el.Age) != "" {
+				charTraits = append(charTraits, "age: "+strings.TrimSpace(el.Age))
+			}
+			if strings.TrimSpace(el.PhysicalHeight) != "" {
+				charTraits = append(charTraits, "physical height/stature: "+strings.TrimSpace(el.PhysicalHeight))
+			}
+			if strings.TrimSpace(el.Physique) != "" {
+				charTraits = append(charTraits, "body structure/build: "+strings.TrimSpace(el.Physique))
+			}
 			if strings.TrimSpace(el.Anatomy) != "" {
 				charTraits = append(charTraits, "anatomy: "+strings.TrimSpace(el.Anatomy))
 			}
-			if strings.TrimSpace(el.Features) != "" {
+			if strings.TrimSpace(el.Features) != "" && strings.TrimSpace(el.Features) != strings.TrimSpace(el.Anatomy) {
 				charTraits = append(charTraits, "features: "+strings.TrimSpace(el.Features))
 			}
 			if strings.TrimSpace(el.Expression) != "" {
@@ -1629,8 +1643,13 @@ func (s *CatalogService) CompileSceneDirectorManifest(ctx context.Context, scene
 	}
 
 	if len(noteLines) > 0 {
-		sb.WriteString("Director Scene Directives & Annotations:\n")
+		sb.WriteString("Director Canvas Directives & Annotations:\n")
 		sb.WriteString(strings.Join(noteLines, "\n") + "\n")
+	}
+
+	if strings.TrimSpace(scene.DirectorNote) != "" {
+		sb.WriteString("Director Scene Instructions & Cinematography Guidance:\n")
+		sb.WriteString(strings.TrimSpace(scene.DirectorNote) + "\n")
 	}
 
 	return sb.String(), nil

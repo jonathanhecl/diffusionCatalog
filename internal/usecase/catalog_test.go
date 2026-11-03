@@ -458,6 +458,47 @@ func TestSceneDirectorStagingAndCompositionCRUD(t *testing.T) {
 		t.Errorf("expected feature marker to NOT be listed under Environment, Props & Staging Elements, got:\n%s", markerManifest)
 	}
 
+	// 3e. Test character with age, physical height/stature, body build/physique, camera distance framing and multiline director note
+	extendedSceneJSON := `{
+		"aspectRatio": "16:9",
+		"directorNote": "Dramatic anamorphic 50mm shot.\nRim lighting from behind with volumetric atmospheric mist.",
+		"elements": [
+			{
+				"id": "char-hero",
+				"type": "character",
+				"name": "Eldrin the Elf",
+				"age": "120 years old adult",
+				"physicalHeight": "195 cm tall stature",
+				"physique": "lean athletic wirey build",
+				"scale": 1.6,
+				"x": 200,
+				"y": 600,
+				"facing": "front"
+			}
+		]
+	}`
+	extendedManifest, err := catalogSvc.CompileSceneDirectorManifest(ctx, extendedSceneJSON)
+	if err != nil {
+		t.Fatalf("CompileSceneDirectorManifest with extended attributes failed: %v", err)
+	}
+	if !strings.Contains(extendedManifest, "age: 120 years old adult") {
+		t.Errorf("expected age in manifest, got:\n%s", extendedManifest)
+	}
+	if !strings.Contains(extendedManifest, "physical height/stature: 195 cm tall stature") {
+		t.Errorf("expected physical height in manifest, got:\n%s", extendedManifest)
+	}
+	if !strings.Contains(extendedManifest, "body structure/build: lean athletic wirey build") {
+		t.Errorf("expected body structure/build in manifest, got:\n%s", extendedManifest)
+	}
+	if !strings.Contains(extendedManifest, "camera distance: close foreground / close-up framing (1.6x optical scale)") {
+		t.Errorf("expected camera distance framing description, got:\n%s", extendedManifest)
+	}
+	if !strings.Contains(extendedManifest, "Director Scene Instructions & Cinematography Guidance:") ||
+		!strings.Contains(extendedManifest, "Dramatic anamorphic 50mm shot.") ||
+		!strings.Contains(extendedManifest, "Rim lighting from behind with volumetric atmospheric mist.") {
+		t.Errorf("expected multiline director notes in manifest, got:\n%s", extendedManifest)
+	}
+
 	// 4. Test SynthesizeScenePrompt (without canvas capture -> TextToPrompt)
 	compiledManifest, generatedPrompt, _, err := catalogSvc.SynthesizeScenePrompt(ctx, sampleSceneJSON, "flux", "cyberpunk aesthetic", nil, nil, domain.PromptExecutionOverride{}, "")
 	if err != nil {

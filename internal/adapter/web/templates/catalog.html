@@ -2023,10 +2023,10 @@
                 </div>
 
                 <!-- Note Editing Control Group (Visible when a note is selected) -->
-                <div id="noteControlGroup" style="display:none;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:#34d399;font-weight:600;">📝 Note:</span>
-                  <input type="text" id="noteTextInput" placeholder="Directive note on canvas..." 
-                         style="width:240px;background:var(--bg-input);border:1px solid #10b981;border-radius:4px;padding:3px 8px;color:#a7f3d0;font-size:11.5px;" />
+                <div id="noteControlGroup" style="display:none;align-items:flex-start;gap:6px;">
+                  <span style="font-size:11px;color:#34d399;font-weight:600;margin-top:3px;">📝 Note:</span>
+                  <textarea id="noteTextInput" rows="2" placeholder="Directive note on canvas (supports multiline instructions)..." 
+                         style="width:280px;min-height:44px;background:var(--bg-input);border:1px solid #10b981;border-radius:4px;padding:3px 8px;color:#a7f3d0;font-size:11.5px;resize:vertical;font-family:inherit;"></textarea>
                 </div>
 
                 <!-- Prop Type & View Control Group (Visible when a prop is selected) -->
@@ -2064,13 +2064,14 @@
                   <button type="button" id="btnPropToggleView" class="btn-ghost" style="padding:2px 7px;font-size:11px;color:#38bdf8;" title="Alternar diseño del prop entre vista superior/planta y vista de perfil lateral">&#128257; Planta &#8596; Perfil</button>
                 </div>
 
-                <!-- Scale Slider (0.2x to 6.0x) -->
+                <!-- Scale / Camera Distance Slider (0.2x to 6.0x) -->
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Scale:</span>
+                  <span style="font-size:11px;color:var(--text-muted);font-weight:600;" title="Distancia de la cámara / Encuadre óptico en la escena (no altera la estatura biológica)">Distance / Scale:</span>
                   <button type="button" id="btnScaleDown" class="btn-ghost" style="padding:1px 6px;font-size:11px;">-</button>
-                  <input type="range" id="propScaleSlider" min="0.2" max="6.0" step="0.05" value="1.0" style="width:100px;accent-color:#0284c7;" />
+                  <input type="range" id="propScaleSlider" min="0.2" max="6.0" step="0.05" value="1.0" style="width:90px;accent-color:#0284c7;" />
                   <button type="button" id="btnScaleUp" class="btn-ghost" style="padding:1px 6px;font-size:11px;">+</button>
                   <span id="propScaleVal" style="font-size:11px;font-weight:700;color:#38bdf8;min-width:32px;">1.00x</span>
+                  <span id="propFramingBadge" style="font-size:9.5px;padding:1px 6px;border-radius:3px;background:#0f172a;border:1px solid #334155;color:#94a3b8;font-weight:600;" title="Plano / Profundidad de cámara">Midground</span>
                 </div>
 
                 <!-- Rotate Slider -->
@@ -2129,8 +2130,8 @@
                   </div>
 
                   <div style="display:flex;flex-direction:column;gap:10px;">
-                    <!-- Row 1: Identity, Pose, Anatomy/Physique & Facial Expression -->
-                    <div style="display:grid;grid-template-columns: 130px 1.15fr 1.35fr 1.35fr;gap:10px;align-items:flex-start;">
+                    <!-- Row 1: Demographics, Height & Physical Structure (Independent of Camera Distance) -->
+                    <div style="display:grid;grid-template-columns: 130px 130px 140px 1fr;gap:10px;align-items:flex-start;">
                       <!-- Name & Label -->
                       <div>
                         <div style="margin-bottom:3px;">
@@ -2140,6 +2141,59 @@
                                style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#60a5fa;font-size:11.5px;font-weight:700;" />
                       </div>
 
+                      <!-- Age / Edad -->
+                      <div>
+                        <div style="margin-bottom:3px;">
+                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Edad cronológica del personaje (guía al modelo independientemente del tamaño en pantalla)">Age / Edad:</label>
+                        </div>
+                        <input type="text" id="charAgeInput" list="charAgeDatalist" placeholder="e.g. 28yo, 8yo..." 
+                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#38bdf8;font-size:11px;font-weight:600;" />
+                        <datalist id="charAgeDatalist">
+                          <option value="young child (8 years old)"></option>
+                          <option value="youthful teenager (16 years old)"></option>
+                          <option value="young adult (25 years old)"></option>
+                          <option value="mature adult (42 years old)"></option>
+                          <option value="elderly senior (68 years old)"></option>
+                        </datalist>
+                      </div>
+
+                      <!-- Physical Height / Altura real -->
+                      <div>
+                        <div style="margin-bottom:3px;">
+                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Estatura física real en cm o escala anatómica (independiente del zoom de cámara)">Height / Altura:</label>
+                        </div>
+                        <input type="text" id="charHeightInput" list="charHeightDatalist" placeholder="e.g. 180 cm, 120 cm..." 
+                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#38bdf8;font-size:11px;font-weight:600;" />
+                        <datalist id="charHeightDatalist">
+                          <option value="120 cm short dwarf stature"></option>
+                          <option value="155 cm petite short stature"></option>
+                          <option value="175 cm average height"></option>
+                          <option value="190 cm tall stature"></option>
+                          <option value="215 cm towering giant stature"></option>
+                        </datalist>
+                      </div>
+
+                      <!-- Physical Structure & Build / Complexión -->
+                      <div>
+                        <div style="margin-bottom:3px;">
+                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Estructura física y complexión anatómica">Structure / Build:</label>
+                        </div>
+                        <input type="text" id="charPhysiqueInput" list="charPhysiqueDatalist" placeholder="e.g. athletic muscular build, lean slender, stocky burly, petite frame..." 
+                               style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
+                        <datalist id="charPhysiqueDatalist">
+                          <option value="athletic muscular defined build"></option>
+                          <option value="lean slender agile build"></option>
+                          <option value="stocky burly broad-shouldered build"></option>
+                          <option value="curvy hourglass feminine silhouette"></option>
+                          <option value="petite compact short frame"></option>
+                          <option value="towering imposing massive giant build"></option>
+                          <option value="chubby soft rounded build"></option>
+                        </datalist>
+                      </div>
+                    </div>
+
+                    <!-- Row 2: Pose, Heritage/Anatomy & Expression -->
+                    <div style="display:grid;grid-template-columns: 1.15fr 1.35fr 1.35fr;gap:10px;align-items:flex-start;">
                       <!-- Pose / Posture (Editable, synchronized with active pose) -->
                       <div>
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
@@ -2546,9 +2600,9 @@
 
             <!-- Style, Mood & Atmosphere Directive Input -->
             <div>
-              <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:3px;">Atmosphere &amp; Style Directives:</label>
-              <textarea id="directorUserHint" rows="3" placeholder="e.g. Cinematic lighting, octane 8k, moody cyberpunk rain, Kodak Portra 35mm photograph, anamorphic lens flare..." 
-                        style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;resize:vertical;"></textarea>
+              <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:3px;">🎬 Director's Notes &amp; Style Directives:</label>
+              <textarea id="directorUserHint" rows="5" placeholder="e.g. Cinematic lighting, octane 8k, moody cyberpunk rain, Kodak Portra 35mm photograph, anamorphic lens flare, framing cues..." 
+                        style="width:100%;min-height:88px;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;resize:vertical;"></textarea>
             </div>
 
             <!-- Synthesize Prompt Button & Stop Button -->
@@ -4558,6 +4612,10 @@
         if (loadedScene.timeOfDay) {
           state.timeOfDay = loadedScene.timeOfDay;
         }
+        if (loadedScene.directorNote) {
+          const hintEl = document.getElementById('directorUserHint');
+          if (hintEl) hintEl.value = loadedScene.directorNote;
+        }
       }
     } catch (e) {
       console.warn("Failed to parse initial composition:", e);
@@ -6201,6 +6259,12 @@
         const badge = document.getElementById('charSelectedBadge');
         if (badge) badge.textContent = `[${selEl.subtype || 'Figure'}]`;
         document.getElementById('charNameInput').value = selEl.name || '';
+        const charAgeIn = document.getElementById('charAgeInput');
+        if (charAgeIn) charAgeIn.value = selEl.age || '';
+        const charHeightIn = document.getElementById('charHeightInput');
+        if (charHeightIn) charHeightIn.value = selEl.physicalHeight || '';
+        const charPhysiqueIn = document.getElementById('charPhysiqueInput');
+        if (charPhysiqueIn) charPhysiqueIn.value = selEl.physique || '';
         const charPoseIn = document.getElementById('charPoseInput');
         if (charPoseIn) charPoseIn.value = selEl.poseName || '';
         const charAnatIn = document.getElementById('charAnatomyInput');
@@ -6289,6 +6353,7 @@
     const scaleVal = document.getElementById('propScaleVal');
     scaleSlider.value = selEl.scale || 1.0;
     scaleVal.textContent = (selEl.scale || 1.0).toFixed(2) + 'x';
+    updateFramingBadge(selEl.scale || 1.0);
 
     const rotSlider = document.getElementById('propRotateSlider');
     const rotVal = document.getElementById('propRotateVal');
@@ -6319,6 +6384,46 @@
         renderScene();
         updateSpatialManifest();
       }
+    });
+  }
+
+  const charAgeInput = document.getElementById('charAgeInput');
+  if (charAgeInput) {
+    charAgeInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'character') {
+        selEl.age = e.target.value.trim();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const charHeightInput = document.getElementById('charHeightInput');
+  if (charHeightInput) {
+    charHeightInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'character') {
+        selEl.physicalHeight = e.target.value.trim();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const charPhysiqueInput = document.getElementById('charPhysiqueInput');
+  if (charPhysiqueInput) {
+    charPhysiqueInput.addEventListener('input', (e) => {
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (selEl && selEl.type === 'character') {
+        selEl.physique = e.target.value.trim();
+        updateSpatialManifest();
+      }
+    });
+  }
+
+  const directorUserHintEl = document.getElementById('directorUserHint');
+  if (directorUserHintEl) {
+    directorUserHintEl.addEventListener('input', () => {
+      updateSpatialManifest();
     });
   }
 
@@ -6525,14 +6630,35 @@
     });
   });
 
-  // Scale Slider & Buttons
+  // Dynamic Camera Distance Framing Badge
+  function updateFramingBadge(scale) {
+    const badge = document.getElementById('propFramingBadge');
+    if (!badge) return;
+    if (scale > 1.25) {
+      badge.textContent = 'Foreground (Cerca)';
+      badge.style.color = '#38bdf8';
+      badge.style.borderColor = '#0284c7';
+    } else if (scale < 0.75) {
+      badge.textContent = 'Background (Lejos)';
+      badge.style.color = '#94a3b8';
+      badge.style.borderColor = '#475569';
+    } else {
+      badge.textContent = 'Midground (Medio)';
+      badge.style.color = '#a78bfa';
+      badge.style.borderColor = '#7c3aed';
+    }
+  }
+
+  // Scale / Camera Distance Slider & Buttons
   function applyScale(newScale) {
     const selEl = state.elements.find(x => x.id === state.selectedId);
     if (selEl) {
       selEl.scale = Math.max(0.2, Math.min(6.0, Math.round(newScale * 100) / 100));
       document.getElementById('propScaleSlider').value = selEl.scale;
       document.getElementById('propScaleVal').textContent = selEl.scale.toFixed(2) + 'x';
+      updateFramingBadge(selEl.scale);
       renderScene();
+      updateSpatialManifest();
     }
   }
 
@@ -8650,10 +8776,23 @@
         else if (el.facing === 'three_quarter_right') facingDesc = "THREE-QUARTER VIEW FACING RIGHT (Angled perspective looking slightly right)";
 
         const poseStr = el.poseName ? ` in ${el.poseName} stance` : '';
-        const scaleStr = (el.scale && el.scale > 1.5) ? ` [Scale: ${el.scale.toFixed(1)}x CLOSE-UP FRAMING]` : '';
+        const scaleStr = (el.scale && el.scale > 1.25)
+          ? ` [Camera Distance: Foreground / Close-Up Framing (${el.scale.toFixed(2)}x)]`
+          : (el.scale && el.scale < 0.75)
+            ? ` [Camera Distance: Distant Background Framing (${el.scale.toFixed(2)}x)]`
+            : ` [Camera Distance: Midground Framing (${(el.scale || 1.0).toFixed(2)}x)]`;
         const mirrorStr = el.flipH ? ` (mirrored pose)` : '';
 
         let charSpecs = [];
+        if (el.age && el.age.trim()) {
+          charSpecs.push(`Age: ${el.age.trim()}`);
+        }
+        if (el.physicalHeight && el.physicalHeight.trim()) {
+          charSpecs.push(`Physical Height / Stature: ${el.physicalHeight.trim()}`);
+        }
+        if (el.physique && el.physique.trim()) {
+          charSpecs.push(`Body Structure & Build: ${el.physique.trim()}`);
+        }
         if (el.anatomy && el.anatomy.trim()) {
           charSpecs.push(`Anatomy & Physique: ${el.anatomy.trim()}`);
         } else if (el.features && el.features.trim()) {
@@ -8721,7 +8860,11 @@
     if (featureLines.length) manifest += `Character Targeted Features & Body Modifications:\n${featureLines.join('\n')}\n\n`;
     if (props.length) manifest += `Props & Environment:\n${props.join('\n')}\n\n`;
     if (lights.length) manifest += `Lighting Vectors:\n${lights.join('\n')}\n\n`;
-    if (notes.length) manifest += `Directives & Notes:\n${notes.join('\n')}`;
+    if (notes.length) manifest += `Directives & Notes:\n${notes.join('\n')}\n\n`;
+    const directorHint = document.getElementById('directorUserHint') ? document.getElementById('directorUserHint').value.trim() : '';
+    if (directorHint) {
+      manifest += `Director Scene Directives & Cinematography Guidance:\n${directorHint}\n`;
+    }
 
     viewer.textContent = manifest.trim();
   }
@@ -8802,6 +8945,7 @@
           environmentType: state.environmentType || 'any',
           environment: state.environment || '',
           timeOfDay: state.timeOfDay || '',
+          directorNote: document.getElementById('directorUserHint') ? document.getElementById('directorUserHint').value.trim() : '',
           elements: state.elements
         }),
         thumbnail_data: thumbnailData,
@@ -9332,6 +9476,7 @@
       environmentType: state.environmentType || 'any',
       environment: state.environment || '',
       timeOfDay: state.timeOfDay || '',
+      directorNote: userHint,
       elements: state.elements
     });
 

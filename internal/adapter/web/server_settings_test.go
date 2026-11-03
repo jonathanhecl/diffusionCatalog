@@ -337,6 +337,13 @@ func TestDirectorNewPosesPresetsRendering(t *testing.T) {
 		"Quadruped: Galloping / Running",
 		"CHARACTER_TAXONOMIES",
 		"resolveCharacterArchetype",
+		`id="charAgeInput"`,
+		`id="charHeightInput"`,
+		`id="charPhysiqueInput"`,
+		`id="propFramingBadge"`,
+		"Distance / Scale:",
+		`<textarea id="noteTextInput"`,
+		`<textarea id="directorUserHint"`,
 	}
 
 	for _, substr := range expectedSubstrings {
