@@ -2169,17 +2169,27 @@
 
                       <!-- Physical Height (Real) -->
                       <div>
-                        <div style="margin-bottom:3px;">
-                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Real physical stature in cm or anatomical scale (independent of camera framing)">Height (Real):</label>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                          <label style="font-size:10.5px;font-weight:600;color:#93c5fd;" title="Real physical stature in cm or anatomical scale (scales character visually on canvas, independent of camera distance)">Height (Real):</label>
+                          <div style="display:flex;align-items:center;gap:3px;">
+                            <button type="button" id="btnHeightDown" class="btn-ghost" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Decrease physical height (-5 cm)">-</button>
+                            <button type="button" id="btnHeightUp" class="btn-ghost" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Increase physical height (+5 cm)">+</button>
+                          </div>
                         </div>
-                        <input type="text" id="charHeightInput" list="charHeightDatalist" placeholder="e.g. 180 cm, 120 cm..." 
+                        <input type="text" id="charHeightInput" list="charHeightDatalist" placeholder="e.g. 180 cm, 230 cm, 75 cm..." 
                                style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#38bdf8;font-size:11px;font-weight:600;" />
                         <datalist id="charHeightDatalist">
-                          <option value="120 cm short dwarf stature"></option>
-                          <option value="155 cm petite short stature"></option>
-                          <option value="175 cm average height"></option>
-                          <option value="190 cm tall stature"></option>
+                          <option value="35 cm domestic cat stature"></option>
+                          <option value="75 cm medium dog stature"></option>
+                          <option value="100 cm large dog / wolf stature"></option>
+                          <option value="120 cm child / dwarf stature"></option>
+                          <option value="155 cm petite human stature"></option>
+                          <option value="165 cm average female height"></option>
+                          <option value="180 cm average male height"></option>
+                          <option value="195 cm tall athletic stature"></option>
                           <option value="215 cm towering giant stature"></option>
+                          <option value="230 cm horse / equine stature"></option>
+                          <option value="250 cm large warhorse stature"></option>
                         </datalist>
                       </div>
 
@@ -4713,6 +4723,60 @@
     }
   {{end}}
 
+  // --- Physical Stature & Metric Scaling Constants ---
+  // Baseline: Standard male figure is 180 cm tall, represented at 405 px height on canvas
+  const PIXELS_PER_CM = 2.25;
+
+  function getDefaultHeightCm(subtype) {
+    if (subtype === 'horse') return 230;
+    if (subtype === 'dog') return 75;
+    if (subtype === 'cat') return 35;
+    if (subtype === 'child') return 120;
+    if (subtype === 'female') return 165;
+    if (subtype === 'male') return 180;
+    if (subtype === 'quadruped') return 100;
+    return 180;
+  }
+
+  function parseHeightInCm(val, defaultCm = 180) {
+    if (!val || typeof val !== 'string') return defaultCm;
+    val = val.trim().toLowerCase();
+    const mMatch = val.match(/^([0-9]+(?:[\.,][0-9]+)?)\s*(?:m|meter|metro|metros|meters)\b/);
+    if (mMatch) {
+      const num = parseFloat(mMatch[1].replace(',', '.'));
+      if (!isNaN(num) && num > 0) return Math.round(num * 100);
+    }
+    const cmMatch = val.match(/([0-9]+(?:[\.,][0-9]+)?)\s*(?:cm|centimeter|centimeters|centimetros)?/);
+    if (cmMatch) {
+      const num = parseFloat(cmMatch[1].replace(',', '.'));
+      if (!isNaN(num) && num > 0) {
+        if (num < 3.5) return Math.round(num * 100);
+        return Math.round(num);
+      }
+    }
+    return defaultCm;
+  }
+
+  function applyCharacterPhysicalHeight(el, heightStr) {
+    if (!el || el.type !== 'character') return;
+    el.physicalHeight = (heightStr || '').trim();
+    const defCm = getDefaultHeightCm(el.subtype);
+    const cm = parseHeightInCm(el.physicalHeight, defCm);
+    if (cm && cm >= 20 && cm <= 500) {
+      const newH = Math.max(40, Math.min(1400, Math.round(cm * PIXELS_PER_CM)));
+      const aspect = el.aspectRatio || (el.width / el.height) || (el.skeletonType === 'quadruped' ? 1.4 : 0.5556);
+      const newW = Math.max(30, Math.round(newH * aspect));
+      const groundY = el.y + el.height;
+      const centerX = el.x + el.width / 2;
+      el.height = newH;
+      el.width = newW;
+      el.y = Math.round(groundY - newH);
+      el.x = Math.round(centerX - newW / 2);
+      renderScene();
+    }
+    updateSpatialManifest();
+  }
+
   // Default initial scene if empty
   if (state.elements.length === 0) {
     state.elements = [
@@ -4726,6 +4790,8 @@
         y: 180,
         width: 225,
         height: 405,
+        physicalHeight: "180 cm",
+        aspectRatio: 225 / 405,
         scale: 1.0,
         rotation: 0,
         flipH: false,
@@ -5022,17 +5088,22 @@
       if (pose.head && pose.snout) {
         const hPt = { x: (pose.head.x / 100) * w, y: (pose.head.y / 100) * h };
         const snPt = { x: (pose.snout.x / 100) * w, y: (pose.snout.y / 100) * h };
+        const headR = Math.max(6, Math.round(h * 0.075));
+        const snoutRx = Math.max(4, Math.round(h * 0.05));
+        const snoutRy = Math.max(3, Math.round(h * 0.04));
+        const earW = Math.max(4, Math.round(h * 0.05));
+        const earH = Math.max(6, Math.round(h * 0.09));
 
         // Left & Right Ears
         const earL = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        earL.setAttribute('points', `${hPt.x - 10},${hPt.y - 4} ${hPt.x - 18},${hPt.y - 18} ${hPt.x - 4},${hPt.y - 12}`);
+        earL.setAttribute('points', `${hPt.x - earW * 0.6},${hPt.y - earH * 0.3} ${hPt.x - earW * 1.2},${hPt.y - earH} ${hPt.x - earW * 0.2},${hPt.y - earH * 0.8}`);
         earL.setAttribute('fill', silhouetteColor);
         earL.setAttribute('stroke', '#475569');
         earL.setAttribute('stroke-width', '1.5');
         g.appendChild(earL);
 
         const earR = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        earR.setAttribute('points', `${hPt.x + 10},${hPt.y - 4} ${hPt.x + 18},${hPt.y - 18} ${hPt.x + 4},${hPt.y - 12}`);
+        earR.setAttribute('points', `${hPt.x + earW * 0.6},${hPt.y - earH * 0.3} ${hPt.x + earW * 1.2},${hPt.y - earH} ${hPt.x + earW * 0.2},${hPt.y - earH * 0.8}`);
         earR.setAttribute('fill', silhouetteColor);
         earR.setAttribute('stroke', '#475569');
         earR.setAttribute('stroke-width', '1.5');
@@ -5042,7 +5113,7 @@
         const headCirc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         headCirc.setAttribute('cx', hPt.x);
         headCirc.setAttribute('cy', hPt.y);
-        headCirc.setAttribute('r', '15');
+        headCirc.setAttribute('r', headR);
         headCirc.setAttribute('fill', silhouetteColor);
         headCirc.setAttribute('stroke', '#475569');
         headCirc.setAttribute('stroke-width', '1.5');
@@ -5052,8 +5123,8 @@
         const snout = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
         snout.setAttribute('cx', snPt.x);
         snout.setAttribute('cy', snPt.y);
-        snout.setAttribute('rx', '10');
-        snout.setAttribute('ry', '8');
+        snout.setAttribute('rx', snoutRx);
+        snout.setAttribute('ry', snoutRy);
         snout.setAttribute('fill', '#334155');
         snout.setAttribute('stroke', '#475569');
         snout.setAttribute('stroke-width', '1.5');
@@ -5062,26 +5133,28 @@
         // Nose Tip Pad
         const nosePad = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
         nosePad.setAttribute('cx', snPt.x);
-        nosePad.setAttribute('cy', snPt.y - 2);
-        nosePad.setAttribute('rx', '4');
-        nosePad.setAttribute('ry', '2.5');
+        nosePad.setAttribute('cy', snPt.y - snoutRy * 0.25);
+        nosePad.setAttribute('rx', Math.max(2, snoutRx * 0.4));
+        nosePad.setAttribute('ry', Math.max(1.5, snoutRy * 0.35));
         nosePad.setAttribute('fill', '#0f172a');
         g.appendChild(nosePad);
 
         // Two Eyes
+        const eyeSep = headR * 0.5;
+        const eyeR = Math.max(1.8, headR * 0.16);
         const eyeL = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        eyeL.setAttribute('cx', hPt.x - 7);
-        eyeL.setAttribute('cy', hPt.y - 2);
-        eyeL.setAttribute('r', '2.5');
+        eyeL.setAttribute('cx', hPt.x - eyeSep);
+        eyeL.setAttribute('cy', hPt.y - headR * 0.15);
+        eyeL.setAttribute('r', eyeR);
         eyeL.setAttribute('fill', '#38bdf8');
         g.appendChild(eyeL);
 
-        const eyeR = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        eyeR.setAttribute('cx', hPt.x + 7);
-        eyeR.setAttribute('cy', hPt.y - 2);
-        eyeR.setAttribute('r', '2.5');
-        eyeR.setAttribute('fill', '#38bdf8');
-        g.appendChild(eyeR);
+        const eyeRight = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        eyeRight.setAttribute('cx', hPt.x + eyeSep);
+        eyeRight.setAttribute('cy', hPt.y - headR * 0.15);
+        eyeRight.setAttribute('r', eyeR);
+        eyeRight.setAttribute('fill', '#38bdf8');
+        g.appendChild(eyeRight);
       }
     } else {
       // 1. Profile Torso body polygon connecting withers, spine, rump, and chest/belly
@@ -5118,15 +5191,16 @@
         const hPt = { x: (pose.head.x / 100) * w, y: (pose.head.y / 100) * h };
         const snPt = { x: (pose.snout.x / 100) * w, y: (pose.snout.y / 100) * h };
         const nPt = pose.neck ? { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h } : hPt;
+        const headScale = Math.max(0.4, h / 210);
 
         const headPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
         headPoly.setAttribute('points',
-          `${hPt.x - 6},${hPt.y - 12} ` +
-          `${hPt.x + 6},${hPt.y - 4} ` +
+          `${hPt.x - 6 * headScale},${hPt.y - 12 * headScale} ` +
+          `${hPt.x + 6 * headScale},${hPt.y - 4 * headScale} ` +
           `${snPt.x},${snPt.y} ` +
-          `${snPt.x - 4},${snPt.y + 6} ` +
-          `${nPt.x + 4},${nPt.y} ` +
-          `${hPt.x - 10},${hPt.y + 4}`
+          `${snPt.x - 4 * headScale},${snPt.y + 6 * headScale} ` +
+          `${nPt.x + 4 * headScale},${nPt.y} ` +
+          `${hPt.x - 10 * headScale},${hPt.y + 4 * headScale}`
         );
         headPoly.setAttribute('fill', silhouetteColor);
         headPoly.setAttribute('fill-opacity', opacity);
@@ -5137,14 +5211,15 @@
         // Eye indicator
         const eye = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         eye.setAttribute('cx', (hPt.x + snPt.x) / 2);
-        eye.setAttribute('cy', (hPt.y + snPt.y) / 2 - 3);
-        eye.setAttribute('r', '2.5');
+        eye.setAttribute('cy', (hPt.y + snPt.y) / 2 - 3 * headScale);
+        eye.setAttribute('r', Math.max(1.8, 2.5 * headScale));
         eye.setAttribute('fill', '#38bdf8');
         g.appendChild(eye);
       }
     }
 
     // 3. Tail Silhouette
+    const limbScale = Math.max(0.4, h / 210);
     if (pose.tail_base && pose.tail_tip) {
       const t1 = { x: (pose.tail_base.x / 100) * w, y: (pose.tail_base.y / 100) * h };
       const t2 = { x: (pose.tail_tip.x / 100) * w, y: (pose.tail_tip.y / 100) * h };
@@ -5153,7 +5228,7 @@
       tailLine.setAttribute('x2', t2.x); tailLine.setAttribute('y2', t2.y);
       tailLine.setAttribute('stroke', silhouetteColor);
       tailLine.setAttribute('stroke-opacity', opacity);
-      tailLine.setAttribute('stroke-width', '8');
+      tailLine.setAttribute('stroke-width', (8 * limbScale).toFixed(1));
       tailLine.setAttribute('stroke-linecap', 'round');
       g.appendChild(tailLine);
     }
@@ -5176,7 +5251,7 @@
         limb.setAttribute('y2', (p2.y / 100) * h);
         limb.setAttribute('stroke', silhouetteColor);
         limb.setAttribute('stroke-opacity', opacity);
-        limb.setAttribute('stroke-width', thickness);
+        limb.setAttribute('stroke-width', (thickness * limbScale).toFixed(1));
         limb.setAttribute('stroke-linecap', 'round');
         g.appendChild(limb);
       }
@@ -5193,7 +5268,7 @@
         line.setAttribute('x2', (p2.x / 100) * w);
         line.setAttribute('y2', (p2.y / 100) * h);
         line.setAttribute('stroke', bone.color);
-        line.setAttribute('stroke-width', '3.5');
+        line.setAttribute('stroke-width', (3.5 * limbScale).toFixed(1));
         line.setAttribute('stroke-linecap', 'round');
         g.appendChild(line);
       }
@@ -6308,16 +6383,28 @@
         newEl.skin = "hybrid";
         if (subtype === 'dog') {
           newEl.name = "Dog (Canine)";
-          newEl.width = 280; newEl.height = 195;
+          newEl.physicalHeight = "75 cm";
+          newEl.aspectRatio = 280 / 195;
+          newEl.height = Math.round(75 * PIXELS_PER_CM);
+          newEl.width = Math.round(newEl.height * newEl.aspectRatio);
         } else if (subtype === 'horse') {
           newEl.name = "Horse (Equine)";
-          newEl.width = 340; newEl.height = 250;
+          newEl.physicalHeight = "230 cm";
+          newEl.aspectRatio = 340 / 250;
+          newEl.height = Math.round(230 * PIXELS_PER_CM);
+          newEl.width = Math.round(newEl.height * newEl.aspectRatio);
         } else if (subtype === 'cat') {
           newEl.name = "Cat (Feline)";
-          newEl.width = 220; newEl.height = 160;
+          newEl.physicalHeight = "35 cm";
+          newEl.aspectRatio = 220 / 160;
+          newEl.height = Math.round(35 * PIXELS_PER_CM);
+          newEl.width = Math.round(newEl.height * newEl.aspectRatio);
         } else {
           newEl.name = "Quadruped Animal";
-          newEl.width = 280; newEl.height = 195;
+          newEl.physicalHeight = "100 cm";
+          newEl.aspectRatio = 280 / 195;
+          newEl.height = Math.round(100 * PIXELS_PER_CM);
+          newEl.width = Math.round(newEl.height * newEl.aspectRatio);
         }
       } else {
         newEl.skeletonType = 'biped';
@@ -6327,19 +6414,29 @@
         newEl.skin = "hybrid";
         if (subtype === 'female') {
           newEl.name = "Female Figure";
-          newEl.width = 225; newEl.height = 405;
+          newEl.physicalHeight = "165 cm";
+          newEl.aspectRatio = 225 / 405;
+          newEl.height = Math.round(165 * PIXELS_PER_CM);
+          newEl.width = Math.round(newEl.height * newEl.aspectRatio);
           newEl.pose.r_shoulder.x = 42; newEl.pose.l_shoulder.x = 58;
           newEl.pose.r_hip.x = 42; newEl.pose.l_hip.x = 58;
         } else if (subtype === 'child') {
           newEl.name = "Child Figure";
-          newEl.width = 180; newEl.height = 300;
-          newEl.scale = 0.9;
+          newEl.physicalHeight = "120 cm";
+          newEl.aspectRatio = 180 / 300;
+          newEl.height = Math.round(120 * PIXELS_PER_CM);
+          newEl.width = Math.round(newEl.height * newEl.aspectRatio);
         } else {
           newEl.name = "Male Figure";
-          newEl.width = 225; newEl.height = 405;
+          newEl.physicalHeight = "180 cm";
+          newEl.aspectRatio = 225 / 405;
+          newEl.height = 405;
+          newEl.width = 225;
           newEl.pose.r_shoulder.x = 36; newEl.pose.l_shoulder.x = 64;
         }
       }
+      newEl.x = Math.round(cx - newEl.width / 2 + (Math.random() * 60 - 30));
+      newEl.y = Math.round(cy - newEl.height / 2 + (Math.random() * 60 - 30));
     } else if (type === 'prop') {
       if (subtype === 'marker') {
         newEl.width = 80; newEl.height = 80; newEl.label = "Body Feature"; newEl.description = "";
@@ -6455,7 +6552,7 @@
         const charAgeIn = document.getElementById('charAgeInput');
         if (charAgeIn) charAgeIn.value = selEl.age || '';
         const charHeightIn = document.getElementById('charHeightInput');
-        if (charHeightIn) charHeightIn.value = selEl.physicalHeight || '';
+        if (charHeightIn) charHeightIn.value = selEl.physicalHeight || (getDefaultHeightCm(selEl.subtype) + ' cm');
         const charPhysiqueIn = document.getElementById('charPhysiqueInput');
         if (charPhysiqueIn) charPhysiqueIn.value = selEl.physique || '';
         const charPoseIn = document.getElementById('charPoseInput');
@@ -6594,12 +6691,43 @@
 
   const charHeightInput = document.getElementById('charHeightInput');
   if (charHeightInput) {
-    charHeightInput.addEventListener('input', (e) => {
+    const handleHeightChange = (val) => {
       const selEl = state.elements.find(x => x.id === state.selectedId);
       if (selEl && selEl.type === 'character') {
-        selEl.physicalHeight = e.target.value.trim();
-        updateSpatialManifest();
+        applyCharacterPhysicalHeight(selEl, val);
       }
+    };
+    charHeightInput.addEventListener('input', (e) => handleHeightChange(e.target.value));
+    charHeightInput.addEventListener('change', (e) => handleHeightChange(e.target.value));
+  }
+
+  const btnHeightDown = document.getElementById('btnHeightDown');
+  if (btnHeightDown) {
+    btnHeightDown.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (!selEl || selEl.type !== 'character') return;
+      const defCm = getDefaultHeightCm(selEl.subtype);
+      let cm = parseHeightInCm(selEl.physicalHeight, defCm);
+      cm = Math.max(20, cm - 5);
+      const newStr = cm + ' cm';
+      if (charHeightInput) charHeightInput.value = newStr;
+      applyCharacterPhysicalHeight(selEl, newStr);
+    });
+  }
+
+  const btnHeightUp = document.getElementById('btnHeightUp');
+  if (btnHeightUp) {
+    btnHeightUp.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const selEl = state.elements.find(x => x.id === state.selectedId);
+      if (!selEl || selEl.type !== 'character') return;
+      const defCm = getDefaultHeightCm(selEl.subtype);
+      let cm = parseHeightInCm(selEl.physicalHeight, defCm);
+      cm = Math.min(500, cm + 5);
+      const newStr = cm + ' cm';
+      if (charHeightInput) charHeightInput.value = newStr;
+      applyCharacterPhysicalHeight(selEl, newStr);
     });
   }
 
@@ -7993,6 +8121,9 @@
   // --- Structured Demographic Archetypes for Coherent Character Generation ---
   const CHARACTER_TAXONOMIES = {
     male_adult: {
+      heights: [
+        "172 cm", "175 cm", "178 cm", "180 cm", "183 cm", "185 cm", "190 cm", "195 cm"
+      ],
       ethnicities: [
         "East Asian heritage, sculpted facial features, dark almond eyes",
         "African heritage, radiant deep melanin complexion, defined jawline",
@@ -8063,6 +8194,9 @@
     },
 
     female_adult: {
+      heights: [
+        "155 cm", "160 cm", "163 cm", "165 cm", "168 cm", "172 cm", "175 cm"
+      ],
       ethnicities: [
         "East Asian heritage, smooth porcelain skin, graceful almond eyes",
         "African heritage, radiant deep melanin complexion, sculpted cheekbones",
@@ -8131,6 +8265,9 @@
     },
 
     child_boy: {
+      heights: [
+        "110 cm", "115 cm", "120 cm", "125 cm", "130 cm"
+      ],
       ethnicities: [
         "East Asian heritage boy, youthful round face, inquisitive dark almond eyes, smooth skin",
         "African heritage boy, radiant deep melanin complexion, bright cheerful smile, sparkling eyes",
@@ -8183,6 +8320,9 @@
     },
 
     child_girl: {
+      heights: [
+        "105 cm", "112 cm", "118 cm", "122 cm", "128 cm"
+      ],
       ethnicities: [
         "East Asian heritage girl, delicate porcelain skin, bright almond eyes, rosy cheeks",
         "African heritage girl, glowing warm dark skin, radiant joyful smile, sparkling eyes",
@@ -8237,6 +8377,9 @@
     },
 
     dog: {
+      heights: [
+        "45 cm", "55 cm", "65 cm", "75 cm", "85 cm", "95 cm"
+      ],
       breeds: [
         "noble Golden Retriever with radiant dense golden coat, warm expressive brown eyes, and bushy feathered tail",
         "athletic German Shepherd with striking black-and-tan saddle coat, erect attentive ears, and intelligent focused gaze",
@@ -8284,6 +8427,9 @@
     },
 
     horse: {
+      heights: [
+        "210 cm", "225 cm", "230 cm", "240 cm", "250 cm"
+      ],
       breeds: [
         "magnificent Arabian thoroughbred with glistening rich chestnut coat, dished refined head, and flowing silken mane",
         "commanding black Friesian stallion with jet-black lustrous coat, wavy majestic mane, and heavily feathered hooves",
@@ -8327,6 +8473,9 @@
     },
 
     cat: {
+      heights: [
+        "28 cm", "32 cm", "35 cm", "38 cm", "42 cm"
+      ],
       breeds: [
         "sleek British Shorthair with dense plush silver-blue coat, round chubby cheeks, and striking copper-amber eyes",
         "elegant Siamese feline with smooth cream coat, dark chocolate points, and piercing almond sapphire-blue eyes",
@@ -8368,6 +8517,9 @@
     },
 
     quadruped: {
+      heights: [
+        "80 cm", "95 cm", "100 cm", "115 cm", "130 cm"
+      ],
       breeds: [
         "wild predatory timber wolf with dense grizzled gray-and-buff fur, amber eyes, and powerful stalking posture",
         "majestic golden lion with thick tawny mane, muscular feline build, and regal commanding presence",
@@ -8465,6 +8617,15 @@
     selEl.hair = chosenHair;
     selEl.clothing = chosenOutfit;
     selEl.details = chosenAcc;
+
+    if (tax.heights && tax.heights.length > 0) {
+      const chosenHeight = randPick(tax.heights);
+      if (chosenHeight) {
+        applyCharacterPhysicalHeight(selEl, chosenHeight);
+        const heightIn = document.getElementById('charHeightInput');
+        if (heightIn) heightIn.value = chosenHeight;
+      }
+    }
 
     const anatIn = document.getElementById('charAnatomyInput');
     if (anatIn) anatIn.value = chosenAnatomy;
