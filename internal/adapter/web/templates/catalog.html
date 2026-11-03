@@ -1102,58 +1102,58 @@
               <!-- Catalog Media Preview & Video Frame Capture -->
               <div class="remix-media-viewport">
                 {{if eq .SelectedAsset.MediaType "video"}}
-                  <video id="remix-video-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop crossorigin="anonymous" playsinline muted style="max-width:100%;max-height:500px;display:block;"></video>
+                  <video id="remix-video-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop crossorigin="anonymous" playsinline muted style="max-width:100%;max-height:220px;display:block;"></video>
                   <canvas id="remix-frame-canvas" style="display:none;"></canvas>
                 {{else}}
-                  <img id="remix-image-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" style="max-width:100%;max-height:500px;object-fit:contain;display:block;">
+                  <img id="remix-image-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" style="max-width:100%;max-height:220px;object-fit:contain;display:block;">
                 {{end}}
               </div>
 
               {{if eq .SelectedAsset.MediaType "video"}}
-                <div style="padding:8px 12px;background:#0d1527;border:1px solid #1e3a6d;border-radius:4px;font-size:11.5px;color:#93c5fd;display:flex;align-items:center;gap:8px;">
-                  <span>&#9654; <strong>Video Frame Capture Active:</strong> Pause or seek to the exact moment to remix. That frame will be analyzed by the Vision model.</span>
+                <div style="padding:6px 10px;background:#0d1527;border:1px solid #1e3a6d;border-radius:4px;font-size:11px;color:#93c5fd;display:flex;align-items:center;gap:6px;">
+                  <span>&#9654; <strong>Video Frame Capture Active:</strong> Paused/seeked frame will be analyzed by Vision.</span>
                 </div>
               {{end}}
 
               <!-- Original Prompt Reference -->
-              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:12px;">
+              <div style="background:#060d1b;border:1px solid var(--border-navy);border-radius:6px;padding:10px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                   <span class="kv-label" style="margin-bottom:0;">Indexed Original Prompt</span>
                   {{if .SelectedAsset.Metadata.PositivePrompt}}
                     <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;" onclick="document.getElementById('studio-prompt-input').value = {{printf "%q" .SelectedAsset.Metadata.PositivePrompt}}">Reload into Editor</button>
                   {{end}}
                 </div>
-                <div class="prompt-box" style="font-size:12px;max-height:140px;overflow:auto;">
+                <div class="prompt-box" style="font-size:11.5px;max-height:120px;overflow:auto;">
                   {{if .SelectedAsset.Metadata.PositivePrompt}}{{.SelectedAsset.Metadata.PositivePrompt}}{{else}}<span style="color:var(--text-muted);">(No positive prompt in metadata)</span>{{end}}
                 </div>
               </div>
             {{else}}
               <!-- Attached Image Mode: Dropzone & Live Preview -->
-              <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:16px;">
+              <div style="background:var(--bg-panel);border:1px solid var(--border-navy);border-radius:6px;padding:12px;">
                 <div class="kv-label" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
                   <span>Reference Image (Optional)</span>
-                  <span style="font-size:11px;color:var(--text-muted);">Vision Analysis</span>
+                  <span style="font-size:10.5px;color:var(--text-muted);">Vision Analysis</span>
                 </div>
 
                 <!-- Dropzone for custom image -->
                 <div id="studio-dropzone" class="studio-dropzone" onclick="document.getElementById('studio-file-input').click()" ondragover="handleStudioDragOver(event)" ondragleave="handleStudioDragLeave(event)" ondrop="handleStudioDrop(event)">
                   <input type="file" id="studio-file-input" name="attached_file" accept="image/*" style="display:none;" onchange="handleStudioFileSelect(this)">
-                  <div style="font-size:28px;margin-bottom:6px;">📷</div>
-                  <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Drop an image here or click to browse</div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Supports PNG, JPG, WEBP. Paste from clipboard (<kbd>Ctrl+V</kbd>) is also supported.</div>
+                  <div style="font-size:22px;margin-bottom:4px;">📷</div>
+                  <div style="font-size:12px;font-weight:600;color:#e2e8f0;">Drop image or browse</div>
+                  <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px;">Supports PNG, JPG, WEBP • Paste (<kbd>Ctrl+V</kbd>)</div>
                 </div>
 
                 <!-- Attached image preview wrap -->
-                <div id="studio-attached-preview-wrap" style="display:none;margin-top:12px;background:#030712;border:1px solid #1e3a6d;border-radius:6px;padding:12px;text-align:center;">
-                  <img id="studio-attached-img" src="" alt="Attached image preview" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:4px;display:block;margin:0 auto 10px;">
+                <div id="studio-attached-preview-wrap" style="display:none;margin-top:10px;background:#030712;border:1px solid #1e3a6d;border-radius:6px;padding:8px;text-align:center;">
+                  <img id="studio-attached-img" src="" alt="Attached image preview" style="max-width:100%;max-height:180px;object-fit:contain;border-radius:4px;display:block;margin:0 auto 8px;">
                   <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span id="studio-attached-info" style="font-size:11px;color:#93c5fd;font-weight:600;"></span>
-                    <button type="button" class="btn-ghost" style="padding:3px 10px;font-size:11px;color:#f87171;border-color:#ef4444;" onclick="removeStudioAttachedImage()">✕ Remove Image</button>
+                    <span id="studio-attached-info" style="font-size:10.5px;color:#93c5fd;font-weight:600;"></span>
+                    <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;color:#f87171;border-color:#ef4444;" onclick="removeStudioAttachedImage()">✕ Remove</button>
                   </div>
                 </div>
 
-                <div style="margin-top:14px;padding:10px 12px;background:#060d1b;border:1px solid var(--border-navy);border-radius:4px;font-size:11.5px;color:var(--text-muted);line-height:1.4;">
-                  💡 <strong>Tip:</strong> If you attach an image, Studio sends it to the Vision model for visual analysis. If no image is attached, it generates from your text prompt and chosen target model.
+                <div style="margin-top:10px;padding:8px 10px;background:#060d1b;border:1px solid var(--border-navy);border-radius:4px;font-size:11px;color:var(--text-muted);line-height:1.35;">
+                  💡 <strong>Tip:</strong> If an image is attached, Studio analyzes it with Vision. Otherwise, it generates from text concepts.
                 </div>
               </div>
             {{end}}
@@ -1182,17 +1182,6 @@
                   {{.AIResultError}}
                 </div>
               {{end}}
-
-              <div id="studio-result-card" style="{{if not .AIResultPrompt}}display:none;{{end}}margin-bottom:14px;background:#064e3b;border:1px solid #059669;border-radius:6px;padding:12px;transition:all 0.3s ease;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#6ee7b7;">
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <span>SYNTHESIZED PROMPT for target <strong id="studio-result-target">{{.AITargetProfile}}</strong>:</span>
-                    <span id="studio-result-duration" style="{{if le .AIDurationSec 0.0}}display:none;{{end}}background:#022c22;border:1px solid #10b981;padding:1px 6px;border-radius:3px;color:#34d399;font-size:11px;font-weight:700;">{{if gt .AIDurationSec 0.0}}⏱️ {{printf "%.1fs" .AIDurationSec}}{{end}}</span>
-                  </div>
-                  <button type="button" id="btn-copy-prompt" class="btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="copyStudioPrompt()">Copy Prompt</button>
-                </div>
-                <div id="studio-result-out" class="prompt-box" style="color:#a7f3d0;background:#03281f;border-color:#059669;font-size:12.5px;white-space:pre-wrap;word-break:break-word;">{{.AIResultPrompt}}</div>
-              </div>
 
               <form id="studio-workbench-form" action="/admin/ollama/image2prompt" method="POST" autocomplete="off" enctype="multipart/form-data" onsubmit="prepareStudioSubmission(event, this)" style="display:flex;flex-direction:column;gap:12px;">
                 <input type="hidden" name="asset_id" value="{{if .SelectedAsset}}{{.SelectedAsset.ID}}{{else}}0{{end}}">
@@ -1361,6 +1350,23 @@
                   </div>
                 </div>
               </form>
+
+              <!-- Resulting Synthesized Prompt (Positioned directly below generator actions) -->
+              <div id="studio-result-card" style="{{if not .AIResultPrompt}}display:none;{{end}}margin-top:16px;background:#052e24;border:1px solid #059669;border-radius:6px;padding:14px;transition:all 0.3s ease;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12px;color:#6ee7b7;flex-wrap:wrap;gap:6px;">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:600;letter-spacing:0.3px;">✨ SYNTHESIZED PROMPT for target <strong id="studio-result-target" style="color:#a7f3d0;">{{.AITargetProfile}}</strong>:</span>
+                    <span id="studio-result-duration" style="{{if le .AIDurationSec 0.0}}display:none;{{end}}background:#022c22;border:1px solid #10b981;padding:1px 6px;border-radius:3px;color:#34d399;font-size:11px;font-weight:700;">{{if gt .AIDurationSec 0.0}}⏱️ {{printf "%.1fs" .AIDurationSec}}{{end}}</span>
+                    <span id="studio-result-tokens" style="{{if not .AIResultPrompt}}display:none;{{end}}background:#064e3b;border:1px solid #10b981;color:#6ee7b7;font-size:11px;padding:1px 6px;border-radius:3px;font-weight:600;">{{if .AIResultPrompt}}~{{estimateTokens .AIResultPrompt}} tok{{end}}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <button type="button" id="btn-copy-prompt" class="btn-ghost" style="padding:4px 12px;font-size:11.5px;background:#065f46;border-color:#10b981;color:#ecfdf5;font-weight:600;display:inline-flex;align-items:center;gap:4px;" onclick="copyStudioPrompt()">
+                      📋 Copy Prompt
+                    </button>
+                  </div>
+                </div>
+                <div id="studio-result-out" class="prompt-box" style="color:#a7f3d0;background:#022019;border:1px solid #059669;font-size:13.5px;line-height:1.55;min-height:140px;max-height:440px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;padding:12px 14px;border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;">{{.AIResultPrompt}}</div>
+              </div>
 
               <!-- History inside studio card (Browser Session & Recent) -->
               <div id="studio-recent-prompts-section" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-navy);">
@@ -11955,6 +11961,7 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
       var resultOut = document.getElementById('studio-result-out');
       var resultTarget = document.getElementById('studio-result-target');
       var resultDuration = document.getElementById('studio-result-duration');
+      var resultTokens = document.getElementById('studio-result-tokens');
       var profileSelect = document.getElementById('studio-profile-select');
 
       if (resultCard) {
@@ -11962,17 +11969,24 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
         resultCard.style.background = '#2e1065'; // violet generating background
         resultCard.style.borderColor = '#9333ea';
         resultCard.style.boxShadow = '0 0 24px rgba(147, 51, 234, 0.55)';
+        try {
+          resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch(e) {}
       }
       if (resultOut) {
         resultOut.style.background = '#1e1138';
         resultOut.style.borderColor = '#7e22ce';
         resultOut.style.color = '#e9d5ff';
+        resultOut.textContent = 'Synthesizing prompt with target profile instructions...';
       }
       if (resultTarget && profileSelect) {
         resultTarget.textContent = profileSelect.value;
       }
       if (resultDuration) {
         resultDuration.style.display = 'none';
+      }
+      if (resultTokens) {
+        resultTokens.style.display = 'none';
       }
 
       if (submitBtn) {
@@ -12018,10 +12032,15 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
             resultDuration.textContent = '⏱️ ' + durationStr;
             resultDuration.style.display = 'inline-block';
           }
+          if (resultTokens && data.prompt) {
+            var approxTok = Math.max(1, Math.round(data.prompt.trim().split(/\s+/).length * 1.3));
+            resultTokens.textContent = '~' + approxTok + ' tok';
+            resultTokens.style.display = 'inline-block';
+          }
           if (resultCard) {
             resultCard.style.display = 'block';
             // Transition to green background upon delivery
-            resultCard.style.background = '#064e3b';
+            resultCard.style.background = '#052e24';
             resultCard.style.borderColor = '#10b981';
             resultCard.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.45)';
             try {
