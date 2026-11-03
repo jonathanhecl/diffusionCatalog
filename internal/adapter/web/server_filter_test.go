@@ -666,3 +666,151 @@ func TestPromptStudioModelFiltering(t *testing.T) {
 		t.Errorf("embeddinggemma-2:latest is embedding-only and must NOT appear in prompt generation")
 	}
 }
+
+func TestMultiFolderAndMultiCategoryFilters(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, "cache")
+	dbPath := filepath.Join(tmpDir, "test_multi_filter.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("sqlite.Open error: %v", err)
+	}
+
+	repo := sqlite.NewRepository(db)
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, metadata.NewExtractor(), vision.NewNoopEngine())
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, nil)
+
+	// Create 2 media roots
+	r1ID, err := repo.UpsertMediaRoot(ctx, &domain.MediaRoot{
+		Path:    filepath.Join(tmpDir, "root1"),
+		Label:   "Root Alpha",
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("UpsertMediaRoot 1 failed: %v", err)
+	}
+	r2ID, err := repo.UpsertMediaRoot(ctx, &domain.MediaRoot{
+		Path:    filepath.Join(tmpDir, "root2"),
+		Label:   "Root Beta",
+		Enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("UpsertMediaRoot 2 failed: %v", err)
+	}
+
+	now := time.Now().UTC()
+	// Asset 1: Root 1, Cyberpunk
+	_, _ = repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RootID:    r1ID,
+		RelPath:   "c1.png",
+		FileName:  "c1.png",
+		MediaType: domain.MediaTypeImage,
+		Category:  "Cyberpunk",
+		Rating:    8,
+		FileMTime: now,
+	})
+	// Asset 2: Root 1, Mecha
+	_, _ = repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RootID:    r1ID,
+		RelPath:   "m1.png",
+		FileName:  "m1.png",
+		MediaType: domain.MediaTypeImage,
+		Category:  "Mecha",
+		Rating:    7,
+		FileMTime: now,
+	})
+	// Asset 3: Root 2, Fantasy
+	_, _ = repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RootID:    r2ID,
+		RelPath:   "f1.png",
+		FileName:  "f1.png",
+		MediaType: domain.MediaTypeImage,
+		Category:  "Fantasy",
+		Rating:    9,
+		FileMTime: now,
+	})
+
+	server, err := web.NewServer(mediaDir, cacheDir, "noop", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("web.NewServer error: %v", err)
+	}
+	handler := server.Handler()
+
+	// 1. Test multi-folder filter: root_id=r1ID & root_id=r2ID
+	reqRoots := httptest.NewRequest("GET", "/?root_id="+strconv.FormatInt(r1ID, 10)+"&root_id="+strconv.FormatInt(r2ID, 10), nil)
+	wRoots := httptest.NewRecorder()
+	handler.ServeHTTP(wRoots, reqRoots)
+	if wRoots.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", wRoots.Code)
+	}
+	bodyRoots := wRoots.Body.String()
+
+	// Both checkboxes should be checked
+	if !strings.Contains(bodyRoots, `name="root_id" value="`+strconv.FormatInt(r1ID, 10)+`" checked`) {
+		t.Errorf("expected root 1 checkbox to be checked")
+	}
+	if !strings.Contains(bodyRoots, `name="root_id" value="`+strconv.FormatInt(r2ID, 10)+`" checked`) {
+		t.Errorf("expected root 2 checkbox to be checked")
+	}
+
+	// Both active filter chips should be present
+	if !strings.Contains(bodyRoots, "Root Alpha") || !strings.Contains(bodyRoots, "Root Beta") {
+		t.Errorf("expected both root labels in active filter chips")
+	}
+
+	// 2. Test multi-category filter: category=Cyberpunk & category=Fantasy
+	reqCats := httptest.NewRequest("GET", "/?category=Cyberpunk&category=Fantasy", nil)
+	wCats := httptest.NewRecorder()
+	handler.ServeHTTP(wCats, reqCats)
+	if wCats.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", wCats.Code)
+	}
+	bodyCats := wCats.Body.String()
+
+	// Both checkboxes should be checked
+	if !strings.Contains(bodyCats, `name="category" value="Cyberpunk" checked`) {
+		t.Errorf("expected Cyberpunk checkbox to be checked")
+	}
+	if !strings.Contains(bodyCats, `name="category" value="Fantasy" checked`) {
+		t.Errorf("expected Fantasy checkbox to be checked")
+	}
+
+	// Active filter chips for categories
+	if !strings.Contains(bodyCats, "Category:") || !strings.Contains(bodyCats, "Cyberpunk") || !strings.Contains(bodyCats, "Fantasy") {
+		t.Errorf("expected Category chips for Cyberpunk and Fantasy")
+	}
+
+	// 3. Test removing one category chip from the filter
+	f := domain.CatalogFilter{
+		Categories: []string{"Cyberpunk", "Fantasy"},
+	}
+	fAfterRemove := f.FilterWithoutCategory("Cyberpunk")
+	if len(fAfterRemove.GetCategories()) != 1 || fAfterRemove.GetCategories()[0] != "Fantasy" {
+		t.Errorf("expected only Fantasy category to remain, got: %v", fAfterRemove.GetCategories())
+	}
+
+	// 4. Test removing the last category returns "reset=1" (shows all)
+	qAfterRemoveAll := fAfterRemove.QueryWithoutCategory("Fantasy")
+	if qAfterRemoveAll != "reset=1" {
+		t.Errorf("expected 'reset=1' after removing all categories, got: %q", qAfterRemoveAll)
+	}
+
+	// 5. Test removing one root chip from the filter
+	fRoot := domain.CatalogFilter{
+		RootIDs: []int64{r1ID, r2ID},
+	}
+	fRootAfterRemove := fRoot.FilterWithoutRootID(r1ID)
+	if len(fRootAfterRemove.GetRootIDs()) != 1 || fRootAfterRemove.GetRootIDs()[0] != r2ID {
+		t.Errorf("expected only r2ID to remain, got: %v", fRootAfterRemove.GetRootIDs())
+	}
+
+	// 6. Test removing the last root returns "reset=1" (shows all)
+	qRootAfterRemoveAll := fRootAfterRemove.QueryWithoutRootID(r2ID)
+	if qRootAfterRemoveAll != "reset=1" {
+		t.Errorf("expected 'reset=1' after removing all roots, got: %q", qRootAfterRemoveAll)
+	}
+}

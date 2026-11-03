@@ -10,25 +10,27 @@ import (
 
 // CatalogFilter specifies search, facet, and pagination criteria for querying the catalog.
 type CatalogFilter struct {
-	Query         string
-	Trigger       string
-	RootID        int64
-	Category      string
-	Subcategory   string
-	MinRating     int
-	FavoritesOnly bool
-	Engine        string
-	ModelName     string
-	MediaType     string
-	GroupID       int64
-	CharacterID   int64
-	TagNames      []string
-	FaceMode      bool
-	Cluster       string
+	Query             string
+	Trigger           string
+	RootID            int64
+	RootIDs           []int64
+	Category          string
+	Categories        []string
+	Subcategory       string
+	MinRating         int
+	FavoritesOnly     bool
+	Engine            string
+	ModelName         string
+	MediaType         string
+	GroupID           int64
+	CharacterID       int64
+	TagNames          []string
+	FaceMode          bool
+	Cluster           string
 	EmbeddingAssetIDs []int64
-	SortBy        string // "newest", "rating", "favorites", "popular", "views", "seed"
-	Page          int
-	PerPage       int
+	SortBy            string // "newest", "rating", "favorites", "popular", "views", "seed"
+	Page              int
+	PerPage           int
 }
 
 // HasActiveFilters returns true if any filter criteria (folder, category, rating, tags, etc.) are active.
@@ -36,7 +38,9 @@ func (f CatalogFilter) HasActiveFilters() bool {
 	return f.Query != "" ||
 		f.Trigger != "" ||
 		f.RootID > 0 ||
+		len(f.RootIDs) > 0 ||
 		f.Category != "" ||
+		len(f.Categories) > 0 ||
 		f.Subcategory != "" ||
 		f.MinRating > 0 ||
 		f.FavoritesOnly ||
@@ -51,6 +55,49 @@ func (f CatalogFilter) HasActiveFilters() bool {
 		f.Cluster != ""
 }
 
+// GetRootIDs returns all active root IDs, consolidating RootID and RootIDs.
+func (f CatalogFilter) GetRootIDs() []int64 {
+	if len(f.RootIDs) > 0 {
+		return f.RootIDs
+	}
+	if f.RootID > 0 {
+		return []int64{f.RootID}
+	}
+	return nil
+}
+
+// HasRootID returns true if the specified root ID is selected.
+func (f CatalogFilter) HasRootID(id int64) bool {
+	for _, rid := range f.GetRootIDs() {
+		if rid == id {
+			return true
+		}
+	}
+	return false
+}
+
+// GetCategories returns all active categories, consolidating Category and Categories.
+func (f CatalogFilter) GetCategories() []string {
+	if len(f.Categories) > 0 {
+		return f.Categories
+	}
+	if cat := strings.TrimSpace(f.Category); cat != "" {
+		return []string{cat}
+	}
+	return nil
+}
+
+// HasCategory returns true if the specified category is selected (case-insensitive).
+func (f CatalogFilter) HasCategory(cat string) bool {
+	target := strings.TrimSpace(cat)
+	for _, c := range f.GetCategories() {
+		if strings.EqualFold(c, target) {
+			return true
+		}
+	}
+	return false
+}
+
 // QueryValues converts the filter into url.Values for query string construction.
 func (f CatalogFilter) QueryValues() url.Values {
 	v := make(url.Values)
@@ -60,11 +107,11 @@ func (f CatalogFilter) QueryValues() url.Values {
 	if f.Trigger != "" {
 		v.Set("trigger", f.Trigger)
 	}
-	if f.RootID > 0 {
-		v.Set("root_id", strconv.FormatInt(f.RootID, 10))
+	for _, rid := range f.GetRootIDs() {
+		v.Add("root_id", strconv.FormatInt(rid, 10))
 	}
-	if f.Category != "" {
-		v.Set("category", f.Category)
+	for _, cat := range f.GetCategories() {
+		v.Add("category", cat)
 	}
 	if f.Subcategory != "" {
 		v.Set("subcategory", f.Subcategory)
@@ -158,6 +205,7 @@ func (f CatalogFilter) FilterWithoutField(field string) CatalogFilter {
 		cp.CharacterID = 0
 	case "category":
 		cp.Category = ""
+		cp.Categories = nil
 	case "subcategory":
 		cp.Subcategory = ""
 	case "q":
@@ -176,6 +224,7 @@ func (f CatalogFilter) FilterWithoutField(field string) CatalogFilter {
 		cp.MediaType = ""
 	case "root_id":
 		cp.RootID = 0
+		cp.RootIDs = nil
 	case "face_mode":
 		cp.FaceMode = false
 	case "cluster":
@@ -183,6 +232,72 @@ func (f CatalogFilter) FilterWithoutField(field string) CatalogFilter {
 	}
 	cp.Page = 1
 	return cp
+}
+
+// FilterWithoutRootID returns a copy of the filter with a specific root ID removed.
+func (f CatalogFilter) FilterWithoutRootID(idToRemove int64) CatalogFilter {
+	cp := f
+	var rids []int64
+	for _, id := range cp.GetRootIDs() {
+		if id != idToRemove {
+			rids = append(rids, id)
+		}
+	}
+	cp.RootIDs = rids
+	if cp.RootID == idToRemove {
+		if len(rids) > 0 {
+			cp.RootID = rids[0]
+		} else {
+			cp.RootID = 0
+		}
+	}
+	cp.Page = 1
+	return cp
+}
+
+// FilterWithoutCategory returns a copy of the filter with a specific category removed.
+func (f CatalogFilter) FilterWithoutCategory(catToRemove string) CatalogFilter {
+	cp := f
+	var cats []string
+	for _, c := range cp.GetCategories() {
+		if !strings.EqualFold(c, catToRemove) {
+			cats = append(cats, c)
+		}
+	}
+	cp.Categories = cats
+	if strings.EqualFold(cp.Category, catToRemove) {
+		if len(cats) > 0 {
+			cp.Category = cats[0]
+		} else {
+			cp.Category = ""
+		}
+	}
+	cp.Page = 1
+	return cp
+}
+
+// QueryWithoutRootID returns a query string excluding the specified root_id.
+func (f CatalogFilter) QueryWithoutRootID(idToRemove int64) string {
+	next := f.FilterWithoutRootID(idToRemove)
+	if !next.HasActiveFilters() && (next.SortBy == "" || next.SortBy == "newest") {
+		if next.PerPage > 0 && next.PerPage != 50 {
+			return "reset=1&per_page=" + strconv.Itoa(next.PerPage)
+		}
+		return "reset=1"
+	}
+	return next.QueryString()
+}
+
+// QueryWithoutCategory returns a query string excluding the specified category.
+func (f CatalogFilter) QueryWithoutCategory(catToRemove string) string {
+	next := f.FilterWithoutCategory(catToRemove)
+	if !next.HasActiveFilters() && (next.SortBy == "" || next.SortBy == "newest") {
+		if next.PerPage > 0 && next.PerPage != 50 {
+			return "reset=1&per_page=" + strconv.Itoa(next.PerPage)
+		}
+		return "reset=1"
+	}
+	return next.QueryString()
 }
 
 // FilterWithoutTag returns a copy of the filter excluding a specific tag.

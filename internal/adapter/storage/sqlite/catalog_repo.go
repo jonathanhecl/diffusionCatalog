@@ -482,13 +482,29 @@ func buildCatalogFilterWhereAndOrder(filter domain.CatalogFilter) (whereClause s
 		))`)
 		args = append(args, tlike, tlike, tlike, tlike)
 	}
-	if filter.RootID > 0 {
+	rootIDs := filter.GetRootIDs()
+	if len(rootIDs) == 1 {
 		where = append(where, `a.root_id = ?`)
-		args = append(args, filter.RootID)
+		args = append(args, rootIDs[0])
+	} else if len(rootIDs) > 1 {
+		var inPlaceholders []string
+		for _, rid := range rootIDs {
+			inPlaceholders = append(inPlaceholders, "?")
+			args = append(args, rid)
+		}
+		where = append(where, fmt.Sprintf(`a.root_id IN (%s)`, strings.Join(inPlaceholders, ",")))
 	}
-	if filter.Category != "" {
+	categories := filter.GetCategories()
+	if len(categories) == 1 {
 		where = append(where, `LOWER(a.category) = LOWER(?)`)
-		args = append(args, strings.TrimSpace(filter.Category))
+		args = append(args, strings.TrimSpace(categories[0]))
+	} else if len(categories) > 1 {
+		var inPlaceholders []string
+		for _, cat := range categories {
+			inPlaceholders = append(inPlaceholders, "LOWER(?)")
+			args = append(args, strings.TrimSpace(cat))
+		}
+		where = append(where, fmt.Sprintf(`LOWER(a.category) IN (%s)`, strings.Join(inPlaceholders, ",")))
 	}
 	if filter.Subcategory != "" {
 		where = append(where, `LOWER(a.subcategory) = LOWER(?)`)
@@ -1328,6 +1344,22 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 	// Populate global facets
 	page.MediaRoots, _ = r.ListMediaRoots(ctx)
 	page.DefaultCategories, _ = r.ListDefaultCategories(ctx)
+	existingCats := make(map[string]bool)
+	for _, c := range page.DefaultCategories {
+		existingCats[strings.ToLower(strings.TrimSpace(c.Name))] = true
+	}
+	assetCats, _ := r.distinctStrings(ctx, `SELECT DISTINCT category FROM assets WHERE category != '' ORDER BY category ASC`)
+	for _, ac := range assetCats {
+		acTrim := strings.TrimSpace(ac)
+		if acTrim != "" && !existingCats[strings.ToLower(acTrim)] {
+			existingCats[strings.ToLower(acTrim)] = true
+			page.DefaultCategories = append(page.DefaultCategories, domain.DefaultCategory{
+				Name:  acTrim,
+				Facet: "category",
+				Color: "#2563eb",
+			})
+		}
+	}
 	tags, _ := r.ListTags(ctx)
 	page.AvailableTags = tags
 	for _, t := range tags {
@@ -1812,9 +1844,29 @@ func (r *Repository) ListDetectedFaces(ctx context.Context, filter domain.Catalo
 		where = append(where, `(f.cluster_label LIKE ? OR f.expression_tag LIKE ? OR a.positive_prompt LIKE ?)`)
 		args = append(args, like, like, like)
 	}
-	if filter.RootID > 0 {
+	rootIDs := filter.GetRootIDs()
+	if len(rootIDs) == 1 {
 		where = append(where, `a.root_id = ?`)
-		args = append(args, filter.RootID)
+		args = append(args, rootIDs[0])
+	} else if len(rootIDs) > 1 {
+		var inPlaceholders []string
+		for _, rid := range rootIDs {
+			inPlaceholders = append(inPlaceholders, "?")
+			args = append(args, rid)
+		}
+		where = append(where, fmt.Sprintf(`a.root_id IN (%s)`, strings.Join(inPlaceholders, ",")))
+	}
+	categories := filter.GetCategories()
+	if len(categories) == 1 {
+		where = append(where, `LOWER(a.category) = LOWER(?)`)
+		args = append(args, strings.TrimSpace(categories[0]))
+	} else if len(categories) > 1 {
+		var inPlaceholders []string
+		for _, cat := range categories {
+			inPlaceholders = append(inPlaceholders, "LOWER(?)")
+			args = append(args, strings.TrimSpace(cat))
+		}
+		where = append(where, fmt.Sprintf(`LOWER(a.category) IN (%s)`, strings.Join(inPlaceholders, ",")))
 	}
 	if filter.CharacterID > 0 {
 		where = append(where, `f.character_id = ?`)
@@ -1906,9 +1958,29 @@ func (r *Repository) ListFaceClusters(ctx context.Context, filter domain.Catalog
 		where = append(where, `(f.cluster_label LIKE ? OR f.expression_tag LIKE ? OR a.positive_prompt LIKE ?)`)
 		args = append(args, like, like, like)
 	}
-	if filter.RootID > 0 {
+	rootIDs := filter.GetRootIDs()
+	if len(rootIDs) == 1 {
 		where = append(where, `a.root_id = ?`)
-		args = append(args, filter.RootID)
+		args = append(args, rootIDs[0])
+	} else if len(rootIDs) > 1 {
+		var inPlaceholders []string
+		for _, rid := range rootIDs {
+			inPlaceholders = append(inPlaceholders, "?")
+			args = append(args, rid)
+		}
+		where = append(where, fmt.Sprintf(`a.root_id IN (%s)`, strings.Join(inPlaceholders, ",")))
+	}
+	categories := filter.GetCategories()
+	if len(categories) == 1 {
+		where = append(where, `LOWER(a.category) = LOWER(?)`)
+		args = append(args, strings.TrimSpace(categories[0]))
+	} else if len(categories) > 1 {
+		var inPlaceholders []string
+		for _, cat := range categories {
+			inPlaceholders = append(inPlaceholders, "LOWER(?)")
+			args = append(args, strings.TrimSpace(cat))
+		}
+		where = append(where, fmt.Sprintf(`LOWER(a.category) IN (%s)`, strings.Join(inPlaceholders, ",")))
 	}
 	if filter.CharacterID > 0 {
 		where = append(where, `f.character_id = ?`)

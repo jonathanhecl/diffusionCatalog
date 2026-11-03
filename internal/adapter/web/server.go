@@ -57,11 +57,11 @@ func pageURL(filter domain.CatalogFilter, pageNum int) string {
 	if trig := strings.TrimSpace(filter.Trigger); trig != "" {
 		q.Set("trigger", trig)
 	}
-	if filter.RootID > 0 {
-		q.Set("root_id", strconv.FormatInt(filter.RootID, 10))
+	for _, rid := range filter.GetRootIDs() {
+		q.Add("root_id", strconv.FormatInt(rid, 10))
 	}
-	if cat := strings.TrimSpace(filter.Category); cat != "" {
-		q.Set("category", cat)
+	for _, cat := range filter.GetCategories() {
+		q.Add("category", cat)
 	}
 	if subcat := strings.TrimSpace(filter.Subcategory); subcat != "" {
 		q.Set("subcategory", subcat)
@@ -302,6 +302,37 @@ func NewServer(
 				return "/?reset=1"
 			}
 			return "/?" + q
+		},
+		"hasRootID": func(f domain.CatalogFilter, id int64) bool {
+			return f.HasRootID(id)
+		},
+		"hasCategory": func(f domain.CatalogFilter, cat string) bool {
+			return f.HasCategory(cat)
+		},
+		"filterWithoutRootIDURL": func(f domain.CatalogFilter, id int64) string {
+			q := f.QueryWithoutRootID(id)
+			if q == "" || q == "reset=1" {
+				return "/?reset=1"
+			}
+			return "/?" + q
+		},
+		"filterWithoutCategoryURL": func(f domain.CatalogFilter, cat string) string {
+			q := f.QueryWithoutCategory(cat)
+			if q == "" || q == "reset=1" {
+				return "/?reset=1"
+			}
+			return "/?" + q
+		},
+		"rootLabelByID": func(roots []domain.MediaRoot, id int64) string {
+			for _, r := range roots {
+				if r.ID == id {
+					if r.Label != "" {
+						return r.Label
+					}
+					return fmt.Sprintf("Root #%d", r.ID)
+				}
+			}
+			return fmt.Sprintf("Folder #%d", id)
 		},
 		"add": func(a, b int) int {
 			return a + b
@@ -1975,7 +2006,29 @@ func parseCatalogFilterFromValues(q url.Values) domain.CatalogFilter {
 	if perPage < 1 {
 		perPage = 50
 	}
+	var rootIDs []int64
+	for _, rStr := range q["root_id"] {
+		if id, err := strconv.ParseInt(strings.TrimSpace(rStr), 10, 64); err == nil && id > 0 {
+			rootIDs = append(rootIDs, id)
+		}
+	}
 	rootID, _ := strconv.ParseInt(q.Get("root_id"), 10, 64)
+	if rootID == 0 && len(rootIDs) > 0 {
+		rootID = rootIDs[0]
+	}
+
+	var categories []string
+	for _, cStr := range q["category"] {
+		cTrim := strings.TrimSpace(cStr)
+		if cTrim != "" {
+			categories = append(categories, cTrim)
+		}
+	}
+	category := strings.TrimSpace(q.Get("category"))
+	if category == "" && len(categories) > 0 {
+		category = categories[0]
+	}
+
 	groupID, _ := strconv.ParseInt(q.Get("group_id"), 10, 64)
 	charID, _ := strconv.ParseInt(q.Get("character_id"), 10, 64)
 	minRating, _ := strconv.Atoi(q.Get("min_rating"))
@@ -1987,7 +2040,9 @@ func parseCatalogFilterFromValues(q url.Values) domain.CatalogFilter {
 		Query:         q.Get("q"),
 		Trigger:       q.Get("trigger"),
 		RootID:        rootID,
-		Category:      q.Get("category"),
+		RootIDs:       rootIDs,
+		Category:      category,
+		Categories:    categories,
 		Subcategory:   q.Get("subcategory"),
 		MinRating:     minRating,
 		FavoritesOnly: favoritesOnly,

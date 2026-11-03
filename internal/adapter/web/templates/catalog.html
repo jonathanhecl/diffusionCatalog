@@ -35,6 +35,15 @@
       observer.observe(document.documentElement, { childList: true, subtree: true });
     })();
 
+    // Clear facet checkboxes and submit form
+    window.clearFacetCheckboxes = function(form, name) {
+      if (!form) return;
+      form.querySelectorAll('input[type="checkbox"][name="' + name + '"]').forEach(function(cb) {
+        cb.checked = false;
+      });
+      form.submit();
+    };
+
     // Non-intrusive Toast Notifications (no alert popups, no clicks required)
     window.showToast = function(message, type, duration) {
       type = type || 'info';
@@ -412,8 +421,8 @@
       <form action="/" method="GET" autocomplete="off" class="search-strip-form">
         {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
         {{if .Filter.SortBy}}<input type="hidden" name="sort" value="{{.Filter.SortBy}}">{{end}}
-        {{if .Filter.RootID}}<input type="hidden" name="root_id" value="{{.Filter.RootID}}">{{end}}
-        {{if .Filter.Category}}<input type="hidden" name="category" value="{{.Filter.Category}}">{{end}}
+        {{range .Filter.GetRootIDs}}<input type="hidden" name="root_id" value="{{.}}">{{end}}
+        {{range .Filter.GetCategories}}<input type="hidden" name="category" value="{{.}}">{{end}}
         {{if .Filter.Subcategory}}<input type="hidden" name="subcategory" value="{{.Filter.Subcategory}}">{{end}}
         {{if .Filter.Trigger}}<input type="hidden" name="trigger" value="{{.Filter.Trigger}}">{{end}}
         {{if .Filter.GroupID}}<input type="hidden" name="group_id" value="{{.Filter.GroupID}}">{{end}}
@@ -427,7 +436,7 @@
         <div class="search-main-group">
           <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
           <button type="submit" class="btn-primary">Search</button>
-          {{if or .Filter.Query .Filter.Trigger .Filter.RootID .Filter.Category .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0) (gt .Filter.MinRating 0) .Filter.FavoritesOnly .Filter.SortBy}}
+          {{if or .Filter.Query .Filter.Trigger (gt (len .Filter.GetRootIDs) 0) (gt (len .Filter.GetCategories) 0) .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0) (gt .Filter.MinRating 0) .Filter.FavoritesOnly .Filter.SortBy}}
             <a href="/?reset=1" class="btn-ghost" style="display:inline-flex;align-items:center;">Reset</a>
           {{end}}
         </div>
@@ -10211,31 +10220,56 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
             {{if .Filter.FaceMode}}<input type="hidden" name="face_mode" value="1">{{end}}
             {{if and .Filter.PerPage (ne .Filter.PerPage 50)}}<input type="hidden" name="per_page" value="{{.Filter.PerPage}}">{{end}}
             {{if .Filter.SortBy}}<input type="hidden" name="sort" value="{{.Filter.SortBy}}">{{end}}
+            {{if .Filter.Query}}<input type="hidden" name="q" value="{{.Filter.Query}}">{{end}}
 
-            <div class="facet-block">
+            <div class="facet-block {{if $.Filter.GetRootIDs}}facet-block-active{{end}}">
               <div class="facet-title">
                 <span>MEDIA FOLDER / DISK</span>
-                <a href="/?tab=settings" style="font-size:10px;color:#60a5fa;">+ Add</a>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  {{if $.Filter.GetRootIDs}}
+                    <a href="{{clearFilterURL $.Filter "root_id"}}" style="font-size:10px;color:#38bdf8;text-decoration:none;" title="Ver todas las carpetas">Ver todas</a>
+                  {{end}}
+                  <a href="/?tab=settings" style="font-size:10px;color:#60a5fa;">+ Add</a>
+                </div>
               </div>
-              <select name="root_id" class="input-dark" onchange="this.form.submit()">
-                <option value="0">All Accessible Folders ({{len .Page.MediaRoots}})</option>
+              <div class="checkbox-list">
                 {{range .Page.MediaRoots}}
-                  <option value="{{.ID}}" {{if eq $.Filter.RootID .ID}}selected{{end}}>
-                    {{.Label}} ({{.AssetCount}}){{if not .Accessible}} [offline]{{end}}
-                  </option>
+                  <label class="checkbox-item" title="{{.Path}}">
+                    <input type="checkbox" name="root_id" value="{{.ID}}" {{if hasRootID $.Filter .ID}}checked{{end}} onchange="this.form.submit()">
+                    <span class="checkbox-label">
+                      {{.Label}} <span style="color:var(--text-muted);font-size:11px;">({{.AssetCount}})</span>{{if not .Accessible}} <span style="color:#ef4444;font-size:10px;">[offline]</span>{{end}}
+                    </span>
+                  </label>
                 {{end}}
-              </select>
+              </div>
+              <div style="margin-top:6px;display:flex;justify-content:flex-end;">
+                <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;color:#94a3b8;" onclick="clearFacetCheckboxes(this.form, 'root_id')">Ver todas</button>
+              </div>
             </div>
 
-            <div class="facet-block">
-              <div class="facet-title"><span>FOLDER CATEGORIES</span></div>
-              <select name="category" class="input-dark" style="margin-bottom:6px;" onchange="this.form.submit()">
-                <option value="">All Categories</option>
-                {{range .Page.DefaultCategories}}
-                  <option value="{{.Name}}" {{if eq $.Filter.Category .Name}}selected{{end}}>{{.Name}}</option>
+            <div class="facet-block {{if $.Filter.GetCategories}}facet-block-active{{end}}">
+              <div class="facet-title">
+                <span>FOLDER CATEGORIES</span>
+                {{if $.Filter.GetCategories}}
+                  <a href="{{clearFilterURL $.Filter "category"}}" style="font-size:10px;color:#38bdf8;text-decoration:none;" title="Ver todas las categorías">Ver todas</a>
                 {{end}}
-              </select>
-              {{if .Filter.Category}}
+              </div>
+              {{if .Page.DefaultCategories}}
+                <div class="checkbox-list" style="margin-bottom:6px;">
+                  {{range .Page.DefaultCategories}}
+                    <label class="checkbox-item" title="{{.Name}}">
+                      <input type="checkbox" name="category" value="{{.Name}}" {{if hasCategory $.Filter .Name}}checked{{end}} onchange="this.form.submit()">
+                      <span class="checkbox-label">{{.Name}}</span>
+                    </label>
+                  {{end}}
+                </div>
+                <div style="margin-top:4px;margin-bottom:6px;display:flex;justify-content:flex-end;">
+                  <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;color:#94a3b8;" onclick="clearFacetCheckboxes(this.form, 'category')">Ver todas</button>
+                </div>
+              {{else}}
+                <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:6px;">No categories found</div>
+              {{end}}
+              {{if $.Filter.GetCategories}}
                 <input type="text" name="subcategory" value="{{.Filter.Subcategory}}" placeholder="Subcategory filter..." class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-size:11.5px;padding:5px 8px;">
               {{end}}
             </div>
@@ -10406,11 +10440,18 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
                   <a href="{{clearFilterURL $.Filter "group_id"}}" class="chip-remove" title="Remove filter">&times;</a>
                 </span>
               {{end}}
-              {{if .Filter.Category}}
+              {{range $.Filter.GetRootIDs}}
+                <span class="active-filter-chip">
+                  <span class="chip-label">Folder:</span>
+                  <strong>{{rootLabelByID $.Page.MediaRoots .}}</strong>
+                  <a href="{{filterWithoutRootIDURL $.Filter .}}" class="chip-remove" title="Remove folder filter">&times;</a>
+                </span>
+              {{end}}
+              {{range $.Filter.GetCategories}}
                 <span class="active-filter-chip">
                   <span class="chip-label">Category:</span>
-                  <strong>{{.Filter.Category}}</strong>
-                  <a href="{{clearFilterURL $.Filter "category"}}" class="chip-remove" title="Remove filter">&times;</a>
+                  <strong>{{.}}</strong>
+                  <a href="{{filterWithoutCategoryURL $.Filter .}}" class="chip-remove" title="Remove category filter">&times;</a>
                 </span>
               {{end}}
               {{if .Filter.Subcategory}}
