@@ -292,8 +292,8 @@ func TestDirectorTabRendering(t *testing.T) {
 		!strings.Contains(body, "charFeaturesSelect") || !strings.Contains(body, "charDetailsSelect") {
 		t.Errorf("expected body to contain character hair, clothing, features, and details preset selects")
 	}
-	if !strings.Contains(body, "Bombero / Firefighter Gear") || !strings.Contains(body, "Vestido Floreado / Floral Sundress") ||
-		!strings.Contains(body, "Minifalda de Jean / Denim Miniskirt") || !strings.Contains(body, "Dependiente Fast-Food / Crew") {
+	if !strings.Contains(body, "Firefighter Gear") || !strings.Contains(body, "Floral Summer Sundress") ||
+		!strings.Contains(body, "Denim Miniskirt") || !strings.Contains(body, "Fast-Food Crew Uniform") {
 		t.Errorf("expected body to contain rich professional, formal, and feminine clothing presets")
 	}
 	if !strings.Contains(body, "charLookingAtSelect") || !strings.Contains(body, "gazeLinesGroup") || !strings.Contains(body, "gazeArrow") {
@@ -322,11 +322,11 @@ func TestDirectorTabRendering(t *testing.T) {
 	if !strings.Contains(body, "sceneEnvironmentBar") || !strings.Contains(body, "sceneEnvironmentInput") || !strings.Contains(body, "sceneTimeOfDayInput") {
 		t.Errorf("expected body to contain scene environment bar, environment input, and time of day input")
 	}
-	if !strings.Contains(body, "Hospital / Sala de Urgencias") || !strings.Contains(body, "Taller Mecánico / Taller de Autos") ||
-		!strings.Contains(body, "Casamiento / Fiesta de Bodas") || !strings.Contains(body, "Sobre un Puente") {
+	if !strings.Contains(body, "Hospital Emergency Room") || !strings.Contains(body, "Auto Repair Garage") ||
+		!strings.Contains(body, "Wedding Banquet Hall") || !strings.Contains(body, "Suspension Steel Bridge") {
 		t.Errorf("expected body to contain indoor and outdoor environment location presets")
 	}
-	if !strings.Contains(body, "Golden Hour / Sunset Glow") || !strings.Contains(body, "Noche / Night &amp; Moonlight") {
+	if !strings.Contains(body, "Golden Hour / Sunset Glow") || !strings.Contains(body, "Deep Night &amp; Moonlight") {
 		t.Errorf("expected body to contain time of day and atmosphere presets")
 	}
 	if !strings.Contains(body, `data-env-type="indoor"`) || !strings.Contains(body, `data-env-type="outdoor"`) || !strings.Contains(body, "btnRandomizeEnvironment") {

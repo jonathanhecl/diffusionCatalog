@@ -1587,7 +1587,7 @@
 
               <!-- 4-Legged Animals (Quadrupeds) -->
               <div class="facet-title" style="margin-bottom:6px;font-size:10px;color:#34d399;display:flex;justify-content:space-between;align-items:center;">
-                <span>QUADRUPEDS (4 PATAS)</span>
+                <span>QUADRUPEDS</span>
                 <span class="badge-chip" style="font-size:9px;background:#064e3b;color:#34d399;">Animal Rig</span>
               </div>
               <div style="display:grid;grid-template-columns: 1fr 1fr 1fr; gap:6px;">
@@ -1615,118 +1615,128 @@
             <!-- Quick Pose Presets Shelf (Always accessible!) -->
             <div style="background:var(--bg-input);border:1px solid var(--border-navy);border-radius:6px;padding:8px 10px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <span style="font-size:10.5px;font-weight:700;color:#67e8f9;">POSES &amp; POSTURAS</span>
+                <span style="font-size:10.5px;font-weight:700;color:#67e8f9;">POSES &amp; POSTURES</span>
                 <div style="display:flex;gap:3px;">
-                  <button type="button" id="btnPoseTabBiped" class="btn-ghost active" style="padding:2px 6px;font-size:10px;font-weight:700;background:#0284c7;color:#fff;" title="Poses para personajes bípedos/humanos">&#128100; Humanos</button>
-                  <button type="button" id="btnPoseTabQuadruped" class="btn-ghost" style="padding:2px 6px;font-size:10px;font-weight:700;" title="Poses para animales de 4 patas (perro, caballo, gato)">&#128062; 4 Patas</button>
+                  <button type="button" id="btnPoseTabBiped" class="btn-ghost active" style="padding:2px 6px;font-size:10px;font-weight:700;background:#0284c7;color:#fff;" title="Poses for bipedal and human figures">&#128100; Bipeds</button>
+                  <button type="button" id="btnPoseTabQuadruped" class="btn-ghost" style="padding:2px 6px;font-size:10px;font-weight:700;" title="Poses for 4-legged quadruped animals (dogs, horses, cats)">&#128062; Quadrupeds</button>
                 </div>
               </div>
-              <!-- Sub-tabs for Bipeds: Frente / Perfil -->
-              <div id="bipedSubTabsWrap" style="display:flex;gap:3px;margin-bottom:6px;">
-                <button type="button" id="btnPoseTabFront" class="btn-ghost active" style="padding:1px 6px;font-size:9.5px;font-weight:600;background:#0369a1;color:#fff;">&#128100; Frente</button>
-                <button type="button" id="btnPoseTabSide" class="btn-ghost" style="padding:1px 6px;font-size:9.5px;font-weight:600;">&#127939; Perfil</button>
+              <!-- Sub-tabs: Front / Side -->
+              <div id="posePerspectiveSubTabsWrap" style="display:flex;gap:3px;margin-bottom:6px;">
+                <button type="button" id="btnPoseTabFront" class="btn-ghost active" style="padding:1px 6px;font-size:9.5px;font-weight:600;background:#0369a1;color:#fff;">&#128100; Front</button>
+                <button type="button" id="btnPoseTabSide" class="btn-ghost" style="padding:1px 6px;font-size:9.5px;font-weight:600;">&#127939; Side</button>
               </div>
-              <!-- Front Poses Grid -->
+              <!-- Biped Front Poses Grid -->
               <div style="display:grid;grid-template-columns: repeat(3, 1fr); gap:4px; max-height:220px; overflow-y:auto; padding-right:2px;" id="quickPoseGridFront">
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Standing Idle" style="padding:4px 2px;font-size:10px;" title="Parado neutral">&#129485; Idle</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Walking / Striding" style="padding:4px 2px;font-size:10px;" title="Caminando">&#128694; Caminar</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Running / Sprint" style="padding:4px 2px;font-size:10px;" title="Corriendo dinámico">&#127939; Correr</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Relaxed" style="padding:4px 2px;font-size:10px;" title="Sentado relajado">&#129681; Sentado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crouching Action" style="padding:4px 2px;font-size:10px;" title="Agachado">&#129355; Agachado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed" style="padding:4px 2px;font-size:10px;" title="Brazos cruzados">&#128581; Cruzado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Hips" style="padding:4px 2px;font-size:10px;" title="Manos en cintura">&#128170; Cintura</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Reaching Dynamic" style="padding:4px 2px;font-size:10px;" title="Alcanzando">&#128587; Alcanzar</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Lying Down" style="padding:4px 2px;font-size:10px;" title="Acostado boca arriba">&#128716; Acostado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling (Both Knees)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Arrodillado 2 rodillas en el suelo">&#129496; 2 Rodillas</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling (One Knee)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Arrodillado 1 rodilla (pedida/genuflexión)">&#129302; 1 Rodilla</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crawling / All Fours" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Gateando en cuatro patas">&#128118; Gatear</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hanging / Suspended" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Colgado manos arriba pies en el aire">&#129495; Colgado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Climbing (Ladder / Stairs)" style="padding:4px 2px;font-size:10px;color:#facc15;" title="Subiendo escalera">&#129692; Escalera</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands Up (Surrender / Cheer)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="De pie con ambas manos arriba">&#128588; Manos Arriba</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pointing Forward" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Con una mano apuntando al frente">&#128073; Apuntar</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Face (Shock)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Con ambas manos en la cara (shock/sorpresa)">&#128561; Cara Shock</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Boxing Guard (Defense)" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Posición defensiva de combate / boxeo">&#129354; Guardia Box</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Cross-Legged (Lotus)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado de piernas cruzadas / loto">&#129496; Piernas Cruz</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Forward" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado con ambas piernas adelante">&#129681; Piernas Adel</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Spread (V-Sit)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado con piernas adelante abiertas en V">&#129681; Piernas Abier</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting: Hugging Knees to Chest" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentada abrazando rodillas al pecho">&#129496; Rodillas Pecho</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting: Horseback Riding" style="padding:4px 2px;font-size:10px;color:#facc15;" title="Sentado montando a caballo">&#127943; A Caballo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting: Driving a Car" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Sentado conduciendo auto">&#128663; En Auto</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Fairy: Floating in Air" style="padding:4px 2px;font-size:10px;color:#ec4899;" title="Hada flotando en el aire">&#129501; Hada Flotando</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Airborne: Hanging from Overhead Bar" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Colgado con dos manos en barra fija">&#129495; Barra Fija</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="High Kick (Martial Arts)" style="padding:4px 2px;font-size:10px;color:#ef4444;" title="Pateando alto (artes marciales)">&#129355; Patada</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Knee Down Reaching Ground" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Una rodilla al suelo agachándose">&#129302; Rodilla Suelo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Presenter (Pointing Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="De pie con manos señalando a un costado">&#128129; Presentador</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed (X-Pose)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="De pie con ambas manos cruzadas en X">&#9876; Brazos en X</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning Against Wall" style="padding:4px 2px;font-size:10px;color:#94a3b8;" title="De pie apoyado contra una pared">&#129521; En Pared</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Victory (Chest Out)" style="padding:4px 2px;font-size:10px;color:#eab308;" title="Posición de ganador sacando pecho">&#127942; Ganador</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Defeated (Collapsed)" style="padding:4px 2px;font-size:10px;color:#64748b;" title="Tirado en el suelo posición derrotado">&#128128; Derrotado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling Head Down (Child's Pose)" style="padding:4px 2px;font-size:10px;color:#a855f7;" title="En el suelo cuerpo hacia abajo cabeza en el suelo">&#128583; Cabeza Suelo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Supine Knees Bent" style="padding:4px 2px;font-size:10px;color:#06b6d4;" title="En el suelo mirando arriba rodillas flexionadas">&#128716; Espalda Suelo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Push-Up (Plank)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Cuerpo abajo haciendo flexiones de brazos">&#128170; Flexiones</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Shield Advance (Combat Stride)" style="padding:4px 2px;font-size:10px;color:#3b82f6;" title="Un pie delante otro atrás avanzando con escudo">&#128737; Avance Escudo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning Forward (Balcony)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Inclinado hacia adelante asomándose en balcón">&#127960; Asomado Balcón</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pushing Heavy Load" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Inclinado con ambas manos al frente empujando carga">&#128668; Empujar Carga</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Half Forward Fold (90°)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="De pie torso a 90 grados horizontal inclinado adelante brazos abajo">&#128208; Torso 90&deg;</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Downward-Facing Dog (Yoga)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Postura de yoga perro boca abajo V invertida">&#129496; Perro Abajo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Warrior II (Yoga Pose)" style="padding:4px 2px;font-size:10px;color:#eab308;" title="Postura de yoga Guerrero II brazos extendidos">&#9876; Guerrero II</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Cobra Pose (Upward Backbend)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="En suelo arqueando pecho hacia arriba postura de cobra">&#128013; Cobra Yoga</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Model Cross-Legged (Runway)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Posición de modelaje de pie piernas cruzadas pasarela">&#128096; Modelo Cruzada</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sensual Cat Crawl (To Camera)" style="padding:4px 2px;font-size:10px;color:#ec4899;" title="Gateando hacia la cámara estilo revista y editorial">&#128062; Gateo Cámara</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Model Lounging Recline (Glamour)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="Recostada de lado apoyada en un codo pose de revista">&#10024; Recostada Glam</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Standing Idle" style="padding:4px 2px;font-size:10px;" title="Relaxed natural upright stance">&#129485; Idle</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Walking / Striding" style="padding:4px 2px;font-size:10px;" title="Mid-stride forward movement">&#128694; Walk</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Running / Sprint" style="padding:4px 2px;font-size:10px;" title="Dynamic athletic sprint">&#127939; Run</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Relaxed" style="padding:4px 2px;font-size:10px;" title="Casual seated on chair/couch">&#129681; Sit</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crouching Action" style="padding:4px 2px;font-size:10px;" title="Low stealth crouching alert stance">&#129355; Crouch</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed" style="padding:4px 2px;font-size:10px;" title="Defiant arms crossed">&#128581; Fold Arms</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Hips" style="padding:4px 2px;font-size:10px;" title="Heroic hands on hips">&#128170; Hips</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Reaching Dynamic" style="padding:4px 2px;font-size:10px;" title="Reaching arm high overhead">&#128587; Reach</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Lying Down" style="padding:4px 2px;font-size:10px;" title="Lying down resting flat">&#128716; Lie Down</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling (Both Knees)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Both knees on the ground">&#129496; 2 Knees</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling (One Knee)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="One knee down chivalric posture">&#129302; 1 Knee</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crawling / All Fours" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Crawling on all fours">&#128118; Crawl</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hanging / Suspended" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Suspended from hands in mid-air">&#129495; Hang</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Climbing (Ladder / Stairs)" style="padding:4px 2px;font-size:10px;color:#facc15;" title="Climbing ladder or wall">&#129692; Climb</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands Up (Surrender / Cheer)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Standing with both hands overhead">&#128588; Hands Up</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pointing Forward" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Pointing directly forward">&#128073; Point</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Face (Shock)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Both hands gripping face in shock">&#128561; Shock</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Boxing Guard (Defense)" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Defensive boxing combat guard">&#129354; Boxing</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Cross-Legged (Lotus)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Seated cross-legged in lotus">&#129496; Cross-Leg</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Forward" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Seated with legs extended straight forward">&#129681; Legs Front</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Spread (V-Sit)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Seated with legs spread open in V">&#129681; Legs Spread</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting: Hugging Knees to Chest" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Seated hugging knees to chest">&#129496; Knees Chest</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting: Horseback Riding" style="padding:4px 2px;font-size:10px;color:#facc15;" title="Seated astride horseback holding reins">&#127943; Horseback</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting: Driving a Car" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Seated in driver seat holding steering wheel">&#128663; Driving</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Fairy: Floating in Air" style="padding:4px 2px;font-size:10px;color:#ec4899;" title="Ethereal floating in air">&#129501; Fairy Float</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Airborne: Hanging from Overhead Bar" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Hanging with both hands from bar">&#129495; Bar Hang</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="High Kick (Martial Arts)" style="padding:4px 2px;font-size:10px;color:#ef4444;" title="High dynamic martial arts kick">&#129355; High Kick</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Knee Down Reaching Ground" style="padding:4px 2px;font-size:10px;color:#10b981;" title="One knee to ground reaching down">&#129302; Knee Down</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Presenter (Pointing Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Standing gesturing to side">&#128129; Presenter</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed (X-Pose)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="Standing with forearms crossed in X">&#9876; X-Arms</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning Against Wall" style="padding:4px 2px;font-size:10px;color:#94a3b8;" title="Standing leaning against wall">&#129521; Leaning</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Victory (Chest Out)" style="padding:4px 2px;font-size:10px;color:#eab308;" title="Proud victorious posture">&#127942; Victory</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Defeated (Collapsed)" style="padding:4px 2px;font-size:10px;color:#64748b;" title="Collapsed defeated on floor">&#128128; Defeated</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling Head Down (Child's Pose)" style="padding:4px 2px;font-size:10px;color:#a855f7;" title="Prostrate kneeling head to floor">&#128583; Child Pose</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Supine Knees Bent" style="padding:4px 2px;font-size:10px;color:#06b6d4;" title="Lying on back with knees raised">&#128716; Supine</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Push-Up (Plank)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Push-up plank posture">&#128170; Push-Up</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Shield Advance (Combat Stride)" style="padding:4px 2px;font-size:10px;color:#3b82f6;" title="Tactical stride with shield guard">&#128737; Shield</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning Forward (Balcony)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Leaning forward over railing">&#127960; Balcony</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pushing Heavy Load" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Leaning pushing against heavy load">&#128668; Push Load</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Half Forward Fold (90°)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Standing 90 degree horizontal torso flat back">&#128208; Torso 90&deg;</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Downward-Facing Dog (Yoga)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Yoga downward-facing dog inverted V">&#129496; Down Dog</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Warrior II (Yoga Pose)" style="padding:4px 2px;font-size:10px;color:#eab308;" title="Warrior II lunging yoga posture">&#9876; Warrior II</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Cobra Pose (Upward Backbend)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Floor upward backbend cobra pose">&#128013; Cobra</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Model Cross-Legged (Runway)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Fashion model runway stance">&#128096; Runway</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sensual Cat Crawl (To Camera)" style="padding:4px 2px;font-size:10px;color:#ec4899;" title="Sensual cat crawl towards camera">&#128062; Cat Crawl</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Model Lounging Recline (Glamour)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="Lounging magazine cover recline">&#10024; Glamour</button>
               </div>
-              <!-- Side / Profile Poses Grid -->
+              <!-- Biped Side / Profile Poses Grid -->
               <div style="display:none;grid-template-columns: repeat(3, 1fr); gap:4px; max-height:220px; overflow-y:auto; padding-right:2px;" id="quickPoseGridSide">
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Standing Idle (Side)" style="padding:4px 2px;font-size:10px;" title="Parado de perfil">&#129485; Idle Lado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Walking (Side)" style="padding:4px 2px;font-size:10px;" title="Caminando de perfil">&#128694; Caminar</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Running (Side)" style="padding:4px 2px;font-size:10px;" title="Corriendo de perfil">&#127939; Correr</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting (Side)" style="padding:4px 2px;font-size:10px;" title="Sentado de perfil">&#129681; Sentado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crouching (Side)" style="padding:4px 2px;font-size:10px;" title="Agachado de perfil">&#129355; Agachado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed (Side)" style="padding:4px 2px;font-size:10px;" title="Cruzado de perfil">&#128581; Cruzado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Hips (Side)" style="padding:4px 2px;font-size:10px;" title="Cintura de perfil">&#128170; Cintura</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Reaching (Side)" style="padding:4px 2px;font-size:10px;" title="Alcanzando de perfil">&#128587; Alcanzar</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Lying Down (Side / Lateral)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Acostado de lado / lateral fetal">&#128716; Lado Fetal</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling Both (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Arrodillado 2 rodillas de lado">&#129496; 2 Rodillas</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling One (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Arrodillado 1 rodilla de lado">&#129302; 1 Rodilla</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crawling (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Gateando de lado en 4 patas">&#128118; Gatear</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hanging (Side)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Colgado manos arriba de perfil">&#129495; Colgado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Climbing (Side)" style="padding:4px 2px;font-size:10px;color:#facc15;" title="Subiendo escalera de perfil">&#129692; Escalera</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands Up (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Manos arriba de perfil">&#128588; Manos Arriba</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pointing (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Apuntando al frente de perfil">&#128073; Apuntar</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Face (Side)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Manos en cara de perfil">&#128561; Cara Shock</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Boxing Guard (Side)" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Guardia boxeo de perfil">&#129354; Guardia Box</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Cross-Legged (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado piernas cruzadas de perfil">&#129496; Piernas Cruz</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Forward (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Sentado piernas adelante de perfil">&#129681; Piernas Adel</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="High Kick (Side)" style="padding:4px 2px;font-size:10px;color:#ef4444;" title="Patada alta de perfil">&#129355; Patada</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Knee Down (Side)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Una rodilla al suelo de perfil">&#129302; Rodilla Suelo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Presenter (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Presentador de perfil">&#128129; Presentador</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed X (Side)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="Brazos en X de perfil">&#9876; Brazos en X</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning (Side)" style="padding:4px 2px;font-size:10px;color:#94a3b8;" title="Apoyado en pared de perfil">&#129521; En Pared</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Victory (Side)" style="padding:4px 2px;font-size:10px;color:#eab308;" title="Victoria sacando pecho de perfil">&#127942; Ganador</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Defeated (Side)" style="padding:4px 2px;font-size:10px;color:#64748b;" title="Derrotado en suelo de perfil">&#128128; Derrotado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Child's Pose (Side)" style="padding:4px 2px;font-size:10px;color:#a855f7;" title="Cabeza al suelo arrodillado de perfil">&#128583; Cabeza Suelo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Supine Knees Bent (Side)" style="padding:4px 2px;font-size:10px;color:#06b6d4;" title="Boca arriba rodillas flexionadas de perfil">&#128716; Espalda Suelo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Push-Up (Side)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Flexiones de brazos de perfil">&#128170; Flexiones</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Shield Advance (Side)" style="padding:4px 2px;font-size:10px;color:#3b82f6;" title="Avanzando con escudo de perfil">&#128737; Avance Escudo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning Forward (Balcony Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Inclinado asomándose en balcón de perfil">&#127960; Asomado Balcón</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pushing Heavy Load (Side)" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Empujando carga pesada de perfil">&#128668; Empujar Carga</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Half Forward Fold (90° Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Torso a 90 grados de perfil">&#128208; Torso 90&deg;</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Downward Dog (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Perro boca abajo de perfil">&#129496; Perro Abajo</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Warrior II (Side)" style="padding:4px 2px;font-size:10px;color:#eab308;" title="Guerrero II de perfil">&#9876; Guerrero II</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Cobra Pose (Side)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Postura cobra de perfil">&#128013; Cobra Yoga</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Model Cross-Legged (Side)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Modelo piernas cruzadas de perfil">&#128096; Modelo Cruzada</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sensual Cat Crawl (Side)" style="padding:4px 2px;font-size:10px;color:#ec4899;" title="Gateo sensual de perfil">&#128062; Gateo Perfil</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Model Recline (Side)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="Recostada de perfil">&#10024; Recostada Glam</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Standing Idle (Side)" style="padding:4px 2px;font-size:10px;" title="Standing in profile view">&#129485; Idle Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Walking (Side)" style="padding:4px 2px;font-size:10px;" title="Walking stride in profile view">&#128694; Walk Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Running (Side)" style="padding:4px 2px;font-size:10px;" title="Running sprint in profile view">&#127939; Run Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting (Side)" style="padding:4px 2px;font-size:10px;" title="Seated posture in profile view">&#129681; Sit Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crouching (Side)" style="padding:4px 2px;font-size:10px;" title="Crouching alert in profile view">&#129355; Crouch Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed (Side)" style="padding:4px 2px;font-size:10px;" title="Arms crossed in profile view">&#128581; Fold Arms Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Hips (Side)" style="padding:4px 2px;font-size:10px;" title="Hands on hips in profile view">&#128170; Hips Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Reaching (Side)" style="padding:4px 2px;font-size:10px;" title="Reaching upward in profile view">&#128587; Reach Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Lying Down (Side / Lateral)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Lateral fetal rest in profile view">&#128716; Fetal Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling Both (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Kneeling both knees in profile view">&#129496; 2 Knees Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Kneeling One (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Kneeling one knee in profile view">&#129302; 1 Knee Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Crawling (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Crawling on all fours in profile view">&#128118; Crawl Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hanging (Side)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Suspended overhead in profile view">&#129495; Hang Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Climbing (Side)" style="padding:4px 2px;font-size:10px;color:#facc15;" title="Climbing ladder in profile view">&#129692; Climb Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands Up (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Both hands raised in profile view">&#128588; Hands Up Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pointing (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Pointing forward in profile view">&#128073; Point Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Hands on Face (Side)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Hands on face in profile view">&#128561; Shock Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Boxing Guard (Side)" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Boxing guard in profile view">&#129354; Boxing Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Cross-Legged (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Seated cross-legged in profile view">&#129496; Cross-Leg Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sitting Legs Forward (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Seated legs forward in profile view">&#129681; Legs Front Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="High Kick (Side)" style="padding:4px 2px;font-size:10px;color:#ef4444;" title="High martial arts kick in profile view">&#129355; Kick Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Knee Down (Side)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="One knee to ground in profile view">&#129302; Knee Down Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Presenter (Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Presenter stance in profile view">&#128129; Presenter Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Arms Crossed X (Side)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="Arms crossed X in profile view">&#9876; X-Arms Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning (Side)" style="padding:4px 2px;font-size:10px;color:#94a3b8;" title="Leaning against wall in profile view">&#129521; Leaning Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Victory (Side)" style="padding:4px 2px;font-size:10px;color:#eab308;" title="Victory stance in profile view">&#127942; Victory Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Defeated (Side)" style="padding:4px 2px;font-size:10px;color:#64748b;" title="Defeated collapsed in profile view">&#128128; Defeated Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Child's Pose (Side)" style="padding:4px 2px;font-size:10px;color:#a855f7;" title="Child's pose kneeling head to floor in profile view">&#128583; Child Pose Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Supine Knees Bent (Side)" style="padding:4px 2px;font-size:10px;color:#06b6d4;" title="Supine face-up knees bent in profile view">&#128716; Supine Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Push-Up (Side)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Push-up plank in profile view">&#128170; Push-Up Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Shield Advance (Side)" style="padding:4px 2px;font-size:10px;color:#3b82f6;" title="Advancing with shield in profile view">&#128737; Shield Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Leaning Forward (Balcony Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Leaning forward over balcony in profile view">&#127960; Balcony Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Pushing Heavy Load (Side)" style="padding:4px 2px;font-size:10px;color:#f97316;" title="Pushing heavy load in profile view">&#128668; Push Load Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Half Forward Fold (90° Side)" style="padding:4px 2px;font-size:10px;color:#38bdf8;" title="Torso flat at 90 degrees in profile view">&#128208; Torso 90&deg; Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Downward Dog (Side)" style="padding:4px 2px;font-size:10px;color:#a78bfa;" title="Downward-facing dog in profile view">&#129496; Down Dog Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Warrior II (Side)" style="padding:4px 2px;font-size:10px;color:#eab308;" title="Warrior II lunging stance in profile view">&#9876; Warrior II Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Cobra Pose (Side)" style="padding:4px 2px;font-size:10px;color:#10b981;" title="Cobra backbend in profile view">&#128013; Cobra Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Model Cross-Legged (Side)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Fashion runway stance in profile view">&#128096; Runway Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sensual Cat Crawl (Side)" style="padding:4px 2px;font-size:10px;color:#ec4899;" title="Sensual cat crawl in profile view">&#128062; Cat Crawl Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Model Recline (Side)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="Magazine lounging recline in profile view">&#10024; Glamour Side</button>
               </div>
 
-              <!-- Quadruped 4-Legged Poses Grid -->
-              <div style="display:none;grid-template-columns: repeat(2, 1fr); gap:4px; max-height:220px; overflow-y:auto; padding-right:2px;" id="quickPoseGridQuadruped">
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Standing Alert" style="padding:4px 4px;font-size:10px;color:#34d399;border-color:rgba(52,211,153,0.3);" title="Animal de pie en alerta, cuatro patas firmes">&#128021; De Pie Alerta</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Trotting / Walking" style="padding:4px 4px;font-size:10px;color:#38bdf8;border-color:rgba(56,189,248,0.3);" title="Caminando o trotando rítmico">&#128062; Caminar / Trote</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Galloping / Running" style="padding:4px 4px;font-size:10px;color:#facc15;border-color:rgba(250,204,21,0.3);" title="Al galope o sprint veloz en suspensión">&#127943; Galope / Sprint</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Sitting" style="padding:4px 4px;font-size:10px;color:#a78bfa;border-color:rgba(167,139,250,0.3);" title="Sentado con ancas al suelo (perro/gato)">&#128008; Sentado</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Lying Down / Resting" style="padding:4px 4px;font-size:10px;color:#06b6d4;border-color:rgba(6,182,212,0.3);" title="Echado descansando en el suelo">&#128716; Echado / Descanso</button>
-                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Stalking / Pouncing" style="padding:4px 4px;font-size:10px;color:#f43f5e;border-color:rgba(244,63,94,0.3);" title="Agazapado acechando o listo para abalanzarse">&#128062; Acecho / Salto</button>
+              <!-- Quadruped Front Poses Grid -->
+              <div style="display:none;grid-template-columns: repeat(2, 1fr); gap:4px; max-height:220px; overflow-y:auto; padding-right:2px;" id="quickPoseGridQuadrupedFront">
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Standing Alert" style="padding:4px 4px;font-size:10px;color:#34d399;border-color:rgba(52,211,153,0.3);" title="Animal standing alert facing camera">&#128021; Stand Alert</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Trotting / Walking" style="padding:4px 4px;font-size:10px;color:#38bdf8;border-color:rgba(56,189,248,0.3);" title="Walking or trotting forward facing camera">&#128062; Walk / Trot</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Galloping / Running" style="padding:4px 4px;font-size:10px;color:#facc15;border-color:rgba(250,204,21,0.3);" title="Galloping or charging forward facing camera">&#127943; Gallop / Run</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Sitting" style="padding:4px 4px;font-size:10px;color:#a78bfa;border-color:rgba(167,139,250,0.3);" title="Seated frontally on haunches facing camera">&#128008; Sitting</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Lying Down / Resting" style="padding:4px 4px;font-size:10px;color:#06b6d4;border-color:rgba(6,182,212,0.3);" title="Lying down resting sphinx pose facing camera">&#128716; Lying Rest</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Stalking / Pouncing" style="padding:4px 4px;font-size:10px;color:#f43f5e;border-color:rgba(244,63,94,0.3);" title="Low stalking crouch facing camera">&#128062; Stalk / Pounce</button>
+              </div>
+
+              <!-- Quadruped Side / Profile Poses Grid -->
+              <div style="display:none;grid-template-columns: repeat(2, 1fr); gap:4px; max-height:220px; overflow-y:auto; padding-right:2px;" id="quickPoseGridQuadrupedSide">
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Standing Alert (Side)" style="padding:4px 4px;font-size:10px;color:#34d399;border-color:rgba(52,211,153,0.3);" title="Animal standing alert in side profile">&#128021; Stand Alert Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Trotting / Walking (Side)" style="padding:4px 4px;font-size:10px;color:#38bdf8;border-color:rgba(56,189,248,0.3);" title="Walking or trotting in side profile">&#128062; Walk / Trot Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Galloping / Running (Side)" style="padding:4px 4px;font-size:10px;color:#facc15;border-color:rgba(250,204,21,0.3);" title="Galloping sprint in side profile">&#127943; Gallop / Run Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Sitting (Side)" style="padding:4px 4px;font-size:10px;color:#a78bfa;border-color:rgba(167,139,250,0.3);" title="Seated on floor in side profile">&#128008; Sitting Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Lying Down / Resting (Side)" style="padding:4px 4px;font-size:10px;color:#06b6d4;border-color:rgba(6,182,212,0.3);" title="Lying down resting in side profile">&#128716; Lying Rest Side</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Stalking / Pouncing (Side)" style="padding:4px 4px;font-size:10px;color:#f43f5e;border-color:rgba(244,63,94,0.3);" title="Low stalking crouch in side profile">&#128062; Stalk / Pounce Side</button>
               </div>
             </div>
 
@@ -1735,10 +1745,10 @@
                 <span>PROPS &amp; FURNITURE</span>
               </div>
               <div style="display:grid;grid-template-columns: 1fr 1fr; gap:6px;">
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="marker" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;border-color:rgba(6,182,212,0.6);background:rgba(6,182,212,0.08);color:#38bdf8;" title="Marcador anatómico para señalar detalles en el personaje (brazo robótico, ojo morado, rodilla vendada...)">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="marker" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;border-color:rgba(6,182,212,0.6);background:rgba(6,182,212,0.08);color:#38bdf8;" title="Anatomical marker to highlight details on character (robotic arm, scar, bandage...)">
                   <span>&#127919;</span> Body Feature
                 </button>
-                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="circle" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;border-color:rgba(167,139,250,0.5);background:rgba(167,139,250,0.08);" title="Objeto circular genérico personalizable (portal, fuego, lago, base...)">
+                <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="circle" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;border-color:rgba(167,139,250,0.5);background:rgba(167,139,250,0.08);" title="Customizable generic circular prop (portal, fire, pond, pedestal...)">
                   <span>&#9898;</span> Generic Circle
                 </button>
                 <button type="button" class="palette-item btn-ghost" data-type="prop" data-subtype="sofa" style="padding:7px 4px;font-size:11px;display:flex;align-items:center;gap:6px;">
@@ -1822,10 +1832,10 @@
                   </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <button type="button" id="btnRandomizeEnvironment" class="preset-pill-btn" style="color:#34d399;border-color:#059669;background:rgba(5,150,105,0.18);font-weight:700;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Generar aleatoriamente entorno y momento del día">
+                  <button type="button" id="btnRandomizeEnvironment" class="preset-pill-btn" style="color:#34d399;border-color:#059669;background:rgba(5,150,105,0.18);font-weight:700;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Randomly generate environment and time of day">
                     <span>🎲 Random Env</span>
                   </button>
-                  <button type="button" id="btnClearEnvironment" class="btn-ghost" style="padding:2px 6px;font-size:10px;color:var(--text-muted);" title="Limpiar entorno y momento del día">&#x2715; Limpiar</button>
+                  <button type="button" id="btnClearEnvironment" class="btn-ghost" style="padding:2px 6px;font-size:10px;color:var(--text-muted);" title="Clear environment and time of day">&#x2715; Clear</button>
                 </div>
               </div>
 
@@ -1834,10 +1844,10 @@
                 <!-- Environment / Location Input -->
                 <div>
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Ubicación / Situación:</label>
+                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Location / Scene Setting:</label>
                     <div style="display:flex;align-items:center;gap:3px;">
-                      <button type="button" class="field-random-btn btn-ghost" data-random-target="environment" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Ubicación aleatoria">🎲</button>
-                      <button type="button" class="preset-pill-btn" data-preset-target="environment" title="Abrir catálogo visual de entornos y situaciones">
+                      <button type="button" class="field-random-btn btn-ghost" data-random-target="environment" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random location">🎲</button>
+                      <button type="button" class="preset-pill-btn" data-preset-target="environment" title="Open visual catalogue of environments and settings">
                         <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
                       </button>
                     </div>
@@ -1846,48 +1856,48 @@
                          style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
                   <select id="sceneEnvironmentSelect" style="display:none;">
                     <option value="">Presets...</option>
-                    <optgroup label="Salud &amp; Cuidados (Indoor)">
-                      <option value="hospital emergency room with medical equipment and sterile lighting">Hospital / Sala de Urgencias</option>
-                      <option value="hospital clinic nursing ward with beds and monitoring screens">Enfermería / Sala de Clínica</option>
-                      <option value="veterinary animal clinic with examination table, medicine cabinets, and pet care gear">Veterinaria / Clínica de Mascotas</option>
+                    <optgroup label="Healthcare &amp; Medical (Indoor)">
+                      <option value="hospital emergency room with medical equipment and sterile lighting">Hospital Emergency Room</option>
+                      <option value="hospital clinic nursing ward with beds and monitoring screens">Clinic Nursing Ward</option>
+                      <option value="veterinary animal clinic with examination table, medicine cabinets, and pet care gear">Veterinary Animal Clinic</option>
                     </optgroup>
-                    <optgroup label="Trabajo, Oficios &amp; Educación (Indoor)">
-                      <option value="busy auto repair garage with car lifts, scattered tools, engine parts, and grease-stained floors">Taller Mecánico / Taller de Autos</option>
-                      <option value="rustic wooden equestrian horse barn stables with hay bales, wooden stalls, and warm lantern dust">Establo / Granja con Caballos</option>
-                      <option value="janitor utility closet with mop buckets, industrial cleaning chemicals, brooms, and shelves">Sala de Limpieza / Conserje</option>
-                      <option value="academic school classroom with blackboard, student desks, books, and chalk dust">Aula de Clases / Salón Escolar</option>
-                      <option value="high-tech research science laboratory with holographic workstations, microscopes, and glass test tubes">Laboratorio Científico / High-Tech</option>
+                    <optgroup label="Work, Trades &amp; Education (Indoor)">
+                      <option value="busy auto repair garage with car lifts, scattered tools, engine parts, and grease-stained floors">Auto Repair Garage</option>
+                      <option value="rustic wooden equestrian horse barn stables with hay bales, wooden stalls, and warm lantern dust">Equestrian Horse Barn / Stables</option>
+                      <option value="janitor utility closet with mop buckets, industrial cleaning chemicals, brooms, and shelves">Janitor Utility Closet</option>
+                      <option value="academic school classroom with blackboard, student desks, books, and chalk dust">School Classroom</option>
+                      <option value="high-tech research science laboratory with holographic workstations, microscopes, and glass test tubes">High-Tech Science Laboratory</option>
                     </optgroup>
-                    <optgroup label="Social, Fiestas &amp; Eventos (Indoor)">
-                      <option value="luxurious wedding banquet celebration with decorated floral tables, fairy lights, and champagne glasses">Casamiento / Fiesta de Bodas</option>
-                      <option value="packed lively nightclub dancefloor with pulsating strobe lights, laser beams, and DJ booth">Disco / Boliche Bailable</option>
-                      <option value="moody vintage pub tavern with wooden bar counter, beer taps, and warm dim amber tavern lighting">Bar / Taberna Rústica</option>
-                      <option value="upscale gourmet dining restaurant with candlelit tables, white linen tablecloths, and wine glasses">Restaurante Elegante</option>
+                    <optgroup label="Social, Nightlife &amp; Dining (Indoor)">
+                      <option value="luxurious wedding banquet celebration with decorated floral tables, fairy lights, and champagne glasses">Wedding Banquet Hall</option>
+                      <option value="packed lively nightclub dancefloor with pulsating strobe lights, laser beams, and DJ booth">Nightclub Dancefloor</option>
+                      <option value="moody vintage pub tavern with wooden bar counter, beer taps, and warm dim amber tavern lighting">Vintage Pub / Tavern</option>
+                      <option value="upscale gourmet dining restaurant with candlelit tables, white linen tablecloths, and wine glasses">Gourmet Dining Restaurant</option>
                     </optgroup>
-                    <optgroup label="Transporte &amp; Vehículos (Indoor / Mixto)">
-                      <option value="interior of a modern car from passenger perspective looking through windshield and side windows">Dentro de un Auto / Carro</option>
-                      <option value="commercial passenger airplane cabin with rows of seats, overhead luggage bins, and oval windows">Cabina de Avión Comercial</option>
-                      <option value="interior of a city transit commuter bus with handrail poles, passenger seats, and city view outside windows">Interior de Bus / Colectivo</option>
-                      <option value="street bus stop shelter with glass transit booth, bench, route map, and waiting curb">Parada de Bus / Marquesina</option>
+                    <optgroup label="Transit &amp; Vehicles (Indoor / Mixed)">
+                      <option value="interior of a modern car from passenger perspective looking through windshield and side windows">Inside a Modern Car</option>
+                      <option value="commercial passenger airplane cabin with rows of seats, overhead luggage bins, and oval windows">Commercial Passenger Airplane Cabin</option>
+                      <option value="interior of a city transit commuter bus with handrail poles, passenger seats, and city view outside windows">City Transit Commuter Bus</option>
+                      <option value="street bus stop shelter with glass transit booth, bench, route map, and waiting curb">Bus Stop Transit Shelter</option>
                     </optgroup>
-                    <optgroup label="Urbano &amp; Calles (Outdoor)">
-                      <option value="vibrant public city square plaza with green park benches, stone fountain, and walking trees">Plaza / Parque Público</option>
-                      <option value="bustling downtown metropolitan city street with crosswalks, traffic, storefront facades, and pedestrians">Calle Urbana Concurrida</option>
-                      <option value="narrow gritty urban brick alleyway with fire escapes, steam vents, wet puddles, and dumpsters">Callejón Urbano / Alleyway</option>
-                      <option value="wide urban pedestrian sidewalk pavement lined with shop display windows, street lamps, and parked bikes">Vereda de Calle / Acera Peatonal</option>
-                      <option value="scenic highway roadside shoulder with asphalt guardrail, distant horizon, and telephone poles">Al Lado de una Carretera / Banquina</option>
-                      <option value="pedestrian walkway across a massive suspension steel bridge with river and skyline view">Sobre un Puente</option>
-                      <option value="gritty underpass beneath a concrete highway bridge with graffiti walls, concrete pillars, and shadows">Debajo de un Puente</option>
+                    <optgroup label="Urban &amp; Streets (Outdoor)">
+                      <option value="vibrant public city square plaza with green park benches, stone fountain, and walking trees">City Square / Public Park</option>
+                      <option value="bustling downtown metropolitan city street with crosswalks, traffic, storefront facades, and pedestrians">Busy Downtown City Street</option>
+                      <option value="narrow gritty urban brick alleyway with fire escapes, steam vents, wet puddles, and dumpsters">Urban Alleyway</option>
+                      <option value="wide urban pedestrian sidewalk pavement lined with shop display windows, street lamps, and parked bikes">Pedestrian Sidewalk</option>
+                      <option value="scenic highway roadside shoulder with asphalt guardrail, distant horizon, and telephone poles">Highway Roadside Shoulder</option>
+                      <option value="pedestrian walkway across a massive suspension steel bridge with river and skyline view">Suspension Steel Bridge</option>
+                      <option value="gritty underpass beneath a concrete highway bridge with graffiti walls, concrete pillars, and shadows">Highway Bridge Underpass</option>
                     </optgroup>
-                    <optgroup label="Histórico, Castillos &amp; Fantasía">
-                      <option value="grand medieval gothic castle throne room with stone arches, banners, torches, and royal throne">Salón del Trono de un Castillo</option>
-                      <option value="ancient stone fortress castle courtyard with towering battlements, drawbridge, and stone pavers">Patio Exterior de Castillo</option>
-                      <option value="dark damp stone dungeon with iron cell bars, hanging chains, and flickering wall torches">Calabozo Subterráneo</option>
+                    <optgroup label="Historical, Castles &amp; Fantasy">
+                      <option value="grand medieval gothic castle throne room with stone arches, banners, torches, and royal throne">Castle Throne Room</option>
+                      <option value="ancient stone fortress castle courtyard with towering battlements, drawbridge, and stone pavers">Castle Fortress Courtyard</option>
+                      <option value="dark damp stone dungeon with iron cell bars, hanging chains, and flickering wall torches">Underground Stone Dungeon</option>
                     </optgroup>
-                    <optgroup label="Naturaleza &amp; Exteriores (Outdoor)">
-                      <option value="dense lush forest woods with mossy ancient trees, winding dirt path, and dappled sunbeams">Bosque Frondoso</option>
-                      <option value="sandy ocean coastal beach shoreline with breaking sea waves, shells, and coastal horizon">Playa al Océano con Olas</option>
-                      <option value="rugged snow-capped mountain ridge summit with rocky cliffs and panoramic alpine vista">Montaña Nevada</option>
+                    <optgroup label="Nature &amp; Outdoors (Outdoor)">
+                      <option value="dense lush forest woods with mossy ancient trees, winding dirt path, and dappled sunbeams">Dense Lush Forest</option>
+                      <option value="sandy ocean coastal beach shoreline with breaking sea waves, shells, and coastal horizon">Ocean Beach Shoreline</option>
+                      <option value="rugged snow-capped mountain ridge summit with rocky cliffs and panoramic alpine vista">Snowy Mountain Summit</option>
                     </optgroup>
                   </select>
                 </div>
@@ -1895,10 +1905,10 @@
                 <!-- Time of Day & Lighting Input -->
                 <div>
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Momento del Día &amp; Luz:</label>
+                    <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Time of Day &amp; Lighting:</label>
                     <div style="display:flex;align-items:center;gap:3px;">
-                      <button type="button" class="field-random-btn btn-ghost" data-random-target="timeOfDay" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Momento del día aleatorio">🎲</button>
-                      <button type="button" class="preset-pill-btn" data-preset-target="timeOfDay" title="Abrir selector de momento del día y luz">
+                      <button type="button" class="field-random-btn btn-ghost" data-random-target="timeOfDay" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random time of day">🎲</button>
+                      <button type="button" class="preset-pill-btn" data-preset-target="timeOfDay" title="Open time of day and lighting selector">
                         <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
                       </button>
                     </div>
@@ -1907,12 +1917,12 @@
                          style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
                   <select id="sceneTimeOfDaySelect" style="display:none;">
                     <option value="">Presets...</option>
-                    <optgroup label="Momentos del Día">
-                      <option value="bright natural daylight, clear sky, crisp illumination">☀️ Día / Bright Daylight</option>
-                      <option value="warm late afternoon sun, long angled shadows, rich amber illumination">🌇 Tarde / Late Afternoon</option>
+                    <optgroup label="Times of Day">
+                      <option value="bright natural daylight, clear sky, crisp illumination">☀️ Bright Daylight</option>
+                      <option value="warm late afternoon sun, long angled shadows, rich amber illumination">🌇 Late Afternoon</option>
                       <option value="dramatic golden hour sunset, warm fiery orange-gold glow, backlighting, long dramatic shadows">✨ Golden Hour / Sunset Glow</option>
-                      <option value="early dawn twilight, cool misty morning atmosphere, gentle pale horizon light">🌅 Madrugada / Dawn Twilight</option>
-                      <option value="deep cinematic night, cool blue moonlight, soft shadows, ambient night glow">🌙 Noche / Night &amp; Moonlight</option>
+                      <option value="early dawn twilight, cool misty morning atmosphere, gentle pale horizon light">🌅 Dawn Twilight</option>
+                      <option value="deep cinematic night, cool blue moonlight, soft shadows, ambient night glow">🌙 Deep Night &amp; Moonlight</option>
                       <option value="cinematic blue hour dusk, deep sapphire sky, glowing artificial city streetlights">🌌 Blue Hour / Crepúsculo Azul</option>
                     </optgroup>
                     <optgroup label="Clima &amp; Atmósfera">
@@ -2016,7 +2026,7 @@
 
                 <!-- Looking At Gaze Target (Character, Prop, or Custom target) -->
                 <div id="lookingAtControlGroup" style="display:none;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:#38bdf8;font-weight:600;" title="Objeto o personaje al que mira la figura">👀 Looking At:</span>
+                  <span style="font-size:11px;color:#38bdf8;font-weight:600;" title="Object or character this figure is looking at">👀 Looking At:</span>
                   <select id="charLookingAtSelect" class="director-select" style="max-width:180px;">
                     <option value="">-- Camera / Neutral --</option>
                   </select>
@@ -2035,7 +2045,7 @@
                   <select id="propSubtypeSelect" class="director-select" style="max-width:170px;">
                     <option value="marker">&#127919; Body Feature Marker</option>
                     <option value="circle">&#9898; Generic Circle / Custom</option>
-                    <option value="bed">&#128716; Bed (Cama)</option>
+                    <option value="bed">&#128716; Bed</option>
                     <option value="sofa">&#128715; Sofa</option>
                     <option value="chair">&#129681; Chair</option>
                     <option value="table">&#129701; Table / Desk</option>
@@ -2046,32 +2056,32 @@
                     <option value="window">&#129687; Window</option>
                     <option value="door">&#128682; Doorway</option>
                   </select>
-                  <select id="propRoleSelect" class="director-select" style="max-width:150px;background:#1e1b4b;border-color:#6366f1;color:#c7d2fe;" title="Definir si es un objeto del entorno o un marcador de detalle en un personaje">
-                    <option value="environment">🛋️ Objeto de entorno</option>
-                    <option value="character_feature">🎯 Detalle en personaje</option>
+                  <select id="propRoleSelect" class="director-select" style="max-width:150px;background:#1e1b4b;border-color:#6366f1;color:#c7d2fe;" title="Define whether this is an environment object or a character detail marker">
+                    <option value="environment">🛋️ Environment Object</option>
+                    <option value="character_feature">🎯 Character Detail / Marker</option>
                   </select>
                   <div id="propFeatureControls" style="display:none;align-items:center;gap:5px;">
-                    <select id="propTargetCharSelect" class="director-select" style="max-width:140px;" title="Personaje al que se asocia este detalle (o Auto por posición)">
-                      <option value="">🎯 [Auto-detectar]</option>
+                    <select id="propTargetCharSelect" class="director-select" style="max-width:140px;" title="Character associated with this detail (or Auto-detect by position)">
+                      <option value="">🎯 [Auto-detect]</option>
                     </select>
-                    <input type="text" id="propBodyPartInput" placeholder="Parte del cuerpo (ej. Brazo Izq, Ojo)..." 
-                           style="width:145px;background:var(--bg-input);border:1px solid #06b6d4;border-radius:4px;padding:3px 6px;color:#67e8f9;font-size:11px;" title="Parte del cuerpo anatómica" />
+                    <input type="text" id="propBodyPartInput" placeholder="Body part (e.g. Left arm, Eye)..." 
+                           style="width:145px;background:var(--bg-input);border:1px solid #06b6d4;border-radius:4px;padding:3px 6px;color:#67e8f9;font-size:11px;" title="Anatomical body part" />
                   </div>
                   <input type="text" id="propLabelInput" placeholder="Name (e.g. Sofa, Magic Portal)..." 
                          style="width:130px;background:var(--bg-input);border:1px solid #7c3aed;border-radius:4px;padding:3px 6px;color:#ddd6fe;font-size:11px;" title="Prop name / label" />
                   <input type="text" id="propDescInput" placeholder="Details (e.g. worn leather, glowing cyan)..." 
                          style="width:190px;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:3px 6px;color:#fff;font-size:11px;" title="Prop details, color, material or style" />
-                  <button type="button" id="btnPropToggleView" class="btn-ghost" style="padding:2px 7px;font-size:11px;color:#38bdf8;" title="Alternar diseño del prop entre vista superior/planta y vista de perfil lateral">&#128257; Planta &#8596; Perfil</button>
+                  <button type="button" id="btnPropToggleView" class="btn-ghost" style="padding:2px 7px;font-size:11px;color:#38bdf8;" title="Toggle prop design between top-down layout and side profile">&#128257; Top-Down &#8596; Side</button>
                 </div>
 
                 <!-- Scale / Camera Distance Slider (0.2x to 6.0x) -->
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:var(--text-muted);font-weight:600;" title="Distancia de la cámara / Encuadre óptico en la escena (no altera la estatura biológica)">Distance / Scale:</span>
+                  <span style="font-size:11px;color:var(--text-muted);font-weight:600;" title="Camera distance / Optical framing in scene (does not alter biological height)">Distance / Scale:</span>
                   <button type="button" id="btnScaleDown" class="btn-ghost" style="padding:1px 6px;font-size:11px;">-</button>
                   <input type="range" id="propScaleSlider" min="0.2" max="6.0" step="0.05" value="1.0" style="width:90px;accent-color:#0284c7;" />
                   <button type="button" id="btnScaleUp" class="btn-ghost" style="padding:1px 6px;font-size:11px;">+</button>
                   <span id="propScaleVal" style="font-size:11px;font-weight:700;color:#38bdf8;min-width:32px;">1.00x</span>
-                  <span id="propFramingBadge" style="font-size:9.5px;padding:1px 6px;border-radius:3px;background:#0f172a;border:1px solid #334155;color:#94a3b8;font-weight:600;" title="Plano / Profundidad de cámara">Midground</span>
+                  <span id="propFramingBadge" style="font-size:9.5px;padding:1px 6px;border-radius:3px;background:#0f172a;border:1px solid #334155;color:#94a3b8;font-weight:600;" title="Camera framing / Depth tier">Midground</span>
                 </div>
 
                 <!-- Rotate Slider -->
@@ -2083,28 +2093,28 @@
 
                 <!-- Pose Dropdown + Save Pose Preset -->
                 <div id="poseControlGroup" style="display:flex;align-items:center;gap:5px;">
-                  <button type="button" id="btnOpenPoseGallery" class="btn-primary" style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;font-size:11px;background:#0284c7;border-color:#0369a1;color:#fff;font-weight:600;cursor:pointer;" title="Abrir Álbum y Galería Visual de Posturas">
+                  <button type="button" id="btnOpenPoseGallery" class="btn-primary" style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;font-size:11px;background:#0284c7;border-color:#0369a1;color:#fff;font-weight:600;cursor:pointer;" title="Open Visual Pose Gallery &amp; Album">
                     <span>🧍</span>
-                    <span>Galería de Poses</span>
+                    <span>Pose Gallery</span>
                   </button>
                   <select id="posePresetSelect" class="director-select" style="max-width:140px;">
-                    <option value="">-- Postura rápida --</option>
+                    <option value="">-- Quick Pose --</option>
                     {{range .StudioPoses}}
                       <option value="{{.Name}}" data-pose="{{.PoseJSON}}">{{.Name}}</option>
                     {{end}}
                   </select>
                   <button type="button" id="btnSavePoseModal" class="btn-ghost" style="padding:3px 7px;font-size:11px;color:#67e8f9;border-color:#0891b2;" title="Save current pose to DB">&#128190; Save</button>
                   <button type="button" id="btnResetPose" class="btn-ghost" style="padding:3px 5px;font-size:11px;" title="Reset pose to default standing">&#8635;</button>
-                  <button type="button" id="btnCharToggleSideView" class="btn-ghost" style="padding:3px 7px;font-size:11px;color:#a78bfa;font-weight:600;" title="Alternar postura de este personaje entre Frente y Perfil (Side)">&#128257; Frente &#8596; Perfil</button>
+                  <button type="button" id="btnCharToggleSideView" class="btn-ghost" style="padding:3px 7px;font-size:11px;color:#a78bfa;font-weight:600;" title="Toggle character pose between Front and Side Profile">&#128257; Front &#8596; Side</button>
                 </div>
 
                 <!-- Layer Ordering (Front, Up, Down, Back) with explicit Layer Badge -->
                 <div style="display:flex;align-items:center;gap:3px;background:var(--bg-input);padding:2px 4px;border-radius:4px;border:1px solid var(--border-navy);">
                   <span id="layerBadge" style="font-size:10.5px;color:#38bdf8;font-weight:600;margin-right:2px;">Layer 1/3</span>
-                  <button type="button" id="btnBringToFront" class="btn-ghost" style="padding:2px 6px;font-size:11px;font-weight:700;" title="Bring to Front (Delante de todo)">&#8607; Front</button>
-                  <button type="button" id="btnLayerUp" class="btn-ghost" style="padding:2px 6px;font-size:11px;" title="Bring Forward (Un nivel adelante)">&#9650; Up</button>
-                  <button type="button" id="btnLayerDown" class="btn-ghost" style="padding:2px 6px;font-size:11px;" title="Send Backward (Un nivel atrás)">&#9660; Down</button>
-                  <button type="button" id="btnSendToBack" class="btn-ghost" style="padding:2px 6px;font-size:11px;font-weight:700;" title="Send to Back (Detrás de todo)">&#8609; Back</button>
+                  <button type="button" id="btnBringToFront" class="btn-ghost" style="padding:2px 6px;font-size:11px;font-weight:700;" title="Bring to Front">&#8607; Front</button>
+                  <button type="button" id="btnLayerUp" class="btn-ghost" style="padding:2px 6px;font-size:11px;" title="Bring Forward">&#9650; Up</button>
+                  <button type="button" id="btnLayerDown" class="btn-ghost" style="padding:2px 6px;font-size:11px;" title="Send Backward">&#9660; Down</button>
+                  <button type="button" id="btnSendToBack" class="btn-ghost" style="padding:2px 6px;font-size:11px;font-weight:700;" title="Send to Back">&#8609; Back</button>
                 </div>
 
                 <!-- Actions (Flip, Duplicate, Delete) -->
@@ -2122,7 +2132,7 @@
                       <span id="charSelectedBadge" style="font-size:10px;color:#94a3b8;font-weight:normal;background:#1e293b;border:1px solid #334155;padding:1px 6px;border-radius:3px;"></span>
                     </span>
                     <div style="display:flex;align-items:center;gap:8px;">
-                      <button type="button" id="btnRandomizeChar" class="preset-pill-btn" style="color:#fbbf24;border-color:#d97706;background:rgba(217,119,6,0.18);font-weight:700;padding:3px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;" title="Generar aleatoriamente apariencia, vestimenta, peinado, anatomía y accesorios para este personaje">
+                      <button type="button" id="btnRandomizeChar" class="preset-pill-btn" style="color:#fbbf24;border-color:#d97706;background:rgba(217,119,6,0.18);font-weight:700;padding:3px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;" title="Randomly generate appearance, outfit, hairstyle, anatomy and accessories for this character">
                         <span>&#127922; Random Look</span>
                       </button>
                       <span style="font-size:10.5px;color:var(--text-muted);font-style:italic;">Traits are compiled into AI prompt</span>
@@ -2141,10 +2151,10 @@
                                style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#60a5fa;font-size:11.5px;font-weight:700;" />
                       </div>
 
-                      <!-- Age / Edad -->
+                      <!-- Age -->
                       <div>
                         <div style="margin-bottom:3px;">
-                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Edad cronológica del personaje (guía al modelo independientemente del tamaño en pantalla)">Age / Edad:</label>
+                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Chronological age of character (guides generation independently of screen size)">Age:</label>
                         </div>
                         <input type="text" id="charAgeInput" list="charAgeDatalist" placeholder="e.g. 28yo, 8yo..." 
                                style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#38bdf8;font-size:11px;font-weight:600;" />
@@ -2157,10 +2167,10 @@
                         </datalist>
                       </div>
 
-                      <!-- Physical Height / Altura real -->
+                      <!-- Physical Height (Real) -->
                       <div>
                         <div style="margin-bottom:3px;">
-                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Estatura física real en cm o escala anatómica (independiente del zoom de cámara)">Height / Altura:</label>
+                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Real physical stature in cm or anatomical scale (independent of camera framing)">Height (Real):</label>
                         </div>
                         <input type="text" id="charHeightInput" list="charHeightDatalist" placeholder="e.g. 180 cm, 120 cm..." 
                                style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#38bdf8;font-size:11px;font-weight:600;" />
@@ -2173,10 +2183,10 @@
                         </datalist>
                       </div>
 
-                      <!-- Physical Structure & Build / Complexión -->
+                      <!-- Physical Structure & Build -->
                       <div>
                         <div style="margin-bottom:3px;">
-                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Estructura física y complexión anatómica">Structure / Build:</label>
+                          <label style="display:block;font-size:10.5px;font-weight:600;color:#93c5fd;" title="Physical structure and anatomical build">Structure / Build:</label>
                         </div>
                         <input type="text" id="charPhysiqueInput" list="charPhysiqueDatalist" placeholder="e.g. athletic muscular build, lean slender, stocky burly, petite frame..." 
                                style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:4px;padding:5px 8px;color:#fff;font-size:11px;" />
@@ -2199,8 +2209,8 @@
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                           <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Pose / Stance:</label>
                           <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="pose" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Pose aleatoria">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="pose" title="Abrir selector visual de poses">
+                            <button type="button" class="field-random-btn btn-ghost" data-random-target="pose" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random pose">🎲</button>
+                            <button type="button" class="preset-pill-btn" data-preset-target="pose" title="Open pose visual selector">
                               <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
                             </button>
                           </div>
@@ -2214,8 +2224,8 @@
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                           <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Anatomy &amp; Body:</label>
                           <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="anatomy" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Anatomía y etnicidad aleatoria">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="anatomy" title="Abrir selector visual de anatomía">
+                            <button type="button" class="field-random-btn btn-ghost" data-random-target="anatomy" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random anatomy and ethnicity">🎲</button>
+                            <button type="button" class="preset-pill-btn" data-preset-target="anatomy" title="Open anatomy visual selector">
                               <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
                             </button>
                           </div>
@@ -2271,8 +2281,8 @@
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                           <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Expression &amp; Mood:</label>
                           <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="expression" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Expresión aleatoria">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="expression" title="Abrir selector visual de expresiones">
+                            <button type="button" class="field-random-btn btn-ghost" data-random-target="expression" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random expression">🎲</button>
+                            <button type="button" class="preset-pill-btn" data-preset-target="expression" title="Open expression visual selector">
                               <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
                             </button>
                           </div>
@@ -2312,8 +2322,8 @@
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                           <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Hairstyle &amp; Color:</label>
                           <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="hair" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Peinado y color aleatorio">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="hair" title="Abrir selector visual de peinados">
+                            <button type="button" class="field-random-btn btn-ghost" data-random-target="hair" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random hairstyle and color">🎲</button>
+                            <button type="button" class="preset-pill-btn" data-preset-target="hair" title="Open hairstyle visual selector">
                               <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
                             </button>
                           </div>
@@ -2372,8 +2382,8 @@
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                           <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Clothing &amp; Outfit:</label>
                           <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="clothing" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Vestimenta aleatoria">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="clothing" title="Abrir selector visual de vestimenta">
+                            <button type="button" class="field-random-btn btn-ghost" data-random-target="clothing" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random outfit">🎲</button>
+                            <button type="button" class="preset-pill-btn" data-preset-target="clothing" title="Open outfit visual selector">
                               <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
                             </button>
                           </div>
@@ -2383,44 +2393,44 @@
                         <select id="charClothingSelect" style="display:none;">
                           <option value="">Presets...</option>
                           <optgroup label="Professions &amp; Uniforms">
-                            <option value="heavy turnout firefighter jacket with reflective yellow-silver safety stripes, bunker pants, and suspenders">Bombero / Firefighter Gear</option>
-                            <option value="navy blue municipal police uniform with utility duty belt, badge, radio shoulder mic, and tactical slacks">Policía / Police Officer</option>
-                            <option value="tweed blazer with elbow patches over a buttoned knit cardigan, collared shirt, and pressed corduroy trousers">Profesor / Academic Teacher</option>
-                            <option value="pristine white doctor lab coat over formal dress shirt and slacks with stethoscope around neck">Doctor / Physician Lab Coat</option>
-                            <option value="medical scrubs uniform in hospital ceil blue with hospital badge and nursing clogs">Enfermero/a / Medical Scrubs</option>
-                            <option value="double-breasted white chef coat with black piping, houndstooth kitchen trousers, and apron">Cocinero / Master Chef</option>
-                            <option value="fast-food crew polo shirt with contrast collar, employee name tag, apron, and visor cap">Dependiente Fast-Food / Crew</option>
-                            <option value="modern smart-casual blazer over a minimalist charcoal crewneck tee, tailored chinos, and leather loafers">Empresario / Smart-Casual Founder</option>
-                            <option value="luxurious three-piece bespoke executive suit with tailored vest, silk tie, french-cuff dress shirt, and polished oxfords">Ejecutivo / Corporate Executive</option>
-                            <option value="airline captain uniform with gold sleeve epaulets, double-breasted navy blazer, and peaked pilot cap">Piloto Comercial / Airline Pilot</option>
-                            <option value="heavy duty grease-stained canvas mechanic work coveralls with utility tool pockets">Mecánico / Mechanic Coveralls</option>
+                            <option value="heavy turnout firefighter jacket with reflective yellow-silver safety stripes, bunker pants, and suspenders">Firefighter Gear</option>
+                            <option value="navy blue municipal police uniform with utility duty belt, badge, radio shoulder mic, and tactical slacks">Police Officer Uniform</option>
+                            <option value="tweed blazer with elbow patches over a buttoned knit cardigan, collared shirt, and pressed corduroy trousers">Academic Teacher Tweed Blazer</option>
+                            <option value="pristine white doctor lab coat over formal dress shirt and slacks with stethoscope around neck">Doctor Lab Coat</option>
+                            <option value="medical scrubs uniform in hospital ceil blue with hospital badge and nursing clogs">Medical Scrubs Uniform</option>
+                            <option value="double-breasted white chef coat with black piping, houndstooth kitchen trousers, and apron">Chef Coat &amp; Apron</option>
+                            <option value="fast-food crew polo shirt with contrast collar, employee name tag, apron, and visor cap">Fast-Food Crew Uniform</option>
+                            <option value="modern smart-casual blazer over a minimalist charcoal crewneck tee, tailored chinos, and leather loafers">Smart-Casual Founder Blazer</option>
+                            <option value="luxurious three-piece bespoke executive suit with tailored vest, silk tie, french-cuff dress shirt, and polished oxfords">Executive Bespoke Suit</option>
+                            <option value="airline captain uniform with gold sleeve epaulets, double-breasted navy blazer, and peaked pilot cap">Airline Pilot Uniform</option>
+                            <option value="heavy duty grease-stained canvas mechanic work coveralls with utility tool pockets">Mechanic Work Coveralls</option>
                           </optgroup>
                           <optgroup label="Sports, Wrestling &amp; Street">
-                            <option value="satin boxing trunks with wide elastic waistband, training robe, hand wraps, and boxing shoes">Boxeador / Boxing Trunks &amp; Robe</option>
-                            <option value="mexican lucha libre wrestler gear with vibrant laced mask, wrestling singlet tights, and tall laced boots">Luchador Libre / Wrestler</option>
-                            <option value="oversized 90s graphic skate tee, baggy faded cargo denim pants, canvas skate sneakers, and low socks">Skater / Baggy Streetwear</option>
-                            <option value="athletic performance gym tank top, compression leggings, and runners">Gimnasio / Fitness Sportswear</option>
-                            <option value="breathable athletic soccer jersey with matching performance shorts, high knee socks, and cleats">Futbolista / Soccer Kit</option>
-                            <option value="traditional white martial arts karate/judo gi with black belt tied at waist">Artes Marciales / Karate Gi</option>
+                            <option value="satin boxing trunks with wide elastic waistband, training robe, hand wraps, and boxing shoes">Boxing Trunks &amp; Robe</option>
+                            <option value="mexican lucha libre wrestler gear with vibrant laced mask, wrestling singlet tights, and tall laced boots">Lucha Libre Wrestler</option>
+                            <option value="oversized 90s graphic skate tee, baggy faded cargo denim pants, canvas skate sneakers, and low socks">Skater Baggy Streetwear</option>
+                            <option value="athletic performance gym tank top, compression leggings, and runners">Fitness Sportswear &amp; Leggings</option>
+                            <option value="breathable athletic soccer jersey with matching performance shorts, high knee socks, and cleats">Soccer Kit &amp; Cleats</option>
+                            <option value="traditional white martial arts karate/judo gi with black belt tied at waist">Martial Arts Karate Gi</option>
                           </optgroup>
                           <optgroup label="Feminine Outfits &amp; Dresses">
-                            <option value="vibrant floral-print breezy summer sundress with pastel blossoms, spaghetti straps, and sunhat">Vestido Floreado / Floral Sundress</option>
-                            <option value="tailored women's power suit blazer with matching high-waisted cigarette pants and satin blouse">Traje Formal Mujer / Executive Pantsuit</option>
-                            <option value="elegant business blazer with tailored knee-length pencil skirt, sheer stockings, and classic pointed pumps">Blazer Formal &amp; Falda Tubo</option>
-                            <option value="floor-length flowing silk evening cocktail gown with elegant neckline and high side slit">Vestido de Noche / Evening Silk Gown</option>
-                            <option value="cropped ribbed knit top, high-rise relaxed jeans, and an oversized pastel knitted cardigan">Casual Mujer / Cardigan &amp; Crop Top</option>
-                            <option value="off-the-shoulder bohemian peasant blouse with ruffled lace and flowing layered maxi skirt">Blusa Bohemio &amp; Falda Larga</option>
+                            <option value="vibrant floral-print breezy summer sundress with pastel blossoms, spaghetti straps, and sunhat">Floral Summer Sundress</option>
+                            <option value="tailored women's power suit blazer with matching high-waisted cigarette pants and satin blouse">Executive Women's Pantsuit</option>
+                            <option value="elegant business blazer with tailored knee-length pencil skirt, sheer stockings, and classic pointed pumps">Business Blazer &amp; Pencil Skirt</option>
+                            <option value="floor-length flowing silk evening cocktail gown with elegant neckline and high side slit">Evening Silk Gown</option>
+                            <option value="cropped ribbed knit top, high-rise relaxed jeans, and an oversized pastel knitted cardigan">Casual Cardigan &amp; Crop Top</option>
+                            <option value="off-the-shoulder bohemian peasant blouse with ruffled lace and flowing layered maxi skirt">Bohemian Blouse &amp; Maxi Skirt</option>
                           </optgroup>
                           <optgroup label="Skirts, Shorts &amp; Denim">
-                            <option value="classic distressed denim miniskirt with fitted crop baby tee and sneakers">Minifalda de Jean / Denim Miniskirt</option>
-                            <option value="edgy black leather miniskirt with fishnet tights and combat boots">Minifalda de Cuero / Leather Miniskirt</option>
-                            <option value="high-waisted pleated tennis skirt with tucked-in polo shirt and crew socks">Falda Plisada / Pleated Skirt</option>
-                            <option value="form-fitting high-waisted midi pencil skirt with tucked silk blouse">Falda Tubo Midi / Form-Fitting Skirt</option>
-                            <option value="frayed cutoff short denim shorts (daisy dukes) with casual sleeveless tank top">Shorts de Jean Cortos / Daisy Dukes</option>
-                            <option value="retro high-waisted dolphin running shorts with contrast piping and crop tank">Shorts Deportivos Retro</option>
-                            <option value="high-rise 90s vintage wide-leg baggy denim jeans with fitted ribbed sweater">Jeans Anchos Wide-Leg / 90s Baggy</option>
-                            <option value="dark-wash stretch skinny denim jeans, fitted white t-shirt, and leather ankle boots">Jeans Skinny / Stretch Denim</option>
-                            <option value="tactical multi-pocket olive cargo pants with utility belt and crop top">Pantalón Cargo con Bolsillos</option>
+                            <option value="classic distressed denim miniskirt with fitted crop baby tee and sneakers">Denim Miniskirt</option>
+                            <option value="edgy black leather miniskirt with fishnet tights and combat boots">Leather Miniskirt</option>
+                            <option value="high-waisted pleated tennis skirt with tucked-in polo shirt and crew socks">Pleated Tennis Skirt</option>
+                            <option value="form-fitting high-waisted midi pencil skirt with tucked silk blouse">Midi Pencil Skirt</option>
+                            <option value="frayed cutoff short denim shorts (daisy dukes) with casual sleeveless tank top">Denim Shorts / Daisy Dukes</option>
+                            <option value="retro high-waisted dolphin running shorts with contrast piping and crop tank">Retro Athletic Running Shorts</option>
+                            <option value="high-rise 90s vintage wide-leg baggy denim jeans with fitted ribbed sweater">90s Wide-Leg Baggy Jeans</option>
+                            <option value="dark-wash stretch skinny denim jeans, fitted white t-shirt, and leather ankle boots">Skinny Stretch Jeans</option>
+                            <option value="tactical multi-pocket olive cargo pants with utility belt and crop top">Tactical Cargo Pants</option>
                           </optgroup>
                           <optgroup label="Urban &amp; Casual">
                             <option value="casual graphic t-shirt and distressed denim jeans with sneakers">Casual T-Shirt &amp; Jeans</option>
@@ -2456,8 +2466,8 @@
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                           <label style="font-size:10.5px;font-weight:600;color:#93c5fd;">Accessories &amp; Gear:</label>
                           <div style="display:flex;align-items:center;gap:3px;">
-                            <button type="button" class="field-random-btn btn-ghost" data-random-target="details" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Accesorios aleatorios">🎲</button>
-                            <button type="button" class="preset-pill-btn" data-preset-target="details" title="Abrir selector visual de accesorios">
+                            <button type="button" class="field-random-btn btn-ghost" data-random-target="details" style="padding:1px 5px;font-size:10px;line-height:1;border-color:#38bdf8;color:#38bdf8;" title="Random accessories">🎲</button>
+                            <button type="button" class="preset-pill-btn" data-preset-target="details" title="Open accessories visual selector">
                               <span>⚡ Presets</span> <span style="font-size:8px;">▼</span>
                             </button>
                           </div>
@@ -2846,30 +2856,31 @@
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:22px;">🧍</span>
               <div>
-                <h3 style="margin:0;font-size:15px;color:#fff;font-weight:700;">Álbum de Posiciones Artísticas &amp; Anatomía</h3>
+                <h3 style="margin:0;font-size:15px;color:#fff;font-weight:700;">Artistic Poses &amp; Anatomy Gallery</h3>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
-                  Hacé click en cualquier miniatura para aplicar la postura al personaje seleccionado en el escenario.
+                  Click any thumbnail to apply the pose to the selected character on the stage.
                 </div>
               </div>
             </div>
-            <button type="button" id="btnClosePoseGallery" class="btn-ghost close-modal" style="padding:4px 10px;font-size:16px;" aria-label="Cerrar">&#x2715;</button>
+            <button type="button" id="btnClosePoseGallery" class="btn-ghost close-modal" style="padding:4px 10px;font-size:16px;" aria-label="Close">&#x2715;</button>
           </div>
 
           <!-- Controls: Category Tabs & Search Bar -->
           <div style="padding:10px 18px;border-bottom:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(15,23,42,0.5);">
             <div id="poseCategoryTabs" style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button type="button" class="btn-ghost pose-cat-btn active" data-cat="all" style="padding:4px 10px;font-size:11px;border-radius:4px;">Todas (<span id="pose-count-all">0</span>)</button>
-              <button type="button" class="btn-ghost pose-cat-btn" data-cat="standing" style="padding:4px 10px;font-size:11px;border-radius:4px;">🦶 De pie (<span id="pose-count-standing">0</span>)</button>
-              <button type="button" class="btn-ghost pose-cat-btn" data-cat="kneeling" style="padding:4px 10px;font-size:11px;border-radius:4px;">🦵 De rodillas (<span id="pose-count-kneeling">0</span>)</button>
-              <button type="button" class="btn-ghost pose-cat-btn" data-cat="sitting" style="padding:4px 10px;font-size:11px;border-radius:4px;">🧘 Sentadas (<span id="pose-count-sitting">0</span>)</button>
-              <button type="button" class="btn-ghost pose-cat-btn" data-cat="lying" style="padding:4px 10px;font-size:11px;border-radius:4px;">🛌 Suelo &amp; Puente (<span id="pose-count-lying">0</span>)</button>
-              <button type="button" class="btn-ghost pose-cat-btn" data-cat="sports" style="padding:4px 10px;font-size:11px;border-radius:4px;">⚽ Deportes &amp; Gym (<span id="pose-count-sports">0</span>)</button>
-              <button type="button" class="btn-ghost pose-cat-btn" data-cat="couple" style="padding:4px 10px;font-size:11px;border-radius:4px;">👥 Pareja &amp; Interacción (<span id="pose-count-couple">0</span>)</button>
-              <button type="button" class="btn-ghost pose-cat-btn" data-cat="aerial" style="padding:4px 10px;font-size:11px;border-radius:4px;">🕊️ En el aire &amp; Vuelo (<span id="pose-count-aerial">0</span>)</button>
-              <button type="button" class="btn-ghost pose-cat-btn" data-cat="action" style="padding:4px 10px;font-size:11px;border-radius:4px;">⚡ Dinámicas (<span id="pose-count-action">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn active" data-cat="all" style="padding:4px 10px;font-size:11px;border-radius:4px;">All (<span id="pose-count-all">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="standing" style="padding:4px 10px;font-size:11px;border-radius:4px;">🦶 Standing (<span id="pose-count-standing">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="kneeling" style="padding:4px 10px;font-size:11px;border-radius:4px;">🦵 Kneeling (<span id="pose-count-kneeling">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="sitting" style="padding:4px 10px;font-size:11px;border-radius:4px;">🧘 Seated (<span id="pose-count-sitting">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="lying" style="padding:4px 10px;font-size:11px;border-radius:4px;">🛌 Ground &amp; Lying (<span id="pose-count-lying">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="sports" style="padding:4px 10px;font-size:11px;border-radius:4px;">⚽ Sports &amp; Gym (<span id="pose-count-sports">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="couple" style="padding:4px 10px;font-size:11px;border-radius:4px;">👥 Couple &amp; Social (<span id="pose-count-couple">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="aerial" style="padding:4px 10px;font-size:11px;border-radius:4px;">🕊️ Aerial &amp; Flight (<span id="pose-count-aerial">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="action" style="padding:4px 10px;font-size:11px;border-radius:4px;">⚡ Action (<span id="pose-count-action">0</span>)</button>
+              <button type="button" class="btn-ghost pose-cat-btn" data-cat="quadruped" style="padding:4px 10px;font-size:11px;border-radius:4px;border-color:rgba(52,211,153,0.3);color:#34d399;">🐾 Quadrupeds (<span id="pose-count-quadruped">0</span>)</button>
             </div>
             <div style="position:relative;min-width:200px;">
-              <input type="text" id="poseGallerySearch" placeholder="🔍 Filtrar posturas..." 
+              <input type="text" id="poseGallerySearch" placeholder="🔍 Filter poses..." 
                      style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:5px 8px;color:#fff;font-size:11.5px;" />
             </div>
           </div>
@@ -2881,13 +2892,13 @@
 
           <!-- Modal Footer -->
           <div style="padding:10px 18px;border-top:1px solid var(--border-navy);display:flex;justify-content:space-between;align-items:center;background:#060d1b;font-size:11px;color:var(--text-muted);">
-            <span id="poseGalleryStatus">Seleccioná una postura para aplicarla al personaje actual.</span>
+            <span id="poseGalleryStatus">Select a pose to apply to the active character.</span>
             <div style="display:flex;align-items:center;gap:12px;">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:#94a3b8;font-size:11px;">
                 <input type="checkbox" id="chkKeepGalleryOpen" />
-                <span>Mantener galería abierta tras seleccionar</span>
+                <span>Keep gallery open after selecting</span>
               </label>
-              <button type="button" id="btnCancelPoseGallery" class="btn-ghost close-modal" style="padding:4px 12px;font-size:11.5px;">Cerrar</button>
+              <button type="button" id="btnCancelPoseGallery" class="btn-ghost close-modal" style="padding:4px 12px;font-size:11.5px;">Close</button>
             </div>
           </div>
 
@@ -2914,8 +2925,63 @@
 (function() {
   // --- Director State & Presets ---
   const POSE_PRESETS = {
-    // --- Quadruped (4-Legged Animal) Poses ---
+    // --- Quadruped (4-Legged Animal) Frontal Poses ---
     "Quadruped: Standing Alert": {
+      snout:{x:50,y:28},head:{x:50,y:18},neck:{x:50,y:35},
+      withers:{x:50,y:44},spine:{x:50,y:50},rump:{x:50,y:56},
+      tail_base:{x:50,y:58},tail_tip:{x:44,y:68},
+      r_f_shoulder:{x:38,y:46},r_f_elbow:{x:37,y:68},r_f_paw:{x:36,y:92},
+      l_f_shoulder:{x:62,y:46},l_f_elbow:{x:63,y:68},l_f_paw:{x:64,y:92},
+      r_b_hip:{x:34,y:54},r_b_hock:{x:31,y:72},r_b_paw:{x:28,y:90},
+      l_b_hip:{x:66,y:54},l_b_hock:{x:69,y:72},l_b_paw:{x:72,y:90}
+    },
+    "Quadruped: Trotting / Walking": {
+      snout:{x:50,y:28},head:{x:50,y:18},neck:{x:50,y:35},
+      withers:{x:50,y:44},spine:{x:50,y:50},rump:{x:50,y:56},
+      tail_base:{x:50,y:58},tail_tip:{x:56,y:48},
+      r_f_shoulder:{x:38,y:46},r_f_elbow:{x:36,y:66},r_f_paw:{x:34,y:92},
+      l_f_shoulder:{x:62,y:46},l_elbow:{x:64,y:64},l_f_paw:{x:62,y:82},
+      r_b_hip:{x:34,y:54},r_b_hock:{x:30,y:70},r_b_paw:{x:28,y:84},
+      l_b_hip:{x:66,y:54},l_b_hock:{x:70,y:74},l_b_paw:{x:72,y:92}
+    },
+    "Quadruped: Galloping / Running": {
+      snout:{x:50,y:30},head:{x:50,y:20},neck:{x:50,y:36},
+      withers:{x:50,y:44},spine:{x:50,y:50},rump:{x:50,y:56},
+      tail_base:{x:50,y:58},tail_tip:{x:50,y:42},
+      r_f_shoulder:{x:34,y:46},r_f_elbow:{x:28,y:60},r_f_paw:{x:24,y:76},
+      l_f_shoulder:{x:66,y:46},l_f_elbow:{x:72,y:60},l_f_paw:{x:76,y:76},
+      r_b_hip:{x:38,y:56},r_b_hock:{x:36,y:76},r_b_paw:{x:34,y:92},
+      l_b_hip:{x:62,y:56},l_b_hock:{x:64,y:76},l_b_paw:{x:66,y:92}
+    },
+    "Quadruped: Sitting": {
+      snout:{x:50,y:25},head:{x:50,y:16},neck:{x:50,y:32},
+      withers:{x:50,y:40},spine:{x:50,y:52},rump:{x:50,y:68},
+      tail_base:{x:48,y:74},tail_tip:{x:38,y:82},
+      r_f_shoulder:{x:42,y:44},r_f_elbow:{x:42,y:68},r_f_paw:{x:41,y:92},
+      l_f_shoulder:{x:58,y:44},l_f_elbow:{x:58,y:68},l_f_paw:{x:59,y:92},
+      r_b_hip:{x:32,y:66},r_b_hock:{x:26,y:80},r_b_paw:{x:32,y:92},
+      l_b_hip:{x:68,y:66},l_b_hock:{x:74,y:80},l_b_paw:{x:68,y:92}
+    },
+    "Quadruped: Lying Down / Resting": {
+      snout:{x:50,y:40},head:{x:50,y:30},neck:{x:50,y:48},
+      withers:{x:50,y:54},spine:{x:50,y:60},rump:{x:50,y:66},
+      tail_base:{x:50,y:70},tail_tip:{x:62,y:76},
+      r_f_shoulder:{x:36,y:56},r_f_elbow:{x:35,y:72},r_f_paw:{x:34,y:92},
+      l_f_shoulder:{x:64,y:56},l_f_elbow:{x:65,y:72},l_f_paw:{x:66,y:92},
+      r_b_hip:{x:28,y:64},r_b_hock:{x:22,y:76},r_b_paw:{x:24,y:88},
+      l_b_hip:{x:72,y:64},l_b_hock:{x:78,y:76},l_b_paw:{x:76,y:88}
+    },
+    "Quadruped: Stalking / Pouncing": {
+      snout:{x:50,y:44},head:{x:50,y:34},neck:{x:50,y:40},
+      withers:{x:50,y:38},spine:{x:50,y:42},rump:{x:50,y:46},
+      tail_base:{x:50,y:48},tail_tip:{x:42,y:40},
+      r_f_shoulder:{x:32,y:42},r_f_elbow:{x:26,y:62},r_f_paw:{x:28,y:90},
+      l_f_shoulder:{x:68,y:42},l_f_elbow:{x:74,y:62},l_f_paw:{x:72,y:90},
+      r_b_hip:{x:36,y:48},r_b_hock:{x:24,y:68},r_b_paw:{x:22,y:90},
+      l_b_hip:{x:64,y:48},l_b_hock:{x:76,y:68},l_b_paw:{x:78,y:90}
+    },
+    // --- Quadruped (4-Legged Animal) Profile / Side Poses ---
+    "Quadruped: Standing Alert (Side)": {
       snout:{x:88,y:22},head:{x:80,y:15},neck:{x:72,y:28},
       withers:{x:62,y:35},spine:{x:44,y:38},rump:{x:26,y:40},
       tail_base:{x:18,y:43},tail_tip:{x:10,y:32},
@@ -2924,7 +2990,7 @@
       r_b_hip:{x:30,y:50},r_b_hock:{x:34,y:70},r_b_paw:{x:36,y:92},
       l_b_hip:{x:22,y:48},l_b_hock:{x:18,y:68},l_b_paw:{x:20,y:92}
     },
-    "Quadruped: Trotting / Walking": {
+    "Quadruped: Trotting / Walking (Side)": {
       snout:{x:89,y:26},head:{x:81,y:19},neck:{x:72,y:30},
       withers:{x:62,y:35},spine:{x:44,y:37},rump:{x:26,y:39},
       tail_base:{x:18,y:42},tail_tip:{x:8,y:36},
@@ -2933,7 +2999,7 @@
       r_b_hip:{x:28,y:50},r_b_hock:{x:20,y:68},r_b_paw:{x:14,y:92},
       l_b_hip:{x:24,y:48},l_b_hock:{x:32,y:68},l_b_paw:{x:40,y:90}
     },
-    "Quadruped: Galloping / Running": {
+    "Quadruped: Galloping / Running (Side)": {
       snout:{x:94,y:30},head:{x:86,y:22},neck:{x:75,y:32},
       withers:{x:64,y:36},spine:{x:45,y:42},rump:{x:28,y:40},
       tail_base:{x:19,y:42},tail_tip:{x:6,y:40},
@@ -2942,7 +3008,7 @@
       r_b_hip:{x:26,y:50},r_b_hock:{x:14,y:64},r_b_paw:{x:4,y:80},
       l_b_hip:{x:22,y:48},l_b_hock:{x:18,y:60},l_b_paw:{x:10,y:74}
     },
-    "Quadruped: Sitting": {
+    "Quadruped: Sitting (Side)": {
       snout:{x:66,y:15},head:{x:58,y:10},neck:{x:52,y:22},
       withers:{x:48,y:34},spine:{x:40,y:50},rump:{x:34,y:68},
       tail_base:{x:26,y:76},tail_tip:{x:16,y:84},
@@ -2951,7 +3017,7 @@
       r_b_hip:{x:36,y:70},r_b_hock:{x:44,y:82},r_b_paw:{x:48,y:92},
       l_b_hip:{x:30,y:70},l_b_hock:{x:24,y:82},l_b_paw:{x:28,y:92}
     },
-    "Quadruped: Lying Down / Resting": {
+    "Quadruped: Lying Down / Resting (Side)": {
       snout:{x:82,y:55},head:{x:74,y:46},neck:{x:66,y:52},
       withers:{x:56,y:56},spine:{x:42,y:58},rump:{x:28,y:60},
       tail_base:{x:20,y:64},tail_tip:{x:10,y:70},
@@ -2960,7 +3026,7 @@
       r_b_hip:{x:32,y:68},r_b_hock:{x:26,y:80},r_b_paw:{x:36,y:88},
       l_b_hip:{x:24,y:68},l_b_hock:{x:16,y:78},l_b_paw:{x:24,y:88}
     },
-    "Quadruped: Stalking / Pouncing": {
+    "Quadruped: Stalking / Pouncing (Side)": {
       snout:{x:92,y:46},head:{x:84,y:38},neck:{x:74,y:44},
       withers:{x:62,y:42},spine:{x:44,y:38},rump:{x:26,y:44},
       tail_base:{x:18,y:46},tail_tip:{x:8,y:38},
@@ -4232,7 +4298,20 @@
     "Cobra Pose (Upward Backbend)": { category: "lying", label: "Postura de la Cobra", desc: "Boca abajo arqueando torso" },
     "Model Cross-Legged (Runway)": { category: "standing", label: "Modelo piernas cruzadas", desc: "Paso de pasarela estilizado" },
     "Sensual Cat Crawl (To Camera)": { category: "kneeling", label: "Gateo felino hacia cámara", desc: "Postura felina a cuatro patas" },
-    "Model Lounging Recline (Glamour)": { category: "lying", label: "Reclinado glamour", desc: "Tumbado lateral estilizado" }
+    "Model Lounging Recline (Glamour)": { category: "lying", label: "Reclinado glamour", desc: "Tumbado lateral estilizado" },
+    // Quadruped Animals (Front & Side)
+    "Quadruped: Standing Alert": { category: "quadruped", label: "Quadruped: Standing Alert", desc: "Front view: 4-legged animal standing alert facing forward" },
+    "Quadruped: Standing Alert (Side)": { category: "quadruped", label: "Quadruped: Standing Alert (Side)", desc: "Side profile: 4-legged animal standing alert" },
+    "Quadruped: Trotting / Walking": { category: "quadruped", label: "Quadruped: Trotting / Walking", desc: "Front view: walking or trotting forward facing camera" },
+    "Quadruped: Trotting / Walking (Side)": { category: "quadruped", label: "Quadruped: Trotting / Walking (Side)", desc: "Side profile: walking or trotting with natural leg diagonal" },
+    "Quadruped: Galloping / Running": { category: "quadruped", label: "Quadruped: Galloping / Running", desc: "Front view: dynamic gallop charging forward facing camera" },
+    "Quadruped: Galloping / Running (Side)": { category: "quadruped", label: "Quadruped: Galloping / Running (Side)", desc: "Side profile: full dynamic gallop sprint" },
+    "Quadruped: Sitting": { category: "quadruped", label: "Quadruped: Sitting", desc: "Front view: seated on haunches facing camera" },
+    "Quadruped: Sitting (Side)": { category: "quadruped", label: "Quadruped: Sitting (Side)", desc: "Side profile: seated upright on haunches" },
+    "Quadruped: Lying Down / Resting": { category: "quadruped", label: "Quadruped: Lying Down / Resting", desc: "Front view: resting sphinx pose on paws facing forward" },
+    "Quadruped: Lying Down / Resting (Side)": { category: "quadruped", label: "Quadruped: Lying Down / Resting (Side)", desc: "Side profile: resting prone on ground" },
+    "Quadruped: Stalking / Pouncing": { category: "quadruped", label: "Quadruped: Stalking / Pouncing", desc: "Front view: low stalking crouch facing camera" },
+    "Quadruped: Stalking / Pouncing (Side)": { category: "quadruped", label: "Quadruped: Stalking / Pouncing (Side)", desc: "Side profile: low stalking crouch preparing to pounce" }
   };
 
   const POSE_FRONT_TO_SIDE = {
@@ -4348,7 +4427,13 @@
     "Sitting: Driving a Car": "Sitting: Driving a Car (Side)",
     "Sitting: Car Passenger Window": "Sitting: Car Passenger Window (Side)",
     "Sitting: Train Window Commuter": "Sitting: Train Window Commuter (Side)",
-    "Sitting: Hugging Knees to Chest": "Sitting: Hugging Knees to Chest (Side)"
+    "Sitting: Hugging Knees to Chest": "Sitting: Hugging Knees to Chest (Side)",
+    "Quadruped: Standing Alert": "Quadruped: Standing Alert (Side)",
+    "Quadruped: Trotting / Walking": "Quadruped: Trotting / Walking (Side)",
+    "Quadruped: Galloping / Running": "Quadruped: Galloping / Running (Side)",
+    "Quadruped: Sitting": "Quadruped: Sitting (Side)",
+    "Quadruped: Lying Down / Resting": "Quadruped: Lying Down / Resting (Side)",
+    "Quadruped: Stalking / Pouncing": "Quadruped: Stalking / Pouncing (Side)"
   };
 
   const POSE_SIDE_TO_FRONT = {
@@ -4463,7 +4548,13 @@
     "Sitting: Driving a Car (Side)": "Sitting: Driving a Car",
     "Sitting: Car Passenger Window (Side)": "Sitting: Car Passenger Window",
     "Sitting: Train Window Commuter (Side)": "Sitting: Train Window Commuter",
-    "Sitting: Hugging Knees to Chest (Side)": "Sitting: Hugging Knees to Chest"
+    "Sitting: Hugging Knees to Chest (Side)": "Sitting: Hugging Knees to Chest",
+    "Quadruped: Standing Alert (Side)": "Quadruped: Standing Alert",
+    "Quadruped: Trotting / Walking (Side)": "Quadruped: Trotting / Walking",
+    "Quadruped: Galloping / Running (Side)": "Quadruped: Galloping / Running",
+    "Quadruped: Sitting (Side)": "Quadruped: Sitting",
+    "Quadruped: Lying Down / Resting (Side)": "Quadruped: Lying Down / Resting",
+    "Quadruped: Stalking / Pouncing (Side)": "Quadruped: Stalking / Pouncing"
   };
 
   // Anatomical Hierarchical Kinematics (FK Tree)
@@ -4881,7 +4972,9 @@
 
   // Render Articulated Quadruped Animal (Dog, Horse, Cat, etc.)
   function renderQuadrupedCharacter(g, el) {
-    const pose = el.pose || POSE_PRESETS["Quadruped: Standing Alert"];
+    const isFront = el.facing === 'front' || el.facing === 'back' || (!el.poseName?.includes('(Side)') && el.facing !== 'left' && el.facing !== 'right');
+    const defaultPose = isFront ? POSE_PRESETS["Quadruped: Standing Alert"] : POSE_PRESETS["Quadruped: Standing Alert (Side)"];
+    const pose = el.pose || defaultPose;
     const w = el.width || 300;
     const h = el.height || 210;
 
@@ -4898,63 +4991,157 @@
     const silhouetteColor = el.subtype === 'horse' ? '#1e293b' : (el.subtype === 'cat' ? '#0f172a' : '#1e293b');
     const opacity = '0.75';
 
-    // 1. Torso body polygon connecting withers, spine, rump, and chest/belly
-    if (pose.withers && pose.spine && pose.rump) {
-      const wPt = { x: (pose.withers.x / 100) * w, y: (pose.withers.y / 100) * h };
-      const sPt = { x: (pose.spine.x / 100) * w, y: (pose.spine.y / 100) * h };
-      const rPt = { x: (pose.rump.x / 100) * w, y: (pose.rump.y / 100) * h };
-      const nPt = pose.neck ? { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h } : wPt;
+    if (isFront) {
+      // 1. Frontal Torso & Chest Silhouette
+      if (pose.withers && pose.r_f_shoulder && pose.l_f_shoulder) {
+        const wPt = { x: (pose.withers.x / 100) * w, y: (pose.withers.y / 100) * h };
+        const rfsPt = { x: (pose.r_f_shoulder.x / 100) * w, y: (pose.r_f_shoulder.y / 100) * h };
+        const lfsPt = { x: (pose.l_f_shoulder.x / 100) * w, y: (pose.l_f_shoulder.y / 100) * h };
+        const nPt = pose.neck ? { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h } : wPt;
+        const sPt = pose.spine ? { x: (pose.spine.x / 100) * w, y: (pose.spine.y / 100) * h } : wPt;
+        const rPt = pose.rump ? { x: (pose.rump.x / 100) * w, y: (pose.rump.y / 100) * h } : sPt;
 
-      const chestY = wPt.y + (h * 0.22);
-      const bellyY = sPt.y + (h * 0.18);
-      const flankY = rPt.y + (h * 0.20);
+        const torso = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        torso.setAttribute('points',
+          `${nPt.x},${nPt.y} ` +
+          `${lfsPt.x + 8},${lfsPt.y} ` +
+          `${lfsPt.x + 4},${lfsPt.y + (h * 0.18)} ` +
+          `${rPt.x + 15},${rPt.y + (h * 0.12)} ` +
+          `${rPt.x - 15},${rPt.y + (h * 0.12)} ` +
+          `${rfsPt.x - 4},${rfsPt.y + (h * 0.18)} ` +
+          `${rfsPt.x - 8},${rfsPt.y}`
+        );
+        torso.setAttribute('fill', silhouetteColor);
+        torso.setAttribute('fill-opacity', opacity);
+        torso.setAttribute('stroke', '#475569');
+        torso.setAttribute('stroke-width', '1.5');
+        g.appendChild(torso);
+      }
 
-      const torso = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      torso.setAttribute('points', 
-        `${nPt.x},${nPt.y} ` +
-        `${wPt.x},${wPt.y} ` +
-        `${sPt.x},${sPt.y} ` +
-        `${rPt.x},${rPt.y} ` +
-        `${rPt.x},${flankY} ` +
-        `${sPt.x},${bellyY} ` +
-        `${wPt.x + 10},${chestY} ` +
-        `${nPt.x + 8},${nPt.y + 12}`
-      );
-      torso.setAttribute('fill', silhouetteColor);
-      torso.setAttribute('fill-opacity', opacity);
-      torso.setAttribute('stroke', '#475569');
-      torso.setAttribute('stroke-width', '1.5');
-      g.appendChild(torso);
-    }
+      // 2. Frontal Head, Ears, Muzzle & Eyes
+      if (pose.head && pose.snout) {
+        const hPt = { x: (pose.head.x / 100) * w, y: (pose.head.y / 100) * h };
+        const snPt = { x: (pose.snout.x / 100) * w, y: (pose.snout.y / 100) * h };
 
-    // 2. Head & Snout Silhouette
-    if (pose.head && pose.snout) {
-      const hPt = { x: (pose.head.x / 100) * w, y: (pose.head.y / 100) * h };
-      const snPt = { x: (pose.snout.x / 100) * w, y: (pose.snout.y / 100) * h };
-      const nPt = pose.neck ? { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h } : hPt;
+        // Left & Right Ears
+        const earL = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        earL.setAttribute('points', `${hPt.x - 10},${hPt.y - 4} ${hPt.x - 18},${hPt.y - 18} ${hPt.x - 4},${hPt.y - 12}`);
+        earL.setAttribute('fill', silhouetteColor);
+        earL.setAttribute('stroke', '#475569');
+        earL.setAttribute('stroke-width', '1.5');
+        g.appendChild(earL);
 
-      const headPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      headPoly.setAttribute('points',
-        `${hPt.x - 6},${hPt.y - 12} ` +
-        `${hPt.x + 6},${hPt.y - 4} ` +
-        `${snPt.x},${snPt.y} ` +
-        `${snPt.x - 4},${snPt.y + 6} ` +
-        `${nPt.x + 4},${nPt.y} ` +
-        `${hPt.x - 10},${hPt.y + 4}`
-      );
-      headPoly.setAttribute('fill', silhouetteColor);
-      headPoly.setAttribute('fill-opacity', opacity);
-      headPoly.setAttribute('stroke', '#475569');
-      headPoly.setAttribute('stroke-width', '1.5');
-      g.appendChild(headPoly);
+        const earR = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        earR.setAttribute('points', `${hPt.x + 10},${hPt.y - 4} ${hPt.x + 18},${hPt.y - 18} ${hPt.x + 4},${hPt.y - 12}`);
+        earR.setAttribute('fill', silhouetteColor);
+        earR.setAttribute('stroke', '#475569');
+        earR.setAttribute('stroke-width', '1.5');
+        g.appendChild(earR);
 
-      // Eye indicator
-      const eye = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      eye.setAttribute('cx', (hPt.x + snPt.x) / 2);
-      eye.setAttribute('cy', (hPt.y + snPt.y) / 2 - 3);
-      eye.setAttribute('r', '2.5');
-      eye.setAttribute('fill', '#38bdf8');
-      g.appendChild(eye);
+        // Head Circle
+        const headCirc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        headCirc.setAttribute('cx', hPt.x);
+        headCirc.setAttribute('cy', hPt.y);
+        headCirc.setAttribute('r', '15');
+        headCirc.setAttribute('fill', silhouetteColor);
+        headCirc.setAttribute('stroke', '#475569');
+        headCirc.setAttribute('stroke-width', '1.5');
+        g.appendChild(headCirc);
+
+        // Snout Muzzle
+        const snout = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        snout.setAttribute('cx', snPt.x);
+        snout.setAttribute('cy', snPt.y);
+        snout.setAttribute('rx', '10');
+        snout.setAttribute('ry', '8');
+        snout.setAttribute('fill', '#334155');
+        snout.setAttribute('stroke', '#475569');
+        snout.setAttribute('stroke-width', '1.5');
+        g.appendChild(snout);
+
+        // Nose Tip Pad
+        const nosePad = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        nosePad.setAttribute('cx', snPt.x);
+        nosePad.setAttribute('cy', snPt.y - 2);
+        nosePad.setAttribute('rx', '4');
+        nosePad.setAttribute('ry', '2.5');
+        nosePad.setAttribute('fill', '#0f172a');
+        g.appendChild(nosePad);
+
+        // Two Eyes
+        const eyeL = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        eyeL.setAttribute('cx', hPt.x - 7);
+        eyeL.setAttribute('cy', hPt.y - 2);
+        eyeL.setAttribute('r', '2.5');
+        eyeL.setAttribute('fill', '#38bdf8');
+        g.appendChild(eyeL);
+
+        const eyeR = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        eyeR.setAttribute('cx', hPt.x + 7);
+        eyeR.setAttribute('cy', hPt.y - 2);
+        eyeR.setAttribute('r', '2.5');
+        eyeR.setAttribute('fill', '#38bdf8');
+        g.appendChild(eyeR);
+      }
+    } else {
+      // 1. Profile Torso body polygon connecting withers, spine, rump, and chest/belly
+      if (pose.withers && pose.spine && pose.rump) {
+        const wPt = { x: (pose.withers.x / 100) * w, y: (pose.withers.y / 100) * h };
+        const sPt = { x: (pose.spine.x / 100) * w, y: (pose.spine.y / 100) * h };
+        const rPt = { x: (pose.rump.x / 100) * w, y: (pose.rump.y / 100) * h };
+        const nPt = pose.neck ? { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h } : wPt;
+
+        const chestY = wPt.y + (h * 0.22);
+        const bellyY = sPt.y + (h * 0.18);
+        const flankY = rPt.y + (h * 0.20);
+
+        const torso = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        torso.setAttribute('points', 
+          `${nPt.x},${nPt.y} ` +
+          `${wPt.x},${wPt.y} ` +
+          `${sPt.x},${sPt.y} ` +
+          `${rPt.x},${rPt.y} ` +
+          `${rPt.x},${flankY} ` +
+          `${sPt.x},${bellyY} ` +
+          `${wPt.x + 10},${chestY} ` +
+          `${nPt.x + 8},${nPt.y + 12}`
+        );
+        torso.setAttribute('fill', silhouetteColor);
+        torso.setAttribute('fill-opacity', opacity);
+        torso.setAttribute('stroke', '#475569');
+        torso.setAttribute('stroke-width', '1.5');
+        g.appendChild(torso);
+      }
+
+      // 2. Profile Head & Snout Silhouette
+      if (pose.head && pose.snout) {
+        const hPt = { x: (pose.head.x / 100) * w, y: (pose.head.y / 100) * h };
+        const snPt = { x: (pose.snout.x / 100) * w, y: (pose.snout.y / 100) * h };
+        const nPt = pose.neck ? { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h } : hPt;
+
+        const headPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        headPoly.setAttribute('points',
+          `${hPt.x - 6},${hPt.y - 12} ` +
+          `${hPt.x + 6},${hPt.y - 4} ` +
+          `${snPt.x},${snPt.y} ` +
+          `${snPt.x - 4},${snPt.y + 6} ` +
+          `${nPt.x + 4},${nPt.y} ` +
+          `${hPt.x - 10},${hPt.y + 4}`
+        );
+        headPoly.setAttribute('fill', silhouetteColor);
+        headPoly.setAttribute('fill-opacity', opacity);
+        headPoly.setAttribute('stroke', '#475569');
+        headPoly.setAttribute('stroke-width', '1.5');
+        g.appendChild(headPoly);
+
+        // Eye indicator
+        const eye = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        eye.setAttribute('cx', (hPt.x + snPt.x) / 2);
+        eye.setAttribute('cy', (hPt.y + snPt.y) / 2 - 3);
+        eye.setAttribute('r', '2.5');
+        eye.setAttribute('fill', '#38bdf8');
+        g.appendChild(eye);
+      }
     }
 
     // 3. Tail Silhouette
@@ -5733,12 +5920,12 @@
     // Floating Facing Pill Tag on top of character
     if (el.type === 'character') {
       const facingLabel = {
-        'front': '👁️ Frente / Front',
-        'back': '🔙 De espaldas / Back',
-        'left': '◀️ Perfil Izq / Left',
-        'right': '▶️ Perfil Der / Right',
-        'three_quarter_left': '↖️ 3/4 Izq',
-        'three_quarter_right': '↗️ 3/4 Der'
+        'front': '👁️ Front',
+        'back': '🔙 Back',
+        'left': '◀️ Profile Left',
+        'right': '▶️ Profile Right',
+        'three_quarter_left': '↖️ 3/4 Left',
+        'three_quarter_right': '↗️ 3/4 Right'
       }[el.facing || 'front'] || 'Front';
 
       const tagBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -5777,11 +5964,11 @@
       moveTxt.setAttribute('font-size', '10.5');
       moveTxt.setAttribute('font-weight', '700');
       moveTxt.setAttribute('text-anchor', 'middle');
-      moveTxt.textContent = "✥ MOVER";
+      moveTxt.textContent = "✥ MOVE";
       moveG.appendChild(moveTxt);
 
       const moveTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-      moveTitle.textContent = "Arrastrá acá para mover todo el personaje en el canvas (o arrastrá con Shift presionado)";
+      moveTitle.textContent = "Drag here to move the character across the canvas (or hold Shift and drag)";
       moveG.appendChild(moveTitle);
 
       selG.appendChild(moveG);
@@ -6647,15 +6834,15 @@
     const badge = document.getElementById('propFramingBadge');
     if (!badge) return;
     if (scale > 1.25) {
-      badge.textContent = 'Foreground (Cerca)';
+      badge.textContent = 'Foreground (Close-Up)';
       badge.style.color = '#38bdf8';
       badge.style.borderColor = '#0284c7';
     } else if (scale < 0.75) {
-      badge.textContent = 'Background (Lejos)';
+      badge.textContent = 'Background (Distant)';
       badge.style.color = '#94a3b8';
       badge.style.borderColor = '#475569';
     } else {
-      badge.textContent = 'Midground (Medio)';
+      badge.textContent = 'Midground (Medium)';
       badge.style.color = '#a78bfa';
       badge.style.borderColor = '#7c3aed';
     }
@@ -6904,17 +7091,20 @@
     updateSpatialManifest();
   }
 
+  let activePoseCategory = 'biped';
+  let activePoseShelfTab = 'front';
+
   function updatePerspectiveUI() {
     const lbl = document.getElementById('scenePerspectiveLabel');
     const btn = document.getElementById('btnToggleScenePerspective');
     if (lbl && btn) {
       if (state.scenePerspective === 'side') {
-        lbl.textContent = 'Escena: Perfil / Lado';
+        lbl.textContent = 'Scene: Side Profile';
         btn.style.color = '#38bdf8';
         btn.style.borderColor = '#0284c7';
         showPoseShelfTab('side');
       } else {
-        lbl.textContent = 'Escena: Frente';
+        lbl.textContent = 'Scene: Front';
         btn.style.color = '#a78bfa';
         btn.style.borderColor = 'rgba(167,139,250,0.4)';
         showPoseShelfTab('front');
@@ -6923,48 +7113,48 @@
   }
 
   function showPoseShelfCategory(cat) {
+    activePoseCategory = cat;
     const tabB = document.getElementById('btnPoseTabBiped');
     const tabQ = document.getElementById('btnPoseTabQuadruped');
-    const subWrap = document.getElementById('bipedSubTabsWrap');
-    const gridF = document.getElementById('quickPoseGridFront');
-    const gridS = document.getElementById('quickPoseGridSide');
-    const gridQ = document.getElementById('quickPoseGridQuadruped');
-    if (!tabB || !tabQ) return;
-
-    if (cat === 'quadruped') {
-      tabQ.classList.add('active'); tabQ.style.background = '#059669'; tabQ.style.color = '#fff';
-      tabB.classList.remove('active'); tabB.style.background = 'transparent'; tabB.style.color = 'var(--text-muted)';
-      if (subWrap) subWrap.style.display = 'none';
-      if (gridF) gridF.style.display = 'none';
-      if (gridS) gridS.style.display = 'none';
-      if (gridQ) gridQ.style.display = 'grid';
-    } else {
-      tabB.classList.add('active'); tabB.style.background = '#0284c7'; tabB.style.color = '#fff';
-      tabQ.classList.remove('active'); tabQ.style.background = 'transparent'; tabQ.style.color = 'var(--text-muted)';
-      if (subWrap) subWrap.style.display = 'flex';
-      if (gridQ) gridQ.style.display = 'none';
-      showPoseShelfTab(state.scenePerspective === 'side' ? 'side' : 'front');
+    const subWrap = document.getElementById('posePerspectiveSubTabsWrap') || document.getElementById('bipedSubTabsWrap');
+    if (subWrap) subWrap.style.display = 'flex';
+    if (tabB && tabQ) {
+      if (cat === 'quadruped') {
+        tabQ.classList.add('active'); tabQ.style.background = '#059669'; tabQ.style.color = '#fff';
+        tabB.classList.remove('active'); tabB.style.background = 'transparent'; tabB.style.color = 'var(--text-muted)';
+      } else {
+        tabB.classList.add('active'); tabB.style.background = '#0284c7'; tabB.style.color = '#fff';
+        tabQ.classList.remove('active'); tabQ.style.background = 'transparent'; tabQ.style.color = 'var(--text-muted)';
+      }
     }
+    syncPoseGrids();
   }
 
   function showPoseShelfTab(tab) {
+    activePoseShelfTab = tab;
     const tabF = document.getElementById('btnPoseTabFront');
     const tabS = document.getElementById('btnPoseTabSide');
+    if (tabF && tabS) {
+      if (tab === 'side') {
+        tabS.classList.add('active'); tabS.style.background = '#0369a1'; tabS.style.color = '#fff';
+        tabF.classList.remove('active'); tabF.style.background = 'transparent'; tabF.style.color = 'var(--text-muted)';
+      } else {
+        tabF.classList.add('active'); tabF.style.background = '#0369a1'; tabF.style.color = '#fff';
+        tabS.classList.remove('active'); tabS.style.background = 'transparent'; tabS.style.color = 'var(--text-muted)';
+      }
+    }
+    syncPoseGrids();
+  }
+
+  function syncPoseGrids() {
     const gridF = document.getElementById('quickPoseGridFront');
     const gridS = document.getElementById('quickPoseGridSide');
-    const gridQ = document.getElementById('quickPoseGridQuadruped');
-    if (gridQ) gridQ.style.display = 'none';
-    if (!tabF || !tabS || !gridF || !gridS) return;
-
-    if (tab === 'side') {
-      tabS.classList.add('active'); tabS.style.background = '#0369a1'; tabS.style.color = '#fff';
-      tabF.classList.remove('active'); tabF.style.background = 'transparent'; tabF.style.color = 'var(--text-muted)';
-      gridS.style.display = 'grid'; gridF.style.display = 'none';
-    } else {
-      tabF.classList.add('active'); tabF.style.background = '#0369a1'; tabF.style.color = '#fff';
-      tabS.classList.remove('active'); tabS.style.background = 'transparent'; tabS.style.color = 'var(--text-muted)';
-      gridF.style.display = 'grid'; gridS.style.display = 'none';
-    }
+    const gridQF = document.getElementById('quickPoseGridQuadrupedFront');
+    const gridQS = document.getElementById('quickPoseGridQuadrupedSide');
+    if (gridF) gridF.style.display = (activePoseCategory === 'biped' && activePoseShelfTab === 'front') ? 'grid' : 'none';
+    if (gridS) gridS.style.display = (activePoseCategory === 'biped' && activePoseShelfTab === 'side') ? 'grid' : 'none';
+    if (gridQF) gridQF.style.display = (activePoseCategory === 'quadruped' && activePoseShelfTab === 'front') ? 'grid' : 'none';
+    if (gridQS) gridQS.style.display = (activePoseCategory === 'quadruped' && activePoseShelfTab === 'side') ? 'grid' : 'none';
   }
 
   document.querySelectorAll('.quick-pose-btn').forEach(btn => {
@@ -7229,7 +7419,7 @@
   let activePoseGalleryCategory = 'all';
 
   function updatePoseGalleryCounts() {
-    const counts = { all: 0, standing: 0, kneeling: 0, sitting: 0, lying: 0, sports: 0, couple: 0, aerial: 0, action: 0 };
+    const counts = { all: 0, standing: 0, kneeling: 0, sitting: 0, lying: 0, sports: 0, couple: 0, aerial: 0, action: 0, quadruped: 0 };
     Object.keys(POSE_PRESETS).forEach(pName => {
       if (pName.endsWith('(Side)')) return;
       const meta = POSE_METADATA[pName] || { category: 'standing' };
@@ -7251,6 +7441,7 @@
     setTxt('pose-count-couple', counts.couple);
     setTxt('pose-count-aerial', counts.aerial);
     setTxt('pose-count-action', counts.action);
+    setTxt('pose-count-quadruped', counts.quadruped);
   }
 
   function renderPoseGallery(filterCat = activePoseGalleryCategory, searchQuery = '') {
@@ -7293,7 +7484,7 @@
               pose: parsed,
               category: 'custom',
               label: opt.textContent,
-              desc: 'Postura personalizada guardada'
+              desc: 'Saved custom pose'
             });
           } catch(e) {}
         }
@@ -7336,7 +7527,7 @@
       if (isCurrent) {
         const badge = document.createElement('div');
         badge.style.cssText = 'position:absolute;top:4px;right:4px;background:#0284c7;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;';
-        badge.textContent = 'ACTUAL';
+        badge.textContent = 'CURRENT';
         card.appendChild(badge);
       }
 
@@ -7360,16 +7551,16 @@
       card.addEventListener('click', () => {
         const selected = state.elements.find(x => x.id === state.selectedId);
         if (!selected || selected.type !== 'character') {
-          showToast('Seleccioná primero un personaje en el escenario para aplicarle la postura.', 'error');
+          showToast('Select a character on the stage first to apply the pose.', 'error');
           return;
         }
 
         applyPoseByName(item.name);
         const statusEl = document.getElementById('poseGalleryStatus');
         if (statusEl) {
-          statusEl.innerHTML = `Postura <strong style="color:#38bdf8;">${item.label}</strong> aplicada a <span style="color:#f8fafc;">${selected.name || 'Personaje'}</span>`;
+          statusEl.innerHTML = `Pose <strong style="color:#38bdf8;">${item.label}</strong> applied to <span style="color:#f8fafc;">${selected.name || 'Selected Character'}</span>`;
         }
-        showToast(`Postura "${item.label}" aplicada`, 'success');
+        showToast(`Pose "${item.label}" applied`, 'success');
 
         const keepOpen = document.getElementById('chkKeepGalleryOpen') && document.getElementById('chkKeepGalleryOpen').checked;
         if (!keepOpen) {
@@ -7385,7 +7576,7 @@
     if (renderedCount === 0) {
       grid.innerHTML = `
         <div style="grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--text-muted);font-size:13px;">
-          No se encontraron posturas que coincidan con la búsqueda.
+          No poses found matching your search query.
         </div>
       `;
     }
@@ -7400,9 +7591,9 @@
     const statusEl = document.getElementById('poseGalleryStatus');
     if (statusEl) {
       if (selEl && selEl.type === 'character') {
-        statusEl.innerHTML = `Aplicando postura a: <strong style="color:#38bdf8;">${selEl.name || 'Personaje seleccionado'}</strong>`;
+        statusEl.innerHTML = `Applying pose to: <strong style="color:#38bdf8;">${selEl.name || 'Selected Character'}</strong>`;
       } else {
-        statusEl.textContent = 'Seleccioná una postura para aplicarla al personaje actual.';
+        statusEl.textContent = 'Select a pose to apply to the active character.';
       }
     }
 
@@ -7526,6 +7717,20 @@
       { label: "Model Cross-Legged (Runway)", value: "Model Cross-Legged (Runway)", desc: "Chic fashion runway standing pose with crossed legs" },
       { label: "Sensual Cat Crawl (To Camera)", value: "Sensual Cat Crawl (To Camera)", desc: "Sensual cat crawling forward facing directly at camera" },
       { label: "Model Lounging Recline (Glamour)", value: "Model Lounging Recline (Glamour)", desc: "Sensual magazine cover recline propped on one elbow" }
+    ],
+    "Quadruped Animals (Front & Profile)": [
+      { label: "Quadruped: Standing Alert", value: "Quadruped: Standing Alert", desc: "Front view: 4-legged animal standing alert facing forward" },
+      { label: "Quadruped: Standing Alert (Side)", value: "Quadruped: Standing Alert (Side)", desc: "Side profile: 4-legged animal standing alert" },
+      { label: "Quadruped: Trotting / Walking", value: "Quadruped: Trotting / Walking", desc: "Front view: walking or trotting forward facing camera" },
+      { label: "Quadruped: Trotting / Walking (Side)", value: "Quadruped: Trotting / Walking (Side)", desc: "Side profile: walking or trotting with natural leg diagonal" },
+      { label: "Quadruped: Galloping / Running", value: "Quadruped: Galloping / Running", desc: "Front view: dynamic gallop charging forward facing camera" },
+      { label: "Quadruped: Galloping / Running (Side)", value: "Quadruped: Galloping / Running (Side)", desc: "Side profile: full dynamic gallop sprint" },
+      { label: "Quadruped: Sitting", value: "Quadruped: Sitting", desc: "Front view: seated on hindquarters facing camera" },
+      { label: "Quadruped: Sitting (Side)", value: "Quadruped: Sitting (Side)", desc: "Side profile: seated upright on haunches" },
+      { label: "Quadruped: Lying Down / Resting", value: "Quadruped: Lying Down / Resting", desc: "Front view: resting sphinx pose on paws facing forward" },
+      { label: "Quadruped: Lying Down / Resting (Side)", value: "Quadruped: Lying Down / Resting (Side)", desc: "Side profile: resting prone on ground" },
+      { label: "Quadruped: Stalking / Pouncing", value: "Quadruped: Stalking / Pouncing", desc: "Front view: low stalking crouch facing camera" },
+      { label: "Quadruped: Stalking / Pouncing (Side)", value: "Quadruped: Stalking / Pouncing (Side)", desc: "Side profile: low stalking crouch preparing to pounce" }
     ]
   };
 
@@ -8277,16 +8482,16 @@
     renderScene();
     updateSpatialManifest();
     const archetypeLabels = {
-      male_adult: "Hombre Adulto",
-      female_adult: "Mujer Adulta",
-      child_boy: "Niño (Boy)",
-      child_girl: "Niña (Girl)",
-      dog: "Perro (Canine)",
-      horse: "Caballo (Equine)",
-      cat: "Gato (Feline)",
-      quadruped: "Animal Cuadrúpedo"
+      male_adult: "Adult Male",
+      female_adult: "Adult Female",
+      child_boy: "Boy (Child)",
+      child_girl: "Girl (Child)",
+      dog: "Dog (Canine)",
+      horse: "Horse (Equine)",
+      cat: "Cat (Feline)",
+      quadruped: "Quadruped Animal"
     };
-    showToast("🎲 Look coherente generado para [" + (archetypeLabels[archKey] || "Personaje") + "]!", "success");
+    showToast("🎲 Coherent look generated for [" + (archetypeLabels[archKey] || "Character") + "]!", "success");
   }
 
   const btnRandomizeChar = document.getElementById('btnRandomizeChar');
@@ -8355,7 +8560,7 @@
       if (timeInput) timeInput.value = '';
       updateSpatialManifest();
       updateEnvironmentHUD();
-      showToast("Entorno y momento del día limpiados", "info");
+      showToast("Environment and time of day cleared", "info");
     });
   }
 
