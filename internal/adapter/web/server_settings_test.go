@@ -325,6 +325,18 @@ func TestDirectorNewPosesPresetsRendering(t *testing.T) {
 		"Modelo Cruzada",
 		"Gateo Cámara",
 		"Recostada Glam",
+		`data-subtype="dog"`,
+		`data-subtype="horse"`,
+		`data-subtype="cat"`,
+		"QUADRUPEDS (4 PATAS)",
+		"btnPoseTabBiped",
+		"btnPoseTabQuadruped",
+		"quickPoseGridQuadruped",
+		"Quadruped: Standing Alert",
+		"Quadruped: Trotting / Walking",
+		"Quadruped: Galloping / Running",
+		"CHARACTER_TAXONOMIES",
+		"resolveCharacterArchetype",
 	}
 
 	for _, substr := range expectedSubstrings {

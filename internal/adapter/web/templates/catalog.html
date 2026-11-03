@@ -1564,7 +1564,7 @@
                 <span>ARTICULATED CHARACTERS</span>
                 <span class="badge-chip" style="font-size:9px;background:#082f49;color:#38bdf8;">100% Posed</span>
               </div>
-              <div style="display:grid;grid-template-columns: 1fr 1fr 1fr; gap:6px;">
+              <div style="display:grid;grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-bottom:8px;">
                 <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="male" 
                         style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#0284c7;background:rgba(2,132,199,0.08);" 
                         title="Add articulated male character with posing skeleton">
@@ -1584,6 +1584,32 @@
                   <span style="font-size:11px;font-weight:600;margin-top:3px;color:#38bdf8;">Child</span>
                 </button>
               </div>
+
+              <!-- 4-Legged Animals (Quadrupeds) -->
+              <div class="facet-title" style="margin-bottom:6px;font-size:10px;color:#34d399;display:flex;justify-content:space-between;align-items:center;">
+                <span>QUADRUPEDS (4 PATAS)</span>
+                <span class="badge-chip" style="font-size:9px;background:#064e3b;color:#34d399;">Animal Rig</span>
+              </div>
+              <div style="display:grid;grid-template-columns: 1fr 1fr 1fr; gap:6px;">
+                <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="dog" 
+                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#059669;background:rgba(5,150,105,0.08);" 
+                        title="Add articulated dog with 4-legged quadruped skeleton">
+                  <span style="font-size:20px;line-height:1;">&#128021;</span>
+                  <span style="font-size:11px;font-weight:600;margin-top:3px;color:#34d399;">Dog</span>
+                </button>
+                <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="horse" 
+                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#059669;background:rgba(5,150,105,0.08);" 
+                        title="Add articulated horse with 4-legged quadruped skeleton">
+                  <span style="font-size:20px;line-height:1;">&#128052;</span>
+                  <span style="font-size:11px;font-weight:600;margin-top:3px;color:#34d399;">Horse</span>
+                </button>
+                <button type="button" class="palette-item btn-ghost" data-type="character" data-subtype="cat" 
+                        style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;text-align:center;border-color:#059669;background:rgba(5,150,105,0.08);" 
+                        title="Add articulated cat with 4-legged quadruped skeleton">
+                  <span style="font-size:20px;line-height:1;">&#128008;</span>
+                  <span style="font-size:11px;font-weight:600;margin-top:3px;color:#34d399;">Cat</span>
+                </button>
+              </div>
             </div>
 
             <!-- Quick Pose Presets Shelf (Always accessible!) -->
@@ -1591,9 +1617,14 @@
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <span style="font-size:10.5px;font-weight:700;color:#67e8f9;">POSES &amp; POSTURAS</span>
                 <div style="display:flex;gap:3px;">
-                  <button type="button" id="btnPoseTabFront" class="btn-ghost active" style="padding:2px 6px;font-size:10px;font-weight:700;background:#0284c7;color:#fff;">&#128100; Frente</button>
-                  <button type="button" id="btnPoseTabSide" class="btn-ghost" style="padding:2px 6px;font-size:10px;font-weight:700;">&#127939; Perfil</button>
+                  <button type="button" id="btnPoseTabBiped" class="btn-ghost active" style="padding:2px 6px;font-size:10px;font-weight:700;background:#0284c7;color:#fff;" title="Poses para personajes bípedos/humanos">&#128100; Humanos</button>
+                  <button type="button" id="btnPoseTabQuadruped" class="btn-ghost" style="padding:2px 6px;font-size:10px;font-weight:700;" title="Poses para animales de 4 patas (perro, caballo, gato)">&#128062; 4 Patas</button>
                 </div>
+              </div>
+              <!-- Sub-tabs for Bipeds: Frente / Perfil -->
+              <div id="bipedSubTabsWrap" style="display:flex;gap:3px;margin-bottom:6px;">
+                <button type="button" id="btnPoseTabFront" class="btn-ghost active" style="padding:1px 6px;font-size:9.5px;font-weight:600;background:#0369a1;color:#fff;">&#128100; Frente</button>
+                <button type="button" id="btnPoseTabSide" class="btn-ghost" style="padding:1px 6px;font-size:9.5px;font-weight:600;">&#127939; Perfil</button>
               </div>
               <!-- Front Poses Grid -->
               <div style="display:grid;grid-template-columns: repeat(3, 1fr); gap:4px; max-height:220px; overflow-y:auto; padding-right:2px;" id="quickPoseGridFront">
@@ -1686,6 +1717,16 @@
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Model Cross-Legged (Side)" style="padding:4px 2px;font-size:10px;color:#f43f5e;" title="Modelo piernas cruzadas de perfil">&#128096; Modelo Cruzada</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Sensual Cat Crawl (Side)" style="padding:4px 2px;font-size:10px;color:#ec4899;" title="Gateo sensual de perfil">&#128062; Gateo Perfil</button>
                 <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Model Recline (Side)" style="padding:4px 2px;font-size:10px;color:#fbbf24;" title="Recostada de perfil">&#10024; Recostada Glam</button>
+              </div>
+
+              <!-- Quadruped 4-Legged Poses Grid -->
+              <div style="display:none;grid-template-columns: repeat(2, 1fr); gap:4px; max-height:220px; overflow-y:auto; padding-right:2px;" id="quickPoseGridQuadruped">
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Standing Alert" style="padding:4px 4px;font-size:10px;color:#34d399;border-color:rgba(52,211,153,0.3);" title="Animal de pie en alerta, cuatro patas firmes">&#128021; De Pie Alerta</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Trotting / Walking" style="padding:4px 4px;font-size:10px;color:#38bdf8;border-color:rgba(56,189,248,0.3);" title="Caminando o trotando rítmico">&#128062; Caminar / Trote</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Galloping / Running" style="padding:4px 4px;font-size:10px;color:#facc15;border-color:rgba(250,204,21,0.3);" title="Al galope o sprint veloz en suspensión">&#127943; Galope / Sprint</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Sitting" style="padding:4px 4px;font-size:10px;color:#a78bfa;border-color:rgba(167,139,250,0.3);" title="Sentado con ancas al suelo (perro/gato)">&#128008; Sentado</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Lying Down / Resting" style="padding:4px 4px;font-size:10px;color:#06b6d4;border-color:rgba(6,182,212,0.3);" title="Echado descansando en el suelo">&#128716; Echado / Descanso</button>
+                <button type="button" class="btn-ghost quick-pose-btn" data-pose-name="Quadruped: Stalking / Pouncing" style="padding:4px 4px;font-size:10px;color:#f43f5e;border-color:rgba(244,63,94,0.3);" title="Agazapado acechando o listo para abalanzarse">&#128062; Acecho / Salto</button>
               </div>
             </div>
 
@@ -2819,7 +2860,62 @@
 (function() {
   // --- Director State & Presets ---
   const POSE_PRESETS = {
-    // --- Frontal Poses ---
+    // --- Quadruped (4-Legged Animal) Poses ---
+    "Quadruped: Standing Alert": {
+      snout:{x:88,y:22},head:{x:80,y:15},neck:{x:72,y:28},
+      withers:{x:62,y:35},spine:{x:44,y:38},rump:{x:26,y:40},
+      tail_base:{x:18,y:43},tail_tip:{x:10,y:32},
+      r_f_shoulder:{x:64,y:48},r_f_elbow:{x:66,y:68},r_f_paw:{x:68,y:92},
+      l_f_shoulder:{x:58,y:46},l_f_elbow:{x:56,y:66},l_f_paw:{x:54,y:92},
+      r_b_hip:{x:30,y:50},r_b_hock:{x:34,y:70},r_b_paw:{x:36,y:92},
+      l_b_hip:{x:22,y:48},l_b_hock:{x:18,y:68},l_b_paw:{x:20,y:92}
+    },
+    "Quadruped: Trotting / Walking": {
+      snout:{x:89,y:26},head:{x:81,y:19},neck:{x:72,y:30},
+      withers:{x:62,y:35},spine:{x:44,y:37},rump:{x:26,y:39},
+      tail_base:{x:18,y:42},tail_tip:{x:8,y:36},
+      r_f_shoulder:{x:66,y:48},r_f_elbow:{x:74,y:66},r_f_paw:{x:80,y:90},
+      l_f_shoulder:{x:58,y:48},l_f_elbow:{x:52,y:68},l_f_paw:{x:48,y:92},
+      r_b_hip:{x:28,y:50},r_b_hock:{x:20,y:68},r_b_paw:{x:14,y:92},
+      l_b_hip:{x:24,y:48},l_b_hock:{x:32,y:68},l_b_paw:{x:40,y:90}
+    },
+    "Quadruped: Galloping / Running": {
+      snout:{x:94,y:30},head:{x:86,y:22},neck:{x:75,y:32},
+      withers:{x:64,y:36},spine:{x:45,y:42},rump:{x:28,y:40},
+      tail_base:{x:19,y:42},tail_tip:{x:6,y:40},
+      r_f_shoulder:{x:70,y:46},r_f_elbow:{x:82,y:56},r_f_paw:{x:92,y:68},
+      l_f_shoulder:{x:62,y:48},l_f_elbow:{x:74,y:60},l_f_paw:{x:84,y:74},
+      r_b_hip:{x:26,y:50},r_b_hock:{x:14,y:64},r_b_paw:{x:4,y:80},
+      l_b_hip:{x:22,y:48},l_b_hock:{x:18,y:60},l_b_paw:{x:10,y:74}
+    },
+    "Quadruped: Sitting": {
+      snout:{x:66,y:15},head:{x:58,y:10},neck:{x:52,y:22},
+      withers:{x:48,y:34},spine:{x:40,y:50},rump:{x:34,y:68},
+      tail_base:{x:26,y:76},tail_tip:{x:16,y:84},
+      r_f_shoulder:{x:52,y:44},r_f_elbow:{x:54,y:66},r_f_paw:{x:56,y:92},
+      l_f_shoulder:{x:44,y:44},l_f_elbow:{x:46,y:66},l_f_paw:{x:48,y:92},
+      r_b_hip:{x:36,y:70},r_b_hock:{x:44,y:82},r_b_paw:{x:48,y:92},
+      l_b_hip:{x:30,y:70},l_b_hock:{x:24,y:82},l_b_paw:{x:28,y:92}
+    },
+    "Quadruped: Lying Down / Resting": {
+      snout:{x:82,y:55},head:{x:74,y:46},neck:{x:66,y:52},
+      withers:{x:56,y:56},spine:{x:42,y:58},rump:{x:28,y:60},
+      tail_base:{x:20,y:64},tail_tip:{x:10,y:70},
+      r_f_shoulder:{x:62,y:66},r_f_elbow:{x:72,y:74},r_f_paw:{x:84,y:88},
+      l_f_shoulder:{x:54,y:66},l_f_elbow:{x:62,y:76},l_f_paw:{x:74,y:88},
+      r_b_hip:{x:32,y:68},r_b_hock:{x:26,y:80},r_b_paw:{x:36,y:88},
+      l_b_hip:{x:24,y:68},l_b_hock:{x:16,y:78},l_b_paw:{x:24,y:88}
+    },
+    "Quadruped: Stalking / Pouncing": {
+      snout:{x:92,y:46},head:{x:84,y:38},neck:{x:74,y:44},
+      withers:{x:62,y:42},spine:{x:44,y:38},rump:{x:26,y:44},
+      tail_base:{x:18,y:46},tail_tip:{x:8,y:38},
+      r_f_shoulder:{x:66,y:54},r_f_elbow:{x:72,y:70},r_f_paw:{x:76,y:90},
+      l_f_shoulder:{x:58,y:54},l_f_elbow:{x:52,y:68},l_f_paw:{x:46,y:88},
+      r_b_hip:{x:30,y:54},r_b_hock:{x:36,y:72},r_b_paw:{x:42,y:90},
+      l_b_hip:{x:22,y:54},l_b_hock:{x:16,y:70},l_b_paw:{x:22,y:90}
+    },
+    // --- Frontal Human Poses ---
     "Standing Idle": {
       nose:{x:50,y:14},neck:{x:50,y:24},r_shoulder:{x:40,y:26},r_elbow:{x:36,y:42},r_wrist:{x:34,y:57},
       l_shoulder:{x:60,y:26},l_elbow:{x:64,y:42},l_wrist:{x:66,y:57},mid_hip:{x:50,y:54},
@@ -4330,10 +4426,28 @@
     "l_knee": ["l_ankle"]
   };
 
-  function getDescendantJoints(rootJoint) {
+  const QUADRUPED_JOINT_CHILDREN = {
+    "withers": ["snout", "head", "neck", "r_f_shoulder", "l_f_shoulder", "spine"],
+    "neck": ["head", "snout"],
+    "head": ["snout"],
+    "spine": ["rump"],
+    "rump": ["tail_base", "r_b_hip", "l_b_hip"],
+    "tail_base": ["tail_tip"],
+    "r_f_shoulder": ["r_f_elbow"],
+    "r_f_elbow": ["r_f_paw"],
+    "l_f_shoulder": ["l_f_elbow"],
+    "l_f_elbow": ["l_f_paw"],
+    "r_b_hip": ["r_b_hock"],
+    "r_b_hock": ["r_b_paw"],
+    "l_b_hip": ["l_b_hock"],
+    "l_b_hock": ["l_b_paw"]
+  };
+
+  function getDescendantJoints(rootJoint, skeletonType) {
+    const table = (skeletonType === 'quadruped') ? QUADRUPED_JOINT_CHILDREN : JOINT_CHILDREN;
     const list = [];
     function traverse(j) {
-      const children = JOINT_CHILDREN[j] || [];
+      const children = table[j] || [];
       for (const c of children) {
         list.push(c);
         traverse(c);
@@ -4358,6 +4472,31 @@
     { from: "mid_hip", to: "l_hip", color: "#3b82f6", width: 7 },
     { from: "l_hip", to: "l_knee", color: "#6366f1", width: 7 },
     { from: "l_knee", to: "l_ankle", color: "#818cf8", width: 6 }
+  ];
+
+  const QUADRUPED_BONES = [
+    // Spine & Head
+    { from: "withers", to: "spine", color: "#f43f5e", width: 7 },
+    { from: "spine", to: "rump", color: "#e11d48", width: 7 },
+    { from: "withers", to: "neck", color: "#ec4899", width: 6 },
+    { from: "neck", to: "head", color: "#d946ef", width: 6 },
+    { from: "head", to: "snout", color: "#a855f7", width: 5 },
+    { from: "rump", to: "tail_base", color: "#f59e0b", width: 5 },
+    { from: "tail_base", to: "tail_tip", color: "#fbbf24", width: 4 },
+    // Front Legs
+    { from: "withers", to: "r_f_shoulder", color: "#3b82f6", width: 6 },
+    { from: "r_f_shoulder", to: "r_f_elbow", color: "#06b6d4", width: 6 },
+    { from: "r_f_elbow", to: "r_f_paw", color: "#38bdf8", width: 5 },
+    { from: "withers", to: "l_f_shoulder", color: "#1d4ed8", width: 5 },
+    { from: "l_f_shoulder", to: "l_f_elbow", color: "#0284c7", width: 5 },
+    { from: "l_f_elbow", to: "l_f_paw", color: "#0ea5e9", width: 4 },
+    // Back Legs
+    { from: "rump", to: "r_b_hip", color: "#10b981", width: 6 },
+    { from: "r_b_hip", to: "r_b_hock", color: "#22c55e", width: 6 },
+    { from: "r_b_hock", to: "r_b_paw", color: "#4ade80", width: 5 },
+    { from: "rump", to: "l_b_hip", color: "#059669", width: 5 },
+    { from: "l_b_hip", to: "l_b_hock", color: "#16a34a", width: 5 },
+    { from: "l_b_hock", to: "l_b_paw", color: "#22c55e", width: 4 }
   ];
 
   const state = {
@@ -4682,8 +4821,169 @@
     }
   }
 
+  // Render Articulated Quadruped Animal (Dog, Horse, Cat, etc.)
+  function renderQuadrupedCharacter(g, el) {
+    const pose = el.pose || POSE_PRESETS["Quadruped: Standing Alert"];
+    const w = el.width || 300;
+    const h = el.height || 210;
+
+    // 0. Transparent Full-Body Grab Surface
+    const grabSurface = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    grabSurface.setAttribute('x', '0');
+    grabSurface.setAttribute('y', '0');
+    grabSurface.setAttribute('width', w);
+    grabSurface.setAttribute('height', h);
+    grabSurface.setAttribute('fill', 'rgba(0,0,0,0.001)');
+    grabSurface.style.cursor = 'move';
+    g.appendChild(grabSurface);
+
+    const silhouetteColor = el.subtype === 'horse' ? '#1e293b' : (el.subtype === 'cat' ? '#0f172a' : '#1e293b');
+    const opacity = '0.75';
+
+    // 1. Torso body polygon connecting withers, spine, rump, and chest/belly
+    if (pose.withers && pose.spine && pose.rump) {
+      const wPt = { x: (pose.withers.x / 100) * w, y: (pose.withers.y / 100) * h };
+      const sPt = { x: (pose.spine.x / 100) * w, y: (pose.spine.y / 100) * h };
+      const rPt = { x: (pose.rump.x / 100) * w, y: (pose.rump.y / 100) * h };
+      const nPt = pose.neck ? { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h } : wPt;
+
+      const chestY = wPt.y + (h * 0.22);
+      const bellyY = sPt.y + (h * 0.18);
+      const flankY = rPt.y + (h * 0.20);
+
+      const torso = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      torso.setAttribute('points', 
+        `${nPt.x},${nPt.y} ` +
+        `${wPt.x},${wPt.y} ` +
+        `${sPt.x},${sPt.y} ` +
+        `${rPt.x},${rPt.y} ` +
+        `${rPt.x},${flankY} ` +
+        `${sPt.x},${bellyY} ` +
+        `${wPt.x + 10},${chestY} ` +
+        `${nPt.x + 8},${nPt.y + 12}`
+      );
+      torso.setAttribute('fill', silhouetteColor);
+      torso.setAttribute('fill-opacity', opacity);
+      torso.setAttribute('stroke', '#475569');
+      torso.setAttribute('stroke-width', '1.5');
+      g.appendChild(torso);
+    }
+
+    // 2. Head & Snout Silhouette
+    if (pose.head && pose.snout) {
+      const hPt = { x: (pose.head.x / 100) * w, y: (pose.head.y / 100) * h };
+      const snPt = { x: (pose.snout.x / 100) * w, y: (pose.snout.y / 100) * h };
+      const nPt = pose.neck ? { x: (pose.neck.x / 100) * w, y: (pose.neck.y / 100) * h } : hPt;
+
+      const headPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      headPoly.setAttribute('points',
+        `${hPt.x - 6},${hPt.y - 12} ` +
+        `${hPt.x + 6},${hPt.y - 4} ` +
+        `${snPt.x},${snPt.y} ` +
+        `${snPt.x - 4},${snPt.y + 6} ` +
+        `${nPt.x + 4},${nPt.y} ` +
+        `${hPt.x - 10},${hPt.y + 4}`
+      );
+      headPoly.setAttribute('fill', silhouetteColor);
+      headPoly.setAttribute('fill-opacity', opacity);
+      headPoly.setAttribute('stroke', '#475569');
+      headPoly.setAttribute('stroke-width', '1.5');
+      g.appendChild(headPoly);
+
+      // Eye indicator
+      const eye = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      eye.setAttribute('cx', (hPt.x + snPt.x) / 2);
+      eye.setAttribute('cy', (hPt.y + snPt.y) / 2 - 3);
+      eye.setAttribute('r', '2.5');
+      eye.setAttribute('fill', '#38bdf8');
+      g.appendChild(eye);
+    }
+
+    // 3. Tail Silhouette
+    if (pose.tail_base && pose.tail_tip) {
+      const t1 = { x: (pose.tail_base.x / 100) * w, y: (pose.tail_base.y / 100) * h };
+      const t2 = { x: (pose.tail_tip.x / 100) * w, y: (pose.tail_tip.y / 100) * h };
+      const tailLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      tailLine.setAttribute('x1', t1.x); tailLine.setAttribute('y1', t1.y);
+      tailLine.setAttribute('x2', t2.x); tailLine.setAttribute('y2', t2.y);
+      tailLine.setAttribute('stroke', silhouetteColor);
+      tailLine.setAttribute('stroke-opacity', opacity);
+      tailLine.setAttribute('stroke-width', '8');
+      tailLine.setAttribute('stroke-linecap', 'round');
+      g.appendChild(tailLine);
+    }
+
+    // 4. Limbs Silhouettes (4 legs)
+    const legPairs = [
+      ["r_f_shoulder", "r_f_elbow", 14], ["r_f_elbow", "r_f_paw", 11],
+      ["l_f_shoulder", "l_f_elbow", 12], ["l_f_elbow", "l_f_paw", 10],
+      ["r_b_hip", "r_b_hock", 16], ["r_b_hock", "r_b_paw", 12],
+      ["l_b_hip", "l_b_hock", 14], ["l_b_hock", "l_b_paw", 11]
+    ];
+    legPairs.forEach(([p1Name, p2Name, thickness]) => {
+      const p1 = pose[p1Name];
+      const p2 = pose[p2Name];
+      if (p1 && p2) {
+        const limb = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        limb.setAttribute('x1', (p1.x / 100) * w);
+        limb.setAttribute('y1', (p1.y / 100) * h);
+        limb.setAttribute('x2', (p2.x / 100) * w);
+        limb.setAttribute('y2', (p2.y / 100) * h);
+        limb.setAttribute('stroke', silhouetteColor);
+        limb.setAttribute('stroke-opacity', opacity);
+        limb.setAttribute('stroke-width', thickness);
+        limb.setAttribute('stroke-linecap', 'round');
+        g.appendChild(limb);
+      }
+    });
+
+    // 5. Quadruped Colored Skeleton Bones
+    QUADRUPED_BONES.forEach(bone => {
+      const p1 = pose[bone.from];
+      const p2 = pose[bone.to];
+      if (p1 && p2) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', (p1.x / 100) * w);
+        line.setAttribute('y1', (p1.y / 100) * h);
+        line.setAttribute('x2', (p2.x / 100) * w);
+        line.setAttribute('y2', (p2.y / 100) * h);
+        line.setAttribute('stroke', bone.color);
+        line.setAttribute('stroke-width', '3.5');
+        line.setAttribute('stroke-linecap', 'round');
+        g.appendChild(line);
+      }
+    });
+
+    // 6. Name Label and traits
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', w / 2); text.setAttribute('y', h + 18);
+    text.setAttribute('fill', '#34d399'); text.setAttribute('font-size', '11.5'); text.setAttribute('font-weight', '700'); text.setAttribute('text-anchor', 'middle');
+    text.textContent = el.name || 'Quadruped Animal';
+    g.appendChild(text);
+
+    let subtitle = [];
+    if (el.anatomy && el.anatomy.trim()) subtitle.push(el.anatomy.trim());
+    else if (el.clothing && el.clothing.trim()) subtitle.push(el.clothing.trim());
+
+    if (subtitle.length > 0) {
+      const subTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      subTxt.setAttribute('x', w / 2); subTxt.setAttribute('y', h + 32);
+      subTxt.setAttribute('fill', '#94a3b8'); subTxt.setAttribute('font-size', '9.5'); subTxt.setAttribute('text-anchor', 'middle');
+      const maxLen = 38;
+      const combined = subtitle.join(' • ');
+      subTxt.textContent = combined.length > maxLen ? combined.substring(0, maxLen - 2) + '...' : combined;
+      g.appendChild(subTxt);
+    }
+  }
+
   // Render Articulated Character with Silhouette and Colored Skeleton Bones
   function renderArticulatedCharacter(g, el) {
+    const isQuad = el.skeletonType === 'quadruped' || ['dog', 'horse', 'cat', 'quadruped'].includes(el.subtype);
+    if (isQuad) {
+      renderQuadrupedCharacter(g, el);
+      return;
+    }
+
     const pose = el.pose || POSE_PRESETS["Standing Idle"];
     const w = el.width;
     const h = el.height;
@@ -5649,7 +5949,7 @@
 
         // Hierarchical Propagation (unless holding Alt for isolated single-joint drag)
         if (!e.altKey) {
-          const descendants = getDescendantJoints(dt.jointName);
+          const descendants = getDescendantJoints(dt.jointName, el.skeletonType);
           descendants.forEach(child => {
             if (el.pose[child] && dt.initialPose[child]) {
               el.pose[child].x = Math.max(2, Math.min(98, dt.initialPose[child].x + deltaNormX));
@@ -5748,24 +6048,46 @@
     };
 
     if (type === 'character') {
-      newEl.facing = "front";
-      newEl.poseName = "Standing Idle";
-      newEl.pose = JSON.parse(JSON.stringify(POSE_PRESETS["Standing Idle"]));
-
-      newEl.skin = "hybrid";
-      if (subtype === 'female') {
-        newEl.name = "Female Figure";
-        newEl.width = 225; newEl.height = 405;
-        newEl.pose.r_shoulder.x = 42; newEl.pose.l_shoulder.x = 58;
-        newEl.pose.r_hip.x = 42; newEl.pose.l_hip.x = 58;
-      } else if (subtype === 'child') {
-        newEl.name = "Child Figure";
-        newEl.width = 180; newEl.height = 300;
-        newEl.scale = 0.9;
+      const isQuad = subtype === 'dog' || subtype === 'horse' || subtype === 'cat' || subtype === 'quadruped';
+      if (isQuad) {
+        newEl.skeletonType = 'quadruped';
+        newEl.facing = 'right';
+        newEl.poseName = 'Quadruped: Standing Alert';
+        newEl.pose = JSON.parse(JSON.stringify(POSE_PRESETS["Quadruped: Standing Alert"]));
+        newEl.skin = "hybrid";
+        if (subtype === 'dog') {
+          newEl.name = "Dog (Canine)";
+          newEl.width = 280; newEl.height = 195;
+        } else if (subtype === 'horse') {
+          newEl.name = "Horse (Equine)";
+          newEl.width = 340; newEl.height = 250;
+        } else if (subtype === 'cat') {
+          newEl.name = "Cat (Feline)";
+          newEl.width = 220; newEl.height = 160;
+        } else {
+          newEl.name = "Quadruped Animal";
+          newEl.width = 280; newEl.height = 195;
+        }
       } else {
-        newEl.name = "Male Figure";
-        newEl.width = 225; newEl.height = 405;
-        newEl.pose.r_shoulder.x = 36; newEl.pose.l_shoulder.x = 64;
+        newEl.skeletonType = 'biped';
+        newEl.facing = "front";
+        newEl.poseName = "Standing Idle";
+        newEl.pose = JSON.parse(JSON.stringify(POSE_PRESETS["Standing Idle"]));
+        newEl.skin = "hybrid";
+        if (subtype === 'female') {
+          newEl.name = "Female Figure";
+          newEl.width = 225; newEl.height = 405;
+          newEl.pose.r_shoulder.x = 42; newEl.pose.l_shoulder.x = 58;
+          newEl.pose.r_hip.x = 42; newEl.pose.l_hip.x = 58;
+        } else if (subtype === 'child') {
+          newEl.name = "Child Figure";
+          newEl.width = 180; newEl.height = 300;
+          newEl.scale = 0.9;
+        } else {
+          newEl.name = "Male Figure";
+          newEl.width = 225; newEl.height = 405;
+          newEl.pose.r_shoulder.x = 36; newEl.pose.l_shoulder.x = 64;
+        }
       }
     } else if (type === 'prop') {
       if (subtype === 'marker') {
@@ -5897,6 +6219,9 @@
         if (document.getElementById('charHairSelect')) document.getElementById('charHairSelect').value = '';
         if (document.getElementById('charClothingSelect')) document.getElementById('charClothingSelect').value = '';
         if (document.getElementById('charDetailsSelect')) document.getElementById('charDetailsSelect').value = '';
+
+        const isQuad = selEl.skeletonType === 'quadruped' || ['dog', 'horse', 'cat', 'quadruped'].includes(selEl.subtype);
+        showPoseShelfCategory(isQuad ? 'quadruped' : 'biped');
       }
 
       document.querySelectorAll('.facing-btn').forEach(btn => {
@@ -6456,19 +6781,46 @@
     }
   }
 
+  function showPoseShelfCategory(cat) {
+    const tabB = document.getElementById('btnPoseTabBiped');
+    const tabQ = document.getElementById('btnPoseTabQuadruped');
+    const subWrap = document.getElementById('bipedSubTabsWrap');
+    const gridF = document.getElementById('quickPoseGridFront');
+    const gridS = document.getElementById('quickPoseGridSide');
+    const gridQ = document.getElementById('quickPoseGridQuadruped');
+    if (!tabB || !tabQ) return;
+
+    if (cat === 'quadruped') {
+      tabQ.classList.add('active'); tabQ.style.background = '#059669'; tabQ.style.color = '#fff';
+      tabB.classList.remove('active'); tabB.style.background = 'transparent'; tabB.style.color = 'var(--text-muted)';
+      if (subWrap) subWrap.style.display = 'none';
+      if (gridF) gridF.style.display = 'none';
+      if (gridS) gridS.style.display = 'none';
+      if (gridQ) gridQ.style.display = 'grid';
+    } else {
+      tabB.classList.add('active'); tabB.style.background = '#0284c7'; tabB.style.color = '#fff';
+      tabQ.classList.remove('active'); tabQ.style.background = 'transparent'; tabQ.style.color = 'var(--text-muted)';
+      if (subWrap) subWrap.style.display = 'flex';
+      if (gridQ) gridQ.style.display = 'none';
+      showPoseShelfTab(state.scenePerspective === 'side' ? 'side' : 'front');
+    }
+  }
+
   function showPoseShelfTab(tab) {
     const tabF = document.getElementById('btnPoseTabFront');
     const tabS = document.getElementById('btnPoseTabSide');
     const gridF = document.getElementById('quickPoseGridFront');
     const gridS = document.getElementById('quickPoseGridSide');
+    const gridQ = document.getElementById('quickPoseGridQuadruped');
+    if (gridQ) gridQ.style.display = 'none';
     if (!tabF || !tabS || !gridF || !gridS) return;
 
     if (tab === 'side') {
-      tabS.classList.add('active'); tabS.style.background = '#0284c7'; tabS.style.color = '#fff';
+      tabS.classList.add('active'); tabS.style.background = '#0369a1'; tabS.style.color = '#fff';
       tabF.classList.remove('active'); tabF.style.background = 'transparent'; tabF.style.color = 'var(--text-muted)';
       gridS.style.display = 'grid'; gridF.style.display = 'none';
     } else {
-      tabF.classList.add('active'); tabF.style.background = '#0284c7'; tabF.style.color = '#fff';
+      tabF.classList.add('active'); tabF.style.background = '#0369a1'; tabF.style.color = '#fff';
       tabS.classList.remove('active'); tabS.style.background = 'transparent'; tabS.style.color = 'var(--text-muted)';
       gridF.style.display = 'grid'; gridS.style.display = 'none';
     }
@@ -6480,6 +6832,11 @@
       applyPoseByName(pName);
     });
   });
+
+  const tabBipedBtn = document.getElementById('btnPoseTabBiped');
+  if (tabBipedBtn) tabBipedBtn.addEventListener('click', () => showPoseShelfCategory('biped'));
+  const tabQuadBtn = document.getElementById('btnPoseTabQuadruped');
+  if (tabQuadBtn) tabQuadBtn.addEventListener('click', () => showPoseShelfCategory('quadruped'));
 
   const tabFrontBtn = document.getElementById('btnPoseTabFront');
   if (tabFrontBtn) tabFrontBtn.addEventListener('click', () => showPoseShelfTab('front'));
@@ -7281,7 +7638,446 @@
     });
   });
 
-  // Random Character Appearance Generator
+  // --- Structured Demographic Archetypes for Coherent Character Generation ---
+  const CHARACTER_TAXONOMIES = {
+    male_adult: {
+      ethnicities: [
+        "East Asian heritage, sculpted facial features, dark almond eyes",
+        "African heritage, radiant deep melanin complexion, defined jawline",
+        "Hispanic Latino heritage, warm sun-kissed olive complexion, expressive dark eyes",
+        "South Asian Indian heritage, radiant golden bronze skin, striking deep eyes",
+        "Nordic Scandinavian heritage, fair translucent skin with faint freckles and icy blue eyes",
+        "Mediterranean Middle Eastern heritage, sun-drenched warm bronze complexion, sharp chiseled features",
+        "Indigenous Native heritage, rich coppery bronze skin, high sculpted cheekbones, deep dark eyes",
+        "cybernetic augmented synthetic complexion with subtle glowing biometric seams"
+      ],
+      physiques: [
+        "tall athletic muscular build with broad defined shoulders",
+        "lean slender agile athletic runner build",
+        "burly stocky broad-shouldered muscular powerhouse build",
+        "mature adult man in his 40s with rugged handsome face and weathered charm",
+        "young adult man in his 20s with sharp chiseled jawline",
+        "clean-shaven chiseled jawline and piercing focused gaze",
+        "full well-groomed rugged beard and thick masculine mustache"
+      ],
+      expressions: [
+        "confident relaxed smirk with a raised brow",
+        "warm gentle welcoming smile and kind eyes",
+        "fierce determined combat glare with clenched jaw",
+        "intense focused piercing stare with narrowed eyes",
+        "stoic emotionless expression with steady gaze",
+        "cheerful vibrant hearty laugh with crinkled eyes",
+        "commanding authoritative serious expression"
+      ],
+      hairStyles: [
+        "clean-cut short taper fade crop",
+        "neat gentleman side-part with pomade shine",
+        "modern undercut with textured messy top",
+        "messy short textured tousled hair",
+        "tight geometric cornrow braids",
+        "voluminous natural short afro hair",
+        "thick dreadlocks tied back in a masculine bun",
+        "buzz cut military crop",
+        "rugged shoulder-length swept-back wavy locks"
+      ],
+      hairColors: [
+        "jet black", "dark espresso brown", "ash brown", "honey golden blonde",
+        "silver-dusted graying", "platinum silver white", "copper auburn"
+      ],
+      outfits: [
+        "luxurious three-piece bespoke executive suit with tailored vest, silk tie, french-cuff dress shirt, and polished oxfords",
+        "classic black leather motorcycle jacket, fitted white crewneck tee, dark raw denim jeans, and combat boots",
+        "smart-casual tailored tweed blazer over a minimalist charcoal crewneck tee, pressed chinos, and leather loafers",
+        "oversized streetwear hoodie, utilitarian cargo joggers, and high-top sneakers",
+        "heavy turnout firefighter jacket with reflective yellow-silver safety stripes, bunker pants, and suspenders",
+        "navy blue municipal police uniform with utility duty belt, badge, radio shoulder mic, and tactical slacks",
+        "pristine white doctor lab coat over formal dress shirt and slacks with stethoscope around neck",
+        "double-breasted white chef coat with black piping, houndstooth kitchen trousers, and apron",
+        "tactical military ballistic vest, ripstop camo cargo pants, and combat boots",
+        "traditional japanese samurai haori, kimono, and hakama trousers",
+        "futuristic cyberpunk techwear jacket with harness straps and modular utility pouches"
+      ],
+      accessories: [
+        "classic black-rimmed eyeglasses",
+        "dark mirrored aviator sunglasses",
+        "luxury stainless steel chronograph watch on wrist",
+        "backward streetwear baseball snapback cap",
+        "cozy knitted beanie pulled down low",
+        "tactical sidearm holster at right hip",
+        "sheathed katana sword slung across back",
+        "heavy military tactical backpack with hydration tube",
+        ""
+      ]
+    },
+
+    female_adult: {
+      ethnicities: [
+        "East Asian heritage, smooth porcelain skin, graceful almond eyes",
+        "African heritage, radiant deep melanin complexion, sculpted cheekbones",
+        "Hispanic Latino heritage, warm sun-kissed olive complexion, expressive dark eyes",
+        "South Asian Indian heritage, radiant golden bronze skin, striking warm eyes",
+        "Nordic Scandinavian heritage, fair translucent skin with delicate freckles and icy blue eyes",
+        "Mediterranean Middle Eastern heritage, sun-drenched warm bronze complexion, sharp elegant features",
+        "Indigenous Native heritage, rich coppery bronze skin, high cheekbones, deep dark eyes",
+        "cybernetic augmented synthetic complexion with glowing pastel biometric seams"
+      ],
+      physiques: [
+        "curvy hourglass feminine silhouette with graceful poise",
+        "lean slender athletic feminine build with toned shoulders",
+        "tall elegant feminine fashion model stature with sculpted cheekbones",
+        "petite compact feminine frame with delicate features",
+        "mature confident woman in her late 30s with refined elegant facial features",
+        "youthful feminine frame in her 20s with radiant glowing skin and subtle freckles"
+      ],
+      expressions: [
+        "warm gentle welcoming smile and kind eyes",
+        "cheerful vibrant hearty laugh with crinkled eyes",
+        "mysterious confident smirk with playful raised eyebrow",
+        "flirty playful wink and gentle smile",
+        "serene peaceful blissful expression with closed eyes",
+        "fierce determined combat glare with sharp focus",
+        "stoic emotionless expression with icy gaze",
+        "glamorous alluring gaze directly at camera"
+      ],
+      hairStyles: [
+        "high sleek anime ponytail with flying face-framing bangs",
+        "messy high bun with loose framing face tendrils",
+        "playful double space buns with colorful hair ties",
+        "sleek elegant ballerina topknot high bun",
+        "textured cropped pixie cut with soft side-swept fringe",
+        "bob cut with blunt front fringe bangs",
+        "shoulder-length wolf cut with curtain bangs",
+        "voluminous double curly afro puff buns",
+        "long flowing wavy locks cascading over shoulders",
+        "platinum white long ethereal elf hair"
+      ],
+      hairColors: [
+        "jet black", "dark espresso brown", "honey golden blonde", "copper auburn red",
+        "platinum silver white", "pastel lavender pink", "electric neon cyan", "emerald green dyed tips"
+      ],
+      outfits: [
+        "luxurious floor-length flowing silk evening cocktail gown with elegant neckline and high side slit",
+        "tailored women's power suit blazer with matching high-waisted cigarette pants and satin blouse",
+        "elegant business blazer with tailored knee-length pencil skirt, sheer stockings, and classic pointed pumps",
+        "vibrant floral-print breezy summer sundress with pastel blossoms, spaghetti straps, and sunhat",
+        "cropped ribbed knit top, high-rise relaxed vintage denim jeans, and an oversized pastel knitted cardigan",
+        "edgy black leather motorcycle jacket, fitted dark tank top, distressed skinny jeans, and combat boots",
+        "high-waisted pleated tennis skirt with tucked-in polo shirt and crew socks",
+        "classic distressed denim jacket over a fitted baby tee and high-rise wide-leg pants",
+        "futuristic cyberpunk bodysuit with luminous piping and tactical harness belt",
+        "traditional silk kimono with ornate floral obi sash"
+      ],
+      accessories: [
+        "delicate silver necklace with small gemstone pendant",
+        "designer cat-eye sunglasses",
+        "chunky silver hoop earrings and rings",
+        "stylish leather shoulder crossbody handbag",
+        "high-tech augmented reality holographic HUD monocle",
+        "delicate floral hair hairpin accessory",
+        ""
+      ]
+    },
+
+    child_boy: {
+      ethnicities: [
+        "East Asian heritage boy, youthful round face, inquisitive dark almond eyes, smooth skin",
+        "African heritage boy, radiant deep melanin complexion, bright cheerful smile, sparkling eyes",
+        "Hispanic Latino heritage boy, warm olive sun-kissed skin, expressive brown eyes, lively charm",
+        "South Asian Indian heritage boy, golden warm complexion, bright playful dark eyes",
+        "Nordic Scandinavian heritage boy, fair skin with cute sun freckles across nose and bright blue eyes",
+        "Mediterranean heritage boy, light bronze skin with cheerful expressive features"
+      ],
+      physiques: [
+        "active 8-year-old boy build, youthful slender child frame, lively posture",
+        "playful 7-year-old child stature, sweet boyish facial features, chubby cheeks",
+        "curious 9-year-old pre-teen boy build, slender and agile with a sunny disposition",
+        "energetic 6-year-old young boy frame with bright innocent wide-eyed curiosity"
+      ],
+      expressions: [
+        "cheerful toothy grin and excited wide sparkling eyes",
+        "warm gentle boyish smile with innocent curious gaze",
+        "mischievous playful smirk ready for an adventure",
+        "wide-eyed wonder and astonishment with parted lips",
+        "determined playful heroic pout with hands ready for action"
+      ],
+      hairStyles: [
+        "messy tousled short boyish haircut with soft bangs",
+        "neat side-parted schoolboy haircut",
+        "shaggy skater boy layered haircut with loose bangs",
+        "clean short buzz cut crop",
+        "curly natural afro hair with rounded shape",
+        "spiky anime-style cheerful boy hair"
+      ],
+      hairColors: [
+        "jet black", "warm chocolate brown", "chestnut brown", "golden honey blonde", "sandy blonde", "coppery auburn"
+      ],
+      outfits: [
+        "graphic dinosaur print cotton t-shirt, relaxed denim shorts, and colorful light-up sneakers",
+        "striped casual polo shirt with beige cargo shorts, low socks, and canvas skate sneakers",
+        "cozy oversized cartoon hoodie, comfortable fleece joggers, and sneakers",
+        "neat school uniform with short-sleeve collared shirt, navy shorts, and knee-high socks",
+        "colorful winter puffer jacket with warm fleece sweatpants, knit pom-pom beanie, and snow boots",
+        "playful superhero pajama tee with matching comfortable sleep pants and cozy slippers",
+        "classic denim overalls dungarees over a bright red cotton t-shirt with canvas shoes"
+      ],
+      accessories: [
+        "playful school backpack covered in colorful patches and cartoon keychains",
+        "backward blue cotton baseball cap",
+        "colorful digital sports watch on wrist",
+        "roller skating knee pads and elbow pads",
+        "friendly toy dinosaur held in hand",
+        ""
+      ]
+    },
+
+    child_girl: {
+      ethnicities: [
+        "East Asian heritage girl, delicate porcelain skin, bright almond eyes, rosy cheeks",
+        "African heritage girl, glowing warm dark skin, radiant joyful smile, sparkling eyes",
+        "Hispanic Latino heritage girl, sun-kissed warm complexion, expressive dark eyes with cute dimples",
+        "South Asian Indian heritage girl, warm golden skin, bright expressive dark eyes",
+        "Nordic Scandinavian heritage girl, fair skin with delicate freckles and bright sky-blue eyes",
+        "Mediterranean heritage girl, light warm skin, sunny cheerful expression"
+      ],
+      physiques: [
+        "sweet 7-year-old girl build, small graceful child frame, innocent facial features",
+        "cheerful 8-year-old girl stature with joyful rosy cheeks and playful charm",
+        "slender 9-year-old pre-teen girl build, lighthearted and energetic posture",
+        "adorable 6-year-old young girl frame with sweet innocent bright gaze"
+      ],
+      expressions: [
+        "sweet sunny radiant smile and bright joyful eyes",
+        "playful cheerful giggling expression with crinkled nose",
+        "wide-eyed innocent gaze filled with fascination and wonder",
+        "shy gentle smile with cute blushing cheeks",
+        "cheerful friendly wink and radiant beaming expression"
+      ],
+      hairStyles: [
+        "cute double low pigtails tied with colorful ribbon bows",
+        "playful double space buns adorned with glittery hair clips",
+        "soft shoulder-length hair held by a pastel floral headband",
+        "neat double braided plaits resting over shoulders",
+        "short wavy bob with cute blunt front bangs",
+        "high bouncy ponytail with a pastel scrunchie",
+        "natural voluminous curly puffs with colorful beads"
+      ],
+      hairColors: [
+        "jet black", "dark chocolate brown", "honey golden blonde", "strawberry blonde",
+        "copper auburn red", "pastel pink tinted highlights"
+      ],
+      outfits: [
+        "cheerful pastel floral sundress with frilled hem and white canvas sneakers",
+        "classic denim dungarees overalls over a bright yellow striped tee with sneakers",
+        "cozy pastel knitted sweater with stretchy cotton leggings and ankle boots",
+        "pleated school pinafore uniform dress with white Peter Pan collar blouse and Mary Jane shoes",
+        "cute cartoon bunny hoodie with denim jeans and pastel sneakers",
+        "twirly tiered cotton skirt with a comfortable graphic butterfly tee and sandals",
+        "warm colorful winter coat with mittens, knit scarf, and insulated winter boots"
+      ],
+      accessories: [
+        "plush bunny miniature backpack",
+        "colorful beaded friendship bracelets on wrist",
+        "pastel floral hair bow ribbon headband",
+        "cute glittery star hair clips",
+        "small colorful umbrella held in hand",
+        ""
+      ]
+    },
+
+    dog: {
+      breeds: [
+        "noble Golden Retriever with radiant dense golden coat, warm expressive brown eyes, and bushy feathered tail",
+        "athletic German Shepherd with striking black-and-tan saddle coat, erect attentive ears, and intelligent focused gaze",
+        "dynamic Siberian Husky with thick plush silver-gray fur, pure icy-blue eyes, and gracefully curled brush tail",
+        "sleek agile Doberman Pinscher with polished black-and-rust coat, athletic muscular build, and alert upright posture",
+        "playful Pembroke Welsh Corgi with warm foxy red-and-white coat, short sturdy legs, and cheerful bright expression",
+        "sturdy English Bulldog with wrinkled fawn-and-white coat, broad chest, and gentle stoic expression",
+        "loyal black Labrador Retriever with glossy obsidian coat, broad friendly head, and otter tail"
+      ],
+      physiques: [
+        "healthy athletic quadruped canine build, balanced proportion, firm muscular tone",
+        "slender agile runner canine frame with deep chest and lean flanks",
+        "compact sturdy low-slung canine stature with muscular hindquarters"
+      ],
+      expressions: [
+        "alert attentive head tilt with pricked ears and bright intelligent gaze",
+        "joyful panting smile with happy wagging tail and crinkled affectionate eyes",
+        "focused hunting stare with eyes fixed ahead in high concentration",
+        "relaxed calm serene expression resting at ease"
+      ],
+      hairStyles: [
+        "dense double coat with weather-resistant guard hairs",
+        "silky lustrous fur with soft feathering along legs and chest",
+        "short smooth sleek coat gleaming in ambient light",
+        "thick plush arctic winter coat with dense undercoat"
+      ],
+      hairColors: [
+        "honey golden", "rich black and tan", "silver gray and white", "jet black with glossy sheen",
+        "fawn with black mask", "pure snow white", "chocolate brown"
+      ],
+      outfits: [
+        "classic stitched red leather collar with engraved polished brass identity tag",
+        "heavy-duty tactical K9 nylon harness with sturdy back handle and quick-release metal buckles",
+        "vibrant red paisley bandana tied neatly around the neck",
+        "reflective high-visibility search-and-rescue utility vest with side pouches",
+        "sleek dark padded leather walking harness with silver ring",
+        ""
+      ],
+      accessories: [
+        "engraved brass heart-shaped name tag",
+        "reflective clip-on safety LED beacon",
+        "small tactical pouch attached to harness",
+        ""
+      ]
+    },
+
+    horse: {
+      breeds: [
+        "magnificent Arabian thoroughbred with glistening rich chestnut coat, dished refined head, and flowing silken mane",
+        "commanding black Friesian stallion with jet-black lustrous coat, wavy majestic mane, and heavily feathered hooves",
+        "majestic Andalusian purebred white horse with dappled silver-white coat, arched muscular neck, and proud carriage",
+        "spirited wild Mustang with warm golden buckskin coat, dark expressive points, and windblown wild mane",
+        "powerful Clydesdale draft horse with rich bay coat, white blaze, and striking white feathered fetlocks"
+      ],
+      physiques: [
+        "tall majestic equine build, arched muscular neck, powerful sloping hindquarters, and refined legs",
+        "commanding massive draft horse stature with deep broad chest and thick dense bone structure",
+        "agile athletic thoroughbred racehorse silhouette, lean flanks, and long sculpted legs"
+      ],
+      expressions: [
+        "proud spirited expression with alert ears pricked forward and flared nostrils",
+        "calm gentle noble gaze with dark soulful eyes",
+        "wild untamed fiery stare with wind-whipped mane and arched neck"
+      ],
+      hairStyles: [
+        "long flowing majestic mane blowing gracefully in the wind",
+        "neatly braided show mane with refined rosettes",
+        "thick natural wavy mane cascading over muscular neck",
+        "wild windswept coarse mane with untamed charm"
+      ],
+      hairColors: [
+        "jet black", "dappled silver white", "rich chestnut sorrel", "warm golden buckskin with black points",
+        "deep mahogany bay", "smoky blue roan"
+      ],
+      outfits: [
+        "handcrafted english leather riding saddle with polished stirrups, quilted dark saddle pad, and refined bridle",
+        "classic western saddle with floral tooled brown leather, silver horn accent, and braided leather reins",
+        "simple weathered leather halter with brass hardware and trailing lead rope",
+        "ornate ceremonial parade barding with embroidered crimson trim and tassels",
+        ""
+      ],
+      accessories: [
+        "polished brass stirrup irons and matching browband",
+        "woven southwest saddle blanket in vibrant geometric patterns",
+        "protective fleece-lined tendon wraps on lower legs",
+        ""
+      ]
+    },
+
+    cat: {
+      breeds: [
+        "sleek British Shorthair with dense plush silver-blue coat, round chubby cheeks, and striking copper-amber eyes",
+        "elegant Siamese feline with smooth cream coat, dark chocolate points, and piercing almond sapphire-blue eyes",
+        "regal Maine Coon with magnificent tabby coat, prominent lion-like ruff mane, tufted lynx ears, and bushy plumy tail",
+        "mysterious domestic black cat with sleek obsidian coat, glossy sheen, and glowing vibrant emerald eyes",
+        "playful ginger tabby cat with warm marmalade tiger stripes, white bib chest, and curious golden eyes"
+      ],
+      physiques: [
+        "graceful lithe feline build with flexible spine, slender agile limbs, and silent tread",
+        "sturdy cobby feline stature with broad rounded chest, plush body, and round head",
+        "large imposing longhaired feline frame with heavy bone structure and massive bushy tail"
+      ],
+      expressions: [
+        "intense predatory focus with wide dilated pupils, lowered ears, and twitching tail tip",
+        "serene regal gaze with slow blinking affectionate eyes and relaxed posture",
+        "playful alert expression with perked ears and curious tilted head",
+        "content blissful purring expression with half-closed eyes"
+      ],
+      hairStyles: [
+        "dense plush short coat with velvet-smooth texture",
+        "long silky coat with heavy lion-like ruff mane and plumy tail",
+        "sleek close-lying glossy fur with satin sheen"
+      ],
+      hairColors: [
+        "obsidian jet black", "silver blue gray", "warm marmalade ginger tabby",
+        "cream with chocolate points", "calico tricolor", "pure snow white"
+      ],
+      outfits: [
+        "delicate red velvet collar with a tiny polished silver bell",
+        "lightweight escape-proof breathable mesh cat walking harness in teal",
+        "dapper miniature black bow-tie collar with silver clasp",
+        ""
+      ],
+      accessories: [
+        "tiny jingling silver bell on collar",
+        "miniature fish-shaped ID tag",
+        ""
+      ]
+    },
+
+    quadruped: {
+      breeds: [
+        "wild predatory timber wolf with dense grizzled gray-and-buff fur, amber eyes, and powerful stalking posture",
+        "majestic golden lion with thick tawny mane, muscular feline build, and regal commanding presence",
+        "sleek black panther with obsidian coat, glowing emerald eyes, and silent agile stealth build",
+        "alert woodland red fox with fiery russet coat, black stockings, white chest bib, and voluminous white-tipped brush tail"
+      ],
+      physiques: [
+        "powerful athletic wild quadruped build, deep chest, lean sinewy flanks, and agile paws",
+        "compact agile wild hunter frame with low center of gravity and coiled muscular power"
+      ],
+      expressions: [
+        "keen watchful predatory gaze with ears swiveling to track movement",
+        "stoic calm wild dignity resting peacefully in natural habitat",
+        "fierce protective snarl with bared teeth and raised dorsal hackles"
+      ],
+      hairStyles: [
+        "thick weather-hardened double fur with protective guard hairs",
+        "sleek glossy short fur rippling over muscular contours",
+        "thick lion-like neck ruff with windblown fullness"
+      ],
+      hairColors: [
+        "grizzled wolf gray", "tawny golden ochre", "deep obsidian black", "fiery russet red with white markings"
+      ],
+      outfits: [""],
+      accessories: [""]
+    }
+  };
+
+  function resolveCharacterArchetype(el) {
+    if (!el) return 'male_adult';
+    const sub = (el.subtype || '').toLowerCase();
+    const name = (el.name || '').toLowerCase();
+
+    // Quadruped Animals
+    if (el.skeletonType === 'quadruped' || ['dog', 'cat', 'horse', 'quadruped'].includes(sub)) {
+      if (sub === 'dog' || name.includes('dog') || name.includes('perro') || name.includes('canine')) return 'dog';
+      if (sub === 'horse' || name.includes('horse') || name.includes('caballo') || name.includes('equine')) return 'horse';
+      if (sub === 'cat' || name.includes('cat') || name.includes('gato') || name.includes('feline')) return 'cat';
+      return 'quadruped';
+    }
+
+    // Children (differentiate boy vs girl)
+    if (sub === 'child' || name.includes('child') || name.includes('niño') || name.includes('niña') || name.includes('kid')) {
+      if (name.includes('girl') || name.includes('niña') || name.includes('daughter') || name.includes('hija')) {
+        return 'child_girl';
+      }
+      if (name.includes('boy') || name.includes('niño') || name.includes('son') || name.includes('hijo')) {
+        return 'child_boy';
+      }
+      return Math.random() < 0.5 ? 'child_boy' : 'child_girl';
+    }
+
+    // Female Adults
+    if (sub === 'female' || name.includes('female') || name.includes('woman') || name.includes('mujer') || name.includes('girl') || name.includes('chica') || name.includes('lady')) {
+      return 'female_adult';
+    }
+
+    // Male Adults (Default)
+    return 'male_adult';
+  }
+
+  // Random Character Appearance Generator (Demographically Filtered & Coherent)
   function randomizeSelectedCharacter() {
     const selEl = state.elements.find(x => x.id === state.selectedId);
     if (!selEl || selEl.type !== 'character') {
@@ -7289,138 +8085,27 @@
       return;
     }
 
-    const ethnicities = [
-      "East Asian heritage, smooth porcelain skin, dark almond eyes",
-      "African heritage, radiant deep melanin complexion, sculpted features",
-      "Hispanic Latino heritage, warm sun-kissed olive complexion, expressive dark eyes",
-      "South Asian Indian heritage, radiant golden bronze warm skin, striking deep eyes",
-      "Nordic Scandinavian heritage, fair translucent skin with delicate freckles and icy blue eyes",
-      "Mediterranean Middle Eastern heritage, sun-drenched warm bronze complexion, sharp chiseled features",
-      "Indigenous Native heritage, rich coppery bronze skin, high sculpted cheekbones, deep dark eyes",
-      "synthetic pale cyber-android complexion with subtle glowing biometric seams and neon accents"
-    ];
+    const randPick = (arr) => arr && arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : "";
+    const archKey = resolveCharacterArchetype(selEl);
+    const tax = CHARACTER_TAXONOMIES[archKey] || CHARACTER_TAXONOMIES['male_adult'];
 
-    const physiques = [
-      "tall athletic muscular build",
-      "lean slender agile build",
-      "burly stocky broad-shouldered build",
-      "curvy hourglass feminine silhouette",
-      "petite compact short frame",
-      "imposing towering giant stature",
-      "young adult in 20s with sharp features",
-      "mature adult in 40s with rugged handsome face",
-      "freckled cheeks with sun-kissed tanned skin",
-      "clean-shaven chiseled jawline and piercing eyes",
-      "full rugged beard and thick mustache"
-    ];
+    let chosenAnatomy = "";
+    if (tax.breeds) {
+      chosenAnatomy = `${randPick(tax.breeds)}, ${randPick(tax.physiques)}`;
+    } else {
+      chosenAnatomy = `${randPick(tax.ethnicities)}, ${randPick(tax.physiques)}`;
+    }
 
-    const expressions = [
-      "warm gentle welcoming smile and kind eyes",
-      "cheerful vibrant hearty laugh with crinkled eyes",
-      "mysterious confident smirk with raised eyebrow",
-      "flirty playful wink and gentle smile",
-      "serene peaceful blissful expression with closed eyes",
-      "fierce determined combat glare with clenched jaw",
-      "intense focused piercing stare with narrowed eyes",
-      "stoic emotionless expression with icy gaze",
-      "shocked wide-eyed gasp in disbelief",
-      "menacing wicked grin with sinister eyes"
-    ];
+    const chosenExpr = randPick(tax.expressions);
+    let chosenHair = "";
+    if (tax.hairColors && tax.hairStyles) {
+      chosenHair = `${randPick(tax.hairColors)} ${randPick(tax.hairStyles)}`;
+    } else if (tax.hairStyles) {
+      chosenHair = randPick(tax.hairStyles);
+    }
 
-    const hairStyles = [
-      "messy high bun with loose framing face tendrils",
-      "playful double space buns with colorful hair ties",
-      "cute anime double low ponytails with soft ribbons",
-      "sleek elegant ballerina topknot high bun",
-      "voluminous double curly afro puff buns",
-      "textured cropped pixie cut with soft side-swept fringe",
-      "edgy dyed punk mohawk with shaved temples and spiked crest",
-      "undercut with long asymmetric side-swept locks and neon accents",
-      "messy 90s grunge shag layered cut with curtain bangs",
-      "sharp clean-cut short taper fade crop",
-      "messy short textured hair",
-      "neat side part gentleman hairstyle",
-      "high sleek anime ponytail with flying bangs",
-      "bob cut with blunt front fringe bangs",
-      "shoulder-length wolf cut with curtain bangs",
-      "tight geometric cornrow braids",
-      "voluminous natural curly afro hair",
-      "thick dreadlocks tied back in a bun",
-      "platinum white long ethereal elf hair",
-      "spiky anime protagonist gravity-defying hair"
-    ];
-
-    const hairColors = [
-      "jet black",
-      "dark espresso brown",
-      "honey golden blonde",
-      "copper auburn red",
-      "platinum silver white",
-      "electric neon cyan",
-      "pastel lavender pink",
-      "emerald green dyed tips",
-      "midnight dark blue"
-    ];
-
-    const outfits = [
-      "heavy turnout firefighter jacket with reflective yellow-silver safety stripes, bunker pants, and suspenders",
-      "navy blue municipal police uniform with utility duty belt, badge, radio shoulder mic, and tactical slacks",
-      "tweed blazer with elbow patches over a buttoned knit cardigan, collared shirt, and pressed corduroy trousers",
-      "pristine white doctor lab coat over formal dress shirt and slacks with stethoscope around neck",
-      "medical scrubs uniform in hospital ceil blue with hospital badge and nursing clogs",
-      "double-breasted white chef coat with black piping, houndstooth kitchen trousers, and apron",
-      "fast-food crew polo shirt with contrast collar, employee name tag, apron, and visor cap",
-      "modern smart-casual blazer over a minimalist charcoal crewneck tee, tailored chinos, and leather loafers",
-      "luxurious three-piece bespoke executive suit with tailored vest, silk tie, french-cuff dress shirt, and polished oxfords",
-      "airline captain uniform with gold sleeve epaulets, double-breasted navy blazer, and peaked pilot cap",
-      "satin boxing trunks with wide elastic waistband, training robe, hand wraps, and boxing shoes",
-      "mexican lucha libre wrestler gear with vibrant laced mask, wrestling singlet tights, and tall laced boots",
-      "oversized 90s graphic skate tee, baggy faded cargo denim pants, canvas skate sneakers, and low socks",
-      "vibrant floral-print breezy summer sundress with pastel blossoms, spaghetti straps, and sunhat",
-      "tailored women's power suit blazer with matching high-waisted cigarette pants and satin blouse",
-      "elegant business blazer with tailored knee-length pencil skirt, sheer stockings, and classic pointed pumps",
-      "floor-length flowing silk evening cocktail gown with elegant neckline and high side slit",
-      "cropped ribbed knit top, high-rise relaxed jeans, and an oversized pastel knitted cardigan",
-      "classic distressed denim miniskirt with fitted crop baby tee and sneakers",
-      "edgy black leather miniskirt with fishnet tights and combat boots",
-      "high-waisted pleated tennis skirt with tucked-in polo shirt and crew socks",
-      "frayed cutoff short denim shorts (daisy dukes) with casual sleeveless tank top",
-      "high-rise 90s vintage wide-leg baggy denim jeans with fitted ribbed sweater",
-      "dark-wash stretch skinny denim jeans, fitted white t-shirt, and leather ankle boots",
-      "casual graphic t-shirt and distressed denim jeans with sneakers",
-      "oversized streetwear hoodie, cargo joggers, and chunky sneakers",
-      "classic black leather motorcycle jacket, dark denim, and combat boots",
-      "tactical military ballistic vest, ripstop camo cargo pants, and combat boots",
-      "futuristic cyberpunk techwear jacket with harness straps and utility pouches",
-      "traditional japanese samurai haori, kimono, and hakama",
-      "post-apocalyptic wasteland scavenger gear with salvaged leather and gas mask"
-    ];
-
-    const accessories = [
-      "classic black-rimmed eyeglasses",
-      "dark mirrored aviator sunglasses",
-      "high-tech augmented reality holographic HUD monocle",
-      "tactical ballistic protective goggles on forehead",
-      "backward streetwear baseball snapback cap",
-      "cozy knitted beanie pulled down low",
-      "chunky gold cuban link chain necklace and rings",
-      "silver ear piercings and studded leather wristband",
-      "tactical fingerless combat gloves",
-      "tactical sidearm holster at right hip",
-      "sheathed katana sword slung across back",
-      "heavy military tactical backpack with hydration tube",
-      ""
-    ];
-
-    const randPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
-    const chosenEth = randPick(ethnicities);
-    const chosenPhys = randPick(physiques);
-    const chosenAnatomy = `${chosenEth}, ${chosenPhys}`;
-    const chosenExpr = randPick(expressions);
-    const chosenHair = `${randPick(hairColors)} ${randPick(hairStyles)}`;
-    const chosenOutfit = randPick(outfits);
-    const chosenAcc = randPick(accessories);
+    const chosenOutfit = randPick(tax.outfits);
+    const chosenAcc = randPick(tax.accessories);
 
     selEl.anatomy = chosenAnatomy;
     selEl.features = chosenAnatomy;
@@ -7444,7 +8129,17 @@
 
     renderScene();
     updateSpatialManifest();
-    showToast("🎲 Random look generated for " + (selEl.name || "Character") + "!", "success");
+    const archetypeLabels = {
+      male_adult: "Hombre Adulto",
+      female_adult: "Mujer Adulta",
+      child_boy: "Niño (Boy)",
+      child_girl: "Niña (Girl)",
+      dog: "Perro (Canine)",
+      horse: "Caballo (Equine)",
+      cat: "Gato (Feline)",
+      quadruped: "Animal Cuadrúpedo"
+    };
+    showToast("🎲 Look coherente generado para [" + (archetypeLabels[archKey] || "Personaje") + "]!", "success");
   }
 
   const btnRandomizeChar = document.getElementById('btnRandomizeChar');
@@ -7678,9 +8373,22 @@
       return;
     }
 
+    const archKey = resolveCharacterArchetype(selEl);
+    const tax = CHARACTER_TAXONOMIES[archKey] || CHARACTER_TAXONOMIES['male_adult'];
+    const isQuad = selEl.skeletonType === 'quadruped' || ['dog', 'horse', 'cat', 'quadruped'].includes(selEl.subtype);
+
     if (target === 'pose') {
       let poses = [];
-      if (state.scenePerspective === 'side') {
+      if (isQuad) {
+        poses = [
+          "Quadruped: Standing Alert",
+          "Quadruped: Trotting / Walking",
+          "Quadruped: Galloping / Running",
+          "Quadruped: Sitting",
+          "Quadruped: Lying Down / Resting",
+          "Quadruped: Stalking / Pouncing"
+        ];
+      } else if (state.scenePerspective === 'side') {
         poses = [
           "Standing Idle (Side)",
           "Walking / Striding (Side)",
@@ -7743,30 +8451,12 @@
     }
 
     if (target === 'anatomy') {
-      const ethnicities = [
-        "East Asian heritage, smooth porcelain skin, dark almond eyes",
-        "African heritage, radiant deep melanin complexion, sculpted features",
-        "Hispanic Latino heritage, warm sun-kissed olive complexion, expressive dark eyes",
-        "South Asian Indian heritage, radiant golden bronze warm skin, striking deep eyes",
-        "Nordic Scandinavian heritage, fair translucent skin with delicate freckles and icy blue eyes",
-        "Mediterranean Middle Eastern heritage, sun-drenched warm bronze complexion, sharp chiseled features",
-        "Indigenous Native heritage, rich coppery bronze skin, high sculpted cheekbones, deep dark eyes",
-        "synthetic pale cyber-android complexion with subtle glowing biometric seams and neon accents"
-      ];
-      const physiques = [
-        "tall athletic muscular build",
-        "lean slender agile build",
-        "burly stocky broad-shouldered build",
-        "curvy hourglass feminine silhouette",
-        "petite compact short frame",
-        "imposing towering giant stature",
-        "young adult in 20s with sharp features",
-        "mature adult in 40s with rugged handsome face",
-        "freckled cheeks with sun-kissed tanned skin",
-        "clean-shaven chiseled jawline and piercing eyes",
-        "full rugged beard and thick mustache"
-      ];
-      const val = `${randPick(ethnicities)}, ${randPick(physiques)}`;
+      let val = "";
+      if (tax.breeds) {
+        val = `${randPick(tax.breeds)}, ${randPick(tax.physiques)}`;
+      } else {
+        val = `${randPick(tax.ethnicities)}, ${randPick(tax.physiques)}`;
+      }
       selEl.anatomy = val;
       selEl.features = val;
       const anatIn = document.getElementById('charAnatomyInput');
@@ -7775,26 +8465,12 @@
       if (featIn) featIn.value = val;
       renderScene();
       updateSpatialManifest();
-      showToast("🎲 Anatomía aleatoria para " + (selEl.name || "personaje"), "success");
+      showToast("🎲 Facciones / Raza acorde a " + (selEl.name || "personaje"), "success");
       return;
     }
 
     if (target === 'expression') {
-      const expressions = [
-        "warm gentle welcoming smile and kind eyes",
-        "cheerful vibrant hearty laugh with crinkled eyes",
-        "mysterious confident smirk with raised eyebrow",
-        "flirty playful wink and gentle smile",
-        "serene peaceful blissful expression with closed eyes",
-        "fierce determined combat glare with clenched jaw",
-        "intense focused piercing stare with narrowed eyes",
-        "stoic emotionless expression with icy gaze",
-        "shocked wide-eyed gasp in disbelief",
-        "menacing wicked grin with sinister eyes",
-        "melancholic sorrowful look with glistening tears",
-        "nervous anxious sweating expression with darting eyes"
-      ];
-      const val = randPick(expressions);
+      const val = randPick(tax.expressions);
       selEl.expression = val;
       const exprIn = document.getElementById('charExpressionInput');
       if (exprIn) exprIn.value = val;
@@ -7805,116 +8481,40 @@
     }
 
     if (target === 'hair') {
-      const hairStyles = [
-        "messy high bun with loose framing face tendrils",
-        "playful double space buns with colorful hair ties",
-        "cute anime double low ponytails with soft ribbons",
-        "sleek elegant ballerina topknot high bun",
-        "voluminous double curly afro puff buns",
-        "textured cropped pixie cut with soft side-swept fringe",
-        "edgy dyed punk mohawk with shaved temples and spiked crest",
-        "undercut with long asymmetric side-swept locks and neon accents",
-        "messy 90s grunge shag layered cut with curtain bangs",
-        "sharp clean-cut short taper fade crop",
-        "messy short textured hair",
-        "neat side part gentleman hairstyle",
-        "high sleek anime ponytail with flying bangs",
-        "bob cut with blunt front fringe bangs",
-        "shoulder-length wolf cut with curtain bangs",
-        "tight geometric cornrow braids",
-        "voluminous natural curly afro hair",
-        "thick dreadlocks tied back in a bun",
-        "platinum white long ethereal elf hair",
-        "spiky anime protagonist gravity-defying hair"
-      ];
-      const hairColors = [
-        "jet black",
-        "dark espresso brown",
-        "honey golden blonde",
-        "copper auburn red",
-        "platinum silver white",
-        "electric neon cyan",
-        "pastel lavender pink",
-        "emerald green dyed tips",
-        "midnight dark blue"
-      ];
-      const val = `${randPick(hairColors)} ${randPick(hairStyles)}`;
+      let val = "";
+      if (tax.hairColors && tax.hairStyles) {
+        val = `${randPick(tax.hairColors)} ${randPick(tax.hairStyles)}`;
+      } else if (tax.hairStyles) {
+        val = randPick(tax.hairStyles);
+      }
       selEl.hair = val;
       const hairIn = document.getElementById('charHairInput');
       if (hairIn) hairIn.value = val;
       renderScene();
       updateSpatialManifest();
-      showToast("🎲 Peinado aleatorio: " + val.slice(0, 30) + "...", "success");
+      showToast("🎲 Peinado / Pelaje acorde a " + (selEl.name || "personaje"), "success");
       return;
     }
 
     if (target === 'clothing') {
-      const outfits = [
-        "heavy turnout firefighter jacket with reflective yellow-silver safety stripes, bunker pants, and suspenders",
-        "navy blue municipal police uniform with utility duty belt, badge, radio shoulder mic, and tactical slacks",
-        "tweed blazer with elbow patches over a buttoned knit cardigan, collared shirt, and pressed corduroy trousers",
-        "pristine white doctor lab coat over formal dress shirt and slacks with stethoscope around neck",
-        "medical scrubs uniform in hospital ceil blue with hospital badge and nursing clogs",
-        "double-breasted white chef coat with black piping, houndstooth kitchen trousers, and apron",
-        "fast-food crew polo shirt with contrast collar, employee name tag, apron, and visor cap",
-        "modern smart-casual blazer over a minimalist charcoal crewneck tee, tailored chinos, and leather loafers",
-        "luxurious three-piece bespoke executive suit with tailored vest, silk tie, french-cuff dress shirt, and polished oxfords",
-        "airline captain uniform with gold sleeve epaulets, double-breasted navy blazer, and peaked pilot cap",
-        "satin boxing trunks with wide elastic waistband, training robe, hand wraps, and boxing shoes",
-        "mexican lucha libre wrestler gear with vibrant laced mask, wrestling singlet tights, and tall laced boots",
-        "oversized 90s graphic skate tee, baggy faded cargo denim pants, canvas skate sneakers, and low socks",
-        "vibrant floral-print breezy summer sundress with pastel blossoms, spaghetti straps, and sunhat",
-        "tailored women's power suit blazer with matching high-waisted cigarette pants and satin blouse",
-        "elegant business blazer with tailored knee-length pencil skirt, sheer stockings, and classic pointed pumps",
-        "floor-length flowing silk evening cocktail gown with elegant neckline and high side slit",
-        "cropped ribbed knit top, high-rise relaxed jeans, and an oversized pastel knitted cardigan",
-        "classic distressed denim miniskirt with fitted crop baby tee and sneakers",
-        "edgy black leather miniskirt with fishnet tights and combat boots",
-        "high-waisted pleated tennis skirt with tucked-in polo shirt and crew socks",
-        "frayed cutoff short denim shorts (daisy dukes) with casual sleeveless tank top",
-        "high-rise 90s vintage wide-leg baggy denim jeans with fitted ribbed sweater",
-        "dark-wash stretch skinny denim jeans, fitted white t-shirt, and leather ankle boots",
-        "casual graphic t-shirt and distressed denim jeans with sneakers",
-        "oversized streetwear hoodie, cargo joggers, and chunky sneakers",
-        "classic black leather motorcycle jacket, dark denim, and combat boots",
-        "tactical military ballistic vest, ripstop camo cargo pants, and combat boots",
-        "futuristic cyberpunk techwear jacket with harness straps and utility pouches",
-        "traditional japanese samurai haori, kimono, and hakama",
-        "post-apocalyptic wasteland scavenger gear with salvaged leather and gas mask"
-      ];
-      const val = randPick(outfits);
+      const val = randPick(tax.outfits);
       selEl.clothing = val;
       const clothIn = document.getElementById('charClothingInput');
       if (clothIn) clothIn.value = val;
       renderScene();
       updateSpatialManifest();
-      showToast("🎲 Vestimenta aleatoria: " + val.slice(0, 30) + "...", "success");
+      showToast("🎲 Vestimenta / Arneses acordes: " + (val ? val.slice(0, 30) + "..." : "(sin accesorios)"), "success");
       return;
     }
 
     if (target === 'details') {
-      const accessories = [
-        "classic black-rimmed eyeglasses",
-        "dark mirrored aviator sunglasses",
-        "high-tech augmented reality holographic HUD monocle",
-        "tactical ballistic protective goggles on forehead",
-        "backward streetwear baseball snapback cap",
-        "cozy knitted beanie pulled down low",
-        "chunky gold cuban link chain necklace and rings",
-        "silver ear piercings and studded leather wristband",
-        "tactical fingerless combat gloves",
-        "tactical sidearm holster at right hip",
-        "sheathed katana sword slung across back",
-        "heavy military tactical backpack with hydration tube",
-        ""
-      ];
-      const val = randPick(accessories);
+      const val = randPick(tax.accessories);
       selEl.details = val;
       const detIn = document.getElementById('charDetailsInput');
       if (detIn) detIn.value = val;
       renderScene();
       updateSpatialManifest();
-      showToast(val ? "🎲 Accesorios aleatorios: " + val.slice(0, 30) + "..." : "🎲 Sin accesorios (look limpio)", "success");
+      showToast(val ? "🎲 Accesorio aleatorio acorde: " + val.slice(0, 30) + "..." : "🎲 Sin accesorios (look limpio)", "success");
       return;
     }
   }
