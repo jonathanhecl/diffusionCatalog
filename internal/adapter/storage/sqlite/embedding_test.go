@@ -115,3 +115,93 @@ func TestAssetEmbeddingPersistenceAndSimilarity(t *testing.T) {
 		t.Errorf("expected assets in order [%d, %d], got [%d, %d]", asset2ID, asset1ID, page.Assets[0].ID, page.Assets[1].ID)
 	}
 }
+
+func TestHybridSearchCaptionRelevanceOverEmbeddings(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_hybrid.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db, dbPath)
+	rootID, _ := repo.UpsertMediaRoot(ctx, &domain.MediaRoot{
+		Path:    filepath.Join(tmpDir, "media"),
+		Label:   "Media",
+		Enabled: true,
+	})
+
+	// Create 5 generic assets (semantic embedding matches that do NOT contain the search term in text)
+	var embeddingIDs []int64
+	for i := 1; i <= 5; i++ {
+		id, err := repo.UpsertAsset(ctx, &domain.MediaAsset{
+			RootID:         rootID,
+			RelPath:        filepath.Join("generic", string(rune('a'+i))+".png"),
+			FileName:       string(rune('a'+i)) + ".png",
+			MediaType:      domain.MediaTypeImage,
+			Metadata: domain.GenerationParams{
+				PositivePrompt: "A professional character reference photograph of a woman in an office",
+			},
+		})
+		if err != nil {
+			t.Fatalf("failed to insert generic asset: %v", err)
+		}
+		embeddingIDs = append(embeddingIDs, id)
+	}
+
+	// Create 1 asset that actually has the searched word "LenaX" in its caption / positive prompt
+	captionAssetID, err := repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RootID:    rootID,
+		RelPath:   "target/lenax_portrait.png",
+		FileName:  "lenax_portrait.png",
+		MediaType: domain.MediaTypeImage,
+		Metadata: domain.GenerationParams{
+			PositivePrompt: "LenaX, Blonde hair. An empty train platform, lit only by scattered candles: a 21-year-old adult woman",
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to insert caption asset: %v", err)
+	}
+
+	// Search for "LenaX" with embedding results simulating a semantic search
+	page, err := repo.QueryCatalog(ctx, domain.CatalogFilter{
+		Query:             "LenaX",
+		EmbeddingAssetIDs: embeddingIDs,
+	})
+	if err != nil {
+		t.Fatalf("QueryCatalog failed: %v", err)
+	}
+
+	// Total should be 6: 1 direct caption match + 5 semantic matches
+	if page.TotalCount != 6 {
+		t.Fatalf("expected 6 total matches, got %d", page.TotalCount)
+	}
+
+	// The asset with "LenaX" in the caption MUST be ranked FIRST (#1)!
+	if page.Assets[0].ID != captionAssetID {
+		t.Fatalf("expected asset with caption match (ID %d) to be #1, but got ID %d (prompt: %q)",
+			captionAssetID, page.Assets[0].ID, page.Assets[0].Metadata.PositivePrompt)
+	}
+
+	// Subsequent assets should be the embedding IDs in order
+	for i := 0; i < 5; i++ {
+		if page.Assets[i+1].ID != embeddingIDs[i] {
+			t.Errorf("expected position %d to be embedding ID %d, got %d", i+2, embeddingIDs[i], page.Assets[i+1].ID)
+		}
+	}
+
+	// Test multi-word caption search "empty train candles": should also prioritize caption match
+	pageMulti, err := repo.QueryCatalog(ctx, domain.CatalogFilter{
+		Query:             "empty train candles",
+		EmbeddingAssetIDs: embeddingIDs,
+	})
+	if err != nil {
+		t.Fatalf("QueryCatalog multi-word failed: %v", err)
+	}
+	if len(pageMulti.Assets) == 0 || pageMulti.Assets[0].ID != captionAssetID {
+		t.Fatalf("expected multi-word query to rank caption match #1, got ID %d", pageMulti.Assets[0].ID)
+	}
+}

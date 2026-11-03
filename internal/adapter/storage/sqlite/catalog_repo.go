@@ -452,20 +452,33 @@ func buildCatalogFilterWhereAndOrder(filter domain.CatalogFilter) (whereClause s
 
 	if q := strings.TrimSpace(filter.Query); q != "" {
 		like := "%" + q + "%"
+		words := strings.Fields(q)
+
+		var textConditions []string
+		textConditions = append(textConditions, `(a.positive_prompt LIKE ? OR a.raw_metadata LIKE ? OR a.file_name LIKE ? OR a.model_name LIKE ? OR a.category LIKE ? OR a.subcategory LIKE ? OR EXISTS (
+			SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = a.id AND t.name LIKE ?
+		))`)
+		args = append(args, like, like, like, like, like, like, like)
+
+		if len(words) > 1 && len(words) <= 8 {
+			var wordClauses []string
+			for _, w := range words {
+				wLike := "%" + w + "%"
+				wordClauses = append(wordClauses, `(a.positive_prompt LIKE ? OR a.raw_metadata LIKE ? OR a.file_name LIKE ?)`)
+				args = append(args, wLike, wLike, wLike)
+			}
+			textConditions = append(textConditions, fmt.Sprintf("(%s)", strings.Join(wordClauses, " AND ")))
+		}
+
 		if len(filter.EmbeddingAssetIDs) > 0 {
 			var inClauses []string
 			for _, id := range filter.EmbeddingAssetIDs {
 				inClauses = append(inClauses, strconv.FormatInt(id, 10))
 			}
-			where = append(where, fmt.Sprintf(`(a.positive_prompt LIKE ? OR a.file_name LIKE ? OR a.model_name LIKE ? OR a.category LIKE ? OR a.subcategory LIKE ? OR EXISTS (
-				SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = a.id AND t.name LIKE ?
-			) OR a.id IN (%s))`, strings.Join(inClauses, ",")))
+			where = append(where, fmt.Sprintf(`((%s) OR a.id IN (%s))`, strings.Join(textConditions, " OR "), strings.Join(inClauses, ",")))
 		} else {
-			where = append(where, `(a.positive_prompt LIKE ? OR a.file_name LIKE ? OR a.model_name LIKE ? OR a.category LIKE ? OR a.subcategory LIKE ? OR EXISTS (
-				SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = a.id AND t.name LIKE ?
-			))`)
+			where = append(where, fmt.Sprintf(`(%s)`, strings.Join(textConditions, " OR ")))
 		}
-		args = append(args, like, like, like, like, like, like)
 	} else if len(filter.EmbeddingAssetIDs) > 0 {
 		var inClauses []string
 		for _, id := range filter.EmbeddingAssetIDs {
@@ -566,7 +579,47 @@ func buildCatalogFilterWhereAndOrder(filter domain.CatalogFilter) (whereClause s
 	case "seed":
 		orderBy = "a.seed ASC, a.id DESC"
 	default:
-		if len(filter.EmbeddingAssetIDs) > 0 {
+		q := strings.TrimSpace(filter.Query)
+		if q != "" {
+			escapedQ := strings.ReplaceAll(q, "'", "''")
+			startsLike := "'" + escapedQ + "%'"
+			containsLike := "'%" + escapedQ + "%'"
+			words := strings.Fields(q)
+
+			var multiWordClause string
+			if len(words) > 1 && len(words) <= 8 {
+				var wordClauses []string
+				for _, w := range words {
+					ew := strings.ReplaceAll(w, "'", "''")
+					wordClauses = append(wordClauses, fmt.Sprintf("(LOWER(a.positive_prompt) LIKE LOWER('%%%s%%') OR LOWER(a.raw_metadata) LIKE LOWER('%%%s%%'))", ew, ew))
+				}
+				multiWordClause = fmt.Sprintf("WHEN %s THEN 3", strings.Join(wordClauses, " AND "))
+			}
+
+			var embedOrderClause string
+			if len(filter.EmbeddingAssetIDs) > 0 {
+				var embedCases []string
+				for idx, id := range filter.EmbeddingAssetIDs {
+					embedCases = append(embedCases, fmt.Sprintf("WHEN %d THEN %d", id, idx+1))
+				}
+				embedOrderClause = fmt.Sprintf("(CASE a.id %s ELSE 999999 END) ASC, ", strings.Join(embedCases, " "))
+			}
+
+			orderBy = fmt.Sprintf(`(CASE 
+				WHEN LOWER(a.positive_prompt) LIKE LOWER(%s) THEN 1
+				WHEN LOWER(a.positive_prompt) LIKE LOWER(%s) THEN 2
+				%s
+				WHEN LOWER(a.raw_metadata) LIKE LOWER(%s) THEN 4
+				WHEN LOWER(a.file_name) LIKE LOWER(%s) THEN 5
+				WHEN LOWER(a.model_name) LIKE LOWER(%s) OR LOWER(a.category) LIKE LOWER(%s) OR LOWER(a.subcategory) LIKE LOWER(%s) THEN 6
+				ELSE 7
+			END) ASC, %sCOALESCE(a.file_mtime, a.indexed_at) DESC, a.id DESC`,
+				startsLike, containsLike,
+				multiWordClause,
+				containsLike, containsLike, containsLike, containsLike, containsLike,
+				embedOrderClause,
+			)
+		} else if len(filter.EmbeddingAssetIDs) > 0 {
 			var caseClauses []string
 			for idx, id := range filter.EmbeddingAssetIDs {
 				caseClauses = append(caseClauses, fmt.Sprintf("WHEN %d THEN %d", id, idx+1))
