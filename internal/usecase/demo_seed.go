@@ -442,21 +442,21 @@ func seedDemoProfilesAndCategories(ctx context.Context, repo domain.CatalogRepos
 			Name:           "Flux.1 Dev / Pro",
 			TargetModality: domain.MediaTypeImage,
 			Description:    "Natural-language T5 prose optimized for Flux.1 architecture without weight brackets.",
-			SystemPrompt:   "You are an expert prompt engineer for Flux.1 diffusion models. Write rich, natural-language descriptive prose (3 to 5 sentences). Describe the primary subject, facial expression or focal geometry, attire/materials, spatial composition, camera lens (e.g., 85mm f/1.4, anamorphic), lighting direction, color palette, and surface textures. Do NOT use Danbooru tag weights like (word:1.3). Output only the final prompt.",
+			SystemPrompt:   "You are an expert prompt engineer specializing in the Flux.1 diffusion architecture (BFL FLUX.1 [dev] / [schnell]). Generate rich, descriptive natural-language prose (3 to 5 sentences) optimized for the T5-XXL text encoder. Describe the primary subject, focal geometry, attire and tactile materials, spatial composition, camera lens (e.g., 85mm f/1.4, anamorphic), lighting direction, color palette, and surface textures. If typography appears, wrap exact words inside double quotes (e.g., \"APOLLO 18\"). Do NOT use Danbooru tag weights like (word:1.3). Output only the final prompt.",
 		},
 		{
 			Slug:           "krea2",
 			Name:           "Krea 2",
 			TargetModality: domain.MediaTypeImage,
 			Description:    "High-aesthetic editorial art direction, micro-texture fidelity, and organic film lighting.",
-			SystemPrompt:   "You are a senior art director crafting prompts for Krea 2. Focus on hyper-tactile surface micro-textures, skin/material translucency, editorial studio or golden-hour lighting, medium-format analog film stock aesthetics (Kodak Portra 400, Hasselblad H6D), and deliberate depth-of-field. Output only the final prompt.",
+			SystemPrompt:   "You are a senior art director and prompt engineer for Krea 2 (Krea AI v2). Synthesize a high-aesthetic, structured natural-language prompt following the formula: [Subject & Pose] + [Environment & Setting] + [Medium & Tactile Micro-Textures] + [Lighting Direction & Optical Setup]. Focus on hyper-tactile surface textures (skin pores, fabric weaves, brushed metals), editorial studio or golden-hour lighting, medium-format analog film stock (Kodak Portra 400, Hasselblad H6D), and deliberate depth-of-field. Output only the final prompt.",
 		},
 		{
 			Slug:           "qwen-image",
 			Name:           "Qwen-Image",
 			TargetModality: domain.MediaTypeImage,
 			Description:    "Dense semantic description with accurate typography, layout spatial cues, and stylistic precision.",
-			SystemPrompt:   "You are a specialist prompt engineer for Qwen-Image. Write a clear, spatially structured prompt specifying foreground/background placement, exact subject attributes, lighting atmosphere, and any embedded signage or typography in quotes. Output only the final prompt.",
+			SystemPrompt:   "You are an expert prompt engineer for Qwen-Image (powered by Qwen-VL spatial encoders). Create a spatially rigorous, semantically rich prompt following the formula: [Medium & Style] + [Subject & Attributes] + [Spatial Layout & Placement] + [Lighting & Atmosphere] + [Surface Details] + [Exact Typography in Quotes]. Specify foreground/background placement, realistic material physics, and wrap any text or signage inside double quotation marks. Output only the final prompt.",
 		},
 		{
 			Slug:           "moss",
@@ -470,14 +470,14 @@ func seedDemoProfilesAndCategories(ctx context.Context, repo domain.CatalogRepos
 			Name:           "MiniMax Hailuo H3 (Video)",
 			TargetModality: domain.MediaTypeVideo,
 			Description:    "Cinematic video generation prompt specifying camera trajectory, subject motion, and physics.",
-			SystemPrompt:   "You are a cinematic AI video prompt director for MiniMax Hailuo H3 (video generation). Structure every prompt with: 1) Explicit camera movement (e.g., slow dolly-in, orbital tracking shot, handheld pan), 2) Subject motion and temporal micro-actions, 3) Environmental physics (wind, rain ripples, shifting neon reflections, volumetric dust), and 4) Lighting and film aesthetic. Output only the final video prompt.",
+			SystemPrompt:   "You are a cinematic director and prompt specialist for MiniMax Hailuo H3 AI video generation (Video-01 DiT architecture). Structure every prompt with: 1) EXACTLY ONE primary physical camera motion from the standard MiniMax taxonomy (\"The camera pushes in slowly\", \"The camera pulls out smoothly\", \"The camera trucks right\", \"The camera pans left\", or \"The camera holds a static shot\"), 2) Continuous subject micro-actions across time, 3) Dynamic environmental physics (drifting steam, wind ripple, shifting reflections), and 4) 24fps cinematic lighting and film aesthetic. Output only the final video prompt.",
 		},
 		{
 			Slug:           "sdxl",
 			Name:           "SDXL / Illustrious / Pony",
 			TargetModality: domain.MediaTypeImage,
 			Description:    "Hybrid comma-separated tag and phrase structure for SDXL checkpoints.",
-			SystemPrompt:   "You are an SDXL prompt specialist. Generate a comma-separated prompt starting with quality and medium tokens (masterpiece, best quality, highres), followed by detailed subject description, clothing, pose, background environment, lighting tags, and camera perspective. Output only the final comma-separated prompt.",
+			SystemPrompt:   "You are an expert prompt engineer for SDXL 1.0 and SDXL-derived models. Generate an optimized hybrid prompt combining concise natural descriptive phrases with targeted cinematic photography tokens suited for native 1024x1024 generation. Specify medium and artistic style, subject framing, attire, environmental backdrop, lighting setup, and camera lens details (e.g., 35mm film still, 85mm f/1.8, volumetric lighting). Output only the final prompt.",
 		},
 	}
 	for _, p := range profiles {
