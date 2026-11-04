@@ -154,6 +154,40 @@ docker run -d \
 
 ---
 
+## 🎨 Sample Prompts by Model (Copy & Paste)
+
+To help test DiffusionCatalog's prompt parser, full-text search, and Prompt Studio, here are generic ready-to-use prompts crafted according to the native prompting grammar of each modern model:
+
+### 1. FLUX.1 (`[dev]` / `[schnell]`)
+> **Style rule**: Natural descriptive English narrative, zero booru tag soup (`masterpiece, best quality`), explicit light physics, material textures, and typography wrapped in double quotes.
+
+```text
+A 35mm film photograph of an astronaut in a worn, functional white space suit sitting on a weathered wooden bench inside an overgrown Victorian glass conservatory. Warm morning sunlight streams through dusty glass panes, casting soft volumetric god rays across the room. Delicate green ferns and blooming orange orchids surround the bench. The words "APOLLO 18" are cleanly stenciled in faded black serif lettering across the left chest patch. Natural film grain, shallow depth of field, 85mm portrait lens, muted vintage color palette, authentic photorealism.
+```
+
+### 2. Krea 2 (Krea v2 Turbo)
+> **Style rule**: Structured formula `[Subject] + [Action/Pose] + [Setting] + [Medium & Texture] + [Lighting & Camera]`. Highly tactile material descriptors, clean lighting cues, and exact lens characteristics.
+
+```text
+Editorial fashion portrait of a cybernetic warrior woman wearing an avant-garde matte-black armor and high-collar tailored wool coat. Standing inside a brutalist concrete atrium during blue hour twilight. Cinematic cool blue key light with warm amber rim light contouring her silhouette. Shot on Hasselblad medium format, 85mm f/1.4 lens, crisp tactile fabric weaves, polished carbon fiber reflections, muted Nordic color grading, subtle film grain.
+```
+
+### 3. MiniMax Hailuo H3 (Hailuo Video / DiT)
+> **Style rule**: Cinematic video grammar with a single primary physical camera action (`The camera pushes in...`, `The camera trucks right...`), subject motion dynamics, temporal lighting, and 24fps film look.
+
+```text
+A cinematic medium shot of an antique clockmaker examining a glowing golden pocket watch inside a dimly lit workshop. The camera slowly pushes in on the intricate spinning brass gears as soft golden dust particles float through warm tungsten lamplight. Gentle smoke rises from an incense burner in the blurred background. 24fps, cinematic lighting, shallow depth of field, 4k photorealistic movie still.
+```
+
+### 4. Qwen Image 2.1 (Qwen-VL)
+> **Style rule**: Narrative compositional structure with photographic medium, subject placement, environmental lighting, and exact typography enclosed in double quotes `" "`.
+
+```text
+A commercial product photograph of a modern matte-emerald glass coffee canister centered on a polished white terrazzo countertop. Behind the canister, a lush monstera plant casts soft geometric shadows against a warm beige plaster wall. High-angle 45-degree composition, soft studio diffused window lighting from the left, creating clean specular highlights. Minimalist Scandinavian aesthetic, 8K resolution, with the brand name "ROAST & CO." printed cleanly in crisp white sans-serif lettering across the front label.
+```
+
+---
+
 ## 🏛️ Architecture & Extensibility
 
 DiffusionCatalog is structured around **Hexagonal Architecture** principles, maintaining strict boundaries between domain models and external systems.
