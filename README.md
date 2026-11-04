@@ -186,6 +186,32 @@ A cinematic medium shot of an antique clockmaker examining a glowing golden pock
 A commercial product photograph of a modern matte-emerald glass coffee canister centered on a polished white terrazzo countertop. Behind the canister, a lush monstera plant casts soft geometric shadows against a warm beige plaster wall. High-angle 45-degree composition, soft studio diffused window lighting from the left, creating clean specular highlights. Minimalist Scandinavian aesthetic, 8K resolution, with the brand name "ROAST & CO." printed cleanly in crisp white sans-serif lettering across the front label.
 ```
 
+### 5. SDXL 1.0 (Stable Diffusion XL)
+> **Style rule**: Hybrid concise natural phrasing paired with cinematic photography tokens. Benefits from dual text encoders (OpenCLIP + CLIP), native 1024x1024 composition framing, and a concise negative prompt.
+
+**Positive Prompt**:
+```text
+cinematic film still, a solitary wanderer in a weathered brown leather jacket walking through a neon-lit cyberpunk alleyway at night, reflections on wet asphalt, volumetric steam rising from street grates, dramatic rim lighting, shallow depth of field, 35mm photograph, Kodak Portra 800, highly detailed, 8k
+```
+
+**Negative Prompt**:
+```text
+ugly, deformed, noisy, blurry, distorted, out of focus, low quality, worst quality, bad anatomy, bad hands, cartoon, 3d, render, watermark, signature
+```
+
+### 6. Stable Diffusion 1.5
+> **Style rule**: Comma-separated token syntax with attention weights `(keyword:weight)`, booru tag descriptors, and an explicit defensive negative prompt to suppress anatomical anomalies and low-resolution artifacts.
+
+**Positive Prompt**:
+```text
+(masterpiece:1.2), (best quality:1.1), (photorealistic:1.3), 1girl, solo, portrait, cybernetic samurai armor, intricate mechanical details, glowing neon accents, katana on back, standing in rain, tokyo street background, bokeh, (volumetric lighting:1.1), ray tracing, 8k uhd, dslr, soft lighting, high quality, film grain
+```
+
+**Negative Prompt**:
+```text
+(worst quality, low quality:1.4), (deformed, distorted, disfigured:1.3), poorly drawn, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, (mutated hands and fingers:1.4), disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, watermark, text, signature
+```
+
 ---
 
 ## 🏛️ Architecture & Extensibility
