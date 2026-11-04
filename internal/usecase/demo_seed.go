@@ -469,8 +469,8 @@ func seedDemoProfilesAndCategories(ctx context.Context, repo domain.CatalogRepos
 			Slug:           "minimaxh3",
 			Name:           "MiniMax Hailuo H3 (Video)",
 			TargetModality: domain.MediaTypeVideo,
-			Description:    "Cinematic video generation prompt specifying camera trajectory, subject motion, and physics.",
-			SystemPrompt:   "You are a cinematic director and prompt specialist for MiniMax Hailuo H3 AI video generation (Video-01 DiT architecture). Structure every prompt with: 1) EXACTLY ONE primary physical camera motion from the standard MiniMax taxonomy (\"The camera pushes in slowly\", \"The camera pulls out smoothly\", \"The camera trucks right\", \"The camera pans left\", or \"The camera holds a static shot\"), 2) Continuous subject micro-actions across time, 3) Dynamic environmental physics (drifting steam, wind ripple, shifting reflections), and 4) 24fps cinematic lighting and film aesthetic. Output only the final video prompt.",
+			Description:    "Official MiniMax H3 / FL2VA multimodal structure with camera grammar, dialogue tags, and soundscapes.",
+			SystemPrompt:   "You are a cinematic prompt director for MiniMax Hailuo H3 (Video-01 DiT / FL2VA). Synthesize prompts strictly conforming to the official multimodal tag format:\n\nintegrated_multimodal_description:\n[Shot 1] [Continuous action and physical environment. Camera command must specify motion type, amplitude, and speed: e.g., \"The camera pushes in with small amplitude at slow speed\" or \"The camera trucks right at moderate speed\". If dialogue is present, use speaker tokens: (S1) says: <d>[English] spoken text.</d>.]\n\noverall_soundscape:\n[Ambient room tone, physical foley, and sound effects.]\n\nnon_diegetic_music:\n[Background score description or N/A.]\n\nFor FL2vid / FL2VA keyframe bridging, prepend:\nHow the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the [XX.XX]-second mark of the target video.\n\nOutput only the formatted tags.",
 		},
 		{
 			Slug:           "sdxl",

@@ -175,10 +175,25 @@ You are a senior art director and prompt engineer for Krea 2 (Krea AI v2). Synth
 ```
 
 ### 3. MiniMax Hailuo H3 Video (`minimaxh3`)
-> **Encoder**: Video Diffusion Transformer / DiT (Single physical camera motion, temporal dynamics, 24fps)
+> **Encoder**: Video Diffusion Transformer (DiT) / FL2VA (First-Last Frame-to-Video + Audio). Strict multimodal tag formatting.
 
 ```text
-You are a cinematic director and prompt specialist for MiniMax Hailuo H3 AI video generation (Video-01 DiT architecture). Structure every prompt with: 1) EXACTLY ONE primary physical camera motion from the standard MiniMax taxonomy ("The camera pushes in slowly", "The camera pulls out smoothly", "The camera trucks right", "The camera pans left", or "The camera holds a static shot"), 2) Continuous subject micro-actions across time, 3) Dynamic environmental physics (drifting steam, wind ripple, shifting reflections), and 4) 24fps cinematic lighting and film aesthetic. Output only the final video prompt.
+You are a cinematic prompt director specializing in MiniMax Hailuo H3 (Hailuo 3.0 / Video-01) video generation, including FL2vid / FL2VA (First-Last Frame-to-Video + Audio) and standard Text-to-Video workflows.
+Synthesize prompts strictly adhering to the official MiniMax multimodal tag format:
+
+integrated_multimodal_description:
+[Shot 1] [Describe continuous temporal action, subject motion, and physical environment. Camera command must specify motion type, amplitude, and speed: e.g. "The camera pushes in with small amplitude at slow speed" or "The camera trucks right at moderate speed". Characters with spoken dialogue must be identified with speaker tokens: e.g. (S1) says: <d>[English] exact spoken words.</d>.]
+
+overall_soundscape:
+[Describe ambient room tone, environmental audio, and physical foley matching visual actions.]
+
+non_diegetic_music:
+[Describe musical score mood, instruments, and style, or specify N/A if none.]
+
+Note: For FL2vid / FL2VA keyframe bridging between Picture 1 (start) and Picture 2 (end), prepend the mandatory alignment header:
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the [XX.XX]-second mark of the target video.
+
+Output ONLY the formatted tags without conversational preambles or markdown code fences.
 ```
 
 ### 4. Qwen-Image 2.1 (`qwen-image`)
@@ -200,66 +215,6 @@ You are an expert prompt engineer for SDXL 1.0 and SDXL-derived models. Generate
 
 ```text
 You are an expert prompt engineer for Stable Diffusion 1.5 checkpoints. Generate a weighted, comma-separated token prompt optimized for the 77-token CLIP ViT-L/14 text encoder at 512x512 to 768x768 resolutions. Include quality prefix anchors (masterpiece:1.2, best quality:1.1), detailed subject tags, posture, attire, environment, lighting, and camera perspectives. Use attention syntax (keyword:1.1) to (keyword:1.3) strategically on key elements. Output only the final comma-separated prompt.
-```
-
----
-
-## 🎨 Sample Prompts by Model (Copy & Paste)
-
-To help test DiffusionCatalog's prompt parser, full-text search, and Prompt Studio, here are generic ready-to-use prompts crafted according to the native prompting grammar of each modern model:
-
-### 1. FLUX.1 (`[dev]` / `[schnell]`)
-> **Style rule**: Natural descriptive English narrative, zero booru tag soup (`masterpiece, best quality`), explicit light physics, material textures, and typography wrapped in double quotes.
-
-```text
-A 35mm film photograph of an astronaut in a worn, functional white space suit sitting on a weathered wooden bench inside an overgrown Victorian glass conservatory. Warm morning sunlight streams through dusty glass panes, casting soft volumetric god rays across the room. Delicate green ferns and blooming orange orchids surround the bench. The words "APOLLO 18" are cleanly stenciled in faded black serif lettering across the left chest patch. Natural film grain, shallow depth of field, 85mm portrait lens, muted vintage color palette, authentic photorealism.
-```
-
-### 2. Krea 2 (Krea v2 Turbo)
-> **Style rule**: Structured formula `[Subject] + [Action/Pose] + [Setting] + [Medium & Texture] + [Lighting & Camera]`. Highly tactile material descriptors, clean lighting cues, and exact lens characteristics.
-
-```text
-Editorial fashion portrait of a cybernetic warrior woman wearing an avant-garde matte-black armor and high-collar tailored wool coat. Standing inside a brutalist concrete atrium during blue hour twilight. Cinematic cool blue key light with warm amber rim light contouring her silhouette. Shot on Hasselblad medium format, 85mm f/1.4 lens, crisp tactile fabric weaves, polished carbon fiber reflections, muted Nordic color grading, subtle film grain.
-```
-
-### 3. MiniMax Hailuo H3 (Hailuo Video / DiT)
-> **Style rule**: Cinematic video grammar with a single primary physical camera action (`The camera pushes in...`, `The camera trucks right...`), subject motion dynamics, temporal lighting, and 24fps film look.
-
-```text
-A cinematic medium shot of an antique clockmaker examining a glowing golden pocket watch inside a dimly lit workshop. The camera slowly pushes in on the intricate spinning brass gears as soft golden dust particles float through warm tungsten lamplight. Gentle smoke rises from an incense burner in the blurred background. 24fps, cinematic lighting, shallow depth of field, 4k photorealistic movie still.
-```
-
-### 4. Qwen Image 2.1 (Qwen-VL)
-> **Style rule**: Narrative compositional structure with photographic medium, subject placement, environmental lighting, and exact typography enclosed in double quotes `" "`.
-
-```text
-A commercial product photograph of a modern matte-emerald glass coffee canister centered on a polished white terrazzo countertop. Behind the canister, a lush monstera plant casts soft geometric shadows against a warm beige plaster wall. High-angle 45-degree composition, soft studio diffused window lighting from the left, creating clean specular highlights. Minimalist Scandinavian aesthetic, 8K resolution, with the brand name "ROAST & CO." printed cleanly in crisp white sans-serif lettering across the front label.
-```
-
-### 5. SDXL 1.0 (Stable Diffusion XL)
-> **Style rule**: Hybrid concise natural phrasing paired with cinematic photography tokens. Benefits from dual text encoders (OpenCLIP + CLIP), native 1024x1024 composition framing, and a concise negative prompt.
-
-**Positive Prompt**:
-```text
-cinematic film still, a solitary wanderer in a weathered brown leather jacket walking through a neon-lit cyberpunk alleyway at night, reflections on wet asphalt, volumetric steam rising from street grates, dramatic rim lighting, shallow depth of field, 35mm photograph, Kodak Portra 800, highly detailed, 8k
-```
-
-**Negative Prompt**:
-```text
-ugly, deformed, noisy, blurry, distorted, out of focus, low quality, worst quality, bad anatomy, bad hands, cartoon, 3d, render, watermark, signature
-```
-
-### 6. Stable Diffusion 1.5
-> **Style rule**: Comma-separated token syntax with attention weights `(keyword:weight)`, booru tag descriptors, and an explicit defensive negative prompt to suppress anatomical anomalies and low-resolution artifacts.
-
-**Positive Prompt**:
-```text
-(masterpiece:1.2), (best quality:1.1), (photorealistic:1.3), 1girl, solo, portrait, cybernetic samurai armor, intricate mechanical details, glowing neon accents, katana on back, standing in rain, tokyo street background, bokeh, (volumetric lighting:1.1), ray tracing, 8k uhd, dslr, soft lighting, high quality, film grain
-```
-
-**Negative Prompt**:
-```text
-(worst quality, low quality:1.4), (deformed, distorted, disfigured:1.3), poorly drawn, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, (mutated hands and fingers:1.4), disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, watermark, text, signature
 ```
 
 ---
