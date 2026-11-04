@@ -36,6 +36,7 @@ catalog.db-wal
 media/
 /catalogd
 /build/
+/dist/
 
 # Editor/IDE
 .idea/

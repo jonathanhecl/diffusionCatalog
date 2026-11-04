@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# Compiles and packages DiffusionCatalog for all major operating systems and architectures.
+#
+# Usage:
+#   ./build-all.sh
+#   ./build-all.sh v1.0.0
+#   ./build-all.sh -v v1.0.0
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIST_DIR="${SCRIPT_DIR}/dist"
+
+VERSION=""
+if [ $# -gt 0 ]; then
+  if [ "$1" = "-v" ] || [ "$1" = "--version" ]; then
+    VERSION="${2:-}"
+  else
+    VERSION="$1"
+  fi
+fi
+
+if ! command -v go >/dev/null 2>&1; then
+  echo "Error: Go no está instalado o no está en el PATH." >&2
+  exit 1
+fi
+
+rm -rf "${DIST_DIR}"
+mkdir -p "${DIST_DIR}"
+
+BUILD_TIME="$(date '+%Y-%m-%d %H:%M:%S')"
+if [ -z "$VERSION" ] && command -v git >/dev/null 2>&1; then
+  VERSION="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+fi
+LDFLAGS="-s -w -X 'main.buildTime=${BUILD_TIME}'"
+if [ -n "$VERSION" ]; then
+  LDFLAGS="${LDFLAGS} -X 'main.appVersion=${VERSION}'"
+fi
+
+# Matrix of targets: OS ARCH FORMAT
+TARGETS=(
+  "windows amd64 zip"
+  "windows arm64 zip"
+  "linux amd64 targz"
+  "linux arm64 targz"
+  "darwin amd64 targz"
+  "darwin arm64 targz"
+)
+
+echo "Iniciando compilación multiplataforma de DiffusionCatalog..."
+
+for target in "${TARGETS[@]}"; do
+  read -r os arch format <<< "$target"
+
+  binary_name="catalogd"
+  if [ "$os" = "windows" ]; then
+    binary_name="catalogd.exe"
+  fi
+
+  pack_base="diffusionCatalog"
+  if [ -n "$VERSION" ]; then
+    pack_base="${pack_base}-${VERSION}"
+  fi
+
+  pack_os="$os"
+  pack_arch="$arch"
+  if [ "$os" = "darwin" ]; then
+    pack_os="apple"
+    if [ "$arch" = "arm64" ]; then
+      pack_arch="silicon"
+    else
+      pack_arch="intel"
+    fi
+  fi
+
+  pack_name="${pack_base}-${pack_os}-${pack_arch}"
+  if [ "$format" = "zip" ]; then
+    pack_name="${pack_name}.zip"
+  else
+    pack_name="${pack_name}.tar.gz"
+  fi
+
+  pack_path="${DIST_DIR}/${pack_name}"
+  temp_dir="${DIST_DIR}/temp_${os}_${arch}"
+
+  echo "Compilando para ${os} (${arch})..."
+  rm -rf "${temp_dir}"
+  mkdir -p "${temp_dir}"
+
+  binary_path="${temp_dir}/${binary_name}"
+
+  CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" go build -trimpath -ldflags "${LDFLAGS}" -o "${binary_path}" "${SCRIPT_DIR}/cmd/catalogd"
+
+  # Include user documentation and configuration templates in the package
+  cp "${SCRIPT_DIR}/README.md" "${temp_dir}/" 2>/dev/null || true
+  cp "${SCRIPT_DIR}/LICENSE" "${temp_dir}/" 2>/dev/null || true
+  cp "${SCRIPT_DIR}/config.example.json" "${temp_dir}/config.example.json" 2>/dev/null || true
+
+  echo "Empaquetando en ${pack_name}..."
+  if [ "$format" = "zip" ]; then
+    if command -v zip >/dev/null 2>&1; then
+      (cd "${temp_dir}" && zip -q -9 "${pack_path}" "${binary_name}" README.md LICENSE config.example.json)
+    elif command -v python3 >/dev/null 2>&1; then
+      (cd "${temp_dir}" && python3 -c "import zipfile, glob; z = zipfile.ZipFile('${pack_path}', 'w', zipfile.ZIP_DEFLATED); [z.write(f) for f in ['${binary_name}', 'README.md', 'LICENSE', 'config.example.json'] if __import__('os').path.exists(f)]; z.close()")
+    elif command -v 7z >/dev/null 2>&1; then
+      (cd "${temp_dir}" && 7z a -tzip -bso0 -bsp0 "${pack_path}" "${binary_name}" README.md LICENSE config.example.json)
+    else
+      echo "Error: No se encontró herramienta para crear archivos .zip (zip, python3 o 7z)." >&2
+      exit 1
+    fi
+  else
+    (cd "${temp_dir}" && tar -czf "${pack_path}" "${binary_name}" README.md LICENSE config.example.json)
+  fi
+
+  rm -rf "${temp_dir}"
+done
+
+echo
+echo "Compilación y empaquetado completados exitosamente. Archivos en dist/:"
+ls -lh "${DIST_DIR}"

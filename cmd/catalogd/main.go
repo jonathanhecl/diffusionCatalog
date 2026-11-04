@@ -22,7 +22,19 @@ import (
 	"github.com/jonathanhecl/diffusionCatalog/internal/usecase"
 )
 
+var (
+	appVersion = "dev"
+	buildTime  = "unknown"
+)
+
 func main() {
+	for _, arg := range os.Args[1:] {
+		if arg == "-v" || arg == "--version" || arg == "-version" {
+			log.Printf("DiffusionCatalog %s (%s)", appVersion, buildTime)
+			return
+		}
+	}
+
 	cfg := config.Load()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
