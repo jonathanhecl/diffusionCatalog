@@ -38,8 +38,11 @@ media/
 /build/
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
 .DS_Store
 
 .engram/

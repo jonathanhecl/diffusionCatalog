@@ -1,54 +1,119 @@
 # DiffusionCatalog
 
-**DiffusionCatalog** is a local-first web application written in Go for cataloging, searching, and organizing AI-generated diffusion images and videos directly from a source folder.
+<p align="center">
+  <a href="https://github.com/jonathanhecl/diffusionCatalog/actions/workflows/ci.yml">
+    <img src="https://github.com/jonathanhecl/diffusionCatalog/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://golang.org">
+    <img src="https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat&logo=go" alt="Go Version">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
+  </a>
+  <img src="https://img.shields.io/badge/Architecture-Hexagonal-8A2BE2" alt="Hexagonal Architecture">
+  <img src="https://img.shields.io/badge/CGO-Disabled-success" alt="CGO Disabled">
+</p>
 
-It treats your media directory as **read-only**, extracting embedded generation prompts and technical parameters (Automatic1111, Forge, ComfyUI, Fooocus, SwarmUI, InvokeAI) in pure Go and indexing them into a local SQLite + FTS5 database.
+**DiffusionCatalog** is a fast, local-first web application and visual staging suite written in Go for indexing, searching, and organizing AI-generated diffusion images and videos.
 
-## Key Features
+It treats your media directory as **strictly read-only**, parsing generation prompts and technical parameters (Automatic1111, Forge, ComfyUI, Fooocus, SwarmUI, InvokeAI) in pure Go, indexing them into a local SQLite database with FTS5 and vector embeddings, and providing a powerful **Scene Director & Prompt Studio** for creative visual composition.
 
-- **Non-Destructive Folder Indexing**: Watches and indexes your existing media folder without moving, renaming, or altering your files.
-- **Pure-Go Prompt & Engine Extraction**: Reads PNG `tEXt` / `iTXt` chunks, JPEG/WebP EXIF `UserComment`, and `.txt`/`.json` sidecars to extract positive/negative prompts, checkpoint models, LoRAs, sampler, scheduler, steps, CFG scale, and seed.
-- **Agnostic Tags & Facets**: Organize assets with arbitrary user-defined tags and facets (`style`, `lighting`, `composition`, `subject`, `lora`, or any custom facet).
-- **Agnostic Groups**: Build virtual collections and moodboards independent of disk hierarchy (while also auto-grouping by top-level subfolder).
-- **Character & Concept Folders**: Store reusable character profiles containing canonical positive/negative generation prompts, trigger words, recommended checkpoints, and curated reference galleries.
-- **Pluggable Face & Subject Explorer**: Hexagonal `VisionEngine` port in Go with an optional Python FastAPI sidecar (`scripts/vision_worker/app.py`) for face/subject detection, cropping, and clustering.
-- **Default Local Admin**: Automatically seeds a default `admin` account (`admin` / `admin123`) on first boot.
+---
 
-## Quick Start
+## ✨ Key Features
 
-### Option A: Run Directly Without Compiling (`run.sh`)
+### 🚀 Zero-Config & Pure-Go
+- **Zero CGO / Zero External Database**: Single self-contained binary powered by `modernc.org/sqlite` with WAL mode and embedded HTML5/CSS dark-navy UI.
+- **Non-Destructive Folder Indexing**: Automatically watches and indexes existing media folders without moving, renaming, or modifying your files.
+- **Multi-Root Support**: Point to multiple media drives and folders simultaneously.
+
+### 🔍 Deep Diffusion Metadata Extraction
+- **Pure-Go Byte Parsers**: Extracts generation parameters directly from PNG `tEXt`/`iTXt` chunks, JPEG/WebP EXIF `UserComment`, and companion `.txt`/`.caption`/`.json` sidecars without external binaries.
+- **Supported Generators**:
+  - **Automatic1111 / Forge / SD.Next**: Positive & negative prompts, sampler, scheduler, steps, CFG scale, seed, model name/hash, `<lora:...>` syntax.
+  - **ComfyUI**: Parses node graph execution workflows (`CLIPTextEncode`, `KSampler`, `CheckpointLoader`, `LoraLoader`).
+  - **Fooocus & SwarmUI**: Native parameters and JSON metadata.
+  - **InvokeAI**: Legacy `sd-metadata` and modern `invokeai_metadata`.
+  - **Video & Animations**: MP4/WebM video container inspection and companion sidecars.
+
+### 🎭 2.5D Scene Director & Skeletal Rigging
+- **Visual Staging Canvas**: Place and position multiple characters and objects in 2.5D space with customizable depth, physical height scaling, facing directions, and distance.
+- **Interactive Skeletal Posing**: Built-in 2D rigging presets for both **Humanoid** and **Quadruped** actors (front, side, dynamic action poses).
+- **Demographic Archetypes**: Randomize and fine-tune physical attributes (age, build, height, gender presentation).
+- **Scene-to-Prompt Synthesis**: Automatically converts visual staging compositions, lighting angles, and actor arrangements into ready-to-render diffusion prompts.
+- **Image-to-Scene Breakdown**: Reverse-engineer compositions from existing images using AI vision.
+
+### 💡 Prompt Studio, Knowledge Base & Token Budget
+- **Modular Knowledge Snippets**: Reusable guidelines for lighting physics, lens focal lengths, composition framing, and artistic styles injected directly into LLM prompts.
+- **Live Token Budget Estimator**: Real-time LLM token counter ensuring prompts stay within context window limits.
+- **Per-Model LoRA Documentation**: Keep track of trigger keywords, recommended weights, and usage notes per checkpoint and LoRA.
+
+### 🧠 Semantic Vector Search & Local LLM Integration
+- **Hybrid Search**: Combines instant SQLite FTS5 full-text keyword indexing with high-dimensional vector embeddings.
+- **Ollama & OpenAI-Compatible**: Connect to local Ollama instances (`nomic-embed-text`, `llama3`, `qwen2.5`) or OpenAI-compatible servers (oMLX, LMStudio, vLLM) for semantic discovery, prompt expansion, and vision-to-prompt analysis.
+
+### 👤 Face & Subject Recognition
+- **Embedded Neural Models**: Single binary embeds OpenCV YuNet face detection and SFace 128-d deep facial recognition models.
+- **Automated Identity Clustering**: Groups characters across thousands of generations, enabling seamless asset tagging and character reference tracking.
+
+### 📂 Agnostic Collections & Virtual Organization
+- **Faceted Tagging**: Tag images with arbitrary facets (`style`, `lighting`, `mood`, `artist`, `composition`).
+- **Virtual Groups & Moodboards**: Create virtual asset collections independent of disk folder hierarchies.
+- **Character Profiles**: Maintain canonical prompt templates, trigger words, and curated galleries for recurring characters.
+
+---
+
+## ⚡ Quick Start
+
+### Option 1: Run Directly Without Compiling (`run.sh`)
 
 ```bash
 ./run.sh
 ```
 
-`run.sh` checks whether Go and optional dependencies are present (asking if you want to install anything missing) and executes `go run ./cmd/catalogd` directly without leaving a binary behind.
+`run.sh` verifies your Go environment and launches `go run ./cmd/catalogd` directly.
 
-### Option B: Build the Portable Self-Installing Binary (`build.sh`)
+### Option 2: Build Portable Binary (`build.sh` or `make`)
 
 ```bash
+# Using build script:
 ./build.sh
+
+# Or using make:
+make build
 ```
 
-This compiles a 100% static, single-file binary (`CGO_ENABLED=0`) into both `./catalogd` and `./build/catalogd` (along with `./build/start-portable.sh`).
-
-The compiled `catalogd` binary is **self-contained and self-installing**:
-- Embeds the HTML/CSS dark-navy UI and the Python Vision Worker (`app.py` + `requirements.txt`) inside the binary itself.
-- On first interactive launch (or anytime you pass `--setup`), it checks for optional system/runtime components (`ffmpeg` for video container metadata, `python3` + `.venv` for local Face Detection & Cropping) and prompts `[y/N]` to install and start them automatically.
+This compiles a 100% static, single-file binary into `./catalogd`:
 
 ```bash
-./catalogd --media-dir=./media --db=./catalog.db --addr=:1080
-# Re-run interactive dependency installer at any time:
-./catalogd --setup
+./catalogd --media-dir=/path/to/your/images --db=./catalog.db --addr=:1080
 ```
 
-Then open **http://localhost:1080** in your browser.
+Open **http://localhost:1080** in your web browser.
 
-> Port 1080 is an unprivileged port (≥ 1024), so it runs directly on Linux without sudo or special permissions. You can change the port at any time in `config.json` (e.g. `"port": 8080`) or by passing `--port=8080`.
+> **Default Admin Account**: Username: `admin` | Password: `admin123` (Changeable in settings or `config.json`).
 
-### 2. Configuration (`config.json`), Flags & Environment Variables
+---
 
-DiffusionCatalog automatically reads `config.json` from the current directory, which can be overridden via command-line flags or environment variables:
+## ⚙️ Configuration Reference
+
+DiffusionCatalog loads configuration from `config.json` in the current working directory, which can be overridden via command-line flags or environment variables:
+
+| Flag | Environment Variable | Default | Description |
+|------|----------------------|---------|-------------|
+| `--addr` | `CATALOG_ADDR` | `:1080` | HTTP bind address (e.g. `:1080`, `127.0.0.1:8080`) |
+| `--config` | `CATALOG_CONFIG` | `config.json` | Path to JSON configuration file |
+| `--media-dir` | `CATALOG_MEDIA_DIR` | `./media` | Read-only folder containing diffusion images/videos |
+| `--cache-dir` | `CATALOG_CACHE_DIR` | `./.cache` | Directory for cropped faces and thumbnails |
+| `--db` | `CATALOG_DB_PATH` | `./catalog.db` | Path to local SQLite database |
+| `--admin-user` | `CATALOG_ADMIN_USER` | `admin` | Default administrator username |
+| `--admin-pass` | `CATALOG_ADMIN_PASS` | `admin123` | Default administrator password |
+| `--vision-url` | `CATALOG_VISION_URL` | `""` | Optional external Python Vision Sidecar URL |
+| `--auto-scan` | `CATALOG_AUTO_SCAN` | `true` | Automatically scan media directory on boot |
+| `--auto-scan-interval` | `CATALOG_AUTO_SCAN_INTERVAL` | `10s` | Interval for background directory sync |
+| `--seed-demo` | `CATALOG_SEED_DEMO` | `false` | Populate empty media folder with demo images |
+
+### Example `config.json`
 
 ```json
 {
@@ -59,38 +124,69 @@ DiffusionCatalog automatically reads `config.json` from the current directory, w
   "db_path": "./catalog.db",
   "admin_user": "admin",
   "admin_pass": "admin123",
-  "vision_url": "",
   "auto_scan": true,
   "auto_scan_interval": 10,
   "seed_demo": false
 }
 ```
 
-| Flag | Env Variable | Default | Description |
-|------|--------------|---------|-------------|
-| `--port` | `PORT` / `CATALOG_PORT` | `1080` | HTTP listen port |
-| `--addr` | `CATALOG_ADDR` | `:1080` | HTTP listen address |
-| `--config` | `CATALOG_CONFIG` | `config.json` | Path to JSON configuration file |
-| `--media-dir` | `CATALOG_MEDIA_DIR` | `./media` | Read-only folder containing diffusion images/videos |
-| `--cache-dir` | `CATALOG_CACHE_DIR` | `./.cache` | Local directory for cropped regions & thumbnails |
-| `--db` | `CATALOG_DB_PATH` | `./catalog.db` | Local SQLite database path |
-| `--admin-user` | `CATALOG_ADMIN_USER` | `admin` | Default administrator username |
-| `--admin-pass` | `CATALOG_ADMIN_PASS` | `admin123` | Default administrator password |
-| `--vision-url` | `CATALOG_VISION_URL` | `""` | Optional Python Vision Sidecar URL (`http://127.0.0.1:8091`) |
-| `--auto-scan` | `CATALOG_AUTO_SCAN` | `true` | Automatically scan media directories on startup and keep synced in background |
-| `--auto-scan-interval` | `CATALOG_AUTO_SCAN_INTERVAL` | `10s` | Interval for automatic background media folder sync (e.g. `10s`, `30s`; `0s` disables) |
-| `--seed-demo` | `CATALOG_SEED_DEMO` | `false` | Generate sample diffusion images in media-dir if folder does not exist or is empty |
+---
 
-### 3. Optional Python Vision Worker (Face Detection & Cropping)
+## 🐳 Docker Deployment
 
-```bash
-cd scripts/vision_worker
-pip install fastapi uvicorn pillow opencv-python-headless
-uvicorn app:app --host 127.0.0.1 --port 8091
+You can build and run DiffusionCatalog with Docker:
+
+```dockerfile
+# Build image
+docker build -t diffusioncatalog .
+
+# Run container mounting your existing media folder
+docker run -d \
+  -p 1080:1080 \
+  -v /path/to/your/images:/media:ro \
+  -v $(pwd)/data:/data \
+  --name diffusioncatalog \
+  diffusioncatalog
 ```
 
-Then start `catalogd` with `--vision-url=http://127.0.0.1:8091`.
+---
 
-## Documentation
+## 🏛️ Architecture & Extensibility
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the Hexagonal Architecture overview, database schema, and metadata extraction pipeline.
+DiffusionCatalog is structured around **Hexagonal Architecture** principles, maintaining strict boundaries between domain models and external systems.
+
+```
+cmd/catalogd/          # Application entrypoint
+internal/
+├── domain/            # Core business entities & port interfaces (zero external dependencies)
+├── usecase/           # Application services (CatalogService, ScannerService, AuthService)
+├── adapter/
+│   ├── metadata/      # Pure-Go parsers for PNG chunks, EXIF, and sidecars
+│   ├── storage/sqlite/# Pure-Go SQLite adapter with FTS5 and vector ranking
+│   ├── ollama/        # REST client for Ollama & OpenAI-compatible endpoints
+│   ├── vision/        # Pluggable face & subject detection adapter
+│   └── web/           # Embedded web templates, static CSS, and HTTP server
+└── bootstrap/         # Embedded Python Vision Worker extraction and environment checks
+```
+
+For in-depth architecture details, database schema tables, and extraction pipelines, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+---
+
+## 🤝 Contributing
+
+Contributions, bug reports, and suggestions are welcome! Please review [CONTRIBUTING.md](CONTRIBUTING.md) for details on code style, conventional commits, and running tests.
+
+```bash
+# Run unit tests
+make test
+
+# Code quality check
+make vet
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE) © 2026 Jonathan Hecl.

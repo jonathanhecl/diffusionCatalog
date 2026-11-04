@@ -1,0 +1,10 @@
+.git
+.github
+.cache
+.DS_Store
+*.db
+*.db-shm
+*.db-wal
+build
+catalogd
+media
