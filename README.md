@@ -20,6 +20,7 @@ It treats your media directory as **strictly read-only**, parsing generation pro
 
 ![Catalog](catalog.png)
 ![2.5D Scene Director](scene-director.png)
+![Semantic Search](semantic.png)
 
 ---
 
@@ -53,7 +54,7 @@ It treats your media directory as **strictly read-only**, parsing generation pro
 
 ### 🧠 Semantic Vector Search & Local LLM Integration
 - **Hybrid Search**: Combines instant SQLite FTS5 full-text keyword indexing with high-dimensional vector embeddings.
-- **Ollama & OpenAI-Compatible**: Connect to local Ollama instances (`nomic-embed-text`, `llama3`, `qwen2.5`) or OpenAI-compatible servers (oMLX, LMStudio, vLLM) for semantic discovery, prompt expansion, and vision-to-prompt analysis.
+- **Ollama & OpenAI-Compatible**: Connect to local Ollama instances (`embeddinggemma-2`, `nomic-embed-text`, `llama3`, `qwen2.5`) or OpenAI-compatible servers (oMLX, LMStudio, vLLM) for semantic discovery, prompt expansion, and vision-to-prompt analysis.
 
 ### 👤 Face & Subject Recognition
 - **Embedded Neural Models**: Single binary embeds OpenCV YuNet face detection and SFace 128-d deep facial recognition models.
