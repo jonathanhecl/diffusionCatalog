@@ -18,6 +18,9 @@
 
 It treats your media directory as **strictly read-only**, parsing generation prompts and technical parameters (Automatic1111, Forge, ComfyUI, Fooocus, SwarmUI, InvokeAI) in pure Go, indexing them into a local SQLite database with FTS5 and vector embeddings, and providing a powerful **Scene Director & Prompt Studio** for creative visual composition.
 
+![Catalog](catalog.png)
+![2.5D Scene Director](scene-director.png)
+
 ---
 
 ## ✨ Key Features
