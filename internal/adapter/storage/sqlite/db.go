@@ -285,6 +285,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	_, _ = db.ExecContext(ctx, `ALTER TABLE characters ADD COLUMN reference_images_json TEXT NOT NULL DEFAULT '[]'`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN metadata_extracted_at DATETIME`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN faces_scanned_at DATETIME`)
+	_, _ = db.ExecContext(ctx, `DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM asset_tags)`)
 
 	return seedDefaultSettingsAndProfiles(ctx, db)
 }

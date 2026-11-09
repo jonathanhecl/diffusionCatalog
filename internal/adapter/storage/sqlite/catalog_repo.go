@@ -145,6 +145,7 @@ func (r *Repository) DeleteMediaRoot(ctx context.Context, id int64) error {
 	db := r.conn()
 	_, _ = db.ExecContext(ctx, `DELETE FROM assets WHERE root_id = ?`, id)
 	_, err := db.ExecContext(ctx, `DELETE FROM media_roots WHERE id = ?`, id)
+	_ = r.PruneOrphanedTags(ctx)
 	return err
 }
 
@@ -401,6 +402,7 @@ func (r *Repository) DeleteAssetsByIDs(ctx context.Context, ids []int64) error {
 			return err
 		}
 	}
+	_ = r.PruneOrphanedTags(ctx)
 	return nil
 }
 
@@ -1664,6 +1666,9 @@ func (r *Repository) AttachTagToAsset(ctx context.Context, assetID, tagID int64)
 func (r *Repository) DetachTagFromAsset(ctx context.Context, assetID, tagID int64) error {
 	db := r.conn()
 	_, err := db.ExecContext(ctx, `DELETE FROM asset_tags WHERE asset_id = ? AND tag_id = ?`, assetID, tagID)
+	if err == nil {
+		_ = r.PruneOrphanedTags(ctx)
+	}
 	return err
 }
 
@@ -1673,8 +1678,9 @@ func (r *Repository) ListTags(ctx context.Context) ([]domain.Tag, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT t.id, t.name, t.facet, t.color, COUNT(at.asset_id) AS cnt
 		FROM tags t
-		LEFT JOIN asset_tags at ON at.tag_id = t.id
+		JOIN asset_tags at ON at.tag_id = t.id
 		GROUP BY t.id
+		HAVING cnt > 0
 		ORDER BY cnt DESC, t.name ASC`)
 	if err != nil {
 		return nil, err
@@ -1690,6 +1696,13 @@ func (r *Repository) ListTags(ctx context.Context) ([]domain.Tag, error) {
 		out = append(out, t)
 	}
 	return out, nil
+}
+
+// PruneOrphanedTags removes any tags that are not associated with any asset.
+func (r *Repository) PruneOrphanedTags(ctx context.Context) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM asset_tags)`)
+	return err
 }
 
 // CreateGroup creates or updates an agnostic asset collection.

@@ -417,6 +417,7 @@ type CatalogRepository interface {
 	AttachTagToAsset(ctx context.Context, assetID, tagID int64) error
 	DetachTagFromAsset(ctx context.Context, assetID, tagID int64) error
 	ListTags(ctx context.Context) ([]Tag, error)
+	PruneOrphanedTags(ctx context.Context) error
 
 	CreateGroup(ctx context.Context, group *Group) (int64, error)
 	UpdateGroup(ctx context.Context, id int64, name, description string) error
