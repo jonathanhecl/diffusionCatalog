@@ -254,7 +254,7 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 
 	out := make([]domain.OllamaModelInfo, len(tags.Models))
 	for i, m := range tags.Models {
-		hasVis := inferVisionFromName(m.Name)
+		hasVis := false
 		hasThink := inferThinkingFromName(m.Name)
 		hasTools := inferToolsFromName(m.Name)
 		hasEmb := inferEmbeddingFromName(m.Name)
@@ -265,9 +265,6 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 			fl := strings.ToLower(strings.TrimSpace(fam))
 			if fl == "" {
 				continue
-			}
-			if fl == "clip" || fl == "mllama" || strings.Contains(fl, "vl") || strings.Contains(fl, "vision") || inferVisionFromName(fl) {
-				hasVis = true
 			}
 			if strings.Contains(fl, "embed") || fl == "clip" || fl == "siglip" {
 				hasEmb = true
@@ -290,9 +287,6 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 					hasTools = true
 				}
 			}
-		}
-		if hasVis && visStatus == "none" {
-			visStatus = "inferred"
 		}
 		out[i] = domain.OllamaModelInfo{
 			Provider:      domain.ProviderOllama,
@@ -334,6 +328,7 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 				hasTools := out[idx].HasTools
 
 				if len(show.Capabilities) > 0 {
+					// Ollama's /api/show capabilities array is the authoritative source of truth.
 					hasComp = false
 					hasVis = false
 					visStatus = "none"
@@ -355,22 +350,23 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 							hasTools = true
 						}
 					}
-				}
-
-				if !hasVis && show.ProjectorInfo != nil {
-					if hasEnc, hasClipKey := show.ProjectorInfo["clip.has_vision_encoder"].(bool); hasClipKey {
-						if hasEnc {
+				} else {
+					// Fallback only when Ollama omits capabilities (older runtimes).
+					if !hasVis && show.ProjectorInfo != nil {
+						if hasEnc, hasClipKey := show.ProjectorInfo["clip.has_vision_encoder"].(bool); hasClipKey {
+							if hasEnc {
+								hasVis = true
+								visStatus = "inferred"
+							}
+						} else if len(show.ProjectorInfo) > 0 {
 							hasVis = true
 							visStatus = "inferred"
 						}
-					} else if len(show.ProjectorInfo) > 0 {
+					}
+					if !hasVis && hasVisionModelInfo(show.ModelInfo) {
 						hasVis = true
 						visStatus = "inferred"
 					}
-				}
-				if !hasVis && hasVisionModelInfo(show.ModelInfo) {
-					hasVis = true
-					visStatus = "inferred"
 				}
 
 				out[idx].HasCompletion = hasComp
@@ -464,11 +460,13 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 			}
 		}
 
-		hasVis := explicitVision || inferVisionFromName(m.ID) || inferVisionFromName(m.Architecture)
+		hasExplicitCapMeta := len(m.Capabilities) > 0 || len(m.Modalities) > 0 || len(m.InputModalities) > 0
+		hasVis := explicitVision
 		visStatus := "none"
 		if explicitVision {
 			visStatus = "confirmed"
-		} else if hasVis {
+		} else if !hasExplicitCapMeta && (inferVisionFromName(m.ID) || inferVisionFromName(m.Architecture)) {
+			hasVis = true
 			visStatus = "inferred"
 		}
 
@@ -1183,14 +1181,7 @@ func hasVisionModelInfo(info map[string]interface{}) bool {
 
 func inferVisionFromName(modelID string) bool {
 	lower := strings.ToLower(modelID)
-	// Exclude text-only small Gemma 3 variants (1B / 270M)
-	isTinyTextGemma3 := (strings.Contains(lower, "gemma3") || strings.Contains(lower, "gemma-3")) &&
-		(strings.Contains(lower, "-1b") || strings.Contains(lower, ":1b") || strings.Contains(lower, "270m"))
-	if !isTinyTextGemma3 && (strings.Contains(lower, "gemma3") || strings.Contains(lower, "gemma-3")) {
-		return true
-	}
-
-	// Genuine multimodal vision architectures with vision encoder (e.g. -vl, vision, vlm, pixtral, llava, minicpm-v, etc.)
+	// Fallback only for OpenAI /v1/models endpoints that omit capabilities/modalities metadata.
 	for _, kw := range []string{
 		"-vl", "_vl", "/vl", "vl-", "2.5vl", "25vl", "3vl", "2vl",
 		"vision", "vlm", "multimodal", "pixtral", "llava", "minicpm-v", "minicpm-o",
@@ -1199,11 +1190,7 @@ func inferVisionFromName(modelID string) bool {
 		"phi-3.5-vision", "phi-3-vision", "phi-4-multimodal",
 		"janus", "chameleon", "aria", "cogvlm", "kimi-vl", "step-vl", "keye-vl", "ovis", "ui-tars",
 		"granite-vision", "aya-vision", "command-a-vision",
-		"qwen3.5", "qwen3_5", "qwen-3.5", "qwen3.8", "superqwen", "bonsai",
-		"gemma4", "gemma-4", "llama4", "llama-4",
-		"mistral-small-3.1", "mistral-small3.1", "mistral-small-3.2", "mistral-small3.2", "mistral3", "ministral-3",
-		"gpt-4o", "gpt-4.1", "gpt-4.5", "gpt-4-turbo", "gpt-5",
-		"claude-3", "claude-4", "claude-sonnet-4", "claude-opus-4", "claude-haiku-4", "gemini-",
+		"qwen3.8", "superqwen", "bonsai",
 	} {
 		if strings.Contains(lower, kw) {
 			return true
