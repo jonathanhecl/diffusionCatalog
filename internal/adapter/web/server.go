@@ -720,8 +720,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	var aiStatus usecase.AIBackendStatus
 	if tab == "settings" || tab == "studio" || tab == "director" || tab == "asset_detail" || tab == "characters" || tab == "remix" {
 		if r.URL.Query().Get("refresh") == "1" {
-			s.catalog.InvalidateAICache()
-			aiStatus = s.catalog.InspectAIBackendsFresh(ctx)
+			aiStatus = s.catalog.ForceInspectAIBackends(ctx)
 		} else {
 			aiStatus = s.catalog.InspectAIBackends(ctx)
 		}
@@ -843,8 +842,8 @@ func (s *Server) handleAPISettings(w http.ResponseWriter, r *http.Request) {
 	roots, _ := s.catalog.ListMediaRoots(ctx)
 	cats, _ := s.catalog.ListDefaultCategories(ctx)
 	var aiStatus usecase.AIBackendStatus
-	if r.URL.Query().Get("refresh") == "1" {
-		aiStatus = s.catalog.InspectAIBackendsFresh(ctx)
+	if r.URL.Query().Get("refresh") == "1" || r.URL.Query().Get("refresh") == "true" {
+		aiStatus = s.catalog.ForceInspectAIBackends(ctx)
 	} else {
 		aiStatus = s.catalog.InspectAIBackends(ctx)
 	}
@@ -865,7 +864,7 @@ func (s *Server) handleAPIAIStatus(w http.ResponseWriter, r *http.Request) {
 	force := r.URL.Query().Get("refresh") == "1" || r.URL.Query().Get("refresh") == "true"
 	var st usecase.AIBackendStatus
 	if force {
-		st = s.catalog.InspectAIBackendsFresh(ctx)
+		st = s.catalog.ForceInspectAIBackends(ctx)
 	} else {
 		cached := s.catalog.InspectAIBackends(ctx)
 		// If cached status has not finished its first check, probe fresh

@@ -462,3 +462,120 @@ func TestOllamaShowCapabilityEnrichment(t *testing.T) {
 		t.Errorf("expected llava to have HasVision=true, got false")
 	}
 }
+
+func TestOllamaPrefixedVisionAndOpenAIFlexibleCapabilities(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/tags", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"models": [
+				{
+					"name": "gemma3:12b",
+					"details": {"family": "gemma3", "families": ["gemma3"], "parameter_size": "12B"}
+				},
+				{
+					"name": "audio-only:latest",
+					"details": {"family": "qwen3", "parameter_size": "4B"}
+				},
+				{
+					"name": "legacy-mllama:latest",
+					"details": {"family": "mllama", "families": ["mllama"], "parameter_size": "11B"}
+				}
+			]
+		}`))
+	})
+	mux.HandleFunc("/api/show", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Model string `json:"model"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		w.Header().Set("Content-Type", "application/json")
+		switch req.Model {
+		case "gemma3:12b":
+			_, _ = w.Write([]byte(`{
+				"capabilities": ["completion"],
+				"projector_info": {"clip.has_vision_encoder": false},
+				"model_info": {"gemma3.context_length": 131072, "gemma3.vision.block_count": 27}
+			}`))
+		case "audio-only:latest":
+			_, _ = w.Write([]byte(`{
+				"capabilities": ["completion", "audio"],
+				"projector_info": {"clip.has_vision_encoder": false, "clip.has_audio_encoder": true},
+				"model_info": {"qwen3.context_length": 32768}
+			}`))
+		default:
+			// Empty capabilities from older Ollama should preserve /api/tags inferred vision
+			_, _ = w.Write([]byte(`{
+				"model_info": {"mllama.context_length": 131072}
+			}`))
+		}
+	})
+	mux.HandleFunc("/v1/models", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"object": "list",
+			"data": [
+				{"id": "custom-vision-obj", "capabilities": {"vision": true, "thinking": true}, "context_window": 65536},
+				{"id": "custom-vision-arr", "capabilities": ["vision"]},
+				{"id": "mlx-vlm-custom", "type": "vlm"},
+				{"id": "gemma-4-31b-it"},
+				{"id": "qwen3.5-27b-4bit"},
+				{"id": "gemma-3-1b-it"}
+			]
+		}`))
+	})
+
+	client := &Client{
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				rec := httptest.NewRecorder()
+				mux.ServeHTTP(rec, req)
+				return rec.Result(), nil
+			}),
+		},
+	}
+
+	ollamaModels, err := client.ListModels(context.Background(), "http://127.0.0.1:11434")
+	if err != nil {
+		t.Fatalf("ListModels failed: %v", err)
+	}
+	if len(ollamaModels) != 3 {
+		t.Fatalf("expected 3 ollama models, got %d", len(ollamaModels))
+	}
+	if !ollamaModels[0].HasVision || ollamaModels[0].ContextLength != 131072 {
+		t.Errorf("expected gemma3:12b to detect prefixed vision.block_count and context_length, got %+v", ollamaModels[0])
+	}
+	if ollamaModels[1].HasVision {
+		t.Errorf("expected audio-only with clip.has_vision_encoder=false to have HasVision=false, got true")
+	}
+	if !ollamaModels[2].HasVision {
+		t.Errorf("expected legacy-mllama with empty show.capabilities to preserve HasVision=true")
+	}
+
+	omlxModels, err := client.ListOMLXModels(context.Background(), "http://127.0.0.1:8000", "")
+	if err != nil {
+		t.Fatalf("ListOMLXModels failed: %v", err)
+	}
+	if len(omlxModels) != 6 {
+		t.Fatalf("expected 6 omlx models, got %d", len(omlxModels))
+	}
+	if !omlxModels[0].HasVision || !omlxModels[0].HasThinking || !omlxModels[0].IsCompletionModel() || omlxModels[0].ContextLength != 65536 {
+		t.Errorf("expected custom-vision-obj to parse object capabilities and context_window, got %+v", omlxModels[0])
+	}
+	if !omlxModels[1].HasVision || !omlxModels[1].IsCompletionModel() {
+		t.Errorf("expected custom-vision-arr with [vision] to be completion+vision, got %+v", omlxModels[1])
+	}
+	if !omlxModels[2].HasVision {
+		t.Errorf("expected type=vlm to set HasVision=true")
+	}
+	if !omlxModels[3].HasVision {
+		t.Errorf("expected gemma-4-31b-it to infer HasVision=true")
+	}
+	if !omlxModels[4].HasVision {
+		t.Errorf("expected qwen3.5-27b-4bit to infer HasVision=true")
+	}
+	if omlxModels[5].HasVision {
+		t.Errorf("expected gemma-3-1b-it (text-only 1B) to have HasVision=false")
+	}
+}
+

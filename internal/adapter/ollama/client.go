@@ -96,23 +96,66 @@ type ollamaChatResponse struct {
 	Error   string            `json:"error,omitempty"`
 }
 
+// flexibleCapabilities unmarshals capabilities from either a string slice (["vision", "completion"])
+// or a capability object ({"vision": true, "tools": false}) returned by OpenAI-compatible servers.
+type flexibleCapabilities []string
+
+func (fc *flexibleCapabilities) UnmarshalJSON(data []byte) error {
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed == "" || trimmed == "null" {
+		*fc = nil
+		return nil
+	}
+	if strings.HasPrefix(trimmed, "[") {
+		var arr []string
+		if err := json.Unmarshal(data, &arr); err != nil {
+			return err
+		}
+		*fc = arr
+		return nil
+	}
+	if strings.HasPrefix(trimmed, "{") {
+		var obj map[string]interface{}
+		if err := json.Unmarshal(data, &obj); err != nil {
+			return err
+		}
+		var out []string
+		for k, v := range obj {
+			if enabled, ok := v.(bool); ok && enabled {
+				out = append(out, k)
+			}
+		}
+		*fc = out
+		return nil
+	}
+	return nil
+}
+
 // oMLX / OpenAI-compatible payloads
 type omlxModelsResponse struct {
 	Data []struct {
-		ID               string   `json:"id"`
-		OwnedBy          string   `json:"owned_by"`
-		MaxModelLen      int      `json:"max_model_len"`
-		MaxContextLength int      `json:"max_context_length"`
-		ContextLength    int      `json:"context_length"`
-		Capabilities     []string `json:"capabilities"`
-		Modalities       []string `json:"modalities"`
-		InputModalities  []string `json:"input_modalities"`
-		Vision           bool     `json:"vision"`
-		SupportsVision   bool     `json:"supports_vision"`
-		Thinking         bool     `json:"thinking"`
-		SupportsThinking bool     `json:"supports_thinking"`
-		Tools            bool     `json:"tools"`
-		SupportsTools    bool     `json:"supports_tools"`
+		ID               string               `json:"id"`
+		OwnedBy          string               `json:"owned_by"`
+		Type             string               `json:"type"`
+		ModelType        string               `json:"model_type"`
+		Architecture     string               `json:"architecture"`
+		MaxModelLen      int                  `json:"max_model_len"`
+		MaxContextLength int                  `json:"max_context_length"`
+		ContextLength    int                  `json:"context_length"`
+		ContextWindow    int                  `json:"context_window"`
+		Capabilities     flexibleCapabilities `json:"capabilities"`
+		Modalities       []string             `json:"modalities"`
+		InputModalities  []string             `json:"input_modalities"`
+		Tags             []string             `json:"tags"`
+		Vision           bool                 `json:"vision"`
+		HasVision        bool                 `json:"has_vision"`
+		SupportsVision   bool                 `json:"supports_vision"`
+		SupportsImage    bool                 `json:"supports_image"`
+		Multimodal       bool                 `json:"multimodal"`
+		Thinking         bool                 `json:"thinking"`
+		SupportsThinking bool                 `json:"supports_thinking"`
+		Tools            bool                 `json:"tools"`
+		SupportsTools    bool                 `json:"supports_tools"`
 	} `json:"data"`
 }
 
@@ -217,9 +260,13 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 		hasEmb := inferEmbeddingFromName(m.Name)
 		hasComp := inferCompletionFromName(m.Name)
 		visStatus := "none"
-		for _, fam := range m.Details.Families {
-			fl := strings.ToLower(fam)
-			if fl == "clip" || fl == "mllama" || strings.Contains(fl, "vl") || strings.Contains(fl, "vision") {
+		families := append([]string{m.Details.Family}, m.Details.Families...)
+		for _, fam := range families {
+			fl := strings.ToLower(strings.TrimSpace(fam))
+			if fl == "" {
+				continue
+			}
+			if fl == "clip" || fl == "mllama" || strings.Contains(fl, "vl") || strings.Contains(fl, "vision") || inferVisionFromName(fl) {
 				hasVis = true
 			}
 			if strings.Contains(fl, "embed") || fl == "clip" || fl == "siglip" {
@@ -262,8 +309,8 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 		}
 	}
 
-	// Enrich concurrently via /api/show with bounded concurrency so 50+ models complete in <1.5s
-	showCtx, showCancel := context.WithTimeout(ctx, 4*time.Second)
+	// Enrich concurrently via /api/show with bounded concurrency
+	showCtx, showCancel := context.WithTimeout(ctx, 8*time.Second)
 	defer showCancel()
 
 	sem := make(chan struct{}, 10)
@@ -279,15 +326,20 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 				return
 			}
 			if show, err := c.inspectModel(showCtx, baseURL, out[idx].Name); err == nil {
-				hasComp := inferCompletionFromName(out[idx].Name)
-				hasVis := false
-				visStatus := "none"
-				hasEmb := false
-				hasThink := false
-				hasTools := false
+				hasComp := out[idx].HasCompletion
+				hasVis := out[idx].HasVision
+				visStatus := out[idx].VisionStatus
+				hasEmb := out[idx].HasEmbedding
+				hasThink := out[idx].HasThinking
+				hasTools := out[idx].HasTools
 
 				if len(show.Capabilities) > 0 {
 					hasComp = false
+					hasVis = false
+					visStatus = "none"
+					hasEmb = false
+					hasThink = false
+					hasTools = false
 					for _, capName := range show.Capabilities {
 						switch strings.ToLower(capName) {
 						case "completion":
@@ -306,19 +358,19 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 				}
 
 				if !hasVis && show.ProjectorInfo != nil {
-					if hasEnc, ok := show.ProjectorInfo["clip.has_vision_encoder"].(bool); ok && hasEnc {
-						hasVis = true
-						visStatus = "confirmed"
+					if hasEnc, hasClipKey := show.ProjectorInfo["clip.has_vision_encoder"].(bool); hasClipKey {
+						if hasEnc {
+							hasVis = true
+							visStatus = "inferred"
+						}
 					} else if len(show.ProjectorInfo) > 0 {
 						hasVis = true
-						visStatus = "confirmed"
+						visStatus = "inferred"
 					}
 				}
-				if !hasVis && show.ModelInfo != nil {
-					if vb, ok := show.ModelInfo["vision.block_count"].(float64); ok && vb > 0 {
-						hasVis = true
-						visStatus = "confirmed"
-					}
+				if !hasVis && hasVisionModelInfo(show.ModelInfo) {
+					hasVis = true
+					visStatus = "inferred"
 				}
 
 				out[idx].HasCompletion = hasComp
@@ -394,10 +446,27 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 		if ctxLen == 0 {
 			ctxLen = m.ContextLength
 		}
+		if ctxLen == 0 {
+			ctxLen = m.ContextWindow
+		}
 
-		hasVis := m.Vision || m.SupportsVision || inferVisionFromName(m.ID)
+		explicitVision := m.Vision || m.SupportsVision || m.HasVision || m.Multimodal || m.SupportsImage
+		for _, field := range []string{m.Type, m.ModelType, m.Architecture} {
+			fl := strings.ToLower(strings.TrimSpace(field))
+			if fl == "vlm" || strings.Contains(fl, "vision") || strings.Contains(fl, "multimodal") || strings.Contains(fl, "_vl") || strings.Contains(fl, "-vl") {
+				explicitVision = true
+			}
+		}
+		for _, tag := range m.Tags {
+			tl := strings.ToLower(strings.TrimSpace(tag))
+			if tl == "vlm" || tl == "vision" || tl == "multimodal" || tl == "image" {
+				explicitVision = true
+			}
+		}
+
+		hasVis := explicitVision || inferVisionFromName(m.ID) || inferVisionFromName(m.Architecture)
 		visStatus := "none"
-		if m.Vision || m.SupportsVision {
+		if explicitVision {
 			visStatus = "confirmed"
 		} else if hasVis {
 			visStatus = "inferred"
@@ -419,21 +488,27 @@ func (c *Client) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]
 			}
 		}
 		if len(m.Capabilities) > 0 {
-			hasComp = false
+			hasExplicitComp := false
+			hasOnlyNonComp := false
 			for _, capName := range m.Capabilities {
 				switch strings.ToLower(capName) {
 				case "completion", "chat", "text":
 					hasComp = true
-				case "vision", "image":
+					hasExplicitComp = true
+				case "vision", "image", "multimodal":
 					hasVis = true
 					visStatus = "confirmed"
 				case "embedding":
 					hasEmb = true
+					hasOnlyNonComp = true
 				case "thinking", "reasoning":
 					hasThink = true
 				case "tools", "function_calling":
 					hasTools = true
 				}
+			}
+			if hasOnlyNonComp && !hasExplicitComp {
+				hasComp = false
 			}
 		}
 
@@ -1083,15 +1158,52 @@ func normalizeEndpoint(raw, fallback, defaultPort string) string {
 	return u
 }
 
+func hasVisionModelInfo(info map[string]interface{}) bool {
+	if len(info) == 0 {
+		return false
+	}
+	for k, v := range info {
+		kl := strings.ToLower(k)
+		if kl == "vision.block_count" ||
+			strings.HasSuffix(kl, ".vision.block_count") ||
+			strings.HasSuffix(kl, ".vision.num_hidden_layers") ||
+			strings.HasSuffix(kl, ".vision.embedding_length") {
+			if n, ok := v.(float64); ok && n > 0 {
+				return true
+			}
+		}
+		if kl == "clip.has_vision_encoder" || strings.HasSuffix(kl, ".has_vision_encoder") {
+			if b, ok := v.(bool); ok && b {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func inferVisionFromName(modelID string) bool {
 	lower := strings.ToLower(modelID)
+	// Exclude text-only small Gemma 3 variants (1B / 270M)
+	isTinyTextGemma3 := (strings.Contains(lower, "gemma3") || strings.Contains(lower, "gemma-3")) &&
+		(strings.Contains(lower, "-1b") || strings.Contains(lower, ":1b") || strings.Contains(lower, "270m"))
+	if !isTinyTextGemma3 && (strings.Contains(lower, "gemma3") || strings.Contains(lower, "gemma-3")) {
+		return true
+	}
+
 	// Genuine multimodal vision architectures with vision encoder (e.g. -vl, vision, vlm, pixtral, llava, minicpm-v, etc.)
 	for _, kw := range []string{
-		"-vl", "_vl", "/vl", "vision", "vlm", "pixtral", "llava", "minicpm-v",
-		"paligemma", "internvl", "molmo", "glm-4v", "qvq", "mllama",
-		"florence", "deepseek-vl", "idefics", "smolvlm", "phi-3.5-vision", "phi-3-vision",
-		"janus", "chameleon", "aria", "cogvlm",
-		"qwen3.8", "superqwen", "bonsai",
+		"-vl", "_vl", "/vl", "vl-", "2.5vl", "25vl", "3vl", "2vl",
+		"vision", "vlm", "multimodal", "pixtral", "llava", "minicpm-v", "minicpm-o",
+		"paligemma", "internvl", "molmo", "glm-4v", "glm4v", "glm-4.1v", "glm-4.5v", "glm-4.6v",
+		"qvq", "mllama", "florence", "deepseek-vl", "idefics", "smolvlm",
+		"phi-3.5-vision", "phi-3-vision", "phi-4-multimodal",
+		"janus", "chameleon", "aria", "cogvlm", "kimi-vl", "step-vl", "keye-vl", "ovis", "ui-tars",
+		"granite-vision", "aya-vision", "command-a-vision",
+		"qwen3.5", "qwen3_5", "qwen-3.5", "qwen3.8", "superqwen", "bonsai",
+		"gemma4", "gemma-4", "llama4", "llama-4",
+		"mistral-small-3.1", "mistral-small3.1", "mistral-small-3.2", "mistral-small3.2", "mistral3", "ministral-3",
+		"gpt-4o", "gpt-4.1", "gpt-4.5", "gpt-4-turbo", "gpt-5",
+		"claude-3", "claude-4", "claude-sonnet-4", "claude-opus-4", "claude-haiku-4", "gemini-",
 	} {
 		if strings.Contains(lower, kw) {
 			return true

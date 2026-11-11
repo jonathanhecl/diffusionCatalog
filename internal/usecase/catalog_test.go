@@ -798,6 +798,20 @@ func TestInspectAIBackendsCachingAndInvalidation(t *testing.T) {
 	if callsAfterInvalidate <= callsAfterCacheHit {
 		t.Errorf("expected checkStatusCalls to increase after cache invalidation: was %d, now %d", callsAfterCacheHit, callsAfterInvalidate)
 	}
+
+	// Fourth call via ForceInspectAIBackends immediately (<5s) must STILL bypass the 5s dedup window
+	st4 := catalogSvc.ForceInspectAIBackends(ctx)
+	if !st4.OllamaOnline {
+		t.Fatalf("expected st4 to be online after forced re-probe")
+	}
+
+	mock.mu.Lock()
+	callsAfterForce := mock.checkStatusCalls
+	mock.mu.Unlock()
+
+	if callsAfterForce <= callsAfterInvalidate {
+		t.Errorf("expected ForceInspectAIBackends to increment checkStatusCalls immediately: was %d, now %d", callsAfterInvalidate, callsAfterForce)
+	}
 }
 
 func TestImageToScene(t *testing.T) {

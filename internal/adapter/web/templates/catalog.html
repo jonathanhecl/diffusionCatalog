@@ -10966,7 +10966,7 @@
                   {{end}}
                 </select>
                 <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;">
-                  <select name="override_route" class="input-dark" style="font-size:11px;padding:4px 6px;">
+                  <select name="override_route" class="input-dark char-override-route-select" style="font-size:11px;padding:4px 6px;">
                     <option value="">LLM: Default ([{{$.Settings.Text2PromptProvider}}] {{$.Settings.Text2PromptModel}})</option>
                     {{range $.AIStatus.AllModels}}
                       <option value="{{.Provider}}|{{.Name}}">[{{.Provider}}] {{.Name}}</option>
@@ -12165,53 +12165,81 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
         })
         .then(function(st) {
           if (!st) return;
-          if (st.ollama_models) {
-            window.aiProviderConfig.ollama.models = st.ollama_models.map(function(m) {
-              return {
-                name: m.name || m.Name || '',
-                vision: (m.has_vision !== undefined) ? m.has_vision : !!m.HasVision,
-                completion: (m.has_completion !== undefined) ? m.has_completion : (m.is_completion !== undefined ? m.is_completion : true),
-                size: m.parameter_size || m.ParameterSize || ''
-              };
-            });
+          var mapModel = function(m) {
+            return {
+              name: m.name || m.Name || '',
+              vision: (m.has_vision !== undefined) ? m.has_vision : !!m.HasVision,
+              completion: (m.has_completion !== undefined) ? m.has_completion : (m.is_completion !== undefined ? m.is_completion : true),
+              size: m.parameter_size || m.ParameterSize || ''
+            };
+          };
+          if (Array.isArray(st.ollama_models)) {
+            window.aiProviderConfig.ollama.models = st.ollama_models.map(mapModel);
+          } else if (st.checked) {
+            window.aiProviderConfig.ollama.models = [];
           }
-          if (st.omlx_models) {
-            window.aiProviderConfig.openai.models = st.omlx_models.map(function(m) {
-              return {
-                name: m.name || m.Name || '',
-                vision: (m.has_vision !== undefined) ? m.has_vision : !!m.HasVision,
-                completion: (m.has_completion !== undefined) ? m.has_completion : (m.is_completion !== undefined ? m.is_completion : true),
-                size: m.parameter_size || m.ParameterSize || ''
-              };
-            });
+          if (Array.isArray(st.omlx_models)) {
+            window.aiProviderConfig.openai.models = st.omlx_models.map(mapModel);
+          } else if (st.checked) {
+            window.aiProviderConfig.openai.models = [];
           }
           var dlAll = document.getElementById('ai-models-all');
-          if (dlAll && st.all_models) {
-            dlAll.innerHTML = st.all_models.map(function(m) {
-              var mName = m.name || m.Name || '';
+          if (dlAll && Array.isArray(st.all_models)) {
+            dlAll.innerHTML = '';
+            st.all_models.forEach(function(m) {
+              var opt = document.createElement('option');
+              opt.value = m.name || m.Name || '';
               var fam = (m.family || m.Family) ? ' ' + (m.family || m.Family) : '';
               var sz = (m.parameter_size || m.ParameterSize) ? ' (' + (m.parameter_size || m.ParameterSize) + ')' : '';
               var ctx = (m.context_length || m.ContextLength) ? ' ctx:' + (m.context_length || m.ContextLength) : '';
               var prov = m.provider || m.Provider || '';
-              return '<option value="' + mName + '">[' + prov + ']' + fam + sz + ctx + '</option>';
-            }).join('');
+              opt.textContent = '[' + prov + ']' + fam + sz + ctx;
+              dlAll.appendChild(opt);
+            });
           }
           var dlVis = document.getElementById('ai-models-vision');
-          if (dlVis && st.all_models) {
-            dlVis.innerHTML = st.all_models.filter(function(m) {
+          if (dlVis && Array.isArray(st.all_models)) {
+            dlVis.innerHTML = '';
+            st.all_models.filter(function(m) {
               return (m.has_vision !== undefined) ? m.has_vision : m.HasVision;
-            }).map(function(m) {
-              var mName = m.name || m.Name || '';
+            }).forEach(function(m) {
+              var opt = document.createElement('option');
+              opt.value = m.name || m.Name || '';
               var status = (m.vision_status || m.VisionStatus) ? ' (' + (m.vision_status || m.VisionStatus) + ')' : '';
               var ctx = (m.context_length || m.ContextLength) ? ' ctx:' + (m.context_length || m.ContextLength) : '';
               var prov = m.provider || m.Provider || '';
-              return '<option value="' + mName + '">[' + prov + '] Vision' + status + ctx + '</option>';
-            }).join('');
+              opt.textContent = '[' + prov + '] Vision' + status + ctx;
+              dlVis.appendChild(opt);
+            });
           }
           if (document.getElementById('remixProviderSelect')) switchProviderSelect('remix');
           if (document.getElementById('charProviderSelect')) switchProviderSelect('char');
           if (document.getElementById('directorProvider')) switchProviderSelect('director');
           if (window.switchI2SProvider) window.switchI2SProvider();
+
+          // Update Character card override_route selects
+          if (Array.isArray(st.all_models)) {
+            document.querySelectorAll('.char-override-route-select').forEach(function(selEl) {
+              var curRoute = selEl.value;
+              var defOpt = selEl.querySelector('option[value=""]');
+              var defLabel = defOpt ? defOpt.textContent : 'LLM: Default';
+              selEl.innerHTML = '';
+              var first = document.createElement('option');
+              first.value = '';
+              first.textContent = defLabel;
+              selEl.appendChild(first);
+              st.all_models.forEach(function(m) {
+                var mName = m.name || m.Name || '';
+                var prov = m.provider || m.Provider || '';
+                if (!mName) return;
+                var opt = document.createElement('option');
+                opt.value = prov + '|' + mName;
+                opt.textContent = '[' + prov + '] ' + mName + ((m.has_vision || m.HasVision) ? ' [vision 👁️]' : '');
+                if (opt.value === curRoute) opt.selected = true;
+                selEl.appendChild(opt);
+              });
+            });
+          }
 
           var ollamaStatusBadge = document.getElementById('ollamaStatusBadge');
           if (ollamaStatusBadge) {
@@ -12303,86 +12331,58 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
           var getMVision = function(m) { return (m.has_vision !== undefined) ? m.has_vision : !!m.HasVision; };
           var getMCtx = function(m) { return m.context_length || m.ContextLength || 0; };
 
-          // Populate Ollama Default Model dropdown in Settings
-          var ollamaSel = document.getElementById('ollamaDefaultModelSelect');
-          if (ollamaSel && st.ollama_models && st.ollama_models.length > 0) {
-            var curVal = ollamaSel.value;
-            var html = '';
-            if (curVal) {
-              html += '<option value="' + curVal + '" selected>' + curVal + ' (current default)</option>';
-            } else {
-              html += '<option value="">Select Default Vision Model...</option>';
-            }
-            var visModels = st.ollama_models.filter(function(m) { return getMVision(m); });
-            var otherModels = st.ollama_models.filter(function(m) { return !getMVision(m); });
-            if (visModels.length > 0) {
-              html += '<optgroup label="Detected Vision Models">';
-              visModels.forEach(function(m) {
-                var mName = getMName(m);
-                var mSz = getMSize(m);
-                var mCtx = getMCtx(m);
-                var sz = mSz ? ' (' + mSz + ')' : '';
-                var ctx = mCtx ? ' [ctx:' + mCtx + ']' : '';
-                var sel = (mName === curVal) ? ' selected' : '';
-                html += '<option value="' + mName + '"' + sel + '>' + mName + sz + ' [vision 👁️]' + ctx + '</option>';
-              });
-              html += '</optgroup>';
-            }
-            if (otherModels.length > 0) {
-              html += '<optgroup label="All Discovered Models">';
-              otherModels.forEach(function(m) {
-                var mName = getMName(m);
-                var mSz = getMSize(m);
-                var mCtx = getMCtx(m);
-                var sz = mSz ? ' (' + mSz + ')' : '';
-                var ctx = mCtx ? ' [ctx:' + mCtx + ']' : '';
-                var sel = (mName === curVal) ? ' selected' : '';
-                html += '<option value="' + mName + '"' + sel + '>' + mName + sz + ctx + '</option>';
-              });
-              html += '</optgroup>';
-            }
-            ollamaSel.innerHTML = html;
-          }
+          var populateDefaultModelSelect = function(selEl, models) {
+            if (!selEl || !Array.isArray(models)) return;
+            var curVal = selEl.value;
+            selEl.innerHTML = '';
 
-          // Populate OpenAI Default Model dropdown in Settings
-          var openaiSel = document.getElementById('openaiDefaultModelSelect');
-          if (openaiSel && st.omlx_models && st.omlx_models.length > 0) {
-            var curVal = openaiSel.value;
-            var html = '';
-            if (curVal) {
-              html += '<option value="' + curVal + '" selected>' + curVal + ' (current default)</option>';
-            } else {
-              html += '<option value="">Select Default Vision Model...</option>';
+            var hasCurInList = curVal && models.some(function(m) { return getMName(m) === curVal; });
+            if (curVal && !hasCurInList) {
+              var curOpt = document.createElement('option');
+              curOpt.value = curVal;
+              curOpt.textContent = curVal + ' (current default)';
+              curOpt.selected = true;
+              selEl.appendChild(curOpt);
+            } else if (!curVal) {
+              var phOpt = document.createElement('option');
+              phOpt.value = '';
+              phOpt.textContent = 'Select Default Vision Model...';
+              selEl.appendChild(phOpt);
             }
-            var visModels = st.omlx_models.filter(function(m) { return getMVision(m); });
-            var otherModels = st.omlx_models.filter(function(m) { return !getMVision(m); });
+
+            var buildOption = function(m, isVision) {
+              var mName = getMName(m);
+              var mSz = getMSize(m);
+              var mCtx = getMCtx(m);
+              var opt = document.createElement('option');
+              opt.value = mName;
+              opt.textContent = mName + (mSz ? ' (' + mSz + ')' : '') + (isVision ? ' [vision 👁️]' : '') + (mCtx ? ' [ctx:' + mCtx + ']' : '');
+              if (mName === curVal) opt.selected = true;
+              return opt;
+            };
+
+            var visModels = models.filter(function(m) { return getMVision(m); });
+            var otherModels = models.filter(function(m) { return !getMVision(m); });
             if (visModels.length > 0) {
-              html += '<optgroup label="Detected Vision Models">';
-              visModels.forEach(function(m) {
-                var mName = getMName(m);
-                var mSz = getMSize(m);
-                var mCtx = getMCtx(m);
-                var sz = mSz ? ' (' + mSz + ')' : '';
-                var ctx = mCtx ? ' [ctx:' + mCtx + ']' : '';
-                var sel = (mName === curVal) ? ' selected' : '';
-                html += '<option value="' + mName + '"' + sel + '>' + mName + sz + ' [vision 👁️]' + ctx + '</option>';
-              });
-              html += '</optgroup>';
+              var visGrp = document.createElement('optgroup');
+              visGrp.label = 'Detected Vision Models';
+              visModels.forEach(function(m) { visGrp.appendChild(buildOption(m, true)); });
+              selEl.appendChild(visGrp);
             }
             if (otherModels.length > 0) {
-              html += '<optgroup label="All Discovered Models">';
-              otherModels.forEach(function(m) {
-                var mName = getMName(m);
-                var mSz = getMSize(m);
-                var mCtx = getMCtx(m);
-                var sz = mSz ? ' (' + mSz + ')' : '';
-                var ctx = mCtx ? ' [ctx:' + mCtx + ']' : '';
-                var sel = (mName === curVal) ? ' selected' : '';
-                html += '<option value="' + mName + '"' + sel + '>' + mName + sz + ctx + '</option>';
-              });
-              html += '</optgroup>';
+              var otherGrp = document.createElement('optgroup');
+              otherGrp.label = 'All Discovered Models';
+              otherModels.forEach(function(m) { otherGrp.appendChild(buildOption(m, false)); });
+              selEl.appendChild(otherGrp);
             }
-            openaiSel.innerHTML = html;
+          };
+
+          // Populate Ollama & OpenAI Default Model dropdowns in Settings
+          if (st.ollama_online || (Array.isArray(st.ollama_models) && st.ollama_models.length > 0)) {
+            populateDefaultModelSelect(document.getElementById('ollamaDefaultModelSelect'), st.ollama_models || []);
+          }
+          if (st.omlx_online || (Array.isArray(st.omlx_models) && st.omlx_models.length > 0)) {
+            populateDefaultModelSelect(document.getElementById('openaiDefaultModelSelect'), st.omlx_models || []);
           }
 
           // Populate Embedding Model dropdown in Settings - strictly Vision + Embedding models ONLY
@@ -12410,31 +12410,35 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
 
             var grpOllama = document.getElementById('embOptgroupOllama');
             var grpOpenAI = document.getElementById('embOptgroupOpenAI');
-            if (grpOllama && st.ollama_models) {
+            if (grpOllama && Array.isArray(st.ollama_models)) {
               var visEmbOllama = st.ollama_models.filter(function(m) { return isEmbVis(m); });
-              var h = '';
+              grpOllama.innerHTML = '';
               visEmbOllama.forEach(function(m) {
                 var mName = getMName(m);
                 if (!mName) return;
                 var mSz = getMSize(m);
-                var sz = mSz ? ' (' + mSz + ')' : '';
-                var sel = (mName === curEmbVal) ? ' selected' : '';
-                h += '<option value="' + mName + '" data-provider="ollama"' + sel + '>' + mName + sz + ' [vision 👁️] [embedding]</option>';
+                var opt = document.createElement('option');
+                opt.value = mName;
+                opt.setAttribute('data-provider', 'ollama');
+                opt.textContent = mName + (mSz ? ' (' + mSz + ')' : '') + ' [vision 👁️] [embedding]';
+                if (mName === curEmbVal) opt.selected = true;
+                grpOllama.appendChild(opt);
               });
-              grpOllama.innerHTML = h;
             }
-            if (grpOpenAI && st.omlx_models) {
+            if (grpOpenAI && Array.isArray(st.omlx_models)) {
               var visEmbOpenAI = st.omlx_models.filter(function(m) { return isEmbVis(m); });
-              var h = '';
+              grpOpenAI.innerHTML = '';
               visEmbOpenAI.forEach(function(m) {
                 var mName = getMName(m);
                 if (!mName) return;
                 var mSz = getMSize(m);
-                var sz = mSz ? ' (' + mSz + ')' : '';
-                var sel = (mName === curEmbVal) ? ' selected' : '';
-                h += '<option value="' + mName + '" data-provider="openai"' + sel + '>' + mName + sz + ' [vision 👁️] [embedding]</option>';
+                var opt = document.createElement('option');
+                opt.value = mName;
+                opt.setAttribute('data-provider', 'openai');
+                opt.textContent = mName + (mSz ? ' (' + mSz + ')' : '') + ' [vision 👁️] [embedding]';
+                if (mName === curEmbVal) opt.selected = true;
+                grpOpenAI.appendChild(opt);
               });
-              grpOpenAI.innerHTML = h;
             }
             if (window.filterEmbeddingModels) window.filterEmbeddingModels();
           }
@@ -12447,6 +12451,8 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
 
     window.handleProbeRefresh = function(ev) {
       if (ev) ev.preventDefault();
+      var clickedBtn = (ev && ev.currentTarget && ev.currentTarget.id !== 'probeRefreshBtn') ? ev.currentTarget : null;
+      var clickedOrigText = clickedBtn ? clickedBtn.textContent : '';
       var btn = document.getElementById('probeRefreshBtn');
       var badges = [
         document.getElementById('ollamaStatusBadge'),
@@ -12467,11 +12473,21 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
         btn.style.opacity = '0.6';
         btn.style.pointerEvents = 'none';
       }
+      if (clickedBtn) {
+        clickedBtn.textContent = 'Loading...';
+        clickedBtn.style.opacity = '0.6';
+        clickedBtn.style.pointerEvents = 'none';
+      }
       window.refreshAIStatusAsync(true).finally(function() {
         if (btn) {
           btn.textContent = 'Probe & Refresh Models from Servers';
           btn.style.opacity = '1';
           btn.style.pointerEvents = 'auto';
+        }
+        if (clickedBtn) {
+          clickedBtn.textContent = clickedOrigText;
+          clickedBtn.style.opacity = '1';
+          clickedBtn.style.pointerEvents = 'auto';
         }
       });
     };
@@ -12484,10 +12500,10 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
       if (document.getElementById('studio-attached-preview-wrap')) restoreStudioAttachedImage();
       if (document.getElementById('embeddingProviderSelect')) window.filterEmbeddingModels();
 
-      // Non-blocking background sync for AI-enabled views (Prompt Studio, Scene Director, Characters, Settings)
+      // Always force a non-blocking live model sync when opening the app
       var activeTab = '{{.ActiveTab}}';
-      if (activeTab === 'studio' || activeTab === 'director' || activeTab === 'characters' || activeTab === 'settings' || activeTab === 'asset_detail') {
-        setTimeout(function() { window.refreshAIStatusAsync(false); }, 150);
+      if (activeTab !== 'login') {
+        setTimeout(function() { window.refreshAIStatusAsync(true); }, 100);
       }
     });
 

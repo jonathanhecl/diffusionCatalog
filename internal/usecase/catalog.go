@@ -682,23 +682,34 @@ func (s *CatalogService) InspectAIBackends(ctx context.Context) AIBackendStatus 
 	return s.InspectAIBackendsFresh(ctx)
 }
 
-// InspectAIBackendsFresh probes live servers and updates the cache.
+// InspectAIBackendsFresh probes live servers and updates the cache, coalescing concurrent bursts within 5 seconds.
 func (s *CatalogService) InspectAIBackendsFresh(ctx context.Context) AIBackendStatus {
+	return s.refreshAIBackends(ctx, true)
+}
+
+// ForceInspectAIBackends unconditionally probes live servers and updates the cache, bypassing any short-term dedup window.
+func (s *CatalogService) ForceInspectAIBackends(ctx context.Context) AIBackendStatus {
+	return s.refreshAIBackends(ctx, false)
+}
+
+func (s *CatalogService) refreshAIBackends(ctx context.Context, respectMinInterval bool) AIBackendStatus {
 	s.aiRefreshMu.Lock()
 	defer s.aiRefreshMu.Unlock()
 
-	// Double-check if another goroutine just refreshed the cache while waiting for the lock
-	s.aiStatusMu.RLock()
-	if !s.aiStatusTime.IsZero() && time.Since(s.aiStatusTime) < 5*time.Second {
-		cached := s.aiStatusCache
+	if respectMinInterval {
+		// Double-check if another goroutine just refreshed the cache while waiting for the lock
+		s.aiStatusMu.RLock()
+		if !s.aiStatusTime.IsZero() && time.Since(s.aiStatusTime) < 5*time.Second {
+			cached := s.aiStatusCache
+			s.aiStatusMu.RUnlock()
+			return cached
+		}
 		s.aiStatusMu.RUnlock()
-		return cached
 	}
-	s.aiStatusMu.RUnlock()
 
 	// Use an independent probe context with timeout so client cancellations (e.g. browser F5 reload)
 	// never abort backend network checks mid-flight or cache false offline states.
-	probeCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	probeCtx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
 
 	st := s.probeAIBackends(probeCtx)
@@ -714,7 +725,11 @@ func (s *CatalogService) InspectAIBackendsFresh(ctx context.Context) AIBackendSt
 
 // probeAIBackends checks both the configured Ollama server and oMLX server concurrently and merges their model lists.
 func (s *CatalogService) probeAIBackends(ctx context.Context) AIBackendStatus {
-	var st AIBackendStatus
+	st := AIBackendStatus{
+		OllamaModels: []domain.OllamaModelInfo{},
+		OMLXModels:   []domain.OllamaModelInfo{},
+		AllModels:    []domain.OllamaModelInfo{},
+	}
 	if s.ollama == nil || s.repo == nil {
 		return st
 	}
@@ -768,6 +783,13 @@ func (s *CatalogService) probeAIBackends(ctx context.Context) AIBackendStatus {
 	}
 
 	wg.Wait()
+
+	if ollamaModels == nil {
+		ollamaModels = []domain.OllamaModelInfo{}
+	}
+	if omlxModels == nil {
+		omlxModels = []domain.OllamaModelInfo{}
+	}
 
 	st.OllamaOnline = ollamaOnline
 	st.OllamaVersion = ollamaVersion

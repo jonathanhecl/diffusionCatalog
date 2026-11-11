@@ -563,6 +563,24 @@ func TestAPIAIStatusEndpoint(t *testing.T) {
 	if recRefresh.Code != http.StatusOK {
 		t.Fatalf("expected HTTP 200 on refresh, got %d", recRefresh.Code)
 	}
+	var refreshedStatus usecase.AIBackendStatus
+	if err := json.Unmarshal(recRefresh.Body.Bytes(), &refreshedStatus); err != nil {
+		t.Fatalf("failed to parse refresh json response: %v", err)
+	}
+	if !refreshedStatus.Checked {
+		t.Errorf("expected refreshed status Checked=true")
+	}
+
+	// Verify opening the app root triggers background live model refresh
+	reqHome := httptest.NewRequest("GET", "/", nil)
+	recHome := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(recHome, reqHome)
+	if recHome.Code != http.StatusOK {
+		t.Fatalf("expected HTTP 200 on home, got %d", recHome.Code)
+	}
+	if !strings.Contains(recHome.Body.String(), "window.refreshAIStatusAsync(true)") {
+		t.Errorf("expected opening app to trigger window.refreshAIStatusAsync(true)")
+	}
 }
 
 func TestClearPromptsEndpoint(t *testing.T) {
