@@ -601,3 +601,74 @@ func TestOllamaAuthoritativeCapabilitiesAndOpenAIFlexibleCapabilities(t *testing
 	}
 }
 
+func TestNativeContextAndNoTokenLimit(t *testing.T) {
+	ctx := context.Background()
+	showCalls := 0
+	var capturedOllamaOptions map[string]interface{}
+	var capturedOpenAIBody map[string]interface{}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/show", func(w http.ResponseWriter, r *http.Request) {
+		showCalls++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"capabilities": ["completion"],
+			"model_info": {"qwen3.context_length": 40960}
+		}`))
+	})
+	mux.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if opts, ok := req["options"].(map[string]interface{}); ok {
+			capturedOllamaOptions = opts
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"message":{"role":"assistant","content":"detailed prompt output"}}`))
+	})
+	mux.HandleFunc("/v1/chat/completions", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&capturedOpenAIBody)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"omlx prompt output"}}]}`))
+	})
+
+	client := &Client{
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				rec := httptest.NewRecorder()
+				mux.ServeHTTP(rec, req)
+				return rec.Result(), nil
+			}),
+		},
+	}
+
+	if _, err := client.TextToPrompt(ctx, domain.ProviderOllama, "http://127.0.0.1:11434", "", "qwen3:8b", "sys", "concept", ""); err != nil {
+		t.Fatalf("Ollama TextToPrompt failed: %v", err)
+	}
+	if showCalls != 1 {
+		t.Errorf("expected 1 /api/show call to resolve native context, got %d", showCalls)
+	}
+	if capturedOllamaOptions == nil {
+		t.Fatalf("expected options with num_ctx, got nil")
+	}
+	if numCtx, ok := capturedOllamaOptions["num_ctx"].(float64); !ok || int(numCtx) != 40960 {
+		t.Errorf("expected native num_ctx=40960, got %v", capturedOllamaOptions["num_ctx"])
+	}
+	if _, hasNumPredict := capturedOllamaOptions["num_predict"]; hasNumPredict {
+		t.Errorf("expected no hardcoded num_predict cap, got %v", capturedOllamaOptions["num_predict"])
+	}
+
+	// Second call should reuse cached native context length without hitting /api/show again.
+	if _, err := client.TextToPrompt(ctx, domain.ProviderOllama, "http://127.0.0.1:11434", "", "qwen3:8b", "sys", "concept 2", ""); err != nil {
+		t.Fatalf("second Ollama TextToPrompt failed: %v", err)
+	}
+	if showCalls != 1 {
+		t.Errorf("expected cached context length without additional /api/show call, got %d calls", showCalls)
+	}
+
+	if _, err := client.TextToPrompt(ctx, domain.ProviderOpenAI, "http://127.0.0.1:8000", "", "qwen3-mlx", "sys", "concept", ""); err != nil {
+		t.Fatalf("OpenAI TextToPrompt failed: %v", err)
+	}
+	if _, hasMaxTokens := capturedOpenAIBody["max_tokens"]; hasMaxTokens {
+		t.Errorf("expected no hardcoded max_tokens cap in OpenAI payload, got %v", capturedOpenAIBody["max_tokens"])
+	}
+}

@@ -24,6 +24,8 @@ import (
 // (/v1/models, /v1/chat/completions) on local or remote hosts (e.g. http://127.0.0.1).
 type Client struct {
 	httpClient *http.Client
+	ctxMu      sync.RWMutex
+	modelCtx   map[string]int
 }
 
 // NewClient constructs a dual Ollama / oMLX REST API adapter.
@@ -47,6 +49,7 @@ func NewClient() *Client {
 			Transport: transport,
 			Timeout:   90 * time.Second,
 		},
+		modelCtx: make(map[string]int),
 	}
 }
 
@@ -376,12 +379,9 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 				out[idx].HasTools = hasTools
 				out[idx].HasEmbedding = hasEmb
 
-				for k, v := range show.ModelInfo {
-					if strings.HasSuffix(k, ".context_length") {
-						if f, ok := v.(float64); ok {
-							out[idx].ContextLength = int(f)
-						}
-					}
+				if ctxLen := extractContextLength(show.ModelInfo); ctxLen > 0 {
+					out[idx].ContextLength = ctxLen
+					c.cacheModelContextLength(baseURL, out[idx].Name, ctxLen)
 				}
 				out[idx].Capabilities = buildCapabilitySlice(hasComp, out[idx].HasVision, out[idx].HasThinking, out[idx].HasTools, out[idx].HasEmbedding, show.Capabilities)
 			}
@@ -390,6 +390,56 @@ func (c *Client) ListModels(ctx context.Context, baseURL string) ([]domain.Ollam
 	wg.Wait()
 
 	return out, nil
+}
+
+func extractContextLength(info map[string]interface{}) int {
+	maxCtx := 0
+	for k, v := range info {
+		kl := strings.ToLower(k)
+		if strings.HasSuffix(kl, ".context_length") || kl == "context_length" {
+			if f, ok := v.(float64); ok && int(f) > maxCtx {
+				maxCtx = int(f)
+			}
+		}
+	}
+	return maxCtx
+}
+
+func (c *Client) cacheModelContextLength(baseURL, model string, ctxLen int) {
+	if ctxLen <= 0 || model == "" {
+		return
+	}
+	key := NormalizeOllamaURL(baseURL) + "|" + model
+	c.ctxMu.Lock()
+	if c.modelCtx == nil {
+		c.modelCtx = make(map[string]int)
+	}
+	c.modelCtx[key] = ctxLen
+	c.ctxMu.Unlock()
+}
+
+func (c *Client) resolveOllamaContextLength(ctx context.Context, baseURL, model string) int {
+	key := NormalizeOllamaURL(baseURL) + "|" + model
+	c.ctxMu.RLock()
+	if c.modelCtx != nil {
+		if ctxLen, ok := c.modelCtx[key]; ok && ctxLen > 0 {
+			c.ctxMu.RUnlock()
+			return ctxLen
+		}
+	}
+	c.ctxMu.RUnlock()
+
+	showCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	show, err := c.inspectModel(showCtx, baseURL, model)
+	if err != nil || show == nil {
+		return 0
+	}
+	ctxLen := extractContextLength(show.ModelInfo)
+	if ctxLen > 0 {
+		c.cacheModelContextLength(baseURL, model, ctxLen)
+	}
+	return ctxLen
 }
 
 // CheckOMLXStatus checks if an OpenAI-compatible / oMLX server (e.g. http://127.0.0.1:8000) is reachable via GET /v1/models.
@@ -708,9 +758,11 @@ func (c *Client) executeOllamaChat(ctx context.Context, baseURL, model string, m
 		Messages: messages,
 		Stream:   false,
 		Think:    mapOllamaThinkParam(model, thinkLevel),
-		Options: map[string]interface{}{
-			"num_predict": 2048,
-		},
+	}
+	if ctxLen := c.resolveOllamaContextLength(ctx, baseURL, model); ctxLen > 0 {
+		reqPayload.Options = map[string]interface{}{
+			"num_ctx": ctxLen,
+		}
 	}
 	out, statusCode, body, err := c.doOllamaChatAttempt(ctx, baseURL, reqPayload)
 	if err != nil {
@@ -827,7 +879,6 @@ func (c *Client) doOMLXChat(ctx context.Context, baseURL, apiKey, model string, 
 		Stream:             false,
 		ReasoningEffort:    effort,
 		ChatTemplateKwargs: kwargs,
-		MaxTokens:          2048,
 	})
 	if err != nil {
 		return "", err
