@@ -1247,7 +1247,10 @@
                     </select>
                   </div>
                   <div>
-                    <label class="kv-label">Model</label>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                      <label class="kv-label" style="margin-bottom:0;">Model</label>
+                      <button type="button" class="btn-ghost" onclick="handleProbeRefresh(event)" style="font-size:10px;padding:1px 6px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Force reload models from servers">&#x21bb; Reload</button>
+                    </div>
                     <select name="override_model" id="remixModelSelect" class="input-dark">
                       {{$isVision := or (eq $.AIMode "vision") (and (eq $.AIMode "") $.SelectedAsset)}}
                       {{$activeProv := or $.AIOverrideProvider $.Settings.RemixDefaultProvider}}
@@ -1434,7 +1437,7 @@
           <form action="/admin/ollama/character2prompt" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:8px;">
             <input type="hidden" name="return_tab" value="studio">
             {{if .SelectedAsset}}<input type="hidden" name="ref_asset_id" value="{{.SelectedAsset.ID}}">{{end}}
-            <div style="display:grid;grid-template-columns:180px 200px 120px 1fr 110px;gap:8px;align-items:center;">
+            <div style="display:grid;grid-template-columns:180px 200px 120px 1fr auto 110px;gap:8px;align-items:center;">
               <select name="character_id" class="input-dark" required>
                 <option value="">Select Character...</option>
                 {{range .Page.Characters}}
@@ -1467,6 +1470,7 @@
                   {{end}}
                 {{end}}
               </select>
+              <button type="button" class="btn-ghost" onclick="handleProbeRefresh(event)" style="font-size:11px;padding:6px 8px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);white-space:nowrap;" title="Force reload models from servers">&#x21bb;</button>
               <select name="override_think" id="charThinkSelect" class="input-dark">
                 <option value="default">Think: Default</option>
                 <option value="off">Think: Off</option>
@@ -2037,7 +2041,10 @@
 
               <!-- Row 2: AI Provider & Model & Thinking Mode -->
               <div>
-                <label style="font-size:11px;font-weight:600;color:var(--text-main);display:block;margin-bottom:4px;">AI Provider, Model &amp; Reasoning:</label>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                  <label style="font-size:11px;font-weight:600;color:var(--text-main);">AI Provider, Model &amp; Reasoning:</label>
+                  <button type="button" class="btn-ghost" onclick="handleProbeRefresh(event)" style="font-size:10px;padding:1px 7px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Force reload models from servers">&#x21bb; Reload Models</button>
+                </div>
                 <div style="display:grid;grid-template-columns:120px 1fr 105px;gap:8px;">
                   <select id="directorProvider" style="width:100%;background:var(--bg-input);border:1px solid var(--border-navy);border-radius:5px;padding:6px 8px;color:#fff;font-size:11.5px;" onchange="switchProviderSelect('director')">
                     <option value="ollama" {{if eq .Settings.StudioDefaultProvider "ollama"}}selected{{end}}>Ollama</option>
@@ -2764,7 +2771,10 @@
                 </select>
               </div>
               <div>
-                <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Vision Model:</label>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                  <label style="font-size:11px;font-weight:600;color:var(--text-muted);">Vision Model:</label>
+                  <button type="button" class="btn-ghost" onclick="handleProbeRefresh(event)" style="font-size:10px;padding:1px 6px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Force reload models from servers">&#x21bb; Reload</button>
+                </div>
                 <select id="i2sModelSelect" class="director-select" style="width:100%;font-size:11.5px;">
                   {{if eq $i2sDefaultProv "openai"}}
                     {{if .Settings.OpenAIDefaultModel}}
@@ -10956,7 +10966,10 @@
 
             <!-- Testing / Synthesis with this Character -->
             <div style="margin-top:auto;padding-top:10px;border-top:1px solid var(--border-navy);">
-              <div class="kv-label" style="color:#93c5fd;margin-bottom:6px;">PROBAR PROMPT CON ESTE PERSONAJE</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <div class="kv-label" style="color:#93c5fd;margin-bottom:0;">PROBAR PROMPT CON ESTE PERSONAJE</div>
+                <button type="button" class="btn-ghost" onclick="handleProbeRefresh(event)" style="font-size:10px;padding:1px 6px;cursor:pointer;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="Force reload models from servers">&#x21bb; Reload</button>
+              </div>
               <form action="/admin/ollama/character2prompt" method="POST" autocomplete="off" style="display:flex;flex-direction:column;gap:6px;">
                 <input type="hidden" name="character_id" value="{{.ID}}">
                 <input type="hidden" name="return_tab" value="characters">
@@ -12474,7 +12487,7 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
         btn.style.pointerEvents = 'none';
       }
       if (clickedBtn) {
-        clickedBtn.textContent = 'Loading...';
+        clickedBtn.textContent = (clickedOrigText.trim().length <= 2) ? '...' : 'Loading...';
         clickedBtn.style.opacity = '0.6';
         clickedBtn.style.pointerEvents = 'none';
       }
