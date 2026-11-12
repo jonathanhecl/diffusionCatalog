@@ -976,3 +976,68 @@ func TestKnowledgeSnippetCRUDAndPromptInjection(t *testing.T) {
 	}
 }
 
+func TestRunImage2PromptWithCaptionSeparation(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	_ = os.MkdirAll(mediaDir, 0755)
+	_ = os.WriteFile(filepath.Join(mediaDir, "sample.png"), []byte("img"), 0644)
+	dbPath := filepath.Join(tmpDir, "test_caption_sep.db")
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite db: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	mockOllama := &mockOllamaProvider{}
+	catalogSvc := NewCatalogService(mediaDir, repo, mockOllama)
+
+	rootID, _ := repo.UpsertMediaRoot(ctx, &domain.MediaRoot{Path: mediaDir, Label: "TestRoot"})
+	assetID, err := repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RootID:    rootID,
+		RelPath:   "sample.png",
+		FileName:  "sample.png",
+		MediaType: domain.MediaTypeImage,
+		Metadata: domain.GenerationParams{
+			PositivePrompt: "indexed original caption",
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to insert asset: %v", err)
+	}
+
+	// 1. Vision mode with edited Original Caption + User Request
+	_, _, err = catalogSvc.RunImage2PromptWithCaption(ctx, assetID, "flux", "vision", "edited original caption", "change sky to aurora", 0, nil, nil, domain.PromptExecutionOverride{}, false, "")
+	if err != nil {
+		t.Fatalf("RunImage2PromptWithCaption (vision) failed: %v", err)
+	}
+	wantCombined := "edited original caption\n\nUSER REQUEST: change sky to aurora"
+	if mockOllama.lastUserPrompt != wantCombined {
+		t.Errorf("expected vision userHint %q, got %q", wantCombined, mockOllama.lastUserPrompt)
+	}
+
+	// 2. Remix text mode with Original Caption + User Request
+	_, _, err = catalogSvc.RunImage2PromptWithCaption(ctx, assetID, "flux", "remix", "edited original caption", "make it anime", 0, nil, nil, domain.PromptExecutionOverride{}, false, "")
+	if err != nil {
+		t.Fatalf("RunImage2PromptWithCaption (remix) failed: %v", err)
+	}
+	wantSuffix := "\n\nedited original caption\n\nUSER REQUEST: make it anime"
+	if !strings.HasSuffix(mockOllama.lastUserPrompt, wantSuffix) {
+		t.Errorf("expected remix prompt to end with %q, got %q", wantSuffix, mockOllama.lastUserPrompt)
+	}
+
+	// 3. Clearing Original Caption explicitly must NOT fall back to asset.Metadata.PositivePrompt
+	_, _, err = catalogSvc.RunImage2PromptWithCaption(ctx, assetID, "flux", "vision", "", "only user request", 0, nil, nil, domain.PromptExecutionOverride{}, false, "")
+	if err != nil {
+		t.Fatalf("RunImage2PromptWithCaption (cleared caption) failed: %v", err)
+	}
+	if mockOllama.lastUserPrompt != "USER REQUEST: only user request" {
+		t.Errorf("expected %q when caption cleared, got %q", "USER REQUEST: only user request", mockOllama.lastUserPrompt)
+	}
+	if strings.Contains(mockOllama.lastUserPrompt, "indexed original caption") {
+		t.Errorf("did not expect indexed original caption when explicitly cleared, got %q", mockOllama.lastUserPrompt)
+	}
+}
+

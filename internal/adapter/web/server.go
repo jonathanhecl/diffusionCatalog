@@ -513,6 +513,7 @@ type viewData struct {
 	AIStatus              usecase.AIBackendStatus
 	AIResultPrompt        string
 	AIResultError         string
+	AIOriginalCaption     string
 	AIInputConcept        string
 	AITargetProfile       string
 	AIMode                string
@@ -763,8 +764,9 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	inputConcept := r.URL.Query().Get("concept")
-	if inputConcept == "" && selectedAsset != nil && selectedAsset.Metadata.PositivePrompt != "" {
-		inputConcept = selectedAsset.Metadata.PositivePrompt
+	var originalCaption string
+	if selectedAsset != nil && selectedAsset.Metadata.PositivePrompt != "" {
+		originalCaption = selectedAsset.Metadata.PositivePrompt
 	}
 
 	var activeGroup *domain.Group
@@ -810,6 +812,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		SelectedKnowledge:     selectedKnowledge,
 		GeneratedHistory:      history,
 		AIStatus:         aiStatus,
+		AIOriginalCaption: originalCaption,
 		AIInputConcept:   inputConcept,
 		AITargetProfile:  defaultTarget,
 		AIMode:              defaultMode,
@@ -1275,6 +1278,8 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 	assetID, _ := strconv.ParseInt(r.FormValue("asset_id"), 10, 64)
 	profileSlug := r.FormValue("profile_slug")
 	mode := r.FormValue("mode")
+	originalCaption := r.FormValue("original_caption")
+	hasOriginalCaption := r.Form.Has("original_caption")
 	userHint := r.FormValue("user_hint")
 	if userHint == "" {
 		userHint = r.FormValue("concept")
@@ -1317,7 +1322,14 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		_ = s.catalog.SetDefaultTargetGenerator(ctx, profileSlug)
 	}
 
-	outPrompt, durationSec, runErr := s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, knowledgeIDs, override, saveToAsset, frameImagePath)
+	var outPrompt string
+	var durationSec float64
+	var runErr error
+	if hasOriginalCaption {
+		outPrompt, durationSec, runErr = s.catalog.RunImage2PromptWithCaption(ctx, assetID, profileSlug, mode, originalCaption, userHint, characterID, loraIDs, knowledgeIDs, override, saveToAsset, frameImagePath)
+	} else {
+		outPrompt, durationSec, runErr = s.catalog.RunImage2Prompt(ctx, assetID, profileSlug, mode, userHint, characterID, loraIDs, knowledgeIDs, override, saveToAsset, frameImagePath)
+	}
 
 	isAJAX := r.Header.Get("X-Requested-With") == "XMLHttpRequest" || strings.Contains(r.Header.Get("Accept"), "application/json")
 	if isAJAX {
@@ -1336,15 +1348,16 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		usedProv, usedMod, _, usedThk := s.catalog.ResolveExecutionRoute(cfg, defProv, defMod, defThk, override)
 
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":         "ok",
-			"prompt":         outPrompt,
-			"duration_sec":   durationSec,
-			"target_profile": profileSlug,
-			"provider":       usedProv,
-			"model":          usedMod,
-			"think":          usedThk,
-			"mode":           mode,
-			"input_concept":  userHint,
+			"status":           "ok",
+			"prompt":           outPrompt,
+			"duration_sec":     durationSec,
+			"target_profile":   profileSlug,
+			"provider":         usedProv,
+			"model":            usedMod,
+			"think":            usedThk,
+			"mode":             mode,
+			"original_caption": originalCaption,
+			"input_concept":    userHint,
 		})
 		return
 	}
@@ -1358,6 +1371,9 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		selectedAsset, _ = s.catalog.GetAsset(ctx, assetID)
 		prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, assetID, filter)
 		relatedAssets = s.catalog.GetRelatedAssets(ctx, selectedAsset)
+		if !hasOriginalCaption && selectedAsset != nil {
+			originalCaption = selectedAsset.Metadata.PositivePrompt
+		}
 	}
 	settings, _ := s.catalog.GetSettings(ctx)
 	profiles, _ := s.catalog.ListPromptProfiles(ctx)
@@ -1393,6 +1409,7 @@ func (s *Server) handleImage2Prompt(w http.ResponseWriter, r *http.Request) {
 		GeneratedHistory:    history,
 		AIStatus:            aiStatus,
 		AIResultPrompt:      outPrompt,
+		AIOriginalCaption:   originalCaption,
 		AIInputConcept:      userHint,
 		AITargetProfile:     profileSlug,
 		AIMode:              mode,

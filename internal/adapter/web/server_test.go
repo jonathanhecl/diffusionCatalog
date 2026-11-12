@@ -640,3 +640,144 @@ func TestClearPromptsEndpoint(t *testing.T) {
 		t.Fatalf("expected 0 prompts in history after clear, got %d", len(historyAfter))
 	}
 }
+
+type studioOllamaMock struct {
+	lastCall       string
+	lastUserPrompt string
+}
+
+func (m *studioOllamaMock) CheckStatus(ctx context.Context, baseURL string) (string, bool) {
+	return "1.0", true
+}
+func (m *studioOllamaMock) ListModels(ctx context.Context, baseURL string) ([]domain.OllamaModelInfo, error) {
+	return nil, nil
+}
+func (m *studioOllamaMock) CheckOMLXStatus(ctx context.Context, baseURL, apiKey string) (bool, int) {
+	return false, 0
+}
+func (m *studioOllamaMock) ListOMLXModels(ctx context.Context, baseURL, apiKey string) ([]domain.OllamaModelInfo, error) {
+	return nil, nil
+}
+func (m *studioOllamaMock) ImageToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userHint, thinkLevel string) (string, error) {
+	m.lastCall = "ImageToPrompt"
+	m.lastUserPrompt = userHint
+	return "remixed vision output", nil
+}
+func (m *studioOllamaMock) ImagesToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userHint, thinkLevel string) (string, error) {
+	m.lastCall = "ImagesToPrompt"
+	m.lastUserPrompt = userHint
+	return "remixed multi-vision output", nil
+}
+func (m *studioOllamaMock) TextToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, inputConcept, thinkLevel string) (string, error) {
+	m.lastCall = "TextToPrompt"
+	m.lastUserPrompt = inputConcept
+	return "remixed text output", nil
+}
+func (m *studioOllamaMock) AnalyzeImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt, imageSource, userPrompt, thinkLevel string) (string, error) {
+	return "", nil
+}
+func (m *studioOllamaMock) AnalyzeImages(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userPrompt, thinkLevel string) (string, error) {
+	return "", nil
+}
+func (m *studioOllamaMock) EmbedText(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, text string) ([]float32, error) {
+	return nil, nil
+}
+func (m *studioOllamaMock) EmbedImage(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model string, imageBytes []byte) ([]float32, error) {
+	return nil, nil
+}
+
+func TestRemixStudioOriginalCaptionAndUserRequest(t *testing.T) {
+	ctx := context.Background()
+	mediaDir := t.TempDir()
+	cacheDir := t.TempDir()
+	dbPath := filepath.Join(t.TempDir(), "test_studio_remix.db")
+
+	_ = os.WriteFile(filepath.Join(mediaDir, "portrait.png"), []byte("pngdata"), 0644)
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db)
+	mockAI := &studioOllamaMock{}
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, mockAI)
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	extractor := metadata.NewExtractor()
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, extractor, vision.NewNoopEngine())
+
+	rootID, _ := repo.UpsertMediaRoot(ctx, &domain.MediaRoot{Path: mediaDir, Label: "Root"})
+	assetID, err := repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RootID:    rootID,
+		RelPath:   "portrait.png",
+		FileName:  "portrait.png",
+		MediaType: domain.MediaTypeImage,
+		Metadata: domain.GenerationParams{
+			PositivePrompt: "woman in a classic trench coat, soft film grain",
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to insert asset: %v", err)
+	}
+
+	srv, err := NewServer(mediaDir, cacheDir, "NoopVision", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("failed to construct web server: %v", err)
+	}
+	handler := srv.Handler()
+
+	// 1. GET /?tab=studio&asset_id=<id> preloads prompt into Original Caption and leaves User Request empty
+	reqGet := httptest.NewRequest("GET", "/?tab=studio&asset_id="+strconv.FormatInt(assetID, 10), nil)
+	recGet := httptest.NewRecorder()
+	handler.ServeHTTP(recGet, reqGet)
+	if recGet.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", recGet.Code)
+	}
+	body := recGet.Body.String()
+	expectedOrigTextarea := `id="studio-original-caption"`
+	if !strings.Contains(body, expectedOrigTextarea) {
+		t.Fatalf("expected studio-original-caption textarea in HTML")
+	}
+	origMarker := `placeholder="(No original caption/prompt found — optionally paste or write one here)">woman in a classic trench coat, soft film grain</textarea>`
+	if !strings.Contains(body, origMarker) {
+		t.Errorf("expected original prompt preloaded in Original Caption textarea")
+	}
+	userReqEmptyMarker := `id="studio-prompt-input"`
+	if !strings.Contains(body, userReqEmptyMarker) || !strings.Contains(body, `></textarea>`) {
+		t.Errorf("expected User Request textarea to be empty by default when remixing an asset")
+	}
+
+	// 2. POST /admin/ollama/image2prompt with edited original_caption and separate user_hint
+	form := url.Values{
+		"asset_id":         {strconv.FormatInt(assetID, 10)},
+		"profile_slug":     {"flux"},
+		"mode":             {"vision"},
+		"original_caption": {"woman in a futuristic silver coat, 35mm film"},
+		"user_hint":        {"add heavy neon rain at night"},
+	}
+	reqPost := httptest.NewRequest("POST", "/admin/ollama/image2prompt", strings.NewReader(form.Encode()))
+	reqPost.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqPost.Header.Set("X-Requested-With", "XMLHttpRequest")
+	recPost := httptest.NewRecorder()
+	handler.ServeHTTP(recPost, reqPost)
+
+	if recPost.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on POST, got %d: %s", recPost.Code, recPost.Body.String())
+	}
+	wantPrompt := "woman in a futuristic silver coat, 35mm film\n\nUSER REQUEST: add heavy neon rain at night"
+	if mockAI.lastUserPrompt != wantPrompt {
+		t.Errorf("expected model prompt %q, got %q", wantPrompt, mockAI.lastUserPrompt)
+	}
+
+	var jsonResp map[string]interface{}
+	if err := json.Unmarshal(recPost.Body.Bytes(), &jsonResp); err != nil {
+		t.Fatalf("failed to parse JSON response: %v", err)
+	}
+	if jsonResp["original_caption"] != "woman in a futuristic silver coat, 35mm film" {
+		t.Errorf("unexpected original_caption in JSON response: %v", jsonResp["original_caption"])
+	}
+	if jsonResp["input_concept"] != "add heavy neon rain at night" {
+		t.Errorf("unexpected input_concept in JSON response: %v", jsonResp["input_concept"])
+	}
+}

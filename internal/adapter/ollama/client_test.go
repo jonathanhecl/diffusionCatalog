@@ -327,6 +327,50 @@ func TestImageToPromptInMemoryDataURL(t *testing.T) {
 	}
 }
 
+func TestImageToPromptCaptionAndUserRequestFormat(t *testing.T) {
+	ctx := context.Background()
+	var capturedUserContent string
+
+	ollamaMux := http.NewServeMux()
+	ollamaMux.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		for _, m := range req.Messages {
+			if m.Role == "user" {
+				capturedUserContent = m.Content
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"message":{"role":"assistant","content":"remixed prompt"}}`))
+	})
+
+	client := &Client{
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				rec := httptest.NewRecorder()
+				ollamaMux.ServeHTTP(rec, req)
+				return rec.Result(), nil
+			}),
+		},
+	}
+
+	dataURL := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+	hint := "a quiet library at dawn\n\nUSER REQUEST: add floating holographic runes"
+	_, err := client.ImageToPrompt(ctx, domain.ProviderOllama, "http://127.0.0.1:11434", "", "llava", "sys", dataURL, hint, "")
+	if err != nil {
+		t.Fatalf("ImageToPrompt failed: %v", err)
+	}
+	expectedSuffix := "\n\na quiet library at dawn\n\nUSER REQUEST: add floating holographic runes"
+	if !strings.HasSuffix(capturedUserContent, expectedSuffix) {
+		t.Errorf("expected user content to end with %q, got %q", expectedSuffix, capturedUserContent)
+	}
+}
+
 func TestEmbedTextAndImage(t *testing.T) {
 	ctx := context.Background()
 

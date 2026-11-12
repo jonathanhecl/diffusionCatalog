@@ -700,7 +700,7 @@ func (c *Client) ImageToPrompt(ctx context.Context, provider domain.AIProviderTy
 func (c *Client) ImagesToPrompt(ctx context.Context, provider domain.AIProviderType, baseURL, apiKey, model, systemPrompt string, imageSources []string, userHint, thinkLevel string) (string, error) {
 	userContent := "Analyze the provided image(s) and generate a complete, production-ready generation prompt following your system instructions. Output only the final prompt without conversational filler."
 	if strings.TrimSpace(userHint) != "" {
-		userContent += "\nAdditional context/hint: " + strings.TrimSpace(userHint)
+		userContent += "\n\n" + strings.TrimSpace(userHint)
 	}
 
 	return c.AnalyzeImages(ctx, provider, baseURL, apiKey, model, systemPrompt, imageSources, userContent, thinkLevel)

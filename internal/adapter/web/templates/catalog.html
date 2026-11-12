@@ -1120,7 +1120,7 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                   <span class="kv-label" style="margin-bottom:0;">Indexed Original Prompt</span>
                   {{if .SelectedAsset.Metadata.PositivePrompt}}
-                    <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;" onclick="document.getElementById('studio-prompt-input').value = {{printf "%q" .SelectedAsset.Metadata.PositivePrompt}}">Reload into Editor</button>
+                    <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:10.5px;" onclick="document.getElementById('studio-original-caption').value = {{printf "%q" .SelectedAsset.Metadata.PositivePrompt}}">Reload into Original Caption</button>
                   {{end}}
                 </div>
                 <div class="prompt-box" style="font-size:11.5px;max-height:120px;overflow:auto;">
@@ -1213,19 +1213,36 @@
                   </div>
                 </div>
 
-                <!-- Concept / Caption / Prompt Field (Preloaded with caption if entered from media!) -->
+                <!-- Original Caption Field (Preloaded from Media Metadata when available, editable) -->
+                <div id="studio-original-caption-wrap" style="{{if and (not .SelectedAsset) (not .AIOriginalCaption) (not .AIAttachedData)}}display:none;{{end}}">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <label for="studio-original-caption" class="kv-label" style="margin-bottom:0;">
+                      Original Caption
+                    </label>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span style="font-size:11px;color:var(--text-muted);">Editable</span>
+                      {{if and .SelectedAsset .SelectedAsset.Metadata.PositivePrompt}}
+                        <button type="button" class="btn-ghost" style="padding:1px 7px;font-size:10.5px;" onclick="document.getElementById('studio-original-caption').value = {{printf "%q" .SelectedAsset.Metadata.PositivePrompt}}" title="Restore original prompt from media metadata">&#x21bb; Restore</button>
+                      {{end}}
+                      <button type="button" class="btn-ghost" style="padding:1px 7px;font-size:10.5px;color:#94a3b8;" onclick="document.getElementById('studio-original-caption').value = ''" title="Clear original caption">Clear</button>
+                    </div>
+                  </div>
+                  <textarea name="original_caption" id="studio-original-caption" rows="4" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;resize:vertical;font-family:monospace;font-size:12.5px;line-height:1.4;" placeholder="(No original caption/prompt found — optionally paste or write one here)">{{.AIOriginalCaption}}</textarea>
+                </div>
+
+                <!-- User Request / Idea Field (Sent as USER REQUEST: ... separate from Original Caption) -->
                 <div>
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <label class="kv-label" style="margin-bottom:0;">
+                    <label for="studio-prompt-input" class="kv-label" style="margin-bottom:0;">
                       {{if .SelectedAsset}}
-                        Caption / Prompt to Remix (Preloaded from Media)
+                        User Request
                       {{else}}
-                        Concept, Scene Idea, or Raw Prompt to Transform
+                        User Request / Concept
                       {{end}}
                     </label>
-                    <span style="font-size:11px;color:var(--text-muted);">Editable</span>
+                    <span style="font-size:11px;color:var(--text-muted);">{{if .SelectedAsset}}Sent as USER REQUEST: ...{{else}}Idea or raw prompt to transform{{end}}</span>
                   </div>
-                  <textarea name="user_hint" id="studio-prompt-input" rows="4" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;resize:vertical;font-family:monospace;font-size:12.5px;line-height:1.4;" placeholder="e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk, volumetric god rays, anamorphic lens flare...">{{.AIInputConcept}}</textarea>
+                  <textarea name="user_hint" id="studio-prompt-input" rows="3" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;resize:vertical;font-family:monospace;font-size:12.5px;line-height:1.4;" placeholder="{{if .SelectedAsset}}e.g. Change lighting to neon cyberpunk rain, replace jacket with a red leather coat, convert to wide-angle cinematic shot...{{else}}e.g. A lone cybernetic archivist walking through a flooded neo-brutalist cathedral at dusk, volumetric god rays, anamorphic lens flare...{{end}}">{{.AIInputConcept}}</textarea>
                 </div>
 
                 <!-- Character Injection & Quick Overrides -->
@@ -13328,6 +13345,8 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
       if (infoSpan) infoSpan.innerText = infoText;
       if (previewWrap) previewWrap.style.display = 'block';
       if (dropzone) dropzone.style.display = 'none';
+      var origCapWrap = document.getElementById('studio-original-caption-wrap');
+      if (origCapWrap) origCapWrap.style.display = 'block';
 
       if (modeSelect) {
         for (var i = 0; i < modeSelect.options.length; i++) {
@@ -13391,12 +13410,16 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
       var fileInput = document.getElementById('studio-file-input');
       var dropzone = document.getElementById('studio-dropzone');
       var modeSelect = document.getElementById('studio-mode-select');
+      var origCapWrap = document.getElementById('studio-original-caption-wrap');
+      var assetIdInput = document.querySelector('input[name="asset_id"]');
+      var hasAsset = assetIdInput && assetIdInput.value && assetIdInput.value !== '0';
 
       if (hiddenInput) hiddenInput.value = '';
       if (previewImg) previewImg.src = '';
       if (fileInput) fileInput.value = '';
       if (previewWrap) previewWrap.style.display = 'none';
       if (dropzone) dropzone.style.display = 'block';
+      if (origCapWrap && !hasAsset) origCapWrap.style.display = 'none';
 
       if (modeSelect) {
         for (var i = 0; i < modeSelect.options.length; i++) {

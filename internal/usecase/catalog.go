@@ -878,6 +878,16 @@ func resolveExecutionRoute(cfg domain.AppSettings, defaultProvider domain.AIProv
 // using the selected generator profile's system prompt (e.g., flux, krea2, moss, minimaxh3), selected model LoRAs,
 // optional contextual knowledge snippets, optional character/scene direction, and optional quick model/thinking overrides.
 func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, userHint string, characterID int64, loraIDs []int64, knowledgeIDs []int64, override domain.PromptExecutionOverride, saveToAsset bool, frameImagePath string) (string, float64, error) {
+	return s.runImage2Prompt(ctx, assetID, profileSlug, mode, "", false, userHint, characterID, loraIDs, knowledgeIDs, override, saveToAsset, frameImagePath)
+}
+
+// RunImage2PromptWithCaption runs Image2Prompt or Remix using an explicit (editable or cleared)
+// original caption separated from the user request.
+func (s *CatalogService) RunImage2PromptWithCaption(ctx context.Context, assetID int64, profileSlug, mode, originalCaption, userHint string, characterID int64, loraIDs []int64, knowledgeIDs []int64, override domain.PromptExecutionOverride, saveToAsset bool, frameImagePath string) (string, float64, error) {
+	return s.runImage2Prompt(ctx, assetID, profileSlug, mode, originalCaption, true, userHint, characterID, loraIDs, knowledgeIDs, override, saveToAsset, frameImagePath)
+}
+
+func (s *CatalogService) runImage2Prompt(ctx context.Context, assetID int64, profileSlug, mode, originalCaption string, hasOriginalCaption bool, userHint string, characterID int64, loraIDs []int64, knowledgeIDs []int64, override domain.PromptExecutionOverride, saveToAsset bool, frameImagePath string) (string, float64, error) {
 	if s.ollama == nil {
 		return "", 0, fmt.Errorf("AI provider is not initialized")
 	}
@@ -893,9 +903,22 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		}
 	}
 
+	effectiveCaption := strings.TrimSpace(originalCaption)
+	if !hasOriginalCaption && asset != nil {
+		effectiveCaption = strings.TrimSpace(asset.Metadata.PositivePrompt)
+	}
+
 	// If no asset, no attached image or video frame, and no character specified, delegate to Text2Prompt
 	if asset == nil && frameImagePath == "" && characterID <= 0 {
-		return s.RunText2Prompt(ctx, userHint, profileSlug, loraIDs, knowledgeIDs, override)
+		concept := strings.TrimSpace(userHint)
+		if effectiveCaption != "" {
+			if concept != "" {
+				concept = effectiveCaption + "\n\nUSER REQUEST: " + concept
+			} else {
+				concept = effectiveCaption
+			}
+		}
+		return s.RunText2Prompt(ctx, concept, profileSlug, loraIDs, knowledgeIDs, override)
 	}
 
 	cfg, err := s.repo.GetSettings(ctx)
@@ -911,10 +934,10 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		sysPrompt = prof.SystemPrompt
 	}
 
-	// Build rich context combining existing asset metadata, optional character sheet, selected LoRA docs, knowledge directives, and user scene direction
+	// Build rich context combining editable original caption, optional character sheet, selected LoRA docs, knowledge directives, and USER REQUEST
 	var contextParts []string
-	if asset != nil && asset.Metadata.PositivePrompt != "" {
-		contextParts = append(contextParts, "Reference Asset Original Prompt: "+asset.Metadata.PositivePrompt)
+	if effectiveCaption != "" {
+		contextParts = append(contextParts, effectiveCaption)
 	}
 	var charPtr *int64
 	var charRefImages []string
@@ -953,7 +976,7 @@ func (s *CatalogService) RunImage2Prompt(ctx context.Context, assetID int64, pro
 		contextParts = append(contextParts, knowledgeDoc)
 	}
 	if strings.TrimSpace(userHint) != "" {
-		contextParts = append(contextParts, "New Scene / Movie / Style Direction: "+strings.TrimSpace(userHint))
+		contextParts = append(contextParts, "USER REQUEST: "+strings.TrimSpace(userHint))
 	}
 	combinedHint := strings.Join(contextParts, "\n\n")
 
