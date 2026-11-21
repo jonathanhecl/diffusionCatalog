@@ -63,9 +63,9 @@ func EnsureEnvironment(ctx context.Context, mediaDir, cacheDir string, forceSetu
 		fmt.Println(" DiffusionCatalog — Portable Self-Installer & Dependency Check")
 		fmt.Println("================================================================")
 
-		// 1. Check ffmpeg / ffprobe (used for video container inspection)
-		if _, err := exec.LookPath("ffprobe"); err != nil {
-			if askYesNo(reader, "[?] Optional tool 'ffmpeg' (video metadata inspection) is missing. Install it now? [y/N]: ") {
+		// 1. Check ffmpeg (used for video first-frame embedding & metadata inspection)
+		if _, err := exec.LookPath("ffmpeg"); err != nil {
+			if askYesNo(reader, "[?] Optional tool 'ffmpeg' (video first-frame extraction for semantic search & metadata inspection) is missing. Install it now? [y/N]: ") {
 				if err := installSystemPackage("ffmpeg"); err != nil {
 					log.Printf("warning: could not install ffmpeg automatically: %v", err)
 				} else {

@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -76,15 +78,17 @@ func formatETA(seconds int64) string {
 
 // ScannerService walks the read-only media folder, extracts diffusion metadata, and indexes assets into SQLite.
 type ScannerService struct {
-	mediaDir  string
-	cacheDir  string
-	repo      domain.CatalogRepository
-	extractor domain.MetadataExtractor
-	vision    domain.VisionEngine
-	ollama    domain.OllamaProvider
+	mediaDir       string
+	cacheDir       string
+	repo           domain.CatalogRepository
+	extractor      domain.MetadataExtractor
+	vision         domain.VisionEngine
+	ollama         domain.OllamaProvider
+	frameExtractor func(ctx context.Context, absPath string) ([]byte, error)
 
-	mu     sync.Mutex
-	status ScanStatus
+	mu                  sync.Mutex
+	status              ScanStatus
+	ffmpegMissingLogged bool
 }
 
 // NewScannerService creates a new folder scanner service.
@@ -95,11 +99,12 @@ func NewScannerService(
 	vision domain.VisionEngine,
 ) *ScannerService {
 	return &ScannerService{
-		mediaDir:  mediaDir,
-		cacheDir:  cacheDir,
-		repo:      repo,
-		extractor: extractor,
-		vision:    vision,
+		mediaDir:       mediaDir,
+		cacheDir:       cacheDir,
+		repo:           repo,
+		extractor:      extractor,
+		vision:         vision,
+		frameExtractor: extractVideoFirstFrame,
 	}
 }
 
@@ -108,6 +113,13 @@ func (s *ScannerService) SetOllamaProvider(p domain.OllamaProvider) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.ollama = p
+}
+
+// SetVideoFrameExtractor overrides the video first-frame extractor used for multimodal embeddings.
+func (s *ScannerService) SetVideoFrameExtractor(fn func(ctx context.Context, absPath string) ([]byte, error)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.frameExtractor = fn
 }
 
 // Status returns the current live scan status and progress percentage.
@@ -223,6 +235,9 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 	s.status.CurrentRoot = ""
 	s.status.LastError = ""
 	isManual := s.status.IsManual
+	if isManual {
+		s.ffmpegMissingLogged = false
+	}
 	s.mu.Unlock()
 
 	report := ScanReport{StartedAt: time.Now()}
@@ -563,11 +578,12 @@ func (s *ScannerService) Scan(ctx context.Context) (ScanReport, error) {
 }
 
 func (s *ScannerService) processAssetEmbedding(ctx context.Context, assetID int64, absPath string, mediaType domain.MediaType, provider domain.AIProviderType, activeModel, baseURL, apiKey string) {
-	if mediaType != domain.MediaTypeImage || activeModel == "" {
+	if (mediaType != domain.MediaTypeImage && mediaType != domain.MediaTypeVideo) || activeModel == "" {
 		return
 	}
 	s.mu.Lock()
 	ollama := s.ollama
+	frameExtractor := s.frameExtractor
 	s.mu.Unlock()
 	if ollama == nil {
 		return
@@ -578,9 +594,40 @@ func (s *ScannerService) processAssetEmbedding(ctx context.Context, assetID int6
 		return
 	}
 
-	data, err := os.ReadFile(absPath)
-	if err != nil || len(data) == 0 {
-		return
+	var data []byte
+	switch mediaType {
+	case domain.MediaTypeImage:
+		data, err = os.ReadFile(absPath)
+		if err != nil || len(data) == 0 {
+			return
+		}
+	case domain.MediaTypeVideo:
+		if frameExtractor == nil {
+			frameExtractor = extractVideoFirstFrame
+		}
+		data, err = frameExtractor(ctx, absPath)
+		if err != nil {
+			if errors.Is(err, exec.ErrNotFound) {
+				s.mu.Lock()
+				alreadyLogged := s.ffmpegMissingLogged
+				if !alreadyLogged {
+					s.ffmpegMissingLogged = true
+				}
+				s.mu.Unlock()
+				if !alreadyLogged {
+					log.Printf("[SCAN] Warning: ffmpeg not found in PATH; skipping video first-frame embeddings until ffmpeg is installed")
+				}
+			} else {
+				log.Printf("[SCAN] Note: could not extract first frame for video asset %d (%s): %v", assetID, filepath.Base(absPath), err)
+			}
+			return
+		}
+		if len(data) == 0 {
+			return
+		}
+		s.mu.Lock()
+		s.ffmpegMissingLogged = false
+		s.mu.Unlock()
 	}
 
 	vec, err := ollama.EmbedImage(ctx, provider, baseURL, apiKey, activeModel, data)
@@ -590,7 +637,11 @@ func (s *ScannerService) processAssetEmbedding(ctx context.Context, assetID int6
 	}
 	if len(vec) > 0 {
 		_ = s.repo.SaveAssetEmbedding(ctx, assetID, activeModel, vec)
-		log.Printf("[SCAN] Generated embedding for asset %d (%s) with model %s", assetID, filepath.Base(absPath), activeModel)
+		if mediaType == domain.MediaTypeVideo {
+			log.Printf("[SCAN] Generated embedding for video asset %d (%s) (first frame) with model %s", assetID, filepath.Base(absPath), activeModel)
+		} else {
+			log.Printf("[SCAN] Generated embedding for asset %d (%s) with model %s", assetID, filepath.Base(absPath), activeModel)
+		}
 	}
 }
 
