@@ -552,7 +552,7 @@
           </div>
           <div id="media-stage-viewport" class="media-stage-viewport">
             {{if eq .SelectedAsset.MediaType "video"}}
-              <video id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls loop playsinline muted></video>
+              <video id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" controls autoplay loop playsinline muted></video>
             {{else}}
               <img id="stage-media-el" src="/media/{{.SelectedAsset.RelPath}}" alt="{{.SelectedAsset.FileName}}" draggable="false">
             {{end}}
@@ -953,7 +953,6 @@
                 </div>
                 <div class="asset-meta">
                   <div class="badge-row">
-                    {{if eq .MediaType "video"}}<span class="badge-chip video-tag">&#9654; VIDEO</span>{{end}}
                     {{if .Subcategory}}<span class="badge-chip" style="color:#6ee7b7;">{{.Subcategory}}</span>{{end}}
                     {{if .Metadata.ModelName}}<span class="badge-chip" title="{{.Metadata.ModelName}}">{{cleanModelName .Metadata.ModelName}}</span>{{end}}
                   </div>
@@ -12080,9 +12079,6 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
                   </div>
                   <div class="asset-meta">
                     <div class="badge-row">
-                      {{if eq .MediaType "video"}}
-                        <span class="badge-chip video-tag" title="Video asset">&#9654; VIDEO</span>
-                      {{end}}
                       {{if .RootLabel}}
                         <span class="badge-chip" style="border-color:#1e3a8a;color:#93c5fd;">{{.RootLabel}}</span>
                       {{end}}
@@ -13028,6 +13024,14 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
         v.muted = true;
         v.defaultMuted = true;
       });
+      var stageVideo = document.getElementById('stage-media-el');
+      if (stageVideo && stageVideo.tagName === 'VIDEO') {
+        stageVideo.muted = true;
+        var stagePlayPromise = stageVideo.play();
+        if (stagePlayPromise && typeof stagePlayPromise.catch === 'function') {
+          stagePlayPromise.catch(function() {});
+        }
+      }
 
       // Initialize session-backed recent generated prompts
       initRecentPromptsSession();
@@ -13086,12 +13090,46 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
       if (lb) {
         lb.classList.add('open');
         resetLightboxZoom();
+        var stageVideo = document.getElementById('stage-media-el');
+        var lbVideo = document.getElementById('lightbox-media-el');
+        if (lbVideo && lbVideo.tagName === 'VIDEO') {
+          if (stageVideo && stageVideo.tagName === 'VIDEO') {
+            stageVideo.pause();
+            try { lbVideo.currentTime = stageVideo.currentTime; } catch (e) {}
+            lbVideo.muted = stageVideo.muted;
+          } else {
+            lbVideo.muted = true;
+          }
+          var lbPlay = lbVideo.play();
+          if (lbPlay && typeof lbPlay.catch === 'function') {
+            lbPlay.catch(function() {
+              lbVideo.muted = true;
+              var mutedRetry = lbVideo.play();
+              if (mutedRetry && typeof mutedRetry.catch === 'function') {
+                mutedRetry.catch(function() {});
+              }
+            });
+          }
+        }
       }
     }
 
     function closeMediaLightbox() {
       var lb = document.getElementById('media-lightbox');
       if (lb) lb.classList.remove('open');
+      var stageVideo = document.getElementById('stage-media-el');
+      var lbVideo = document.getElementById('lightbox-media-el');
+      if (lbVideo && lbVideo.tagName === 'VIDEO') {
+        lbVideo.pause();
+        if (stageVideo && stageVideo.tagName === 'VIDEO') {
+          try { stageVideo.currentTime = lbVideo.currentTime; } catch (e) {}
+          stageVideo.muted = lbVideo.muted;
+          var stagePlay = stageVideo.play();
+          if (stagePlay && typeof stagePlay.catch === 'function') {
+            stagePlay.catch(function() {});
+          }
+        }
+      }
     }
 
     function openDeleteMediaModal() {

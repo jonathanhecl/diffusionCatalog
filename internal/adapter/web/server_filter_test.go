@@ -866,8 +866,8 @@ func TestMediaTypeFilterAndVideoBadges(t *testing.T) {
 	if got := strings.Count(bodyAll, `class="asset-video-badge"`); got != 1 {
 		t.Errorf("expected exactly 1 asset-video-badge on GET /, got %d", got)
 	}
-	if got := strings.Count(bodyAll, `class="badge-chip video-tag"`); got != 1 {
-		t.Errorf("expected exactly 1 badge-chip video-tag on GET /, got %d", got)
+	if got := strings.Count(bodyAll, `class="badge-chip video-tag"`); got != 0 {
+		t.Errorf("expected 0 duplicate badge-chip video-tag on GET / grid cards, got %d", got)
 	}
 
 	// 2. Filter by media_type=video returns only the video, checks the radio, shows active chip + Reset, sets cookie
@@ -971,6 +971,12 @@ func TestMediaTypeFilterAndVideoBadges(t *testing.T) {
 	bodyDetail := wDetail.Body.String()
 	if !strings.Contains(bodyDetail, "badge-chip video-tag") {
 		t.Errorf("expected badge-chip video-tag on video detail page")
+	}
+	if !strings.Contains(bodyDetail, `<video id="stage-media-el" src="/media/clip_demo.mp4" controls autoplay loop playsinline muted></video>`) {
+		t.Errorf("expected muted autoplay on video detail stage-media-el")
+	}
+	if !strings.Contains(bodyDetail, `<video id="lightbox-media-el" src="/media/clip_demo.mp4" controls loop playsinline muted></video>`) {
+		t.Errorf("expected muted lightbox-media-el without raw HTML autoplay attribute")
 	}
 	if !strings.Contains(bodyDetail, `href="/?media_type=video"`) {
 		t.Errorf("expected quick filter link href=\"/?media_type=video\" on video detail page")
