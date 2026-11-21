@@ -364,12 +364,26 @@ func (f CatalogFilter) QueryWithTag(tag string) string {
 	return v.Encode()
 }
 
+// QueryWithMediaType returns a query string keeping all active filters while switching or clearing media_type.
+func (f CatalogFilter) QueryWithMediaType(mediaType string) string {
+	mt := strings.ToLower(strings.TrimSpace(mediaType))
+	if mt == "" {
+		return f.QueryWithoutField("media_type")
+	}
+	cp := f
+	cp.MediaType = mt
+	cp.Page = 1
+	return cp.QueryString()
+}
+
 // CatalogPage contains a paginated slice of assets along with total counts and facet aggregations.
 type CatalogPage struct {
 	Assets            []MediaAsset
 	Faces             []DetectedFace
 	FaceClusters      []FaceCluster
 	TotalCount        int
+	ImageCount        int
+	VideoCount        int
 	Page              int
 	PerPage           int
 	TotalPages        int

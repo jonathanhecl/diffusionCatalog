@@ -1542,6 +1542,21 @@ func (r *Repository) QueryCatalog(ctx context.Context, filter domain.CatalogFilt
 	page.Groups, _ = r.ListGroups(ctx)
 	page.Characters, _ = r.ListCharacters(ctx)
 	page.AvailableTriggers = r.collectTriggerWords(ctx, page.Characters)
+	if mtRows, err := db.QueryContext(ctx, `SELECT media_type, COUNT(*) FROM assets GROUP BY media_type`); err == nil {
+		for mtRows.Next() {
+			var mt string
+			var cnt int
+			if err := mtRows.Scan(&mt, &cnt); err == nil {
+				switch strings.ToLower(strings.TrimSpace(mt)) {
+				case string(domain.MediaTypeImage):
+					page.ImageCount = cnt
+				case string(domain.MediaTypeVideo):
+					page.VideoCount = cnt
+				}
+			}
+		}
+		_ = mtRows.Close()
+	}
 
 	if filter.FaceMode {
 		if filter.Cluster == "" {

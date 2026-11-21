@@ -298,6 +298,13 @@ func NewServer(
 		"filterWithTag": func(f domain.CatalogFilter, tag string) string {
 			return f.QueryWithTag(tag)
 		},
+		"mediaTypeURL": func(f domain.CatalogFilter, mediaType string) string {
+			q := f.QueryWithMediaType(mediaType)
+			if q == "" || q == "reset=1" {
+				return "/?reset=1"
+			}
+			return "/?" + q
+		},
 		"clearFilterURL": func(f domain.CatalogFilter, field string) string {
 			q := f.QueryWithoutField(field)
 			if q == "" || q == "reset=1" {
@@ -2123,6 +2130,10 @@ func parseCatalogFilterFromValues(q url.Values) domain.CatalogFilter {
 	favoritesOnly := q.Get("favorites") == "1" || q.Get("favorites") == "true" || q.Get("favorites") == "on"
 	faceMode := q.Get("face_mode") == "1" || q.Get("face_mode") == "true"
 	cluster := strings.TrimSpace(q.Get("cluster"))
+	mediaType := strings.ToLower(strings.TrimSpace(q.Get("media_type")))
+	if mediaType != string(domain.MediaTypeImage) && mediaType != string(domain.MediaTypeVideo) {
+		mediaType = ""
+	}
 
 	return domain.CatalogFilter{
 		Query:         q.Get("q"),
@@ -2136,7 +2147,7 @@ func parseCatalogFilterFromValues(q url.Values) domain.CatalogFilter {
 		FavoritesOnly: favoritesOnly,
 		Engine:        q.Get("engine"),
 		ModelName:     q.Get("model"),
-		MediaType:     q.Get("media_type"),
+		MediaType:     mediaType,
 		GroupID:       groupID,
 		CharacterID:   charID,
 		TagNames:      q["tag"],

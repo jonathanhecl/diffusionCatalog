@@ -814,3 +814,175 @@ func TestMultiFolderAndMultiCategoryFilters(t *testing.T) {
 		t.Errorf("expected 'reset=1' after removing all roots, got: %q", qRootAfterRemoveAll)
 	}
 }
+
+func TestMediaTypeFilterAndVideoBadges(t *testing.T) {
+	server, repo, _, _ := setupTestServer(t)
+	handler := server.Handler()
+	ctx := context.Background()
+
+	videoID, err := repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RootID:    1,
+		RelPath:   "clip_demo.mp4",
+		FileName:  "clip_demo.mp4",
+		MediaType: domain.MediaTypeVideo,
+		Category:  "Cyberpunk",
+		Metadata: domain.GenerationParams{
+			PositivePrompt: "Dynamic robot motion test",
+			Engine:         domain.EngineComfyUI,
+		},
+		FileMTime: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("UpsertAsset video failed: %v", err)
+	}
+
+	// 1. Default catalog view renders MEDIA TYPE counts and VIDEO badges only on the video card
+	reqAll := httptest.NewRequest("GET", "/", nil)
+	wAll := httptest.NewRecorder()
+	handler.ServeHTTP(wAll, reqAll)
+	if wAll.Code != http.StatusOK {
+		t.Fatalf("expected 200 on GET /, got %d", wAll.Code)
+	}
+	bodyAll := wAll.Body.String()
+	for _, want := range []string{
+		"MEDIA TYPE",
+		`<span class="media-type-count">3</span>`,
+		`<span class="media-type-count">2</span>`,
+		`<span class="media-type-count">1</span>`,
+		`name="media_type" value="" checked`,
+		"cyber_a.png",
+		"cyber_b.png",
+		"clip_demo.mp4",
+	} {
+		if !strings.Contains(bodyAll, want) {
+			t.Errorf("expected GET / body to contain %q", want)
+		}
+	}
+	if got := strings.Count(bodyAll, `class="asset-video-badge"`); got != 1 {
+		t.Errorf("expected exactly 1 asset-video-badge on GET /, got %d", got)
+	}
+	if got := strings.Count(bodyAll, `class="badge-chip video-tag"`); got != 1 {
+		t.Errorf("expected exactly 1 badge-chip video-tag on GET /, got %d", got)
+	}
+
+	// 2. Filter by media_type=video returns only the video, checks the radio, shows active chip + Reset, sets cookie
+	reqVid := httptest.NewRequest("GET", "/?media_type=video", nil)
+	wVid := httptest.NewRecorder()
+	handler.ServeHTTP(wVid, reqVid)
+	if wVid.Code != http.StatusOK {
+		t.Fatalf("expected 200 on GET /?media_type=video, got %d", wVid.Code)
+	}
+	bodyVid := wVid.Body.String()
+	if !strings.Contains(bodyVid, "clip_demo.mp4") {
+		t.Errorf("expected clip_demo.mp4 in video filter results")
+	}
+	if strings.Contains(bodyVid, "cyber_a.png") || strings.Contains(bodyVid, "cyber_b.png") {
+		t.Errorf("did not expect image assets in video-only filter results")
+	}
+	if !strings.Contains(bodyVid, `name="media_type" value="video" checked`) {
+		t.Errorf("expected video radio option to be checked")
+	}
+	if !strings.Contains(bodyVid, "active-filter-chip video-chip") || !strings.Contains(bodyVid, "VIDEO") {
+		t.Errorf("expected active video filter chip")
+	}
+	if !strings.Contains(bodyVid, `href="/?reset=1" class="btn-ghost"`) {
+		t.Errorf("expected Reset button in top search bar when media_type filter is active")
+	}
+
+	var filterCookie *http.Cookie
+	for _, c := range wVid.Result().Cookies() {
+		if c.Name == "dc_catalog_filter" {
+			filterCookie = c
+			break
+		}
+	}
+	if filterCookie == nil || !strings.Contains(filterCookie.Value, "media_type=video") {
+		t.Fatalf("expected dc_catalog_filter cookie to persist media_type=video, got %+v", filterCookie)
+	}
+
+	// 3. Filter by media_type=image excludes videos and shows no video badges
+	reqImg := httptest.NewRequest("GET", "/?media_type=image", nil)
+	wImg := httptest.NewRecorder()
+	handler.ServeHTTP(wImg, reqImg)
+	if wImg.Code != http.StatusOK {
+		t.Fatalf("expected 200 on GET /?media_type=image, got %d", wImg.Code)
+	}
+	bodyImg := wImg.Body.String()
+	if !strings.Contains(bodyImg, "cyber_a.png") || !strings.Contains(bodyImg, "cyber_b.png") {
+		t.Errorf("expected both images in image filter results")
+	}
+	if strings.Contains(bodyImg, "clip_demo.mp4") {
+		t.Errorf("did not expect clip_demo.mp4 in image-only filter results")
+	}
+	if got := strings.Count(bodyImg, `class="asset-video-badge"`); got != 0 {
+		t.Errorf("expected 0 asset-video-badge in image-only filter results, got %d", got)
+	}
+	if !strings.Contains(bodyImg, `name="media_type" value="image" checked`) {
+		t.Errorf("expected image radio option to be checked")
+	}
+
+	// 4. Case-insensitive normalization: media_type=VIDEO returns only the video
+	reqUpper := httptest.NewRequest("GET", "/?media_type=VIDEO", nil)
+	wUpper := httptest.NewRecorder()
+	handler.ServeHTTP(wUpper, reqUpper)
+	if wUpper.Code != http.StatusOK {
+		t.Fatalf("expected 200 on GET /?media_type=VIDEO, got %d", wUpper.Code)
+	}
+	bodyUpper := wUpper.Body.String()
+	if !strings.Contains(bodyUpper, "clip_demo.mp4") || strings.Contains(bodyUpper, "cyber_a.png") {
+		t.Errorf("expected normalized media_type=VIDEO to return only clip_demo.mp4")
+	}
+
+	// 5. Submitting media_type= clears saved cookie and restores all 3 assets
+	reqClear := httptest.NewRequest("GET", "/?media_type=", nil)
+	reqClear.AddCookie(filterCookie)
+	wClear := httptest.NewRecorder()
+	handler.ServeHTTP(wClear, reqClear)
+	if wClear.Code != http.StatusOK {
+		t.Fatalf("expected 200 on GET /?media_type=, got %d", wClear.Code)
+	}
+	bodyClear := wClear.Body.String()
+	if !strings.Contains(bodyClear, "cyber_a.png") || !strings.Contains(bodyClear, "cyber_b.png") || !strings.Contains(bodyClear, "clip_demo.mp4") {
+		t.Errorf("expected all 3 assets after clearing media_type")
+	}
+	var clearedCookie *http.Cookie
+	for _, c := range wClear.Result().Cookies() {
+		if c.Name == "dc_catalog_filter" {
+			clearedCookie = c
+			break
+		}
+	}
+	if clearedCookie == nil || clearedCookie.MaxAge >= 0 {
+		t.Errorf("expected dc_catalog_filter cookie to be cleared (MaxAge < 0), got %+v", clearedCookie)
+	}
+
+	// 6. Video detail page displays VIDEO badge and quick filter link
+	reqDetail := httptest.NewRequest("GET", "/?asset_id="+strconv.FormatInt(videoID, 10), nil)
+	wDetail := httptest.NewRecorder()
+	handler.ServeHTTP(wDetail, reqDetail)
+	if wDetail.Code != http.StatusOK {
+		t.Fatalf("expected 200 on video detail page, got %d", wDetail.Code)
+	}
+	bodyDetail := wDetail.Body.String()
+	if !strings.Contains(bodyDetail, "badge-chip video-tag") {
+		t.Errorf("expected badge-chip video-tag on video detail page")
+	}
+	if !strings.Contains(bodyDetail, `href="/?media_type=video"`) {
+		t.Errorf("expected quick filter link href=\"/?media_type=video\" on video detail page")
+	}
+
+	// 7. Unit assertions for domain.CatalogFilter.QueryWithMediaType
+	f := domain.CatalogFilter{Category: "Cyberpunk", Page: 4}
+	qSet := f.QueryWithMediaType("VIDEO")
+	if !strings.Contains(qSet, "category=Cyberpunk") || !strings.Contains(qSet, "media_type=video") || strings.Contains(qSet, "page=4") {
+		t.Errorf("unexpected QueryWithMediaType(\"VIDEO\") result: %q", qSet)
+	}
+	qClearAlone := (domain.CatalogFilter{MediaType: "video"}).QueryWithMediaType("")
+	if qClearAlone != "reset=1" {
+		t.Errorf("expected QueryWithMediaType(\"\") alone to return \"reset=1\", got %q", qClearAlone)
+	}
+	qClearWithOther := (domain.CatalogFilter{Category: "Cyberpunk", MediaType: "video"}).QueryWithMediaType("")
+	if qClearWithOther != "category=Cyberpunk" {
+		t.Errorf("expected QueryWithMediaType(\"\") with other filter to return \"category=Cyberpunk\", got %q", qClearWithOther)
+	}
+}

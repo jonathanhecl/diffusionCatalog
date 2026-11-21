@@ -436,7 +436,7 @@
         <div class="search-main-group">
           <input type="text" name="q" value="{{.Filter.Query}}" class="input-dark" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search prompts, trigger words, checkpoints, LoRAs, or tags (e.g. cyberpunk, flux, kaelen, visor)...">
           <button type="submit" class="btn-primary">Search</button>
-          {{if or .Filter.Query .Filter.Trigger (gt (len .Filter.GetRootIDs) 0) (gt (len .Filter.GetCategories) 0) .Filter.Engine .Filter.ModelName .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0) (gt .Filter.MinRating 0) .Filter.FavoritesOnly .Filter.SortBy}}
+          {{if or .Filter.Query .Filter.Trigger (gt (len .Filter.GetRootIDs) 0) (gt (len .Filter.GetCategories) 0) .Filter.Engine .Filter.ModelName .Filter.MediaType .Filter.CharacterID .Filter.GroupID (gt (len .Filter.TagNames) 0) (gt .Filter.MinRating 0) .Filter.FavoritesOnly .Filter.SortBy}}
             <a href="/?reset=1" class="btn-ghost" style="display:inline-flex;align-items:center;">Reset</a>
           {{end}}
         </div>
@@ -504,6 +504,9 @@
             <a href="{{assetDetailURL .Filter .NextAssetID}}" class="btn-ghost" title="Next Media (Right Arrow)" id="nav-btn-next">Next &rarr;</a>
           {{else}}
             <span class="btn-ghost disabled" style="opacity:0.4;cursor:not-allowed;" title="Last media in filter">Next &rarr;</span>
+          {{end}}
+          {{if eq .SelectedAsset.MediaType "video"}}
+            <a href="/?media_type=video" class="btn-ghost" style="border-color:#9333ea;color:#e9d5ff;background:rgba(88,28,135,0.28);">&#9654; Type: VIDEO</a>
           {{end}}
           {{if .SelectedAsset.RootID}}
             <a href="/?root_id={{.SelectedAsset.RootID}}" class="btn-ghost">Folder: {{if .SelectedAsset.RootLabel}}{{.SelectedAsset.RootLabel}}{{else}}Root #{{.SelectedAsset.RootID}}{{end}}</a>
@@ -582,6 +585,7 @@
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <h2 style="font-size:20px;">{{.SelectedAsset.FileName}}</h2>
             <div style="display:flex;align-items:center;gap:6px;">
+              {{if eq .SelectedAsset.MediaType "video"}}<span class="badge-chip video-tag" style="font-size:11px;padding:3px 9px;">&#9654; VIDEO</span>{{end}}
               {{if .SelectedAsset.Favorite}}<span class="fav-badge" style="font-size:11px;padding:3px 8px;">♥ Favorited</span>{{end}}
               {{if gt .SelectedAsset.Rating 0}}<span class="score-badge" style="font-size:11px;padding:3px 8px;">★ {{.SelectedAsset.Rating}}/10</span>{{end}}
               <span class="badge-chip" style="font-size:12px;padding:4px 10px;">Engine: {{.SelectedAsset.Metadata.Engine}}</span>
@@ -912,6 +916,7 @@
                 <div class="asset-thumb-wrap">
                   {{if eq .MediaType "video"}}
                     <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                    <span class="asset-video-badge" title="Video">&#9654; VIDEO</span>
                   {{else}}
                     <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
                   {{end}}
@@ -923,6 +928,7 @@
                 </div>
                 <div class="asset-meta">
                   <div class="badge-row">
+                    {{if eq .MediaType "video"}}<span class="badge-chip video-tag">&#9654; VIDEO</span>{{end}}
                     {{if .Subcategory}}<span class="badge-chip" style="color:#6ee7b7;">{{.Subcategory}}</span>{{end}}
                     {{if .Metadata.ModelName}}<span class="badge-chip" title="{{.Metadata.ModelName}}">{{cleanModelName .Metadata.ModelName}}</span>{{end}}
                   </div>
@@ -953,6 +959,7 @@
                 <div class="asset-thumb-wrap">
                   {{if eq .MediaType "video"}}
                     <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                    <span class="asset-video-badge" title="Video">&#9654; VIDEO</span>
                   {{else}}
                     <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
                   {{end}}
@@ -990,6 +997,7 @@
                 <div class="asset-thumb-wrap">
                   {{if eq .MediaType "video"}}
                     <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                    <span class="asset-video-badge" title="Video">&#9654; VIDEO</span>
                   {{else}}
                     <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
                   {{end}}
@@ -1058,7 +1066,11 @@
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <span class="badge-chip" style="background:#4c1d95;color:#ddd6fe;border-color:#7c3aed;font-weight:700;">&#10024; Remixing Media #{{.SelectedAsset.ID}}</span>
                 <strong style="font-size:15px;color:#fff;">{{.SelectedAsset.FileName}}</strong>
-                <span class="badge-chip">{{.SelectedAsset.MediaType}}</span>
+                {{if eq .SelectedAsset.MediaType "video"}}
+                  <span class="badge-chip video-tag">&#9654; VIDEO</span>
+                {{else}}
+                  <span class="badge-chip">{{.SelectedAsset.MediaType}}</span>
+                {{end}}
                 <span class="badge-chip">{{.SelectedAsset.Width}} &times; {{.SelectedAsset.Height}} px</span>
                 {{if .SelectedAsset.Metadata.Engine}}<span class="badge-chip" style="color:#6ee7b7;">Engine: {{.SelectedAsset.Metadata.Engine}}</span>{{end}}
               </div>
@@ -1519,6 +1531,7 @@
                   <div class="asset-thumb-wrap">
                     {{if eq .MediaType "video"}}
                       <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                      <span class="asset-video-badge" title="Video">&#9654; VIDEO</span>
                     {{else}}
                       <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
                     {{end}}
@@ -11545,6 +11558,32 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
             {{if .Filter.SortBy}}<input type="hidden" name="sort" value="{{.Filter.SortBy}}">{{end}}
             {{if .Filter.Query}}<input type="hidden" name="q" value="{{.Filter.Query}}">{{end}}
 
+            <div class="facet-block {{if .Filter.MediaType}}facet-block-active{{end}}">
+              <div class="facet-title">
+                <span>MEDIA TYPE</span>
+                {{if .Filter.MediaType}}
+                  <a href="{{clearFilterURL $.Filter "media_type"}}" style="font-size:10px;color:#38bdf8;text-decoration:none;" title="Show all media types">Show all</a>
+                {{end}}
+              </div>
+              <div class="media-type-filter">
+                <label class="media-type-option {{if eq .Filter.MediaType ""}}active{{end}}" title="Show all images and videos">
+                  <input type="radio" name="media_type" value="" {{if eq .Filter.MediaType ""}}checked{{end}} onchange="this.form.submit()">
+                  <span class="media-type-label">All</span>
+                  <span class="media-type-count">{{add .Page.ImageCount .Page.VideoCount}}</span>
+                </label>
+                <label class="media-type-option {{if eq .Filter.MediaType "image"}}active{{end}}" title="Show images only">
+                  <input type="radio" name="media_type" value="image" {{if eq .Filter.MediaType "image"}}checked{{end}} onchange="this.form.submit()">
+                  <span class="media-type-label">Images</span>
+                  <span class="media-type-count">{{.Page.ImageCount}}</span>
+                </label>
+                <label class="media-type-option video-option {{if eq .Filter.MediaType "video"}}active{{end}}" title="Show videos only">
+                  <input type="radio" name="media_type" value="video" {{if eq .Filter.MediaType "video"}}checked{{end}} onchange="this.form.submit()">
+                  <span class="media-type-label">&#9654; Videos</span>
+                  <span class="media-type-count">{{.Page.VideoCount}}</span>
+                </label>
+              </div>
+            </div>
+
             <div class="facet-block {{if $.Filter.GetRootIDs}}facet-block-active{{end}}">
               <div class="facet-title">
                 <span>MEDIA FOLDER / DISK</span>
@@ -11826,9 +11865,9 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
                 </span>
               {{end}}
               {{if .Filter.MediaType}}
-                <span class="active-filter-chip">
+                <span class="active-filter-chip {{if eq .Filter.MediaType "video"}}video-chip{{end}}">
                   <span class="chip-label">Type:</span>
-                  <strong>{{.Filter.MediaType}}</strong>
+                  <strong>{{if eq .Filter.MediaType "video"}}&#9654; VIDEO{{else}}IMAGE{{end}}</strong>
                   <a href="{{clearFilterURL $.Filter "media_type"}}" class="chip-remove" title="Remove filter">&times;</a>
                 </span>
               {{end}}
@@ -12004,6 +12043,7 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
                   <div class="asset-thumb-wrap">
                     {{if eq .MediaType "video"}}
                       <video src="/media/{{.RelPath}}" muted loop playsinline class="asset-thumb"></video>
+                      <span class="asset-video-badge" title="Video">&#9654; VIDEO</span>
                     {{else}}
                       <img src="/media/{{.RelPath}}" alt="{{.FileName}}" class="asset-thumb" loading="lazy">
                     {{end}}
@@ -12015,6 +12055,9 @@ Nota: Dejá la vestimenta/ropa de lado para que el personaje pueda adaptarse a l
                   </div>
                   <div class="asset-meta">
                     <div class="badge-row">
+                      {{if eq .MediaType "video"}}
+                        <span class="badge-chip video-tag" title="Video asset">&#9654; VIDEO</span>
+                      {{end}}
                       {{if .RootLabel}}
                         <span class="badge-chip" style="border-color:#1e3a8a;color:#93c5fd;">{{.RootLabel}}</span>
                       {{end}}
