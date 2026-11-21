@@ -28,10 +28,11 @@ go.work.sum
 # env file
 .env
 
-# Local SQLite database and generated cache/demo media
-catalog.db
-catalog.db-shm
-catalog.db-wal
+# Local SQLite databases and generated cache/demo media
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
 .cache/
 media/
 /catalogd
