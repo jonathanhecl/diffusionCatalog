@@ -521,8 +521,11 @@
             <a href="/?character_id={{.ID}}" class="btn-ghost" style="border-color:#2563eb;color:#93c5fd;">Character: {{.Name}}</a>
           {{end}}
         </div>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <a href="/?tab=studio&asset_id={{.SelectedAsset.ID}}{{if $.FilterQuery}}&amp;{{$.FilterQuery}}{{end}}" class="btn-primary" style="background:#7c3aed;border-color:#6d28d9;font-weight:600;">&#10024; Remix Prompt</a>
+          {{if .SelectedWorkflow}}
+            <a href="/api/v1/assets/{{.SelectedAsset.ID}}/workflow" download="{{.SelectedWorkflow.FileName}}" class="btn-primary" style="background:#0f766e;border-color:#14b8a6;font-weight:600;" title="Download {{.SelectedWorkflow.Label}} as .json">&#11015; Extract Workflow (.json)</a>
+          {{end}}
           <button type="button" class="btn-primary" onclick="openMediaLightbox()">&#x26F6; Fullscreen &amp; Metadata Inspector</button>
           <a href="/media/{{.SelectedAsset.RelPath}}" target="_blank" class="btn-ghost">Open Raw File</a>
           <button type="button" id="btn-trigger-delete-media" class="btn-danger" onclick="openDeleteMediaModal()" title="Delete this media file and sidecars">&#128465; Delete</button>
@@ -571,6 +574,19 @@
                 {{end}}
               </div>
             </div>
+          {{end}}
+
+          {{if .SelectedWorkflow}}
+            <details style="margin-top:12px;background:#060d1b;border:1px solid #0f766e;padding:10px 12px;border-radius:6px;">
+              <summary style="cursor:pointer;font-size:12px;font-weight:700;color:#5eead4;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                <span>&#129513; Localized Workflow JSON ({{.SelectedWorkflow.Label}}{{if gt .SelectedWorkflow.NodeCount 0}} &bull; {{.SelectedWorkflow.NodeCount}} nodes{{end}})</span>
+                <span style="display:inline-flex;gap:6px;align-items:center;">
+                  <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="event.preventDefault();event.stopPropagation();copyToClipboard(document.getElementById('localized-workflow-json').innerText, this, 'Workflow JSON copied!')">Copy JSON</button>
+                  <a href="/api/v1/assets/{{.SelectedAsset.ID}}/workflow" download="{{.SelectedWorkflow.FileName}}" class="btn-primary" style="background:#0f766e;border-color:#14b8a6;padding:2px 9px;font-size:11px;text-decoration:none;" onclick="event.stopPropagation();">&#11015; Download .json</a>
+                </span>
+              </summary>
+              <pre id="localized-workflow-json" class="prompt-box" style="margin-top:8px;max-height:280px;overflow:auto;white-space:pre-wrap;">{{.SelectedWorkflow.JSON}}</pre>
+            </details>
           {{end}}
 
           {{if .SelectedAsset.Metadata.RawMetadata}}
@@ -888,6 +904,15 @@
                     <a href="/?trigger={{.}}" class="tag-pill">{{.}}</a>
                   {{end}}
                 </div>
+              </div>
+            {{end}}
+
+            {{if .SelectedWorkflow}}
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:#041214;border:1px solid #0f766e;padding:8px 10px;border-radius:4px;">
+                <div style="font-size:11px;color:#5eead4;font-weight:700;">
+                  {{.SelectedWorkflow.Label}}{{if gt .SelectedWorkflow.NodeCount 0}} ({{.SelectedWorkflow.NodeCount}} nodes){{end}}
+                </div>
+                <a href="/api/v1/assets/{{.SelectedAsset.ID}}/workflow" download="{{.SelectedWorkflow.FileName}}" class="btn-primary" style="background:#0f766e;border-color:#14b8a6;padding:3px 9px;font-size:11px;text-decoration:none;white-space:nowrap;">&#11015; Extract Workflow (.json)</a>
               </div>
             {{end}}
 

@@ -43,29 +43,27 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 		width, height = decodeStandardImageConfig(absPath)
 		payloads, err := ExtractJPEGEXIFFromFile(absPath)
 		if err == nil && len(payloads) > 0 {
-			for _, s := range extractEXIFStrings(payloads) {
-				if parsed, found := ClassifyComment(s); found && parsed.PositivePrompt != "" {
-					params = parsed
-					break
-				}
-			}
+			params = extractEXIFParams(payloads)
 		}
 		if params.PositivePrompt == "" {
-			params = scanRawFileForParameters(absPath)
+			rawParams := scanRawFileForParameters(absPath)
+			if rawParams.WorkflowJSON == "" {
+				rawParams.WorkflowJSON = params.WorkflowJSON
+			}
+			params = rawParams
 		}
 	case ".webp":
 		width, height = decodeStandardImageConfig(absPath)
 		payloads, err := ExtractWebPEXIFFromFile(absPath)
 		if err == nil && len(payloads) > 0 {
-			for _, s := range extractEXIFStrings(payloads) {
-				if parsed, found := ClassifyComment(s); found && parsed.PositivePrompt != "" {
-					params = parsed
-					break
-				}
-			}
+			params = extractEXIFParams(payloads)
 		}
 		if params.PositivePrompt == "" {
-			params = scanRawFileForParameters(absPath)
+			rawParams := scanRawFileForParameters(absPath)
+			if rawParams.WorkflowJSON == "" {
+				rawParams.WorkflowJSON = params.WorkflowJSON
+			}
+			params = rawParams
 		}
 	case ".mp4", ".mov", ".m4v":
 		tags, w, h, err := ParseMP4File(absPath)
@@ -74,36 +72,16 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 				width = w
 				height = h
 			}
-			if paramsStr, ok := tags["parameters"]; ok && strings.TrimSpace(paramsStr) != "" {
-				params = ParseA1111Parameters(paramsStr)
-			}
-			if promptJSON, ok := tags["prompt"]; ok && strings.TrimSpace(promptJSON) != "" {
-				comfyParams := ExtractComfyGraphParams(promptJSON, tags["workflow"])
-				if params.PositivePrompt == "" {
-					params = comfyParams
-				} else {
-					params.Engine = domain.EngineComfyUI
-					if params.ModelName == "" {
-						params.ModelName = comfyParams.ModelName
-					}
-					if len(params.LoRAs) == 0 {
-						params.LoRAs = comfyParams.LoRAs
-					}
-				}
-			}
-			if params.PositivePrompt == "" {
-				for _, k := range []string{"description", "comment", "cmt", "title", "civitaiResources"} {
-					if val, ok := tags[k]; ok && strings.TrimSpace(val) != "" {
-						if parsed, found := ClassifyComment(val); found && parsed.PositivePrompt != "" {
-							params = parsed
-							break
-						}
-					}
-				}
-			}
+			params = extractMP4Params(tags)
 		}
 		if params.PositivePrompt == "" {
-			params = scanRawFileForParameters(absPath)
+			rawParams := scanRawFileForParameters(absPath)
+			if rawParams.PositivePrompt != "" {
+				if rawParams.WorkflowJSON == "" {
+					rawParams.WorkflowJSON = params.WorkflowJSON
+				}
+				params = rawParams
+			}
 		}
 	case ".webm", ".mkv":
 		tags, w, h, err := ParseEBMLFile(absPath)
@@ -112,21 +90,16 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 				width = w
 				height = h
 			}
-			if promptTag, ok := tags["PROMPT"]; ok {
-				params = ExtractComfyGraphParams(promptTag, tags["WORKFLOW"])
-			} else {
-				for _, k := range []string{"DESCRIPTION", "COMMENT", "TITLE", "Prompt", "prompt"} {
-					if val, ok := tags[k]; ok && strings.TrimSpace(val) != "" {
-						if parsed, found := ClassifyComment(val); found && parsed.PositivePrompt != "" {
-							params = parsed
-							break
-						}
-					}
-				}
-			}
+			params = extractEBMLParams(tags)
 		}
 		if params.PositivePrompt == "" {
-			params = scanRawFileForParameters(absPath)
+			rawParams := scanRawFileForParameters(absPath)
+			if rawParams.PositivePrompt != "" {
+				if rawParams.WorkflowJSON == "" {
+					rawParams.WorkflowJSON = params.WorkflowJSON
+				}
+				params = rawParams
+			}
 		}
 	default:
 		if mediaType == domain.MediaTypeImage {
@@ -136,41 +109,25 @@ func (e *Extractor) Extract(ctx context.Context, absPath string, mediaType domai
 			mp4Tags, mw, mh, err := ParseMP4File(absPath)
 			if err == nil && (len(mp4Tags) > 0 || (mw > 0 && mh > 0)) {
 				width, height = mw, mh
-				if paramsStr, ok := mp4Tags["parameters"]; ok && strings.TrimSpace(paramsStr) != "" {
-					params = ParseA1111Parameters(paramsStr)
-				}
-				if promptJSON, ok := mp4Tags["prompt"]; ok && strings.TrimSpace(promptJSON) != "" {
-					comfyParams := ExtractComfyGraphParams(promptJSON, mp4Tags["workflow"])
-					if params.PositivePrompt == "" {
-						params = comfyParams
-					} else {
-						params.Engine = domain.EngineComfyUI
-					}
-				}
-				if params.PositivePrompt == "" {
-					for _, k := range []string{"description", "comment", "cmt", "title", "civitaiResources"} {
-						if val, ok := mp4Tags[k]; ok && strings.TrimSpace(val) != "" {
-							if parsed, found := ClassifyComment(val); found && parsed.PositivePrompt != "" {
-								params = parsed
-								break
-							}
-						}
-					}
-				}
+				params = extractMP4Params(mp4Tags)
 			} else {
 				tags, w, h, err := ParseEBMLFile(absPath)
 				if err == nil {
 					width, height = w, h
-					if promptTag, ok := tags["PROMPT"]; ok {
-						params = ExtractComfyGraphParams(promptTag, tags["WORKFLOW"])
-					}
+					params = extractEBMLParams(tags)
 				}
 			}
 			if width == 0 || height == 0 {
 				width, height = 1024, 576
 			}
 			if params.PositivePrompt == "" {
-				params = scanRawFileForParameters(absPath)
+				rawParams := scanRawFileForParameters(absPath)
+				if rawParams.PositivePrompt != "" {
+					if rawParams.WorkflowJSON == "" {
+						rawParams.WorkflowJSON = params.WorkflowJSON
+					}
+					params = rawParams
+				}
 			}
 		}
 	}
@@ -389,4 +346,118 @@ func cleanPrintableASCII(b []byte) string {
 		}
 	}
 	return strings.TrimSpace(out.String())
+}
+
+func extractEXIFParams(payloads [][]byte) domain.GenerationParams {
+	if len(payloads) == 0 {
+		return domain.GenerationParams{}
+	}
+	texts := extractEXIFStrings(payloads)
+	var params domain.GenerationParams
+	for _, s := range texts {
+		if parsed, found := ClassifyComment(s); found && parsed.PositivePrompt != "" {
+			params = parsed
+			break
+		}
+	}
+	if wfInfo, ok := extractWorkflowFromEXIFStrings(texts); ok {
+		if params.WorkflowJSON == "" || wfInfo.Kind == "comfyui_workflow" {
+			if norm, okNorm := NormalizeValidJSON(wfInfo.JSON); okNorm {
+				params.WorkflowJSON = norm
+			}
+		}
+	}
+	return params
+}
+
+func extractMP4Params(tags map[string]string) domain.GenerationParams {
+	var params domain.GenerationParams
+	if paramsStr, ok := tags["parameters"]; ok && strings.TrimSpace(paramsStr) != "" {
+		params = ParseA1111Parameters(paramsStr)
+	}
+	wfTag := tags["workflow"]
+	if strings.TrimSpace(wfTag) == "" {
+		wfTag = tags["Workflow"]
+	}
+	promptTag := tags["prompt"]
+	if strings.TrimSpace(promptTag) == "" {
+		promptTag = tags["Prompt"]
+	}
+	if strings.TrimSpace(promptTag) != "" {
+		comfyParams := ExtractComfyGraphParams(promptTag, wfTag)
+		if params.PositivePrompt == "" {
+			params = comfyParams
+		} else {
+			params.Engine = domain.EngineComfyUI
+			if params.ModelName == "" {
+				params.ModelName = comfyParams.ModelName
+			}
+			if len(params.LoRAs) == 0 {
+				params.LoRAs = comfyParams.LoRAs
+			}
+			if params.WorkflowJSON == "" {
+				params.WorkflowJSON = comfyParams.WorkflowJSON
+			}
+		}
+	}
+	if params.PositivePrompt == "" {
+		for _, k := range []string{"description", "comment", "cmt", "title", "civitaiResources"} {
+			if val, ok := tags[k]; ok && strings.TrimSpace(val) != "" {
+				if parsed, found := ClassifyComment(val); found && parsed.PositivePrompt != "" {
+					params = parsed
+					break
+				}
+			}
+		}
+	}
+	if wfNorm, ok := NormalizeValidJSON(wfTag); ok {
+		if params.WorkflowJSON == "" {
+			params.WorkflowJSON = wfNorm
+		} else if existingInfo, okEx := ClassifyWorkflowJSON(params.WorkflowJSON); !okEx || existingInfo.Kind != "comfyui_workflow" {
+			if wfInfo, okWf := ClassifyWorkflowJSON(wfNorm); okWf && wfInfo.Kind == "comfyui_workflow" {
+				params.WorkflowJSON = wfNorm
+			}
+		}
+		if params.Engine == "" || params.Engine == domain.EngineUnknown {
+			params.Engine = domain.EngineComfyUI
+		}
+		if params.RawMetadata == "" {
+			params.RawMetadata = wfTag
+		}
+	}
+	return params
+}
+
+func extractEBMLParams(tags map[string]string) domain.GenerationParams {
+	wfTag := tags["WORKFLOW"]
+	if strings.TrimSpace(wfTag) == "" {
+		wfTag = tags["workflow"]
+	}
+	promptTag := tags["PROMPT"]
+	if strings.TrimSpace(promptTag) == "" {
+		promptTag = tags["prompt"]
+	}
+	var params domain.GenerationParams
+	if strings.TrimSpace(promptTag) != "" {
+		params = ExtractComfyGraphParams(promptTag, wfTag)
+	} else {
+		for _, k := range []string{"DESCRIPTION", "COMMENT", "TITLE", "Prompt", "prompt"} {
+			if val, ok := tags[k]; ok && strings.TrimSpace(val) != "" {
+				if parsed, found := ClassifyComment(val); found && parsed.PositivePrompt != "" {
+					params = parsed
+					break
+				}
+			}
+		}
+	}
+	if wfNorm, ok := NormalizeValidJSON(wfTag); ok {
+		params.WorkflowJSON = wfNorm
+		if params.Engine == "" || params.Engine == domain.EngineUnknown {
+			params.Engine = domain.EngineComfyUI
+		}
+		if params.RawMetadata == "" {
+			params.RawMetadata = wfTag
+		}
+	}
+	return params
 }

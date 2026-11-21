@@ -303,8 +303,8 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 	INSERT INTO assets (
 		root_id, rel_path, file_name, file_hash, media_type, width, height, duration_sec, file_size,
 		view_count, rating, favorite, category, subcategory, engine, positive_prompt, negative_prompt, model_name, model_hash,
-		sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata, file_mtime, metadata_extracted_at, faces_scanned_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		sampler, scheduler, steps, cfg_scale, seed, loras_json, raw_metadata, workflow_json, file_mtime, metadata_extracted_at, faces_scanned_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(rel_path) DO UPDATE SET
 		root_id = excluded.root_id,
 		file_hash = excluded.file_hash,
@@ -329,6 +329,7 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		seed = excluded.seed,
 		loras_json = excluded.loras_json,
 		raw_metadata = excluded.raw_metadata,
+		workflow_json = CASE WHEN excluded.workflow_json != '' THEN excluded.workflow_json ELSE assets.workflow_json END,
 		metadata_extracted_at = CASE WHEN excluded.metadata_extracted_at IS NOT NULL THEN excluded.metadata_extracted_at ELSE assets.metadata_extracted_at END,
 		faces_scanned_at = CASE WHEN excluded.faces_scanned_at IS NOT NULL THEN excluded.faces_scanned_at ELSE assets.faces_scanned_at END
 	RETURNING id;
@@ -338,7 +339,7 @@ func (r *Repository) UpsertAsset(ctx context.Context, a *domain.MediaAsset) (int
 		a.RootID, a.RelPath, a.FileName, a.FileHash, string(a.MediaType), a.Width, a.Height, a.DurationSec, a.FileSize,
 		a.ViewCount, a.Rating, favInt, a.Category, a.Subcategory, string(a.Metadata.Engine), a.Metadata.PositivePrompt, a.Metadata.NegativePrompt,
 		a.Metadata.ModelName, a.Metadata.ModelHash, a.Metadata.Sampler, a.Metadata.Scheduler,
-		a.Metadata.Steps, a.Metadata.CFGScale, a.Metadata.Seed, string(lorasBytes), a.Metadata.RawMetadata, fileMTimeVal, metaExtractedVal, facesScannedVal,
+		a.Metadata.Steps, a.Metadata.CFGScale, a.Metadata.Seed, string(lorasBytes), a.Metadata.RawMetadata, a.Metadata.WorkflowJSON, fileMTimeVal, metaExtractedVal, facesScannedVal,
 	).Scan(&id)
 	if err != nil {
 		return 0, err
@@ -363,6 +364,11 @@ func (r *Repository) GetAssetByID(ctx context.Context, id int64) (*domain.MediaA
 	asset, err := scanAssetRow(row)
 	if err != nil {
 		return nil, err
+	}
+
+	var wfJSON string
+	if err := db.QueryRowContext(ctx, `SELECT workflow_json FROM assets WHERE id = ?`, asset.ID).Scan(&wfJSON); err == nil {
+		asset.Metadata.WorkflowJSON = wfJSON
 	}
 
 	asset.Tags, _ = r.getTagsForAsset(ctx, asset.ID)
@@ -2574,6 +2580,13 @@ func (r *Repository) FindSimilarAssetIDs(ctx context.Context, queryVec []float32
 	return res, nil
 }
 
+// UpdateAssetWorkflowJSON persists a localized workflow JSON payload for an asset.
+func (r *Repository) UpdateAssetWorkflowJSON(ctx context.Context, assetID int64, workflowJSON string) error {
+	db := r.conn()
+	_, err := db.ExecContext(ctx, `UPDATE assets SET workflow_json = ? WHERE id = ?`, workflowJSON, assetID)
+	return err
+}
+
 // UpdateAssetMetadata updates the extracted generation parameters and metadata timestamp for an asset.
 func (r *Repository) UpdateAssetMetadata(ctx context.Context, assetID int64, meta domain.GenerationParams, extractedAt time.Time) error {
 	db := r.conn()
@@ -2595,17 +2608,18 @@ func (r *Repository) UpdateAssetMetadata(ctx context.Context, assetID int64, met
 			seed = ?,
 			loras_json = ?,
 			raw_metadata = ?,
+			workflow_json = ?,
 			metadata_extracted_at = ?
 		WHERE id = ?`,
 		string(meta.Engine), meta.PositivePrompt, meta.NegativePrompt,
 		meta.ModelName, meta.ModelHash, meta.Sampler, meta.Scheduler,
-		meta.Steps, meta.CFGScale, meta.Seed, string(lorasBytes), meta.RawMetadata,
+		meta.Steps, meta.CFGScale, meta.Seed, string(lorasBytes), meta.RawMetadata, meta.WorkflowJSON,
 		extractedAt.UTC(), assetID,
 	)
 	return err
 }
 
-// ListAssetsMissingMetadata queries all assets that have no positive prompt and no raw metadata, or null extraction date.
+// ListAssetsMissingMetadata queries all assets that have no positive prompt and no raw metadata, null extraction date, or malformed raw-JSON prompts.
 func (r *Repository) ListAssetsMissingMetadata(ctx context.Context) ([]domain.MediaAsset, error) {
 	db := r.conn()
 	rows, err := db.QueryContext(ctx, `
@@ -2616,7 +2630,7 @@ func (r *Repository) ListAssetsMissingMetadata(ctx context.Context) ([]domain.Me
 		       a.loras_json, a.raw_metadata, a.file_mtime, a.indexed_at, a.metadata_extracted_at, a.faces_scanned_at
 		FROM assets a
 		LEFT JOIN media_roots mr ON mr.id = a.root_id
-		WHERE (a.positive_prompt = '' AND a.raw_metadata = '') OR a.metadata_extracted_at IS NULL
+		WHERE (a.positive_prompt = '' AND a.raw_metadata = '') OR a.metadata_extracted_at IS NULL OR a.positive_prompt LIKE '{"%'
 		ORDER BY a.id ASC`)
 	if err != nil {
 		return nil, err

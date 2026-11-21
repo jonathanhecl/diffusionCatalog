@@ -80,6 +80,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		seed INTEGER NOT NULL DEFAULT 0,
 		loras_json TEXT NOT NULL DEFAULT '[]',
 		raw_metadata TEXT NOT NULL DEFAULT '',
+		workflow_json TEXT NOT NULL DEFAULT '',
 		file_mtime DATETIME,
 		indexed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		metadata_extracted_at DATETIME,
@@ -285,6 +286,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	_, _ = db.ExecContext(ctx, `ALTER TABLE characters ADD COLUMN reference_images_json TEXT NOT NULL DEFAULT '[]'`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN metadata_extracted_at DATETIME`)
 	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN faces_scanned_at DATETIME`)
+	_, _ = db.ExecContext(ctx, `ALTER TABLE assets ADD COLUMN workflow_json TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.ExecContext(ctx, `DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM asset_tags)`)
 
 	return seedDefaultSettingsAndProfiles(ctx, db)

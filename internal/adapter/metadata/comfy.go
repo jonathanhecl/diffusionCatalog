@@ -104,6 +104,21 @@ func FindPromptKey(obj interface{}) string {
 	return ""
 }
 
+// isComfyPromptGraph reports whether m looks like a ComfyUI API prompt node map
+// (at least one entry whose object value has a non-empty string "class_type").
+func isComfyPromptGraph(m map[string]interface{}) bool {
+	for _, v := range m {
+		node, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if ct, ok := node["class_type"].(string); ok && strings.TrimSpace(ct) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // ComfyExtract walks the ComfyUI workflow graph to locate the primary prompt string.
 func ComfyExtract(wf map[string]interface{}) string {
 	if len(wf) == 0 {
@@ -132,6 +147,31 @@ func ComfyExtract(wf map[string]interface{}) string {
 					longest := maxByLen(cands)
 					if longest != "" {
 						results = append(results, longest)
+					}
+				}
+			}
+		}
+	}
+
+	// 1b. Follow SamplerCustomAdvanced / BasicGuider pipelines (guider or conditioning inputs)
+	if len(results) == 0 {
+		for _, rawNode := range wf {
+			node, ok := rawNode.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			inputs, ok := node["inputs"].(map[string]interface{})
+			if !ok {
+				continue
+			}
+			for _, key := range []string{"guider", "conditioning"} {
+				if arr, ok := inputs[key].([]interface{}); ok && len(arr) >= 2 {
+					cands := collectStrings(wf, arr[0], make(map[string]bool), 0)
+					if len(cands) > 0 {
+						longest := maxByLen(cands)
+						if longest != "" {
+							results = append(results, longest)
+						}
 					}
 				}
 			}
@@ -245,7 +285,18 @@ func ExtractComfyGraphParams(rawPromptJSON, rawWorkflowJSON string) domain.Gener
 		RawMetadata: rawPromptJSON,
 	}
 
-	sanitized := sanitizeComfyJSON(rawPromptJSON)
+	if wfValid, ok := NormalizeValidJSON(rawWorkflowJSON); ok {
+		params.WorkflowJSON = wfValid
+	}
+
+	sanitized, ok := NormalizeValidJSON(rawPromptJSON)
+	if !ok {
+		return params
+	}
+	if params.WorkflowJSON == "" {
+		params.WorkflowJSON = sanitized
+	}
+
 	var graph map[string]interface{}
 	if err := json.Unmarshal([]byte(sanitized), &graph); err != nil {
 		return params
@@ -304,6 +355,12 @@ func ExtractComfyGraphParams(rawPromptJSON, rawWorkflowJSON string) domain.Gener
 		case strings.Contains(ctLower, "samplerselect") || strings.Contains(ctLower, "ksamplerselect"):
 			if sampler, ok := inputs["sampler_name"].(string); ok && params.Sampler == "" {
 				params.Sampler = sampler
+			}
+		case strings.Contains(ctLower, "randomnoise"):
+			if seed, ok := toFloat(inputs["noise_seed"]); ok && params.Seed == 0 {
+				params.Seed = int64(seed)
+			} else if seed, ok := toFloat(inputs["seed"]); ok && params.Seed == 0 {
+				params.Seed = int64(seed)
 			}
 		case strings.Contains(ctLower, "seed"):
 			if seed, ok := toFloat(inputs["seed_value"]); ok && params.Seed == 0 {

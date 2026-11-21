@@ -400,6 +400,7 @@ func (s *Server) Handler() http.Handler {
 
 	// JSON API endpoints
 	mux.HandleFunc("GET /api/v1/catalog", s.handleAPICatalog)
+	mux.HandleFunc("GET /api/v1/assets/{id}/workflow", s.handleDownloadAssetWorkflow)
 	mux.HandleFunc("GET /api/v1/settings", s.handleAPISettings)
 	mux.HandleFunc("GET /api/v1/ai-status", s.handleAPIAIStatus)
 
@@ -503,6 +504,7 @@ type viewData struct {
 	CatalogNavQuery   string
 	Page              *domain.CatalogPage
 	SelectedAsset     *domain.MediaAsset
+	SelectedWorkflow  *domain.WorkflowInfo
 	PrevAssetID       int64
 	NextAssetID       int64
 	RelatedAssets     usecase.RelatedAssetsBundle
@@ -665,6 +667,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var selectedAsset *domain.MediaAsset
+	var selectedWorkflow *domain.WorkflowInfo
 	var relatedAssets usecase.RelatedAssetsBundle
 	var assetID int64
 	var prevAssetID, nextAssetID int64
@@ -672,6 +675,9 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		if id, err := strconv.ParseInt(assetIDStr, 10, 64); err == nil && id > 0 {
 			if a, err := s.catalog.GetAsset(ctx, id); err == nil {
 				selectedAsset = a
+				if wf, ok := s.catalog.GetAssetWorkflow(ctx, a); ok {
+					selectedWorkflow = wf
+				}
 				relatedAssets = s.catalog.GetRelatedAssets(ctx, a)
 				assetID = id
 				prevAssetID, nextAssetID, _ = s.catalog.GetAdjacentAssetIDs(ctx, id, filter)
@@ -804,6 +810,7 @@ func (s *Server) handleCatalogIndex(w http.ResponseWriter, r *http.Request) {
 		CatalogNavQuery:  catalogNavQuery,
 		Page:             page,
 		SelectedAsset:    selectedAsset,
+		SelectedWorkflow: selectedWorkflow,
 		PrevAssetID:      prevAssetID,
 		NextAssetID:      nextAssetID,
 		RelatedAssets:    relatedAssets,
@@ -2530,4 +2537,30 @@ func (s *Server) handleDeletePose(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleDownloadAssetWorkflow(w http.ResponseWriter, r *http.Request) {
+	idStr := strings.TrimSpace(r.PathValue("id"))
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		http.Error(w, "invalid asset id", http.StatusBadRequest)
+		return
+	}
+
+	wf, err := s.catalog.GetAssetWorkflowByID(r.Context(), id)
+	if err != nil || wf == nil || strings.TrimSpace(wf.JSON) == "" {
+		http.Error(w, "workflow not found for this asset", http.StatusNotFound)
+		return
+	}
+
+	fileName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(wf.FileName, `"`, ""), "\r", ""), "\n", "")
+	if fileName == "" {
+		fileName = fmt.Sprintf("asset_%d_workflow.json", id)
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.WriteString(w, wf.JSON)
 }

@@ -37,6 +37,16 @@ type GenerationParams struct {
 	Seed           int64      `json:"seed"`
 	LoRAs          []string   `json:"loras"`
 	RawMetadata    string     `json:"raw_metadata"`
+	WorkflowJSON   string     `json:"workflow_json,omitempty"`
+}
+
+// WorkflowInfo describes a localized workflow or generation graph JSON extracted from an asset.
+type WorkflowInfo struct {
+	JSON      string `json:"json"`
+	Kind      string `json:"kind"`       // "comfyui_workflow", "comfyui_prompt", "swarmui", "metadata_json"
+	Label     string `json:"label"`      // Human-readable format label
+	NodeCount int    `json:"node_count"` // Node count for ComfyUI UI workflows or API graphs
+	FileName  string `json:"file_name"`  // Suggested download filename (<stem>_workflow.json)
 }
 
 // MediaAsset represents a single cataloged file inside a watched source media root folder.

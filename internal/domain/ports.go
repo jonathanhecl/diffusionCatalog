@@ -422,6 +422,7 @@ type CatalogRepository interface {
 	GetExistingAssetFingerprints(ctx context.Context, rootID int64) (map[string]MediaAsset, error)
 	GetAdjacentAssetIDs(ctx context.Context, id int64, filter CatalogFilter) (prevID int64, nextID int64, err error)
 	UpdateAssetPrompt(ctx context.Context, assetID int64, positivePrompt, engine string) error
+	UpdateAssetWorkflowJSON(ctx context.Context, assetID int64, workflowJSON string) error
 	UpdateAssetCategory(ctx context.Context, assetID int64, category, subcategory string) error
 	UpdateAssetRating(ctx context.Context, assetID int64, rating int, favorite bool) error
 	QueryCatalog(ctx context.Context, filter CatalogFilter) (*CatalogPage, error)

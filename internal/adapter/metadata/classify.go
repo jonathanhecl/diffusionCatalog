@@ -24,35 +24,48 @@ func A1111ParsePrompt(text string) string {
 }
 
 // ParseJSONMetadata attempts to extract generation parameters from a JSON string.
-// Supports WanGP / Maestro / Pinokio / NovelAI / ComfyUI and general JSON diffusion metadata.
+// Supports WanGP / Maestro / Pinokio / NovelAI / SwarmUI / ComfyUI / VHS_VideoCombine and general JSON diffusion metadata.
 func ParseJSONMetadata(raw string) (domain.GenerationParams, bool) {
-	raw = strings.TrimSpace(raw)
-	if !strings.HasPrefix(raw, "{") || !strings.HasSuffix(raw, "}") {
+	validRaw, ok := NormalizeValidJSON(raw)
+	if !ok || validRaw[0] != '{' {
 		return domain.GenerationParams{}, false
 	}
 
 	var root map[string]interface{}
-	if err := json.Unmarshal([]byte(raw), &root); err != nil {
+	if err := json.Unmarshal([]byte(validRaw), &root); err != nil {
 		return domain.GenerationParams{}, false
 	}
 
-	// 1. Check if this is a ComfyUI graph (nodes with class_type)
-	if _, ok := root["class_type"]; ok {
-		p := SanitizePrompt(ComfyExtract(root))
-		if p != "" {
-			params := ExtractComfyGraphParams(raw, "")
+	// 1a. Check if root itself is a ComfyUI node graph (entries whose value has "class_type")
+	if isComfyPromptGraph(root) {
+		params := ExtractComfyGraphParams(validRaw, "")
+		if p := SanitizePrompt(params.PositivePrompt); p != "" {
 			params.PositivePrompt = p
+		}
+		if params.PositivePrompt != "" {
 			return params, true
 		}
 	}
-	// Or ComfyUI graph inside "prompt" key (when root["prompt"] is a map)
-	if promptMap, ok := root["prompt"].(map[string]interface{}); ok {
-		p := SanitizePrompt(ComfyExtract(promptMap))
-		if p != "" {
-			workflowStr, _ := json.Marshal(root["workflow"])
-			promptStr, _ := json.Marshal(promptMap)
-			params := ExtractComfyGraphParams(string(promptStr), string(workflowStr))
-			params.PositivePrompt = p
+
+	// 1b. ComfyUI graph inside "prompt" key (either nested object OR stringified JSON from VHS_VideoCombine)
+	if promptJSON, hasPrompt := extractEmbeddedJSONField(root, "prompt"); hasPrompt {
+		var promptObj map[string]interface{}
+		if err := json.Unmarshal([]byte(promptJSON), &promptObj); err == nil && isComfyPromptGraph(promptObj) {
+			wfJSON, _ := extractEmbeddedJSONField(root, "workflow")
+			params := ExtractComfyGraphParams(promptJSON, wfJSON)
+			if p := SanitizePrompt(params.PositivePrompt); p != "" {
+				params.PositivePrompt = p
+			}
+			if params.PositivePrompt != "" {
+				return params, true
+			}
+		}
+	}
+
+	// 1c. SwarmUI envelope ({"sui_image_params": {...}, "sui_extra_data": {...}, "sui_models": [...]})
+	if sui, ok := root["sui_image_params"].(map[string]interface{}); ok {
+		params := extractSwarmUIParams(sui, root, raw, validRaw)
+		if params.PositivePrompt != "" || params.ModelName != "" {
 			return params, true
 		}
 	}
@@ -84,6 +97,7 @@ func ParseJSONMetadata(raw string) (domain.GenerationParams, bool) {
 		Engine:         domain.EngineUnknown,
 		PositivePrompt: positivePrompt,
 		RawMetadata:    raw,
+		WorkflowJSON:   validRaw,
 		LoRAs:          extractLoRAs(positivePrompt),
 	}
 
@@ -306,4 +320,94 @@ func ClassifyComment(s string) (domain.GenerationParams, bool) {
 	}
 
 	return domain.GenerationParams{}, false
+}
+
+func extractSwarmUIParams(sui, root map[string]interface{}, raw, validRaw string) domain.GenerationParams {
+	params := domain.GenerationParams{
+		Engine:       domain.EngineSwarmUI,
+		RawMetadata:  raw,
+		WorkflowJSON: validRaw,
+	}
+
+	if extra, ok := root["sui_extra_data"].(map[string]interface{}); ok {
+		if comfyStr, ok := extractEmbeddedJSONField(extra, "comfyui_workflow"); ok {
+			params.WorkflowJSON = comfyStr
+		}
+	}
+	if wfStr, ok := extractEmbeddedJSONField(root, "workflow"); ok {
+		params.WorkflowJSON = wfStr
+	}
+
+	for _, k := range []string{"prompt", "positive_prompt", "Prompt"} {
+		if val, ok := sui[k].(string); ok && strings.TrimSpace(val) != "" {
+			if p := SanitizePrompt(val); p != "" {
+				params.PositivePrompt = p
+				break
+			}
+		}
+	}
+	for _, k := range []string{"negativeprompt", "negative_prompt", "Negative Prompt", "negative"} {
+		if val, ok := sui[k].(string); ok && strings.TrimSpace(val) != "" {
+			params.NegativePrompt = strings.TrimSpace(val)
+			break
+		}
+	}
+	for _, k := range []string{"model", "base_model", "model_name", "Model"} {
+		if val, ok := sui[k].(string); ok && strings.TrimSpace(val) != "" {
+			params.ModelName = strings.TrimSpace(val)
+			break
+		}
+	}
+	if params.ModelName == "" {
+		if models, ok := root["sui_models"].([]interface{}); ok && len(models) > 0 {
+			if first, ok := models[0].(map[string]interface{}); ok {
+				if name, ok := first["name"].(string); ok && strings.TrimSpace(name) != "" {
+					params.ModelName = strings.TrimSpace(name)
+				}
+			}
+		}
+	}
+	if v, ok := toFloat(sui["steps"]); ok {
+		params.Steps = int(v)
+	}
+	for _, k := range []string{"cfgscale", "cfg_scale", "guidance_scale"} {
+		if v, ok := toFloat(sui[k]); ok && v > 0 {
+			params.CFGScale = v
+			break
+		}
+	}
+	if v, ok := toFloat(sui["seed"]); ok {
+		params.Seed = int64(v)
+	}
+	if v, ok := sui["sampler"].(string); ok && strings.TrimSpace(v) != "" {
+		params.Sampler = strings.TrimSpace(v)
+	}
+	if v, ok := sui["scheduler"].(string); ok && strings.TrimSpace(v) != "" {
+		params.Scheduler = strings.TrimSpace(v)
+	}
+
+	seenLoRA := make(map[string]bool)
+	addLoRA := func(name string) {
+		n := strings.TrimSuffix(strings.TrimSpace(name), ".safetensors")
+		if n != "" && !seenLoRA[strings.ToLower(n)] {
+			seenLoRA[strings.ToLower(n)] = true
+			params.LoRAs = append(params.LoRAs, n)
+		}
+	}
+	if loras, ok := sui["loras"].([]interface{}); ok {
+		for _, item := range loras {
+			if s, ok := item.(string); ok {
+				addLoRA(s)
+			}
+		}
+	} else if loraStr, ok := sui["loras"].(string); ok && strings.TrimSpace(loraStr) != "" {
+		for _, part := range strings.Split(loraStr, ",") {
+			addLoRA(part)
+		}
+	}
+	for _, l := range extractLoRAs(params.PositivePrompt) {
+		addLoRA(l)
+	}
+
+	return params
 }

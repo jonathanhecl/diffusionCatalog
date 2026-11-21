@@ -238,6 +238,63 @@ func (s *CatalogService) GetAsset(ctx context.Context, id int64) (*domain.MediaA
 	return s.repo.GetAssetByID(ctx, id)
 }
 
+// GetAssetWorkflow localizes the full workflow or generation JSON for an asset,
+// preferring cached full ComfyUI UI workflows, then inspecting the source media file on disk in pure Go
+// (lazily caching the result in SQLite), and finally falling back to RawMetadata JSON.
+func (s *CatalogService) GetAssetWorkflow(ctx context.Context, asset *domain.MediaAsset) (*domain.WorkflowInfo, bool) {
+	if asset == nil {
+		return nil, false
+	}
+
+	if asset.Metadata.WorkflowJSON != "" {
+		if wf, ok := metadata.ClassifyWorkflowJSON(asset.Metadata.WorkflowJSON); ok && wf.Kind == "comfyui_workflow" {
+			wf.FileName = metadata.SuggestedWorkflowFileName(asset.FileName)
+			return &wf, true
+		}
+	}
+
+	if absPath := s.ResolveAssetAbsPath(ctx, asset); absPath != "" {
+		if wf, ok := metadata.ExtractWorkflowFromFile(absPath, asset.MediaType); ok {
+			wf.FileName = metadata.SuggestedWorkflowFileName(asset.FileName)
+			if s.repo != nil && asset.ID > 0 {
+				_ = s.repo.UpdateAssetWorkflowJSON(ctx, asset.ID, wf.JSON)
+			}
+			asset.Metadata.WorkflowJSON = wf.JSON
+			return &wf, true
+		}
+	}
+
+	if asset.Metadata.WorkflowJSON != "" {
+		if wf, ok := metadata.ClassifyWorkflowJSON(asset.Metadata.WorkflowJSON); ok {
+			wf.FileName = metadata.SuggestedWorkflowFileName(asset.FileName)
+			return &wf, true
+		}
+	}
+	if asset.Metadata.RawMetadata != "" {
+		if wf, ok := metadata.ClassifyWorkflowJSON(asset.Metadata.RawMetadata); ok {
+			wf.FileName = metadata.SuggestedWorkflowFileName(asset.FileName)
+			return &wf, true
+		}
+	}
+	return nil, false
+}
+
+// GetAssetWorkflowByID fetches an asset without incrementing view count and returns its localized workflow JSON.
+func (s *CatalogService) GetAssetWorkflowByID(ctx context.Context, assetID int64) (*domain.WorkflowInfo, error) {
+	if s.repo == nil || assetID <= 0 {
+		return nil, nil
+	}
+	asset, err := s.repo.GetAssetByID(ctx, assetID)
+	if err != nil {
+		return nil, err
+	}
+	wf, ok := s.GetAssetWorkflow(ctx, asset)
+	if !ok {
+		return nil, nil
+	}
+	return wf, nil
+}
+
 // DeleteAsset deletes a media file from disk (including sidecars), removes it from folder manifest,
 // and deletes the asset record from the repository.
 func (s *CatalogService) DeleteAsset(ctx context.Context, id int64) error {

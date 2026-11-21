@@ -1,10 +1,15 @@
 package web_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
+	"image"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -984,5 +989,159 @@ func TestMediaTypeFilterAndVideoBadges(t *testing.T) {
 	qClearWithOther := (domain.CatalogFilter{Category: "Cyberpunk", MediaType: "video"}).QueryWithMediaType("")
 	if qClearWithOther != "category=Cyberpunk" {
 		t.Errorf("expected QueryWithMediaType(\"\") with other filter to return \"category=Cyberpunk\", got %q", qClearWithOther)
+	}
+}
+
+func makeTestMP4Box(fourcc string, payload []byte) []byte {
+	out := make([]byte, 8+len(payload))
+	binary.BigEndian.PutUint32(out[0:4], uint32(len(out)))
+	copy(out[4:8], fourcc)
+	copy(out[8:], payload)
+	return out
+}
+
+func writeTestComfyMP4(t *testing.T, path string, workflowJSON, promptJSON string) {
+	t.Helper()
+	tags := [][2]string{
+		{"workflow", workflowJSON},
+		{"prompt", promptJSON},
+	}
+
+	var keysPayload bytes.Buffer
+	_ = binary.Write(&keysPayload, binary.BigEndian, uint32(0))
+	_ = binary.Write(&keysPayload, binary.BigEndian, uint32(len(tags)))
+	for _, kv := range tags {
+		_ = binary.Write(&keysPayload, binary.BigEndian, uint32(8+len(kv[0])))
+		keysPayload.WriteString("mdta")
+		keysPayload.WriteString(kv[0])
+	}
+	var ilstPayload bytes.Buffer
+	for i, kv := range tags {
+		var dataPayload bytes.Buffer
+		_ = binary.Write(&dataPayload, binary.BigEndian, uint32(1))
+		_ = binary.Write(&dataPayload, binary.BigEndian, uint32(0))
+		dataPayload.WriteString(kv[1])
+		item := makeTestMP4Box("____", makeTestMP4Box("data", dataPayload.Bytes()))
+		binary.BigEndian.PutUint32(item[4:8], uint32(i+1))
+		ilstPayload.Write(item)
+	}
+	var metaPayload bytes.Buffer
+	_ = binary.Write(&metaPayload, binary.BigEndian, uint32(0))
+	metaPayload.Write(makeTestMP4Box("keys", keysPayload.Bytes()))
+	metaPayload.Write(makeTestMP4Box("ilst", ilstPayload.Bytes()))
+	moov := makeTestMP4Box("moov", makeTestMP4Box("udta", makeTestMP4Box("meta", metaPayload.Bytes())))
+
+	if err := os.WriteFile(path, moov, 0644); err != nil {
+		t.Fatalf("write synthetic mp4: %v", err)
+	}
+}
+
+func TestAssetWorkflowLocalizationAndDownload(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	mediaDir := filepath.Join(tmpDir, "media")
+	cacheDir := filepath.Join(tmpDir, "cache")
+	dbPath := filepath.Join(tmpDir, "workflow_test.db")
+	_ = os.MkdirAll(mediaDir, 0755)
+	_ = os.MkdirAll(cacheDir, 0755)
+
+	mp4Path := filepath.Join(mediaDir, "hero_scene.mp4")
+	workflowJSON := `{"nodes":[{"id":1,"type":"UNETLoader"},{"id":2,"type":"SaveVideo"}],"links":[]}`
+	promptJSON := `{"1":{"class_type":"UNETLoader","inputs":{"unet_name":"flux.safetensors"}}}`
+	writeTestComfyMP4(t, mp4Path, workflowJSON, promptJSON)
+
+	plainPNGPath := filepath.Join(mediaDir, "plain.png")
+	f, err := os.Create(plainPNGPath)
+	if err != nil {
+		t.Fatalf("create png: %v", err)
+	}
+	_ = png.Encode(f, image.NewRGBA(image.Rect(0, 0, 8, 8)))
+	_ = f.Close()
+
+	db, err := sqlite.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("sqlite.Open: %v", err)
+	}
+	defer db.Close()
+
+	repo := sqlite.NewRepository(db, dbPath)
+	rootID, _ := repo.UpsertMediaRoot(ctx, &domain.MediaRoot{Path: mediaDir, Label: "media", Enabled: true})
+	authSvc, _ := usecase.NewAuthService(ctx, repo, "admin", "admin123")
+	scannerSvc := usecase.NewScannerService(mediaDir, cacheDir, repo, metadata.NewExtractor(), vision.NewNoopEngine())
+	catalogSvc := usecase.NewCatalogService(mediaDir, repo, nil)
+
+	// Insert both assets with empty workflow_json to verify on-the-fly disk localization & caching
+	mp4ID, _ := repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RootID:    rootID,
+		RootPath:  mediaDir,
+		RelPath:   "hero_scene.mp4",
+		FileName:  "hero_scene.mp4",
+		MediaType: domain.MediaTypeVideo,
+		FileMTime: time.Now().UTC(),
+	})
+	plainID, _ := repo.UpsertAsset(ctx, &domain.MediaAsset{
+		RootID:    rootID,
+		RootPath:  mediaDir,
+		RelPath:   "plain.png",
+		FileName:  "plain.png",
+		MediaType: domain.MediaTypeImage,
+		FileMTime: time.Now().UTC(),
+	})
+
+	server, err := web.NewServer(mediaDir, cacheDir, "noop", catalogSvc, scannerSvc, authSvc)
+	if err != nil {
+		t.Fatalf("web.NewServer: %v", err)
+	}
+	handler := server.Handler()
+
+	// 1. Detail page localizes workflow, renders Extract button, and caches workflow_json in SQLite
+	reqDetail := httptest.NewRequest("GET", "/?asset_id="+strconv.FormatInt(mp4ID, 10), nil)
+	wDetail := httptest.NewRecorder()
+	handler.ServeHTTP(wDetail, reqDetail)
+	if wDetail.Code != http.StatusOK {
+		t.Fatalf("expected 200 on detail page, got %d", wDetail.Code)
+	}
+	detailBody := wDetail.Body.String()
+	expectedEndpoint := "/api/v1/assets/" + strconv.FormatInt(mp4ID, 10) + "/workflow"
+	for _, want := range []string{
+		"Extract Workflow (.json)",
+		"ComfyUI Workflow",
+		expectedEndpoint,
+		`hero_scene_workflow.json`,
+	} {
+		if !strings.Contains(detailBody, want) {
+			t.Errorf("expected detail body to contain %q", want)
+		}
+	}
+
+	cachedAsset, err := repo.GetAssetByID(ctx, mp4ID)
+	if err != nil || !strings.Contains(cachedAsset.Metadata.WorkflowJSON, `"nodes"`) {
+		t.Errorf("expected workflow_json to be cached in SQLite, got %q (err=%v)", cachedAsset.Metadata.WorkflowJSON, err)
+	}
+
+	// 2. Download endpoint returns pretty-printed workflow JSON with attachment header
+	reqDL := httptest.NewRequest("GET", expectedEndpoint, nil)
+	wDL := httptest.NewRecorder()
+	handler.ServeHTTP(wDL, reqDL)
+	if wDL.Code != http.StatusOK {
+		t.Fatalf("expected 200 on workflow download, got %d", wDL.Code)
+	}
+	if ct := wDL.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("expected application/json Content-Type, got %q", ct)
+	}
+	if cd := wDL.Header().Get("Content-Disposition"); !strings.Contains(cd, "attachment") || !strings.Contains(cd, "hero_scene_workflow.json") {
+		t.Errorf("expected attachment Content-Disposition with hero_scene_workflow.json, got %q", cd)
+	}
+	dlBody := wDL.Body.String()
+	if !json.Valid([]byte(dlBody)) || !strings.Contains(dlBody, `"nodes"`) {
+		t.Errorf("expected valid workflow JSON containing nodes, got %q", dlBody)
+	}
+
+	// 3. Asset without workflow returns 404 on workflow download endpoint
+	reqMissing := httptest.NewRequest("GET", "/api/v1/assets/"+strconv.FormatInt(plainID, 10)+"/workflow", nil)
+	wMissing := httptest.NewRecorder()
+	handler.ServeHTTP(wMissing, reqMissing)
+	if wMissing.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for asset without workflow, got %d", wMissing.Code)
 	}
 }

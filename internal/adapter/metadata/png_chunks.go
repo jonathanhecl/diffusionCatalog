@@ -32,12 +32,30 @@ func ParsePNGFile(absPath string) (domain.GenerationParams, int, int, error) {
 
 // ParsePNGReader reads PNG chunks from an io.Reader.
 func ParsePNGReader(r io.Reader) (domain.GenerationParams, int, int, error) {
+	chunks, exifPayloads, width, height, err := readPNGChunksAndEXIF(r)
+	if err != nil {
+		return domain.GenerationParams{Engine: domain.EngineUnknown}, width, height, err
+	}
+	params := InterpretPNGMetadata(chunks, exifPayloads)
+	return params, width, height, nil
+}
+
+func readPNGChunksAndEXIFFile(absPath string) (map[string]string, [][]byte, int, int, error) {
+	f, err := os.Open(absPath)
+	if err != nil {
+		return nil, nil, 0, 0, err
+	}
+	defer f.Close()
+	return readPNGChunksAndEXIF(f)
+}
+
+func readPNGChunksAndEXIF(r io.Reader) (map[string]string, [][]byte, int, int, error) {
 	sig := make([]byte, 8)
 	if _, err := io.ReadFull(r, sig); err != nil {
-		return domain.GenerationParams{Engine: domain.EngineUnknown}, 0, 0, err
+		return nil, nil, 0, 0, err
 	}
 	if !bytes.Equal(sig, pngSignature) {
-		return domain.GenerationParams{Engine: domain.EngineUnknown}, 0, 0, fmt.Errorf("not a valid PNG signature")
+		return nil, nil, 0, 0, fmt.Errorf("not a valid PNG signature")
 	}
 
 	var width, height int
@@ -50,7 +68,7 @@ func ParsePNGReader(r io.Reader) (domain.GenerationParams, int, int, error) {
 			if err == io.EOF {
 				break
 			}
-			return domain.GenerationParams{Engine: domain.EngineUnknown}, width, height, nil
+			return chunks, exifPayloads, width, height, nil
 		}
 
 		chunkTypeBytes := make([]byte, 4)
@@ -102,8 +120,7 @@ func ParsePNGReader(r io.Reader) (domain.GenerationParams, int, int, error) {
 	}
 
 done:
-	params := InterpretPNGMetadata(chunks, exifPayloads)
-	return params, width, height, nil
+	return chunks, exifPayloads, width, height, nil
 }
 
 func parseTEXTChunk(data []byte) (string, string) {
@@ -178,17 +195,43 @@ func parseITXTChunk(data []byte) (string, string) {
 // InterpretPNGMetadata extracts diffusion GenerationParams from text chunks and eXIf payloads
 // following the exact multi-stage waterfall hierarchy of modern diffusion pipelines.
 func InterpretPNGMetadata(chunks map[string]string, exifPayloads [][]byte) domain.GenerationParams {
+	attachPNGWorkflow := func(p domain.GenerationParams) domain.GenerationParams {
+		if wfRaw, ok := chunks["workflow"]; ok {
+			if wfNorm, okNorm := NormalizeValidJSON(wfRaw); okNorm {
+				p.WorkflowJSON = wfNorm
+				return p
+			}
+		}
+		if wfRaw, ok := chunks["Workflow"]; ok {
+			if wfNorm, okNorm := NormalizeValidJSON(wfRaw); okNorm {
+				p.WorkflowJSON = wfNorm
+				return p
+			}
+		}
+		if p.WorkflowJSON == "" {
+			for _, k := range []string{"prompt", "Prompt", "sui_image_params", "invokeai_metadata", "sd-metadata", "generation_data", "extraMetadata"} {
+				if raw, ok := chunks[k]; ok {
+					if norm, okNorm := NormalizeValidJSON(raw); okNorm {
+						p.WorkflowJSON = norm
+						return p
+					}
+				}
+			}
+		}
+		return p
+	}
+
 	// 1. "extraMetadata" JSON
 	if em, ok := chunks["extraMetadata"]; ok && strings.TrimSpace(em) != "" {
 		var obj interface{}
 		if err := json.Unmarshal([]byte(em), &obj); err == nil {
 			if p := SanitizePrompt(FindPromptKey(obj)); p != "" {
-				return domain.GenerationParams{
+				return attachPNGWorkflow(domain.GenerationParams{
 					Engine:         domain.EngineUnknown,
 					PositivePrompt: p,
 					RawMetadata:    em,
 					LoRAs:          extractLoRAs(p),
-				}
+				})
 			}
 		}
 	}
@@ -202,7 +245,7 @@ func InterpretPNGMetadata(chunks map[string]string, exifPayloads [][]byte) domai
 				if p := SanitizePrompt(FindPromptKey(obj)); p != "" {
 					params, _ := parseJSONMetadata(st)
 					params.PositivePrompt = p
-					return params
+					return attachPNGWorkflow(params)
 				}
 			}
 		}
@@ -212,17 +255,15 @@ func InterpretPNGMetadata(chunks map[string]string, exifPayloads [][]byte) domai
 			params.PositivePrompt = prompt
 		}
 		if params.PositivePrompt != "" {
-			return params
+			return attachPNGWorkflow(params)
 		}
 	}
 
 	// 3. EXIF payloads (from eXIf chunks)
 	if len(exifPayloads) > 0 {
-		exifTexts := extractEXIFStrings(exifPayloads)
-		for _, s := range exifTexts {
-			if params, found := ClassifyComment(s); found && params.PositivePrompt != "" {
-				return params
-			}
+		params := extractEXIFParams(exifPayloads)
+		if params.PositivePrompt != "" {
+			return attachPNGWorkflow(params)
 		}
 	}
 
@@ -230,18 +271,22 @@ func InterpretPNGMetadata(chunks map[string]string, exifPayloads [][]byte) domai
 	if pr, ok := chunks["prompt"]; ok && strings.TrimSpace(pr) != "" {
 		st := strings.TrimSpace(pr)
 		if strings.HasPrefix(st, "{") {
-			params := ExtractComfyGraphParams(st, chunks["workflow"])
+			wfChunk := chunks["workflow"]
+			if strings.TrimSpace(wfChunk) == "" {
+				wfChunk = chunks["Workflow"]
+			}
+			params := ExtractComfyGraphParams(st, wfChunk)
 			if params.PositivePrompt != "" {
-				return params
+				return attachPNGWorkflow(params)
 			}
 		} else if len(st) > 20 {
 			if p := SanitizePrompt(st); p != "" {
-				return domain.GenerationParams{
+				return attachPNGWorkflow(domain.GenerationParams{
 					Engine:         domain.EngineUnknown,
 					PositivePrompt: p,
 					RawMetadata:    st,
 					LoRAs:          extractLoRAs(p),
-				}
+				})
 			}
 		}
 	}
@@ -250,7 +295,10 @@ func InterpretPNGMetadata(chunks map[string]string, exifPayloads [][]byte) domai
 	if raw, ok := chunks["sui_image_params"]; ok && strings.TrimSpace(raw) != "" {
 		if p, ok := parseJSONMetadata(raw); ok {
 			p.Engine = domain.EngineSwarmUI
-			return p
+			if norm, okNorm := NormalizeValidJSON(raw); okNorm && p.WorkflowJSON == "" {
+				p.WorkflowJSON = norm
+			}
+			return attachPNGWorkflow(p)
 		}
 	}
 
@@ -259,7 +307,10 @@ func InterpretPNGMetadata(chunks map[string]string, exifPayloads [][]byte) domai
 		if raw, ok := chunks[k]; ok && strings.TrimSpace(raw) != "" {
 			if p, ok := parseJSONMetadata(raw); ok {
 				p.Engine = domain.EngineInvokeAI
-				return p
+				if norm, okNorm := NormalizeValidJSON(raw); okNorm && p.WorkflowJSON == "" {
+					p.WorkflowJSON = norm
+				}
+				return attachPNGWorkflow(p)
 			}
 		}
 	}
@@ -269,26 +320,34 @@ func InterpretPNGMetadata(chunks map[string]string, exifPayloads [][]byte) domai
 		var obj interface{}
 		if err := json.Unmarshal([]byte(gd), &obj); err == nil {
 			if p := SanitizePrompt(FindPromptKey(obj)); p != "" {
-				return domain.GenerationParams{
+				return attachPNGWorkflow(domain.GenerationParams{
 					Engine:         domain.EngineUnknown,
 					PositivePrompt: p,
 					RawMetadata:    gd,
 					LoRAs:          extractLoRAs(p),
-				}
+				})
 			}
 		}
 	}
 
 	// 8. "workflow"
 	if wf, ok := chunks["workflow"]; ok && strings.TrimSpace(wf) != "" {
-		var obj interface{}
-		if err := json.Unmarshal([]byte(wf), &obj); err == nil {
-			if p := SanitizePrompt(FindPromptKey(obj)); p != "" {
-				return domain.GenerationParams{
-					Engine:         domain.EngineUnknown,
-					PositivePrompt: p,
-					RawMetadata:    wf,
-					LoRAs:          extractLoRAs(p),
+		if norm, okNorm := NormalizeValidJSON(wf); okNorm {
+			var obj interface{}
+			if err := json.Unmarshal([]byte(norm), &obj); err == nil {
+				engine := domain.EngineUnknown
+				if wfInfo, okInfo := ClassifyWorkflowJSON(norm); okInfo && (wfInfo.Kind == "comfyui_workflow" || wfInfo.Kind == "comfyui_prompt") {
+					engine = domain.EngineComfyUI
+				}
+				p := SanitizePrompt(FindPromptKey(obj))
+				if p != "" || engine == domain.EngineComfyUI {
+					return domain.GenerationParams{
+						Engine:         engine,
+						PositivePrompt: p,
+						RawMetadata:    wf,
+						WorkflowJSON:   norm,
+						LoRAs:          extractLoRAs(p),
+					}
 				}
 			}
 		}
@@ -298,12 +357,12 @@ func InterpretPNGMetadata(chunks map[string]string, exifPayloads [][]byte) domai
 	for _, k := range []string{"Comment", "Description", "UserComment", "prompt"} {
 		if raw, ok := chunks[k]; ok && strings.TrimSpace(raw) != "" {
 			if params, found := ClassifyComment(raw); found && params.PositivePrompt != "" {
-				return params
+				return attachPNGWorkflow(params)
 			}
 		}
 	}
 
-	return domain.GenerationParams{Engine: domain.EngineUnknown}
+	return attachPNGWorkflow(domain.GenerationParams{Engine: domain.EngineUnknown})
 }
 
 // ParsePNGReader backward compatibility wrapper for existing tests
